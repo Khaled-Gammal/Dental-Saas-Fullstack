@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - packages/*
+onlyBuiltDependencies:
+  - "@nestjs/core"
+  - esbuild
+  - msgpackr-extract
+  - dbmate
+  - sharp

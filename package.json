@@ -1,0 +1,24 @@
+{
+  "name": "dental-saas",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:worker": "pnpm --filter @dental/api dev:worker",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:migrate": "pnpm --filter @dental/db migrate",
+    "db:seed": "pnpm --filter @dental/db seed",
+    "db:reset": "pnpm --filter @dental/db reset",
+    "db:types": "pnpm --filter @dental/db types",
+    "db:test": "pnpm --filter @dental/db test"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.3"
+  }
+}

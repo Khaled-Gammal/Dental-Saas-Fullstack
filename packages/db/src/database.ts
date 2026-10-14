@@ -1,0 +1,1175 @@
+/**
+ * Kysely types for the database. Regenerate after every migration with:  pnpm db:types
+ * (kysely-codegen reads the live schema; do not edit by hand)
+ */
+
+import type { ColumnType } from "kysely";
+
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
+
+export type GeneratedAlways<T> = ColumnType<T, never, never>;
+
+export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
+export type Numeric = ColumnType<string, number | string, number | string>;
+
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface Appointments {
+  booked_by: string | null;
+  branch_id: string;
+  cancel_reason: string | null;
+  cancelled_at: Timestamp | null;
+  cancelled_by: string | null;
+  check_in_code_expires_at: Timestamp | null;
+  check_in_code_hash: string | null;
+  check_in_code_used_at: Timestamp | null;
+  check_in_method: string | null;
+  check_in_note: string | null;
+  checked_in_at: Timestamp | null;
+  checked_in_by: string | null;
+  completed_at: Timestamp | null;
+  confirmed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  doctor_id: string;
+  ends_at: Timestamp;
+  hold_expires_at: Timestamp | null;
+  id: Generated<string>;
+  internal_notes: string | null;
+  manage_token_hash: string | null;
+  override_reason: string | null;
+  patient_id: string | null;
+  patient_notes: string | null;
+  payment_mode: Generated<string>;
+  quoted_price_minor: Int8 | null;
+  room_id: string | null;
+  service_id: string | null;
+  source: string;
+  starts_at: Timestamp;
+  status: Generated<string>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface AuditLog {
+  action: string;
+  actor_type: string;
+  actor_user_id: string | null;
+  changes: Json | null;
+  created_at: Generated<Timestamp>;
+  entity_id: string | null;
+  entity_type: string;
+  id: Generated<Int8>;
+  ip: string | null;
+  tenant_id: string;
+  user_agent: string | null;
+}
+
+export interface AuthEvents {
+  created_at: Generated<Timestamp>;
+  id: Generated<Int8>;
+  identifier: string | null;
+  ip: string | null;
+  type: string;
+  user_agent: string | null;
+  user_id: string | null;
+}
+
+export interface BranchHours {
+  branch_id: string;
+  closes_at: string;
+  id: Generated<string>;
+  opens_at: string;
+  tenant_id: string;
+  weekday: number;
+}
+
+export interface Branches {
+  address_ar: string | null;
+  address_en: string | null;
+  area: string | null;
+  city: string | null;
+  created_at: Generated<Timestamp>;
+  email: string | null;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  is_main: Generated<boolean>;
+  latitude: Numeric | null;
+  longitude: Numeric | null;
+  name_ar: string | null;
+  name_en: string | null;
+  phone: string | null;
+  slug: string;
+  sort_order: Generated<number>;
+  tenant_id: string;
+  timezone: string | null;
+  updated_at: Generated<Timestamp>;
+  whatsapp: string | null;
+}
+
+export interface ConsentTemplates {
+  body_ar: string | null;
+  body_en: string | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  key: string;
+  tenant_id: string;
+  title_ar: string | null;
+  title_en: string | null;
+  version: Generated<number>;
+}
+
+export interface DoctorBranches {
+  branch_id: string;
+  doctor_id: string;
+  tenant_id: string;
+}
+
+export interface DoctorPayouts {
+  amount_minor: Int8;
+  approved_by: string | null;
+  created_at: Generated<Timestamp>;
+  currency: string;
+  doctor_id: string;
+  id: Generated<string>;
+  notes: string | null;
+  paid_at: Timestamp | null;
+  period_end: Timestamp;
+  period_start: Timestamp;
+  status: Generated<string>;
+  tenant_id: string;
+}
+
+export interface DoctorSchedules {
+  branch_id: string;
+  doctor_id: string;
+  ends_at: string;
+  id: Generated<string>;
+  starts_at: string;
+  tenant_id: string;
+  weekday: number;
+}
+
+export interface DoctorServices {
+  doctor_id: string;
+  service_id: string;
+  tenant_id: string;
+}
+
+export interface DoctorTimeOff {
+  doctor_id: string;
+  ends_at: Timestamp;
+  id: Generated<string>;
+  reason: string | null;
+  starts_at: Timestamp;
+  tenant_id: string;
+}
+
+export interface Doctors {
+  accepts_online_booking: Generated<boolean>;
+  bio_ar: string | null;
+  bio_en: string | null;
+  calendar_color: string | null;
+  commission_bp: number | null;
+  consultation_fee_minor: Int8 | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  member_id: string | null;
+  name_ar: string | null;
+  name_en: string | null;
+  photo_file_id: string | null;
+  show_on_website: Generated<boolean>;
+  sort_order: Generated<number>;
+  specialties: Generated<string[]>;
+  tenant_id: string;
+  title_ar: string | null;
+  title_en: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Domains {
+  created_at: Generated<Timestamp>;
+  hostname: string;
+  id: Generated<string>;
+  is_primary: Generated<boolean>;
+  last_checked_at: Timestamp | null;
+  last_error: string | null;
+  status: Generated<string>;
+  tenant_id: string;
+  type: string;
+  verification_token: string | null;
+  verified_at: Timestamp | null;
+}
+
+export interface ExpenseCategories {
+  id: Generated<string>;
+  name: string;
+  tenant_id: string;
+}
+
+export interface Expenses {
+  amount_minor: Int8;
+  branch_id: string;
+  category_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  currency: string;
+  description: string | null;
+  file_id: string | null;
+  id: Generated<string>;
+  spent_on: Timestamp;
+  supplier_id: string | null;
+  tenant_id: string;
+}
+
+export interface Faqs {
+  answer_ar: string | null;
+  answer_en: string | null;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  question_ar: string | null;
+  question_en: string | null;
+  service_id: string | null;
+  sort_order: Generated<number>;
+  tenant_id: string;
+}
+
+export interface Files {
+  bucket: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  is_private: Generated<boolean>;
+  kind: string;
+  mime_type: string;
+  object_key: string;
+  sha256: string | null;
+  size_bytes: Int8;
+  tenant_id: string;
+  uploaded_by: string | null;
+}
+
+export interface GalleryItems {
+  before_file_id: string | null;
+  caption_ar: string | null;
+  caption_en: string | null;
+  consent_confirmed: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  image_file_id: string;
+  is_published: Generated<boolean>;
+  service_id: string | null;
+  sort_order: Generated<number>;
+  tenant_id: string;
+  type: string;
+}
+
+export interface Holidays {
+  branch_id: string | null;
+  date: Timestamp;
+  id: Generated<string>;
+  name: string;
+  tenant_id: string;
+}
+
+export interface InAppNotifications {
+  body: string | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  link: string | null;
+  member_id: string;
+  read_at: Timestamp | null;
+  tenant_id: string;
+  title: string;
+}
+
+export interface Installments {
+  amount_minor: Int8;
+  due_date: Timestamp;
+  id: Generated<string>;
+  paid_at: Timestamp | null;
+  paid_minor: Generated<Int8>;
+  plan_id: string;
+  seq: number;
+  status: Generated<string>;
+  tenant_id: string;
+}
+
+export interface InventoryItems {
+  category: string | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  last_cost_minor: Int8 | null;
+  min_stock: Generated<Numeric>;
+  name: string;
+  sku: string;
+  tenant_id: string;
+  unit: Generated<string>;
+}
+
+export interface InventoryMovements {
+  branch_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  item_id: string;
+  quantity: Numeric;
+  reference: string | null;
+  supplier_id: string | null;
+  tenant_id: string;
+  transfer_id: string | null;
+  type: string;
+  unit_cost_minor: Int8 | null;
+  visit_id: string | null;
+}
+
+export interface InventoryStock {
+  branch_id: string;
+  item_id: string;
+  quantity: Generated<Numeric>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Invitations {
+  accepted_at: Timestamp | null;
+  branch_ids: Generated<string[]>;
+  created_at: Generated<Timestamp>;
+  email: string | null;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  invited_by: string;
+  phone: string | null;
+  revoked_at: Timestamp | null;
+  role_id: string;
+  tenant_id: string;
+  token_hash: string;
+}
+
+export interface InvoiceItems {
+  description: string;
+  discount_minor: Generated<Int8>;
+  doctor_id: string | null;
+  id: Generated<string>;
+  invoice_id: string;
+  line_total_minor: Int8;
+  quantity: Generated<number>;
+  service_id: string | null;
+  sort_order: Generated<number>;
+  tenant_id: string;
+  tooth_code: number | null;
+  unit_price_minor: Int8;
+  visit_procedure_id: string | null;
+}
+
+export interface Invoices {
+  balance_minor: GeneratedAlways<Int8 | null>;
+  branch_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  currency: string;
+  discount_minor: Generated<Int8>;
+  due_date: Timestamp | null;
+  id: Generated<string>;
+  issue_date: Timestamp | null;
+  notes: string | null;
+  number: string | null;
+  paid_minor: Generated<Int8>;
+  patient_id: string;
+  status: Generated<string>;
+  subtotal_minor: Generated<Int8>;
+  tax_minor: Generated<Int8>;
+  tenant_id: string;
+  total_minor: Generated<Int8>;
+  updated_at: Generated<Timestamp>;
+  void_reason: string | null;
+}
+
+export interface LabOrders {
+  branch_id: string;
+  cost_minor: Int8 | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  currency: string | null;
+  doctor_id: string;
+  due_date: Timestamp | null;
+  fitted_at: Timestamp | null;
+  id: Generated<string>;
+  instructions: string | null;
+  lab_id: string;
+  material: string | null;
+  patient_id: string;
+  plan_item_id: string | null;
+  received_at: Timestamp | null;
+  remake_of_id: string | null;
+  sent_at: Timestamp | null;
+  shade: string | null;
+  status: Generated<string>;
+  teeth: Generated<number[]>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+  visit_id: string | null;
+  work_type: string;
+}
+
+export interface Labs {
+  address: string | null;
+  email: string | null;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  name: string;
+  notes: string | null;
+  phone: string | null;
+  tenant_id: string;
+  whatsapp: string | null;
+}
+
+export interface Leads {
+  city: string | null;
+  clinic_name: string | null;
+  created_at: Generated<Timestamp>;
+  email: string | null;
+  full_name: string;
+  id: Generated<string>;
+  message: string | null;
+  phone: string;
+  source: string | null;
+  status: Generated<string>;
+}
+
+export interface MemberBranches {
+  branch_id: string;
+  member_id: string;
+  tenant_id: string;
+}
+
+export interface NotificationTemplates {
+  body: string;
+  channel: string;
+  event: string;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  locale: string;
+  subject: string | null;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Notifications {
+  attempts: Generated<number>;
+  body: string;
+  channel: string;
+  created_at: Generated<Timestamp>;
+  dedupe_key: string | null;
+  event: string;
+  id: Generated<string>;
+  last_error: string | null;
+  member_id: string | null;
+  patient_id: string | null;
+  provider: string | null;
+  provider_message_id: string | null;
+  recipient: string;
+  related_id: string | null;
+  related_type: string | null;
+  scheduled_at: Generated<Timestamp>;
+  sent_at: Timestamp | null;
+  status: Generated<string>;
+  subject: string | null;
+  tenant_id: string;
+}
+
+export interface OtpCodes {
+  attempts: Generated<number>;
+  code_hash: string;
+  consumed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  purpose: string;
+  target: string;
+}
+
+export interface OutboxEvents {
+  attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  id: Generated<Int8>;
+  payload: Json;
+  processed_at: Timestamp | null;
+  tenant_id: string | null;
+  type: string;
+}
+
+export interface PatientConsents {
+  body_snapshot: string;
+  id: Generated<string>;
+  locale: string;
+  patient_id: string;
+  revoked_at: Timestamp | null;
+  signature_file_id: string;
+  signed_at: Generated<Timestamp>;
+  signed_ip: string | null;
+  signer_name: string;
+  signer_relation: Generated<string>;
+  template_id: string;
+  tenant_id: string;
+  treatment_plan_id: string | null;
+  visit_id: string | null;
+  witness_member_id: string | null;
+}
+
+export interface PatientFiles {
+  caption: string | null;
+  file_id: string;
+  patient_id: string;
+  taken_at: Timestamp | null;
+  tenant_id: string;
+  visit_id: string | null;
+}
+
+export interface PatientMedicalHistory {
+  allergies: Generated<string[]>;
+  conditions: Generated<string[]>;
+  is_pregnant: boolean | null;
+  is_smoker: boolean | null;
+  medications: Generated<string[]>;
+  notes: string | null;
+  patient_id: string;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface Patients {
+  address: string | null;
+  city: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  date_of_birth: Timestamp | null;
+  deleted_at: Timestamp | null;
+  email: string | null;
+  file_no: Int8;
+  full_name: string;
+  gender: string | null;
+  guardian_name: string | null;
+  guardian_patient_id: string | null;
+  guardian_phone: string | null;
+  guardian_relation: string | null;
+  id: Generated<string>;
+  is_blocked: Generated<boolean>;
+  marketing_opt_in: Generated<boolean>;
+  marketing_opt_in_at: Timestamp | null;
+  merged_at: Timestamp | null;
+  merged_into_id: string | null;
+  notes: string | null;
+  occupation: string | null;
+  phone: string;
+  phone_alt: string | null;
+  preferred_branch_id: string | null;
+  preferred_locale: Generated<string>;
+  referral_source: string | null;
+  tags: Generated<string[]>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface PaymentGateways {
+  created_at: Generated<Timestamp>;
+  credentials_enc: Buffer;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  mode: Generated<string>;
+  provider: string;
+  public_config: Generated<Json>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface PaymentPlans {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  currency: string;
+  down_payment_minor: Generated<Int8>;
+  id: Generated<string>;
+  installments_count: number;
+  invoice_id: string | null;
+  notes: string | null;
+  patient_id: string;
+  start_date: Timestamp;
+  status: Generated<string>;
+  tenant_id: string;
+  total_minor: Int8;
+  treatment_plan_id: string | null;
+}
+
+export interface Payments {
+  amount_minor: Int8;
+  appointment_id: string | null;
+  branch_id: string;
+  created_at: Generated<Timestamp>;
+  currency: string;
+  id: Generated<string>;
+  idempotency_key: string | null;
+  installment_id: string | null;
+  invoice_id: string | null;
+  method: string;
+  notes: string | null;
+  paid_at: Timestamp | null;
+  patient_id: string;
+  provider: string | null;
+  provider_ref: string | null;
+  received_by: string | null;
+  refunded_minor: Generated<Int8>;
+  status: Generated<string>;
+  tenant_id: string;
+}
+
+export interface Plans {
+  code: string;
+  created_at: Generated<Timestamp>;
+  currency: Generated<string>;
+  features: Generated<Json>;
+  id: Generated<string>;
+  is_public: Generated<boolean>;
+  limits: Generated<Json>;
+  name_ar: string;
+  name_en: string;
+  price_monthly_minor: Int8;
+  price_yearly_minor: Int8;
+  sort_order: Generated<number>;
+  trial_days: Generated<number>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface PlatformAuditLog {
+  action: string;
+  actor_user_id: string | null;
+  created_at: Generated<Timestamp>;
+  details: Generated<Json>;
+  id: Generated<Int8>;
+  ip: string | null;
+  tenant_id: string | null;
+}
+
+export interface PlatformInvoices {
+  amount_minor: Int8;
+  currency: string;
+  id: Generated<string>;
+  issued_at: Generated<Timestamp>;
+  number: string;
+  paid_at: Timestamp | null;
+  pdf_file_key: string | null;
+  period_end: Timestamp;
+  period_start: Timestamp;
+  provider: string | null;
+  provider_ref: string | null;
+  status: string;
+  subscription_id: string;
+  tax_minor: Generated<Int8>;
+  tenant_id: string;
+}
+
+export interface Posts {
+  author_member_id: string | null;
+  body: string;
+  cover_file_id: string | null;
+  created_at: Generated<Timestamp>;
+  excerpt: string | null;
+  id: Generated<string>;
+  locale: string;
+  published_at: Timestamp | null;
+  seo: Generated<Json>;
+  slug: string;
+  status: Generated<string>;
+  tenant_id: string;
+  title: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface PrescriptionItems {
+  dose: string | null;
+  drug_name: string;
+  duration: string | null;
+  frequency: string | null;
+  id: Generated<string>;
+  instructions: string | null;
+  prescription_id: string;
+  sort_order: Generated<number>;
+  tenant_id: string;
+}
+
+export interface Prescriptions {
+  doctor_id: string;
+  id: Generated<string>;
+  issued_at: Generated<Timestamp>;
+  notes: string | null;
+  patient_id: string;
+  tenant_id: string;
+  visit_id: string;
+}
+
+export interface Recalls {
+  appointment_id: string | null;
+  contact_attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  doctor_id: string | null;
+  due_date: Timestamp;
+  id: Generated<string>;
+  last_contacted_at: Timestamp | null;
+  notes: string | null;
+  patient_id: string;
+  reason: string;
+  source_visit_id: string | null;
+  status: Generated<string>;
+  tenant_id: string;
+}
+
+export interface RefreshTokens {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  family_id: string;
+  id: Generated<string>;
+  ip: string | null;
+  revoked_at: Timestamp | null;
+  tenant_id: string | null;
+  token_hash: string;
+  user_agent: string | null;
+  user_id: string;
+}
+
+export interface Refunds {
+  amount_minor: Int8;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  payment_id: string;
+  provider_ref: string | null;
+  reason: string;
+  tenant_id: string;
+}
+
+export interface Reviews {
+  appointment_id: string | null;
+  author_name: string;
+  comment: string | null;
+  created_at: Generated<Timestamp>;
+  doctor_id: string | null;
+  id: Generated<string>;
+  patient_id: string | null;
+  rating: number;
+  source: Generated<string>;
+  status: Generated<string>;
+  tenant_id: string;
+}
+
+export interface Roles {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  is_system: Generated<boolean>;
+  key: string;
+  name_ar: string;
+  name_en: string;
+  permissions: Generated<string[]>;
+  tenant_id: string;
+}
+
+export interface Rooms {
+  branch_id: string;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  name: string;
+  tenant_id: string;
+}
+
+export interface ServiceCatalog {
+  category: string;
+  code: string;
+  default_duration_minutes: number;
+  id: Generated<string>;
+  name_ar: string;
+  name_en: string;
+  sort_order: Generated<number>;
+}
+
+export interface ServiceCategories {
+  id: Generated<string>;
+  name_ar: string | null;
+  name_en: string | null;
+  sort_order: Generated<number>;
+  tenant_id: string;
+}
+
+export interface Services {
+  bookable_online: Generated<boolean>;
+  catalog_code: string | null;
+  category_id: string | null;
+  created_at: Generated<Timestamp>;
+  description_ar: string | null;
+  description_en: string | null;
+  duration_minutes: number;
+  id: Generated<string>;
+  image_file_id: string | null;
+  is_active: Generated<boolean>;
+  name_ar: string | null;
+  name_en: string | null;
+  price_max_minor: Int8 | null;
+  price_minor: Generated<Int8>;
+  show_on_website: Generated<boolean>;
+  sort_order: Generated<number>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface SitePages {
+  draft_sections: Generated<Json>;
+  id: Generated<string>;
+  is_enabled: Generated<boolean>;
+  published_sections: Json | null;
+  seo: Generated<Json>;
+  show_in_nav: Generated<boolean>;
+  site_id: string;
+  slug: string;
+  sort_order: Generated<number>;
+  tenant_id: string;
+  title_ar: string | null;
+  title_en: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Sites {
+  draft_theme: Generated<Json>;
+  favicon_file_id: string | null;
+  ga_measurement_id: string | null;
+  id: Generated<string>;
+  locales: Generated<string[]>;
+  meta_pixel_id: string | null;
+  published_at: Timestamp | null;
+  published_theme: Json | null;
+  published_version: Generated<number>;
+  show_powered_by: Generated<boolean>;
+  status: Generated<string>;
+  template_id: string;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Subscriptions {
+  billing_cycle: Generated<string>;
+  cancel_at_period_end: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  current_period_end: Timestamp | null;
+  current_period_start: Timestamp | null;
+  grace_ends_at: Timestamp | null;
+  id: Generated<string>;
+  plan_id: string;
+  provider: string | null;
+  provider_customer_id: string | null;
+  provider_subscription_id: string | null;
+  status: string;
+  tenant_id: string;
+  trial_ends_at: Timestamp | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Suppliers {
+  email: string | null;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  name: string;
+  notes: string | null;
+  phone: string | null;
+  tenant_id: string;
+}
+
+export interface Templates {
+  code: string;
+  created_at: Generated<Timestamp>;
+  default_theme: Generated<Json>;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  min_plan_code: string | null;
+  name: string;
+  preview_url: string | null;
+  sections_schema: Generated<Json>;
+}
+
+export interface TenantCounters {
+  key: string;
+  tenant_id: string;
+  value: Generated<Int8>;
+}
+
+export interface TenantMembers {
+  all_branches: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  job_title: string | null;
+  joined_at: Generated<Timestamp>;
+  role_id: string;
+  status: Generated<string>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
+export interface TenantSettings {
+  booking_auto_confirm: Generated<boolean>;
+  booking_cancel_window_hours: Generated<number>;
+  booking_deposit_minor: Int8 | null;
+  booking_max_days_ahead: Generated<number>;
+  booking_min_notice_minutes: Generated<number>;
+  booking_otp_required: Generated<boolean>;
+  booking_payment_mode: Generated<string>;
+  booking_slot_step_minutes: Generated<number>;
+  invoice_prefix: Generated<string>;
+  reminder_offsets_minutes: Generated<number[]>;
+  tax_rate_bp: Generated<number>;
+  tax_registration_no: string | null;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Tenants {
+  about_ar: string | null;
+  about_en: string | null;
+  country: Generated<string>;
+  created_at: Generated<Timestamp>;
+  currency: Generated<string>;
+  default_locale: Generated<string>;
+  deleted_at: Timestamp | null;
+  email: string | null;
+  id: Generated<string>;
+  logo_file_id: string | null;
+  name_ar: string | null;
+  name_en: string | null;
+  onboarding_step: Generated<number>;
+  primary_phone: string | null;
+  slug: string;
+  social_links: Generated<Json>;
+  specialties: Generated<string[]>;
+  status: Generated<string>;
+  timezone: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  whatsapp: string | null;
+}
+
+export interface ToothRecords {
+  condition: string;
+  id: Generated<string>;
+  notes: string | null;
+  patient_id: string;
+  recorded_at: Generated<Timestamp>;
+  recorded_by: string | null;
+  surfaces: Generated<string[]>;
+  tenant_id: string;
+  tooth_code: number;
+  visit_id: string | null;
+}
+
+export interface TreatmentPlanItems {
+  appointment_id: string | null;
+  discount_minor: Generated<Int8>;
+  id: Generated<string>;
+  plan_id: string;
+  price_minor: Int8;
+  service_id: string;
+  sort_order: Generated<number>;
+  status: Generated<string>;
+  surfaces: Generated<string[]>;
+  tenant_id: string;
+  tooth_code: number | null;
+}
+
+export interface TreatmentPlans {
+  accepted_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  doctor_id: string;
+  id: Generated<string>;
+  notes: string | null;
+  patient_id: string;
+  status: Generated<string>;
+  tenant_id: string;
+  title: string;
+  total_estimate_minor: Generated<Int8>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface UsageCounters {
+  metric: string;
+  period_start: Timestamp;
+  tenant_id: string;
+  value: Generated<Int8>;
+}
+
+export interface Users {
+  avatar_url: string | null;
+  created_at: Generated<Timestamp>;
+  email: string | null;
+  email_verified_at: Timestamp | null;
+  full_name: string;
+  google_sub: string | null;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  last_login_at: Timestamp | null;
+  locale: Generated<string>;
+  password_hash: string | null;
+  phone: string | null;
+  phone_verified_at: Timestamp | null;
+  platform_role: string | null;
+  totp_secret_enc: Buffer | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface VisitProcedures {
+  commission_bp: Generated<number>;
+  commission_minor: GeneratedAlways<Int8 | null>;
+  created_at: Generated<Timestamp>;
+  doctor_id: string;
+  id: Generated<string>;
+  notes: string | null;
+  payout_id: string | null;
+  plan_item_id: string | null;
+  price_minor: Int8;
+  service_id: string;
+  surfaces: Generated<string[]>;
+  tenant_id: string;
+  tooth_code: number | null;
+  visit_id: string;
+}
+
+export interface Visits {
+  appointment_id: string | null;
+  branch_id: string;
+  chief_complaint: string | null;
+  clinical_notes: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  diagnosis: string | null;
+  doctor_id: string;
+  id: Generated<string>;
+  next_visit_note: string | null;
+  patient_id: string;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+  visit_at: Generated<Timestamp>;
+}
+
+export interface WaitlistEntries {
+  branch_id: string;
+  created_at: Generated<Timestamp>;
+  doctor_id: string | null;
+  earliest_date: Timestamp;
+  id: Generated<string>;
+  latest_date: Timestamp;
+  offer_expires_at: Timestamp | null;
+  offered_appointment_id: string | null;
+  patient_id: string;
+  preferred_period: string | null;
+  service_id: string | null;
+  status: Generated<string>;
+  tenant_id: string;
+}
+
+export interface WebhookEvents {
+  error: string | null;
+  event_id: string;
+  id: Generated<string>;
+  payload: Json;
+  processed_at: Timestamp | null;
+  provider: string;
+  received_at: Generated<Timestamp>;
+  tenant_id: string | null;
+}
+
+export interface DB {
+  appointments: Appointments;
+  audit_log: AuditLog;
+  auth_events: AuthEvents;
+  branch_hours: BranchHours;
+  branches: Branches;
+  consent_templates: ConsentTemplates;
+  doctor_branches: DoctorBranches;
+  doctor_payouts: DoctorPayouts;
+  doctor_schedules: DoctorSchedules;
+  doctor_services: DoctorServices;
+  doctor_time_off: DoctorTimeOff;
+  doctors: Doctors;
+  domains: Domains;
+  expense_categories: ExpenseCategories;
+  expenses: Expenses;
+  faqs: Faqs;
+  files: Files;
+  gallery_items: GalleryItems;
+  holidays: Holidays;
+  in_app_notifications: InAppNotifications;
+  installments: Installments;
+  inventory_items: InventoryItems;
+  inventory_movements: InventoryMovements;
+  inventory_stock: InventoryStock;
+  invitations: Invitations;
+  invoice_items: InvoiceItems;
+  invoices: Invoices;
+  lab_orders: LabOrders;
+  labs: Labs;
+  leads: Leads;
+  member_branches: MemberBranches;
+  notification_templates: NotificationTemplates;
+  notifications: Notifications;
+  otp_codes: OtpCodes;
+  outbox_events: OutboxEvents;
+  patient_consents: PatientConsents;
+  patient_files: PatientFiles;
+  patient_medical_history: PatientMedicalHistory;
+  patients: Patients;
+  payment_gateways: PaymentGateways;
+  payment_plans: PaymentPlans;
+  payments: Payments;
+  plans: Plans;
+  platform_audit_log: PlatformAuditLog;
+  platform_invoices: PlatformInvoices;
+  posts: Posts;
+  prescription_items: PrescriptionItems;
+  prescriptions: Prescriptions;
+  recalls: Recalls;
+  refresh_tokens: RefreshTokens;
+  refunds: Refunds;
+  reviews: Reviews;
+  roles: Roles;
+  rooms: Rooms;
+  service_catalog: ServiceCatalog;
+  service_categories: ServiceCategories;
+  services: Services;
+  site_pages: SitePages;
+  sites: Sites;
+  subscriptions: Subscriptions;
+  suppliers: Suppliers;
+  templates: Templates;
+  tenant_counters: TenantCounters;
+  tenant_members: TenantMembers;
+  tenant_settings: TenantSettings;
+  tenants: Tenants;
+  tooth_records: ToothRecords;
+  treatment_plan_items: TreatmentPlanItems;
+  treatment_plans: TreatmentPlans;
+  usage_counters: UsageCounters;
+  users: Users;
+  visit_procedures: VisitProcedures;
+  visits: Visits;
+  waitlist_entries: WaitlistEntries;
+  webhook_events: WebhookEvents;
+}
