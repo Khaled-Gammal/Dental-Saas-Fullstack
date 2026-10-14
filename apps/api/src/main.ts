@@ -1,3 +1,4 @@
+import './threadpool';
 import 'reflect-metadata';
 import { ConsoleLogger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -14,6 +15,8 @@ async function bootstrap() {
   });
   app.enableCors({ origin: [cfg.DASHBOARD_URL], credentials: true });
   app.enableShutdownHooks();
+  // behind a proxy (Caddy / load balancer) req.ip must be the client's address, not the proxy's
+  app.getHttpAdapter().getInstance().set('trust proxy', 'loopback');
 
   const openapi = SwaggerModule.createDocument(
     app,
@@ -26,7 +29,8 @@ async function bootstrap() {
     await app.close();
     return;
   }
-  SwaggerModule.setup('docs', app, openapi);
+  // API docs are public in development only, unless SWAGGER_ENABLED says otherwise
+  if (cfg.SWAGGER_ENABLED ?? cfg.NODE_ENV !== 'production') SwaggerModule.setup('docs', app, openapi);
 
   await app.listen(cfg.API_PORT);
   console.log(`API ready on http://localhost:${cfg.API_PORT}  (docs: /docs)`);

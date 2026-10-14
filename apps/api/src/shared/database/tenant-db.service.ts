@@ -1,13 +1,19 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { withTenant, type Db, type Tx } from '@dental/db';
+import { sql, withTenant, type Db, type Tx } from '@dental/db';
 import type { RequestContext } from '../context/request-context';
+import { Err } from '../errors/app-error';
 import { DB } from './tokens';
 
 /**
- * The only way module code reaches clinic data.
- * `run` opens one transaction, sets app.tenant_id from the authenticated request, and lets RLS
- * filter every query. A use case = one call to `run`, so its writes commit or roll back together.
+ * The only door to the database for module code. Nothing else imports `withTenant` or the raw Kysely instance.
+ *
+ * - `run`        — clinic data for the signed-in request: one transaction, app.tenant_id from the access token,
+ *                  RLS filters every query. One use case = one `run`, so its writes commit or roll back together.
+ * - `runAs`      — clinic data for a clinic chosen by the server (sign-up, session start, token refresh).
+ * - `runForHost` — clinic data for a public website request: the clinic comes from the hostname.
+ * - `platform`   — ONLY for tables without RLS (users, otp_codes, refresh_tokens, auth_events) and the
+ *                  SECURITY DEFINER lookup functions. Never for clinic tables: RLS would hide every row.
  */
 @Injectable()
 export class TenantDb {
@@ -16,19 +22,28 @@ export class TenantDb {
     private readonly cls: ClsService<RequestContext>,
   ) {}
 
-  run<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+  run<T>(fn: (tx: Tx, tenantId: string) => Promise<T>): Promise<T> {
     const tenantId = this.cls.get('tenantId');
-    if (!tenantId) throw new ForbiddenException('No clinic selected for this request');
-    return withTenant(this.db, tenantId, fn);
+    if (!tenantId) throw Err.forbidden('no_clinic', 'No clinic selected for this request');
+    return withTenant(this.db, tenantId, (tx) => fn(tx, tenantId));
   }
 
-  /** For public website requests, where the tenant comes from the hostname instead of a token. */
   runAs<T>(tenantId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
     return withTenant(this.db, tenantId, fn);
   }
 
-  /** Queries that need no tenant (lookup functions, users table). */
-  get raw(): Db {
+  /** Resolves the clinic from a website hostname and runs `fn` in its context; null when no clinic owns the host. */
+  runForHost<T>(hostname: string, fn: (tx: Tx, tenantId: string) => Promise<T>): Promise<T | null> {
+    return this.db.transaction().execute(async (tx) => {
+      // resolve + set in one round trip; suspended clinics and unverified domains resolve to nothing
+      const { rows } = await sql<{ tenant_id: string | null }>`
+        select nullif(set_config('app.tenant_id', coalesce(resolve_tenant_by_host(${hostname})::text, ''), true), '') as tenant_id`.execute(tx);
+      const tenantId = rows[0]?.tenant_id;
+      return tenantId ? fn(tx, tenantId) : null;
+    });
+  }
+
+  platform(): Db {
     return this.db;
   }
 }

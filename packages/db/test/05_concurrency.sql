@@ -10,7 +10,7 @@ UPDATE invoices SET status = 'issued', number = 'SMA-CC-1' WHERE id = 'cc000000-
 RESET app.tenant_id;
 
 -- session 2 (receptionist B) takes 60.00 and keeps its transaction open
-SELECT dblink_connect('other', 'host=127.0.0.1 port=5432 dbname=' || current_database() || ' user=app_user password=app_user_dev');
+SELECT dblink_connect('other', 'host=127.0.0.1 port=' || current_setting('port') || ' dbname=' || current_database() || ' user=app_user password=app_user_dev');
 SELECT dblink_exec('other', 'BEGIN');
 SELECT dblink_exec('other', $$SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111'$$);
 SELECT dblink_exec('other', $$INSERT INTO payments (id, tenant_id, branch_id, patient_id, invoice_id, amount_minor, currency, method, paid_at)

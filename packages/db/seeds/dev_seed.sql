@@ -1,6 +1,7 @@
 -- Demo data for local development and tests. Runs as the admin role (bypasses RLS).
 --   Clinic A  http://clinic-a.lvh.me:3000   owner.a@demo.test / reception.a@demo.test / doctor.a@demo.test
 --   Clinic B  http://clinic-b.lvh.me:3000   owner.b@demo.test
+--   Every demo account's password is  Demo@12345  (dev only; hash below is scrypt N=16384 r=8 p=1)
 -- Fixed ids so tests and docs can refer to them.
 BEGIN;
 
@@ -8,17 +9,20 @@ INSERT INTO plans (id, code, name_en, name_ar, price_monthly_minor, price_yearly
  ('00000000-0000-0000-0000-00000000a001','basic','Basic','الأساسية', 50000, 500000,'EGP',
   '{"branches":1,"staff":5,"patients":2000,"sms_credits":200,"storage_mb":2048}','{"custom_domain":false,"online_payments":false}',1),
  ('00000000-0000-0000-0000-00000000a002','pro','Pro','الاحترافية', 120000, 1200000,'EGP',
-  '{"branches":5,"staff":30,"patients":50000,"sms_credits":1000,"storage_mb":20480}','{"custom_domain":true,"online_payments":true,"remove_badge":true}',2);
+  '{"branches":5,"staff":30,"patients":50000,"sms_credits":1000,"storage_mb":20480}','{"custom_domain":true,"online_payments":true,"remove_badge":true}',2)
+ON CONFLICT DO NOTHING;  -- also created by migration 0003
 
 INSERT INTO templates (id, code, name, sections_schema, default_theme) VALUES
- ('00000000-0000-0000-0000-00000000b001','smile','Smile','{}','{"primary":"#0E7C86","font_ar":"Cairo","font_en":"Inter"}');
+ ('00000000-0000-0000-0000-00000000b001','smile','Smile','{}','{"primary":"#0E7C86","font_ar":"Cairo","font_en":"Inter"}')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO service_catalog (code, category, name_en, name_ar, default_duration_minutes, sort_order) VALUES
  ('consultation','general','Consultation','كشف',20,1),
  ('scaling','preventive','Scaling & polishing','تنظيف الجير والتلميع',45,2),
  ('filling_composite','restorative','Composite filling','حشو تجميلي',45,3),
  ('rct','endodontic','Root canal treatment','علاج عصب',90,4),
- ('whitening','cosmetic','Teeth whitening','تبييض الأسنان',60,5);
+ ('whitening','cosmetic','Teeth whitening','تبييض الأسنان',60,5)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO tenants (id, slug, name_en, name_ar, status, onboarding_step, primary_phone, whatsapp, specialties, about_en, about_ar) VALUES
  ('11111111-1111-1111-1111-111111111111','clinic-a','Smile Dental Clinic','عيادة الابتسامة لطب الأسنان','trialing',7,
@@ -42,11 +46,11 @@ INSERT INTO roles (id, tenant_id, key, name_en, name_ar, is_system, permissions)
   '{patients:read,patients:write,appointments:read,appointments:write:own,clinical:write,branches:read}'),
  ('a0000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222','owner','Owner','المالك',true,'{*}');
 
-INSERT INTO users (id, email, phone, full_name, locale, email_verified_at, phone_verified_at) VALUES
- ('b0000000-0000-0000-0000-0000000000a1','owner.a@demo.test','+201000000111','Dr. Ahmed Salah','ar',now(),now()),
- ('b0000000-0000-0000-0000-0000000000a2','reception.a@demo.test','+201000000112','Sara Mohamed','ar',now(),now()),
- ('b0000000-0000-0000-0000-0000000000a3','doctor.a@demo.test','+201000000113','Dr. Mona Hassan','ar',now(),now()),
- ('b0000000-0000-0000-0000-0000000000b1','owner.b@demo.test','+201000000211','Dr. Karim Adel','ar',now(),now());
+INSERT INTO users (id, email, phone, full_name, locale, email_verified_at, phone_verified_at, password_hash) VALUES
+ ('b0000000-0000-0000-0000-0000000000a1','owner.a@demo.test','+201000000111','Dr. Ahmed Salah','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
+ ('b0000000-0000-0000-0000-0000000000a2','reception.a@demo.test','+201000000112','Sara Mohamed','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
+ ('b0000000-0000-0000-0000-0000000000a3','doctor.a@demo.test','+201000000113','Dr. Mona Hassan','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
+ ('b0000000-0000-0000-0000-0000000000b1','owner.b@demo.test','+201000000211','Dr. Karim Adel','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A');
 
 INSERT INTO tenant_members (id, tenant_id, user_id, role_id) VALUES
  ('c0000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','b0000000-0000-0000-0000-0000000000a1','a0000000-0000-0000-0000-0000000000a1'),

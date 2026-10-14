@@ -743,6 +743,7 @@ export interface RefreshTokens {
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
   family_id: string;
+  family_started_at: Generated<Timestamp>;
   id: Generated<string>;
   ip: string | null;
   revoked_at: Timestamp | null;

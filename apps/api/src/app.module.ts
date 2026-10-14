@@ -7,9 +7,12 @@ import { APP_CONFIG, loadConfig } from './config';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { ClinicSetupModule } from './modules/clinic-setup/clinic-setup.module';
+import { IdentityModule } from './modules/identity/identity.module';
 import { PublicSiteModule } from './modules/public-site/public-site.module';
 import { DatabaseModule } from './shared/database/database.module';
 import { ProblemDetailsFilter } from './shared/errors/problem-details.filter';
+import { NotificationsModule } from './shared/notifications/notifications.module';
+import { RateLimitModule } from './shared/rate-limit/rate-limit.module';
 import { RedisModule } from './shared/redis/redis.module';
 
 @Global()
@@ -33,7 +36,10 @@ class ConfigModule {}
     }),
     DatabaseModule,
     RedisModule,
+    RateLimitModule,
+    NotificationsModule,
     AuthModule,
+    IdentityModule,
     HealthModule,
     PublicSiteModule,
     ClinicSetupModule,

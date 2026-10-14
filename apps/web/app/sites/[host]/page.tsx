@@ -1,80 +1,182 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import type { CSSProperties } from 'react';
+import { initials, onColor, readableOnWhite, telHref } from '@dental/ui/text';
+import { Clock, Phone, Pin, Tooth } from '../../../components/icons';
+import { Arch, Section } from '../../../components/site/decor';
+import { arNoun, clinicWeekday, DAYS_AR, egp, getSite, hhmm, NOUNS, priceText, safeColor, WEEK_ORDER, type SiteData } from '../../../lib/site';
 
-interface SiteData {
-  clinic: { slug: string; name_en: string | null; name_ar: string | null; about_ar: string | null; about_en: string | null; primary_phone: string | null };
-  theme: { primary?: string };
-  showPoweredBy: boolean;
-  branches: { id: string; name_ar: string | null; name_en: string | null; address_ar: string | null; phone: string | null;
-    hours: { weekday: number; opens_at: string; closes_at: string }[] }[];
-  services: { id: string; name_ar: string | null; name_en: string | null; price_minor: number; price_max_minor: number | null; duration_minutes: number }[];
-  doctors: { id: string; name_ar: string | null; name_en: string | null; title_ar: string | null }[];
+type Props = { params: Promise<{ host: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const site = await getSite(decodeURIComponent((await params).host));
+  if (!site) return {};
+  const name = site.clinic.name_ar ?? site.clinic.name_en ?? '';
+  return { title: `${name} | عيادة أسنان`, description: site.clinic.about_ar ?? site.clinic.about_en ?? `احجز موعدك في ${name}` };
 }
 
-const DAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const egp = (minor: number) => new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(minor / 100);
-
-async function getSite(host: string): Promise<SiteData | null> {
-  const res = await fetch(`${process.env.API_INTERNAL_URL}/public/site?host=${encodeURIComponent(host)}`, {
-    next: { revalidate: 60, tags: [`site:${host}`] }, // the worker will call revalidateTag on publish / catalog change
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  return res.json();
+/** Brand colour plus the two derived colours that keep text readable on any colour the clinic picks. */
+function brandStyle(primary?: string): CSSProperties {
+  const brand = safeColor(primary);
+  return { '--brand': brand, '--on-brand': onColor(brand), '--brand-text': readableOnWhite(brand) } as CSSProperties;
 }
 
-export default async function ClinicSite({ params }: { params: Promise<{ host: string }> }) {
-  const { host } = await params;
-  const site = await getSite(decodeURIComponent(host));
+/** Hero chips use real data only: today's hours at the first branch and the lowest listed price. */
+function heroFacts(site: SiteData, today: number) {
+  const slots = site.branches[0]?.hours.filter((h) => h.weekday === today) ?? [];
+  const hours = slots.map((h) => `${hhmm(h.opens_at)}–${hhmm(h.closes_at)}`).join(' ، ');
+  const todayText = !site.branches.length ? null
+    : slots.length ? <>مفتوح اليوم <bdi dir="ltr">{hours}</bdi></> : 'مغلق اليوم';
+  const prices = site.services.map((s) => s.price_minor).filter((p) => p > 0);
+  const fromPrice = prices.length ? `خدمات تبدأ من ${egp(Math.min(...prices))}` : null;
+  return { todayText, fromPrice };
+}
+
+export default async function ClinicSite({ params }: Props) {
+  const site = await getSite(decodeURIComponent((await params).host));
   if (!site) notFound();
-  const { clinic } = site;
-  const color = site.theme.primary ?? '#0e7c86';
+  const { clinic, services, doctors, branches } = site;
+  const name = clinic.name_ar ?? clinic.name_en ?? '';
+  const phone = clinic.primary_phone;
+  const tel = telHref(phone);
+  const today = clinicWeekday();
+  const { todayText, fromPrice } = heroFacts(site, today);
 
   return (
-    <main style={{ ['--brand' as string]: color }}>
-      <h1>{clinic.name_ar ?? clinic.name_en}</h1>
-      <p className="muted">{clinic.about_ar ?? clinic.about_en}</p>
-      {clinic.primary_phone && <a className="btn" href={`tel:${clinic.primary_phone}`}>احجز الآن · {clinic.primary_phone}</a>}
+    <div className="site" style={brandStyle(site.theme.primary)}>
+      <header className="s-nav">
+        <div className="s-wrap s-nav-in">
+          <a href="#top" className="s-brand"><span className="s-mark"><Tooth /></span><bdi>{name}</bdi></a>
+          <nav className="s-links" aria-label="أقسام الموقع">
+            {services.length > 0 && <a href="#services">الخدمات</a>}
+            {doctors.length > 0 && <a href="#doctors">الأطباء</a>}
+            {branches.length > 0 && <a href="#branches">الفروع</a>}
+          </nav>
+          {tel && <a className="s-btn s-btn-sm" href={tel}><Phone />احجز</a>}
+        </div>
+      </header>
 
-      <h2>الخدمات</h2>
-      <div className="grid">
-        {site.services.map((s) => (
-          <div className="card" key={s.id}>
-            <strong>{s.name_ar ?? s.name_en}</strong>
-            <span className="muted">
-              {s.price_max_minor ? `${egp(s.price_minor)} – ${egp(s.price_max_minor)}` : egp(s.price_minor)} · {s.duration_minutes} دقيقة
-            </span>
+      <main id="top">
+        <section className="s-hero">
+          <div className="s-wrap s-hero-in">
+            <div className="s-hero-text">
+              <span className="s-eyebrow">عيادة أسنان</span>
+              <h1><bdi>{name}</bdi></h1>
+              {(clinic.about_ar ?? clinic.about_en) && <p className="s-lead">{clinic.about_ar ?? clinic.about_en}</p>}
+              <div className="s-cta">
+                {tel && <a className="s-btn" href={tel}><Phone />احجز الآن · <bdi dir="ltr">{phone}</bdi></a>}
+                {services.length > 0 && <a className="s-btn s-btn-ghost" href="#services">تصفّح الخدمات</a>}
+              </div>
+              <ul className="s-facts" aria-label="عن العيادة">
+                {doctors.length > 0 && <li><strong>{doctors.length}</strong> {arNoun(doctors.length, NOUNS.doctor)}</li>}
+                {services.length > 0 && <li><strong>{services.length}</strong> {arNoun(services.length, NOUNS.service)}</li>}
+                {branches.length > 0 && <li><strong>{branches.length}</strong> {arNoun(branches.length, NOUNS.branch)}</li>}
+              </ul>
+            </div>
+            <div className="s-hero-art">
+              <div className="s-blob" aria-hidden />
+              <Arch />
+              {todayText && <span className="s-float s-float-a"><Clock />{todayText}</span>}
+              {fromPrice && <span className="s-float s-float-b"><Tooth size={16} />{fromPrice}</span>}
+            </div>
           </div>
-        ))}
-      </div>
+        </section>
 
-      <h2>الأطباء</h2>
-      <div className="grid">
-        {site.doctors.map((d) => (
-          <div className="card" key={d.id}>
-            <strong>{d.name_ar ?? d.name_en}</strong>
-            <span className="muted">{d.title_ar}</span>
-          </div>
-        ))}
-      </div>
-
-      <h2>الفروع ومواعيد العمل</h2>
-      <div className="grid">
-        {site.branches.map((b) => (
-          <div className="card" key={b.id}>
-            <strong>{b.name_ar ?? b.name_en}</strong>
-            <span className="muted">{b.address_ar}</span>
-            <ul className="muted">
-              {[...new Set(b.hours.map((h) => h.weekday))].map((day) => (
-                <li key={day}>
-                  {DAYS_AR[day]}: {b.hours.filter((h) => h.weekday === day).map((h) => `${h.opens_at.slice(0, 5)}–${h.closes_at.slice(0, 5)}`).join('، ')}
-                </li>
+        {services.length > 0 && (
+          <Section id="services" title="خدماتنا" sub="أسعار واضحة ومدة متوقعة لكل زيارة">
+            <div className="s-grid">
+              {services.map((s) => (
+                <article className="s-card s-service" key={s.id}>
+                  <span className="s-icon"><Tooth size={22} /></span>
+                  <h3><bdi>{s.name_ar ?? s.name_en}</bdi></h3>
+                  <div className="s-meta">
+                    <span className="s-price">{priceText(s.price_minor, s.price_max_minor)}</span>
+                    <span className="s-chip"><Clock />{s.duration_minutes} {arNoun(s.duration_minutes, NOUNS.minute)}</span>
+                  </div>
+                </article>
               ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+            </div>
+          </Section>
+        )}
 
-      {site.showPoweredBy && <footer>Powered by Dental SaaS</footer>}
-    </main>
+        {doctors.length > 0 && (
+          <Section id="doctors" title="أطباؤنا" sub="فريق متخصص يهتم بابتسامتك" tint>
+            <div className="s-grid">
+              {doctors.map((d) => {
+                const dn = d.name_ar ?? d.name_en ?? '';
+                return (
+                  <article className="s-card s-doctor" key={d.id}>
+                    <span className="s-avatar" aria-hidden>{initials(dn)}</span>
+                    <div>
+                      <h3><bdi>{dn}</bdi></h3>
+                      {d.title_ar && <p className="s-muted">{d.title_ar}</p>}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {branches.length > 0 && (
+          <Section id="branches" title="الفروع ومواعيد العمل" sub="اختر الفرع الأقرب لك">
+            <div className="s-grid s-grid-wide">
+              {branches.map((b) => {
+                const bn = b.name_ar ?? b.name_en ?? '';
+                const branchPhone = b.phone ?? phone;
+                const branchTel = telHref(branchPhone);
+                return (
+                  <article className="s-card s-branch" key={b.id}>
+                    <div className="s-branch-head">
+                      <span className="s-icon"><Pin /></span>
+                      <div>
+                        <h3><bdi>{bn}</bdi></h3>
+                        {b.address_ar && <p className="s-muted">{b.address_ar}</p>}
+                      </div>
+                    </div>
+                    <table className="s-hours">
+                      <caption className="sr-only">مواعيد عمل {bn}</caption>
+                      <tbody>
+                        {WEEK_ORDER.map((day) => {
+                          const slots = b.hours.filter((h) => h.weekday === day);
+                          return (
+                            <tr key={day} className={day === today ? 'today' : undefined} aria-current={day === today ? 'date' : undefined}>
+                              <th scope="row">{DAYS_AR[day]}{day === today && <span className="s-today">اليوم</span>}</th>
+                              <td>{slots.length
+                                ? <span className="s-slots">{slots.map((h) => <bdi key={h.opens_at} dir="ltr">{hhmm(h.opens_at)}–{hhmm(h.closes_at)}</bdi>)}</span>
+                                : <span className="s-closed">مغلق</span>}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {branchTel && <a className="s-btn s-btn-soft" href={branchTel}><Phone /><bdi dir="ltr">{branchPhone}</bdi></a>}
+                  </article>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {tel && (
+          <section className="s-wrap">
+            <div className="s-band">
+              <div>
+                <h2>جاهز لزيارتك القادمة؟</h2>
+                <p>اتصل بنا الآن واحجز موعدك في دقيقة.</p>
+              </div>
+              <a className="s-btn s-btn-light" href={tel}><Phone /><bdi dir="ltr">{phone}</bdi></a>
+            </div>
+          </section>
+        )}
+      </main>
+
+      <footer className="s-foot">
+        <div className="s-wrap s-foot-in">
+          <span>© {new Date().getFullYear()} <bdi>{name}</bdi></span>
+          {site.showPoweredBy && <span className="s-muted">Powered by Dental SaaS</span>}
+        </div>
+      </footer>
+    </div>
   );
 }

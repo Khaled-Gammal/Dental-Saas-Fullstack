@@ -101,7 +101,7 @@ CREATE TABLE users (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email               citext UNIQUE,
   phone               text UNIQUE,                             -- E.164: +2010xxxxxxxx
-  password_hash       text,                                    -- argon2id; null for Google-only
+  password_hash       text,                                    -- scrypt$N$r$p$salt$key (identity/crypto.ts); null for Google-only
   google_sub          text UNIQUE,
   full_name           text NOT NULL,
   avatar_url          text,

@@ -1,0 +1,109 @@
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { pickName } from '@dental/ui/text';
+import { logout, type Session } from '../api';
+import { roleLabel, t, type Key, type Lang } from '../i18n';
+import { Badge, LinkButton, Logo, initials } from '../ui/components';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, LangIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, StethoscopeIcon, UsersIcon } from '../ui/icons';
+import { useMediaQuery, type Page } from '../util';
+
+type NavItem = { key: Key; icon: ReactNode; page?: Page };
+const NAV: NavItem[] = [
+  { key: 'navOverview', icon: <HomeIcon />, page: 'overview' },
+  { key: 'navBranches', icon: <PinIcon />, page: 'branches' },
+  { key: 'navAppointments', icon: <CalendarIcon /> },
+  { key: 'navPatients', icon: <UsersIcon /> },
+  { key: 'navDoctors', icon: <StethoscopeIcon /> },
+  { key: 'navBilling', icon: <ReceiptIcon /> },
+  { key: 'navWebsite', icon: <GlobeIcon /> },
+];
+
+export const clinicName = (session: Session, lang: Lang) => pickName(lang, session.clinic.nameAr, session.clinic.nameEn, session.clinic.slug);
+
+export function AppShell({ lang, onLang, session, page, go, children }: {
+  lang: Lang; onLang: () => void; session: Session; page: Page; go: (p: Page) => void; children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const isDrawer = useMediaQuery('(max-width: 960px)'); // must match the drawer breakpoint in styles.css
+  const menuBtn = useRef<HTMLButtonElement>(null);
+  const closeBtn = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+
+  useEffect(() => setOpen(false), [page]); // close the drawer after navigating on a phone
+  useEffect(() => {
+    // move focus into the drawer when it opens and back to the menu button when it closes
+    if (open) closeBtn.current?.focus();
+    else if (wasOpen.current) menuBtn.current?.focus();
+    wasOpen.current = open;
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  const skipToMain = (e: MouseEvent) => {
+    e.preventDefault(); // a plain #main link would change the hash route
+    document.getElementById('main')?.focus();
+  };
+
+  const name = clinicName(session, lang);
+  return (
+    <div className={`app${open ? ' nav-open' : ''}`}>
+      <a href="#main" className="skip" onClick={skipToMain}>{t('skipToContent', lang)}</a>
+      {/* a closed drawer is inert: hidden off screen, so it must not be reachable with Tab either */}
+      <aside className="sidebar" id="sidebar" inert={isDrawer && !open} aria-modal={isDrawer && open ? true : undefined} role={isDrawer && open ? 'dialog' : undefined}
+        aria-label={isDrawer && open ? t('menu', lang) : undefined}>
+        <div className="sidebar-head">
+          <Logo name={t('brand', lang)} light />
+          <button ref={closeBtn} className="icon-btn sidebar-close" onClick={() => setOpen(false)} aria-label={t('closeMenu', lang)}><CloseIcon /></button>
+        </div>
+        <div className="clinic-chip">
+          <span className="avatar avatar-sq">{initials(name)}</span>
+          <span className="clinic-chip-text">
+            <strong><bdi>{name}</bdi></strong>
+            <small dir="ltr">{session.clinic.slug}</small>
+          </span>
+        </div>
+        <nav aria-label={t('mainNav', lang)}>
+          <ul className="nav">
+            {NAV.map((n) => (
+              <li key={n.key}>
+                {n.page ? (
+                  <a href={`#/${n.page}`} className={`nav-item${page === n.page ? ' active' : ''}`} aria-current={page === n.page ? 'page' : undefined}
+                    onClick={(e) => { e.preventDefault(); go(n.page!); }}>
+                    {n.icon}<span>{t(n.key, lang)}</span>
+                  </a>
+                ) : (
+                  <span className="nav-item disabled" aria-disabled="true">
+                    {n.icon}<span>{t(n.key, lang)}</span><span className="nav-soon">{t('soon', lang)}</span>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="sidebar-foot">
+          <button className="nav-item" onClick={() => void logout()}><LogoutIcon /><span>{t('signOut', lang)}</span></button>
+        </div>
+      </aside>
+      <div className="scrim" onClick={() => setOpen(false)} aria-hidden />
+
+      <div className="main-col">
+        <header className="topbar">
+          <button ref={menuBtn} className="icon-btn menu-btn" onClick={() => setOpen(true)} aria-label={t('menu', lang)} aria-controls="sidebar" aria-expanded={open}><MenuIcon /></button>
+          <span className="topbar-title"><bdi>{name}</bdi></span>
+          {session.clinic.status === 'trialing' && <Badge tone="warning">{t('trial', lang)}</Badge>}
+          <span className="spacer" />
+          <LinkButton onClick={onLang} lang={lang === 'ar' ? 'en' : 'ar'}><LangIcon size={18} /><span className="hide-sm">{t('switchLang', lang)}</span></LinkButton>
+          <div className="user">
+            <span className="avatar">{initials(session.user.name)}</span>
+            <span className="user-text hide-sm">
+              <strong><bdi>{session.user.name}</bdi></strong>
+              <small>{roleLabel(session.clinic.role, lang)}</small>
+            </span>
+          </div>
+        </header>
+        <main id="main" className="content" tabIndex={-1}>{children}</main>
+      </div>
+    </div>
+  );
+}

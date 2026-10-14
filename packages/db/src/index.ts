@@ -20,6 +20,9 @@ export function createDb(connectionString: string, opts: CreateDbOptions = {}): 
     connectionString,
     max: opts.max ?? 10,
     application_name: opts.applicationName ?? 'dental-saas',
+    connectionTimeoutMillis: 5_000, // under a burst, fail with an error instead of waiting forever for a connection
+    idleTimeoutMillis: 30_000,
+    statement_timeout: 15_000, // no single query may hold a connection longer than 15 s
   });
   return new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
 }

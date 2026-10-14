@@ -36,3 +36,27 @@ SELECT test.lives($$INSERT INTO domains (tenant_id, hostname, type, status) VALU
 SELECT test.throws($$UPDATE domains SET status = 'verified' WHERE hostname = 'clinic-a.lvh.me'$$, 'domains_live_hostname',
   'it can never become verified while the real owner holds it');
 ROLLBACK;
+
+-- Review fixes: RLS policies use the tenant_id index; API role cannot touch platform data
+BEGIN;
+SET LOCAL ROLE app_user;
+SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111';
+SET LOCAL enable_seqscan = off;  -- with tiny seed tables, force the planner to show whether an index is usable
+DO $$ DECLARE r record; plan text := ''; BEGIN
+  FOR r IN EXPLAIN SELECT id FROM services LOOP plan := plan || r."QUERY PLAN" || ' '; END LOOP;
+  PERFORM test.ok(plan NOT LIKE '%Seq Scan%', 'RLS filter on services can use the tenant_id index');
+END $$;
+SELECT test.throws($$UPDATE plans SET price_monthly_minor = 0$$, 'permission denied', 'API role cannot change plan prices');
+SELECT test.throws($$UPDATE users SET platform_role = 'super_admin'$$, 'permission denied', 'API role cannot make anyone a super admin');
+SELECT test.throws($$INSERT INTO users (email, full_name, platform_role) VALUES ('x@y.z','x','super_admin')$$, 'permission denied',
+  'API role cannot create a super admin');
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE app_user;
+SET LOCAL app.tenant_id = '';
+SELECT test.lives($$INSERT INTO outbox_events (tenant_id, type, payload) VALUES (NULL, 'platform.check', '{}')$$,
+  'platform event still writable with no clinic set');
+SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111';
+SELECT test.ok((SELECT count(*) FROM outbox_events WHERE tenant_id IS NULL) = 0, 'clinics cannot read platform events');
+ROLLBACK;

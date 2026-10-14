@@ -13,8 +13,10 @@ const repoRoot = path.join(pkg, '../..');
 const adminUrl = need('TEST_DATABASE_ADMIN_URL');
 const dbName = new URL(adminUrl).pathname.slice(1);
 
+// No shell: arguments are passed as-is, so paths with spaces (C:\Program Files\nodejs\node.exe) work on Windows.
+// node, psql and docker are real executables, so they are found on PATH without a shell.
 function run(cmd, args, opts = {}) {
-  return spawnSync(cmd, args, { encoding: 'utf8', shell: process.platform === 'win32', ...opts });
+  return spawnSync(cmd, args, { encoding: 'utf8', windowsHide: true, ...opts });
 }
 const node = (script, ...args) => run(process.execPath, [path.join(here, script), ...args], { cwd: pkg, stdio: 'inherit' });
 

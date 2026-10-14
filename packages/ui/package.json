@@ -1,0 +1,13 @@
+{
+  "name": "@dental/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared design tokens, icon data, text helpers and dental illustration geometry for the dashboard and the clinic websites",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./arch": "./arch.ts",
+    "./text": "./text.ts",
+    "./icons": "./icons.ts"
+  }
+}

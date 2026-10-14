@@ -1,0 +1,73 @@
+/*
+ * Dental SaaS design tokens — "Trust blue".
+ * Shared by the dashboard (Vite) and the clinic websites (Next.js).
+ * Contrast (WCAG AA, normal text >= 4.5): primary-500 on white 4.9, primary-600 on white 6.2,
+ * muted on white 5.4, ink on surface 15.0, white on navy 13.3. Use primary-600 for text on tinted (primary-50) backgrounds.
+ */
+:root {
+  /* brand */
+  --primary-50: #eef5fe;
+  --primary-100: #d9e8fc;
+  --primary-200: #b5d2f8;
+  --primary-300: #7fb0f0;
+  --primary-500: #1d6fd8;
+  --primary-600: #185fba;
+  --primary-700: #134c96;
+  --navy-900: #0f2f5c;
+  --navy-800: #16407a;
+  --navy-700: #1f4f8f;
+  --navy-950: #0c2649; /* sidebar gradient end */
+  --navy-text: #a9bedb; /* secondary text on navy, 7.0:1 */
+  --sky-100: #e3f5fc;
+  --sky-400: #5bc0eb;
+
+  /* neutrals */
+  --surface: #f5f8fc;
+  --card: #ffffff;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --skeleton-hi: #eef2f7; /* skeleton shimmer highlight */
+  --ink: #14213d;
+  --muted: #5b6b82;
+  --faint: #8a97ab; /* placeholders and decoration only, never body text */
+
+  /* status */
+  --success: #0b7a55;
+  --success-bg: #e7f7f0;
+  --warning: #f4a259;
+  --warning-ink: #8a4b0f;
+  --warning-bg: #fef3e6;
+  --danger: #b42d25;
+  --danger-bg: #fdeceb;
+
+  /* type: one family that covers Arabic and Latin, so mixed text keeps one rhythm */
+  --font: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 1.75rem;
+  --fs-3xl: clamp(1.9rem, 4vw, 2.75rem);
+
+  /* shape */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-pill: 999px;
+  --shadow-sm: 0 1px 2px rgb(15 47 92 / 0.06);
+  --shadow-md: 0 4px 16px -4px rgb(15 47 92 / 0.12), 0 1px 3px rgb(15 47 92 / 0.06);
+  --shadow-lg: 0 18px 40px -12px rgb(15 47 92 / 0.25);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--primary-500) 35%, transparent);
+  --ring-on-dark: 0 0 0 3px #fff; /* focus on navy / brand-blue surfaces */
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 120ms;
+  --t-med: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t-med: 0ms; }
+}

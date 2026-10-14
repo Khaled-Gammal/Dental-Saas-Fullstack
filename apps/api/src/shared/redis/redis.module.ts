@@ -1,8 +1,9 @@
 import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import Redis from 'ioredis';
 import { APP_CONFIG, type AppConfig } from '../../config';
+import { REDIS } from './tokens';
 
-export const REDIS = Symbol('REDIS');
+export { REDIS };
 
 @Global()
 @Module({
@@ -10,7 +11,8 @@ export const REDIS = Symbol('REDIS');
     {
       provide: REDIS,
       inject: [APP_CONFIG],
-      useFactory: (cfg: AppConfig) => new Redis(cfg.REDIS_URL, { maxRetriesPerRequest: null, lazyConnect: true }),
+      // fail fast: a request must never hang because Redis is down (BullMQ uses its own connection in the worker)
+      useFactory: (cfg: AppConfig) => new Redis(cfg.REDIS_URL, { maxRetriesPerRequest: 2, lazyConnect: true }),
     },
   ],
   exports: [REDIS],

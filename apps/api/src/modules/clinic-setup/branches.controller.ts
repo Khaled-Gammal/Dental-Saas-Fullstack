@@ -2,16 +2,17 @@ import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { RequirePermission } from '../../auth/decorators';
+import { BranchSlug, DisplayName, E164Phone } from '../../shared/validation/common';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { BranchesService } from './branches.service';
 
 const CreateBranch = z
   .object({
-    nameEn: z.string().min(2).max(120).optional(),
-    nameAr: z.string().min(2).max(120).optional(),
-    slug: z.string().regex(/^[a-z0-9-]{2,60}$/, 'lowercase letters, digits and dashes'),
-    city: z.string().max(80).optional(),
-    phone: z.string().regex(/^\+[1-9][0-9]{7,14}$/, 'international format, e.g. +201001234567').optional(),
+    nameEn: DisplayName.optional(),
+    nameAr: DisplayName.optional(),
+    slug: BranchSlug,
+    city: z.string().trim().max(80).optional(),
+    phone: E164Phone.optional(), // stored as E.164
   })
   .refine((b) => b.nameEn || b.nameAr, { message: 'nameEn or nameAr is required' });
 

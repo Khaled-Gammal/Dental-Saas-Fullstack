@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+/** A DNS name: labels of a-z, 0-9 and '-', at most 253 characters. */
+const HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
+
 /**
  * One Next.js app serves the landing page and every clinic website.
  *   lvh.me:3000            -> landing (app/page.tsx)
@@ -8,6 +11,8 @@ import { NextResponse, type NextRequest } from 'next/server';
  */
 export function middleware(req: NextRequest) {
   const host = (req.headers.get('host') ?? '').toLowerCase().split(':')[0];
+  // reject junk Host headers before they become an API call and a cache entry
+  if (!HOST_RE.test(host)) return new NextResponse('Bad host', { status: 400 });
   const root = process.env.ROOT_DOMAIN ?? 'lvh.me';
   const isPlatform = host === root || host === `www.${root}` || host === 'localhost' || host === '127.0.0.1';
   const url = req.nextUrl.clone();

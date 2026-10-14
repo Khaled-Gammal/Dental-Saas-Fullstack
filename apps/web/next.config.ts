@@ -6,6 +6,7 @@ import path from 'node:path';
 config({ path: path.resolve(process.cwd(), '../../.env') }); // cwd = apps/web
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@dental/ui'], // workspace package (shared design tokens): let Next bundle it like app code
   eslint: { ignoreDuringBuilds: true }, // ESLint is not set up yet; add it in a later sprint
   env: {
     ROOT_DOMAIN: process.env.ROOT_DOMAIN ?? 'lvh.me',

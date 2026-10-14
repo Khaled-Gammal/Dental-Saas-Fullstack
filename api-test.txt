@@ -1,0 +1,68 @@
+﻿
+> @dental/api@0.1.0 test D:\Freelance\dental-saas\apps\api
+> jest --config test/jest-e2e.json --runInBand
+
+pnpm : FAIL test/identity.e2e-spec.ts (14.493 s)
+At line:1 char:1
++ pnpm --filter @dental/api test 2>&1 | Out-File -Encoding utf8 api-tes ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL test/ident...c.ts (14.493 s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  ÔùÅ Console
+
+    console.log
+      [32mÔ£ö[0m [33mConsole Ninja[0m extension is connected to [33mNest.js[0m, see 
+[36mhttps://tinyurl.com/2vt8jxzw[0m
+
+      at new oT 
+(C:/Users/khaled.g/.vscode/extensions/wallabyjs.console-ninja-1.0.543/out/buildHook/index.js:1:4286902)
+
+  ÔùÅ Identity: sign-up, verify, login, sessions (e2e) ÔÇ║ refuses a second account with the same email or a taken 
+subdomain
+
+    expected 409 "Conflict", got 400 "Bad Request"
+
+    [0m [90m 62 |[39m     [36mconst[39m dup [33m=[39m [36mawait[39m 
+http()[33m.[39mpost([32m'/auth/signup'[39m)[33m.[39msend({
+     [90m 63 |[39m       fullName[33m:[39m [32m'X'[39m[33m,[39m email[33m,[39m phone[33m:[39m 
+[32m'+201099999999'[39m[33m,[39m password[33m:[39m [32m'Secret123'[39m[33m,[39m clinicNameAr[33m:[39m 
+[32m'Ï╣┘èÏºÏ»Ï®'[39m[33m,[39m slug[33m:[39m [32m`other-${run}`[39m[33m,[39m
+    [31m[1m>[22m[39m[90m 64 |[39m     })[33m.[39mexpect([35m409[39m)[33m;[39m
+     [90m    |[39m        [31m[1m^[22m[39m
+     [90m 65 |[39m     
+expect(dup[33m.[39mbody[33m.[39mcode)[33m.[39mtoBe([32m'account_exists'[39m)[33m;[39m
+     [90m 66 |[39m     [36mconst[39m taken [33m=[39m [36mawait[39m 
+http()[33m.[39mpost([32m'/auth/signup'[39m)[33m.[39msend({
+     [90m 67 |[39m       fullName[33m:[39m [32m'X'[39m[33m,[39m email[33m:[39m 
+[32m`x.${run}@signup.test`[39m[33m,[39m phone[33m:[39m [32m'+201088888888'[39m[33m,[39m password[33m:[39m 
+[32m'Secret123'[39m[33m,[39m clinicNameAr[33m:[39m [32m'Ï╣┘èÏºÏ»Ï®'[39m[33m,[39m slug[33m,[39m[0m
+
+      at Object.<anonymous> (identity.e2e-spec.ts:64:8)
+      ----
+      at Test._assertStatus (../../../node_modules/.pnpm/supertest@7.3.1/node_modules/supertest/lib/test.js:404:14)
+      at ../../../node_modules/.pnpm/supertest@7.3.1/node_modules/supertest/lib/test.js:460:13
+      at Test._assertFunction (../../../node_modules/.pnpm/supertest@7.3.1/node_modules/supertest/lib/test.js:437:13)
+      at Test.assert (../../../node_modules/.pnpm/supertest@7.3.1/node_modules/supertest/lib/test.js:302:23)
+      at localAssert (../../../node_modules/.pnpm/supertest@7.3.1/node_modules/supertest/lib/test.js:220:38)
+      at Server.<anonymous> (../../../node_modules/.pnpm/supertest@7.3.1/node_modules/supertest/lib/test.js:227:13)
+
+PASS test/api.e2e-spec.ts
+  ÔùÅ Console
+
+    console.log
+      [32mÔ£ö[0m [33mConsole Ninja[0m extension is connected to [33mNest.js[0m, see 
+[36mhttps://tinyurl.com/2vt8jxzw[0m
+
+      at new oT 
+(C:/Users/khaled.g/.vscode/extensions/wallabyjs.console-ninja-1.0.543/out/buildHook/index.js:1:4286902)
+
+
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       1 failed, 16 passed, 17 total
+Snapshots:   0 total
+Time:        15.4 s
+Ran all test suites.
+D:\Freelance\dental-saas\apps\api:
+ÔÇëERR_PNPM_RECURSIVE_RUN_FIRST_FAILÔÇë @dental/api@0.1.0 test: `jest --config test/jest-e2e.json --runInBand`
+Exit status 1

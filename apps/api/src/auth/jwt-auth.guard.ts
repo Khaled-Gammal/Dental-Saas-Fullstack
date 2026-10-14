@@ -1,24 +1,17 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
 import { ClsService } from 'nestjs-cls';
 import type { Request } from 'express';
 import type { RequestContext } from '../shared/context/request-context';
 import { IS_PUBLIC } from './decorators';
-
-export interface AccessTokenPayload {
-  sub: string; // user id
-  tid: string; // tenant (clinic) id
-  mid: string; // tenant_members id
-  perms: string[];
-}
+import { TokenService, type AccessTokenPayload } from './token.service';
 
 /** Global guard: every endpoint needs a valid access token unless marked @Public(). */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly jwt: JwtService,
+    private readonly tokens: TokenService,
     private readonly cls: ClsService<RequestContext>,
   ) {}
 
@@ -32,7 +25,7 @@ export class JwtAuthGuard implements CanActivate {
 
     let payload: AccessTokenPayload;
     try {
-      payload = await this.jwt.verifyAsync<AccessTokenPayload>(token);
+      payload = await this.tokens.verifyAccess(token);
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }

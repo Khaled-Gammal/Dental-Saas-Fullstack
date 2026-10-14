@@ -20,7 +20,7 @@ export class HealthController {
   async check() {
     const checks: Record<string, 'up' | 'down'> = { database: 'down', redis: 'down' };
     try {
-      await sql`select 1`.execute(this.db.raw);
+      await sql`select 1`.execute(this.db.platform());
       checks.database = 'up';
     } catch { /* reported below */ }
     try {

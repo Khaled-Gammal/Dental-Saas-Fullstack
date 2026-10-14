@@ -1,7 +1,7 @@
 export default function Landing() {
   const root = process.env.ROOT_DOMAIN ?? 'lvh.me';
   return (
-    <main>
+    <main className="landing">
       <h1>منصة عيادات الأسنان</h1>
       <p className="muted">موقع إلكتروني ونظام إدارة لعيادتك في دقائق. Website and clinic management for dental clinics.</p>
       <h2>Demo clinics (local)</h2>
