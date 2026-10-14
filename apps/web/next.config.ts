@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
     ROOT_DOMAIN: process.env.ROOT_DOMAIN ?? 'lvh.me',
     API_INTERNAL_URL: process.env.API_INTERNAL_URL ?? process.env.API_PUBLIC_URL ?? 'http://localhost:4000',
     DASHBOARD_URL: process.env.DASHBOARD_URL ?? 'http://localhost:5173',
+    REVALIDATE_SECRET: process.env.REVALIDATE_SECRET ?? 'dev-only-revalidate-secret',
   },
 };
 

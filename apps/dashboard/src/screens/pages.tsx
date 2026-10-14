@@ -1,33 +1,39 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { pickName } from '@dental/ui/text';
 import { api, type Session } from '../api';
 import { siteUrl } from '../config';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
+import { openDays } from '../hours-model';
+import { useBranches, useInvalidate, useOnboarding, usePublish } from '../queries';
 import type { Branch } from '../types';
-import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Skeleton } from '../ui/components';
-import { CheckIcon, CopyIcon, ExternalIcon, PinIcon, PlusIcon, ReceiptIcon, ShieldIcon } from '../ui/icons';
+import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, PageHeader, Skeleton } from '../ui/components';
+import { CalendarIcon, CheckIcon, CopyIcon, ExternalIcon, PinIcon, PlusIcon, ReceiptIcon, ShieldIcon } from '../ui/icons';
 import { DentalArch } from '../ui/illustrations';
 import type { Page } from '../util';
+import { HoursEditor } from './hours-editor';
 
 const ARCH_TEETH = 14;
 const COPIED_MS = 1800;
 
-/** Shared by Overview (count, checklist) and Branches (list), so both read one cached request. */
-const useBranches = (clinicId: string) => useQuery({ queryKey: ['branches', clinicId], queryFn: () => api<Branch[]>('/branches') });
+type Step = { key: Key; done: boolean; action?: { label: Key; go: () => void; busy?: boolean } };
 
 export function Overview({ lang, session, go }: { lang: Lang; session: Session; go: (p: Page) => void }) {
-  const branches = useBranches(session.clinic.id);
+  const clinicId = session.clinic.id;
+  const branches = useBranches(clinicId);
+  const status = useOnboarding(clinicId).data; // derived on the server from the clinic's data
+  const publish = usePublish(clinicId);
   const site = siteUrl(session.clinic.slug);
-  const hasBranch = (branches.data?.length ?? 0) > 0;
 
-  const steps: { key: Key; done: boolean; action?: () => void }[] = [
+  const steps: Step[] = [
     { key: 'stepAccount', done: true },
-    { key: 'stepBranch', done: hasBranch, action: () => go('branches') },
-    { key: 'stepHours', done: false },
-    { key: 'stepDoctors', done: false },
-    { key: 'stepServices', done: false },
-    { key: 'stepPublish', done: false },
+    { key: 'stepProfile', done: !!status?.profile, action: { label: 'goProfile', go: () => go('profile') } },
+    { key: 'stepBranch', done: !!status?.branches, action: { label: 'goBranches', go: () => go('branches') } },
+    { key: 'stepHours', done: !!status?.hours, action: { label: 'goHours', go: () => go('branches') } },
+    { key: 'stepDoctors', done: !!status?.doctors },
+    { key: 'stepServices', done: !!status?.services },
+    // "published" also means "nothing waiting": a pending draft re-opens the step
+    { key: 'stepPublish', done: !!status?.published && !status?.pendingChanges, action: { label: 'goPublish', go: () => publish.mutate(), busy: publish.isPending } },
   ];
   const done = steps.filter((s) => s.done).length;
   const next = steps.find((s) => !s.done);
@@ -52,6 +58,7 @@ export function Overview({ lang, session, go }: { lang: Lang; session: Session; 
         <Stat label={t('statRole', lang)} value={roleLabel(session.clinic.role, lang)} icon={<ShieldIcon />} />
       </div>
 
+      <ErrorText error={publish.error} />
       <Card className="setup">
         <div className="setup-head">
           <div>
@@ -69,7 +76,7 @@ export function Overview({ lang, session, go }: { lang: Lang; session: Session; 
               <span className="step-dot">{s.done ? <CheckIcon size={14} /> : i + 1}</span>
               <span className="step-label">{t(s.key, lang)}</span>
               {!s.done && (s.action
-                ? <Button variant={s === next ? 'primary' : 'secondary'} onClick={s.action}>{t('goBranches', lang)}</Button>
+                ? <Button variant={s === next ? 'primary' : 'secondary'} onClick={s.action.go} loading={s.action.busy}>{t(s.action.label, lang)}</Button>
                 : <Badge>{t('soon', lang)}</Badge>)}
             </li>
           ))}
@@ -112,24 +119,32 @@ function SiteLink({ url, lang }: { url: string; lang: Lang }) {
   );
 }
 
+const HOURS_EDITOR_ID = 'hours-editor';
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]{0,58}[a-z0-9])?$/;
 
-export function Branches({ lang, clinicId }: { lang: Lang; clinicId: string }) {
-  const qc = useQueryClient();
+/** `canWrite` only hides buttons the API would refuse (receptionists can view, not edit). */
+export function Branches({ lang, clinicId, canWrite }: { lang: Lang; clinicId: string; canWrite: boolean }) {
   const branches = useBranches(clinicId);
+  const invalidate = useInvalidate(clinicId);
   const [adding, setAdding] = useState(false);
+  const [editingHours, setEditingHours] = useState<string | null>(null);
   const [nameAr, setNameAr] = useState('');
   const [slug, setSlug] = useState('');
   const create = useMutation({
     mutationFn: () => api<Branch>('/branches', { method: 'POST', body: JSON.stringify({ nameAr: nameAr.trim(), slug }) }),
-    onSuccess: () => { setNameAr(''); setSlug(''); setAdding(false); void qc.invalidateQueries({ queryKey: ['branches', clinicId] }); },
+    onSuccess: () => { setNameAr(''); setSlug(''); setAdding(false); void invalidate('branches'); },
   });
+  const makeMain = useMutation({
+    mutationFn: (id: string) => api<Branch[]>(`/branches/${id}/main`, { method: 'POST' }),
+    onSuccess: () => void invalidate('branches'),
+  });
+  const editing = branches.data?.find((b) => b.id === editingHours);
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
   const slugBad = slug.length > 0 && !SLUG_RE.test(slug);
   const count = branches.data?.length ?? 0;
 
   const openForm = () => { create.reset(); setAdding(true); };
-  const addBtn = !adding && <Button onClick={openForm}><PlusIcon size={18} />{t('addBranch', lang)}</Button>;
+  const addBtn = canWrite && !adding && <Button onClick={openForm}><PlusIcon size={18} />{t('addBranch', lang)}</Button>;
 
   return (
     <>
@@ -156,6 +171,9 @@ export function Branches({ lang, clinicId }: { lang: Lang; clinicId: string }) {
         </Card>
       )}
 
+      {editing && <HoursEditor key={editing.id} id={HOURS_EDITOR_ID} lang={lang} clinicId={clinicId} branch={editing} onDone={() => setEditingHours(null)} />}
+      <ErrorText error={makeMain.error} />
+
       {branches.isError ? (
         <ErrorText error={branches.error} onRetry={() => void branches.refetch()} />
       ) : branches.isLoading ? (
@@ -166,12 +184,31 @@ export function Branches({ lang, clinicId }: { lang: Lang; clinicId: string }) {
         <ul className="cards" aria-busy={branches.isFetching || undefined}>
           {branches.data?.map((b) => (
             <Card as="li" key={b.id} className="branch">
-              <span className="branch-icon"><PinIcon /></span>
-              <div className="branch-text">
-                <strong><bdi>{pickName(lang, b.name_ar, b.name_en, b.slug)}</bdi></strong>
-                <code dir="ltr">{b.slug}</code>
+              <div className="branch-top">
+                <span className="branch-icon"><PinIcon /></span>
+                <div className="branch-text">
+                  <strong><bdi>{pickName(lang, b.name_ar, b.name_en, b.slug)}</bdi></strong>
+                  <code dir="ltr">{b.slug}</code>
+                </div>
+                {b.is_main && <Badge tone="primary">{t('main', lang)}</Badge>}
               </div>
-              {b.is_main && <Badge tone="primary">{t('main', lang)}</Badge>}
+              <div className="branch-hours">
+                <CalendarIcon size={16} />
+                {b.hours.length
+                  ? <span>{t('openDays', lang)}: <strong><bdi>{openDays(b.hours)}/7</bdi></strong></span>
+                  : <span className="warn-text">{t('noHours', lang)}</span>}
+              </div>
+              {canWrite && (
+                <div className="branch-actions">
+                  <Button variant={b.hours.length ? 'secondary' : 'primary'} onClick={() => setEditingHours(b.id)}
+                    aria-expanded={editingHours === b.id} aria-controls={editingHours === b.id ? HOURS_EDITOR_ID : undefined}>
+                    {t('workingHours', lang)}
+                  </Button>
+                  {!b.is_main && (
+                    <LinkButton onClick={() => makeMain.mutate(b.id)} disabled={makeMain.isPending}>{t('makeMain', lang)}</LinkButton>
+                  )}
+                </div>
+              )}
             </Card>
           ))}
         </ul>

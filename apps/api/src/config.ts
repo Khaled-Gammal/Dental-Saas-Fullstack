@@ -27,6 +27,9 @@ const schema = z.object({
   RATE_LIMIT_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   REFRESH_RACE_GRACE_MS: z.coerce.number().int().min(0).default(10_000),
   SESSION_MAX_DAYS: z.coerce.number().int().min(1).default(90),
+  // the Next.js website, reached from the API to purge its cache after a publish
+  WEB_INTERNAL_URL: z.string().default('http://localhost:3000'),
+  REVALIDATE_SECRET: z.string().min(16).default('dev-only-revalidate-secret'),
   SWAGGER_ENABLED: z.enum(['true', 'false']).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
 });
 
@@ -44,7 +47,7 @@ export function loadConfig(overrides: Partial<Record<keyof AppConfig, string>> =
       c.DEV_LOGIN_ENABLED && 'DEV_LOGIN_ENABLED must be false',
       !c.RATE_LIMIT_ENABLED && 'RATE_LIMIT_ENABLED must be true',
       c.SMS_PROVIDER === 'dev' && 'SMS_PROVIDER=dev cannot send real texts; configure a real provider',
-      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET'] as const)
+      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET'] as const)
         .filter((k) => c[k] === DEV_OTP_SECRET || c[k].startsWith('dev-only') || c[k].length < 32)
         .map((k) => `${k} must be a long random value (not the development one)`),
     ].filter(Boolean);

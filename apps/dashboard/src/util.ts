@@ -23,8 +23,8 @@ export function useMediaQuery(query: string): boolean {
   return match;
 }
 
-export type Page = 'overview' | 'branches';
-const PAGES: readonly Page[] = ['overview', 'branches'];
+export type Page = 'overview' | 'profile' | 'branches';
+const PAGES: readonly Page[] = ['overview', 'profile', 'branches'];
 /** The page named in the URL hash, or null for any other hash (e.g. the #main skip-link target). */
 const readHash = (): Page | null => {
   const p = window.location.hash.replace(/^#\/?/, '');

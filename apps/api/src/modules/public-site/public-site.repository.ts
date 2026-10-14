@@ -25,7 +25,7 @@ export class PublicSiteRepository {
           'clinic', (select json_build_object('id', t.id, 'slug', t.slug, 'name_en', t.name_en, 'name_ar', t.name_ar,
                        'about_en', t.about_en, 'about_ar', t.about_ar, 'primary_phone', t.primary_phone, 'whatsapp', t.whatsapp,
                        'specialties', t.specialties, 'default_locale', t.default_locale) from tenants t),
-          'theme', coalesce((select coalesce(s.published_theme, s.draft_theme) from sites s), '{}'::jsonb),
+          'theme', coalesce((select case when s.status = 'published' then s.published_theme else s.draft_theme end from sites s), '{}'::jsonb),
           'showPoweredBy', coalesce((select s.show_powered_by from sites s), true),
           'branches', coalesce((
             select json_agg(json_build_object('id', b.id, 'name_en', b.name_en, 'name_ar', b.name_ar, 'address_en', b.address_en,

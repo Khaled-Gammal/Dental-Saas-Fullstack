@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import type { ApiError } from '../api';
 import { errorText, t } from '../i18n';
 import { useLang } from '../lang';
@@ -54,6 +54,21 @@ export function Field({ label, hint, error, children, optional }: {
 
 export function Input({ invalid, describedBy, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; describedBy?: string }) {
   return <input {...rest} className={`input ${rest.className ?? ''}`} aria-invalid={invalid || undefined} aria-describedby={describedBy} />;
+}
+
+export function TextArea({ invalid, describedBy, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean; describedBy?: string }) {
+  return <textarea rows={3} {...rest} className={`input textarea ${rest.className ?? ''}`} aria-invalid={invalid || undefined} aria-describedby={describedBy} />;
+}
+
+/** An on/off switch that is a real checkbox underneath (keyboard and screen readers just work). */
+export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="switch">
+      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="switch-track" aria-hidden><span className="switch-thumb" /></span>
+      <span className="switch-label">{label}</span>
+    </label>
+  );
 }
 
 export function PasswordInput({ showLabel, hideLabel, ...rest }: InputHTMLAttributes<HTMLInputElement> & {
@@ -122,8 +137,8 @@ export function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'prim
   return <span className={`badge badge-${tone}`}>{children}</span>;
 }
 
-export function Card({ children, className = '', as: Tag = 'section' }: { children: ReactNode; className?: string; as?: 'section' | 'div' | 'li' | 'form' }) {
-  return <Tag className={`card ${className}`}>{children}</Tag>;
+export function Card({ children, className = '', as: Tag = 'section', id }: { children: ReactNode; className?: string; as?: 'section' | 'div' | 'li' | 'form'; id?: string }) {
+  return <Tag className={`card ${className}`} id={id}>{children}</Tag>;
 }
 
 export function EmptyState({ icon, title, text, action }: { icon: ReactNode; title: string; text: string; action?: ReactNode }) {

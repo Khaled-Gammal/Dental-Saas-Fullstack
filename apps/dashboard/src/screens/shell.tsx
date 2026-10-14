@@ -3,12 +3,14 @@ import { pickName } from '@dental/ui/text';
 import { logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
 import { Badge, LinkButton, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, LangIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, StethoscopeIcon, UsersIcon } from '../ui/icons';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, LangIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { useProfile } from '../queries';
 import { useMediaQuery, type Page } from '../util';
 
 type NavItem = { key: Key; icon: ReactNode; page?: Page };
 const NAV: NavItem[] = [
   { key: 'navOverview', icon: <HomeIcon />, page: 'overview' },
+  { key: 'navProfile', icon: <ToothIcon />, page: 'profile' },
   { key: 'navBranches', icon: <PinIcon />, page: 'branches' },
   { key: 'navAppointments', icon: <CalendarIcon /> },
   { key: 'navPatients', icon: <UsersIcon /> },
@@ -45,7 +47,9 @@ export function AppShell({ lang, onLang, session, page, go, children }: {
     document.getElementById('main')?.focus();
   };
 
-  const name = clinicName(session, lang);
+  // the profile query is updated on save, so a renamed clinic shows everywhere at once
+  const profile = useProfile(session.clinic.id).data;
+  const name = profile ? pickName(lang, profile.nameAr, profile.nameEn, session.clinic.slug) : clinicName(session, lang);
   return (
     <div className={`app${open ? ' nav-open' : ''}`}>
       <a href="#main" className="skip" onClick={skipToMain}>{t('skipToContent', lang)}</a>

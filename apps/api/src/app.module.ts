@@ -9,6 +9,7 @@ import { HealthModule } from './health/health.module';
 import { ClinicSetupModule } from './modules/clinic-setup/clinic-setup.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { PublicSiteModule } from './modules/public-site/public-site.module';
+import { WebsiteModule } from './modules/website/website.module';
 import { DatabaseModule } from './shared/database/database.module';
 import { ProblemDetailsFilter } from './shared/errors/problem-details.filter';
 import { NotificationsModule } from './shared/notifications/notifications.module';
@@ -43,6 +44,7 @@ class ConfigModule {}
     HealthModule,
     PublicSiteModule,
     ClinicSetupModule,
+    WebsiteModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemDetailsFilter }],
 })

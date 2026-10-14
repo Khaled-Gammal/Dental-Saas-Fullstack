@@ -26,6 +26,15 @@ const PG: Record<string, { status: number; code: string; title: string }> = {
   '55P03': { status: 409, code: 'busy', title: 'Another user is changing this right now, try again' },
 };
 
+/** Specific constraints get specific codes, so the UI can say exactly what is wrong. */
+const CONSTRAINTS: Record<string, { status: number; code: string; title: string }> = {
+  branch_hours_no_overlap: { status: 409, code: 'hours_overlap', title: 'Two shifts on the same day overlap' },
+  branches_tenant_id_slug_key: { status: 409, code: 'branch_slug_taken', title: 'Another branch already uses this address' },
+  sites_theme_primary_hex: { status: 400, code: 'invalid_color', title: 'Colour must look like #1d6fd8' },
+  branches_main_is_active: { status: 409, code: 'main_branch_inactive', title: 'The main branch cannot be deactivated; make another branch main first' },
+  branches_one_main: { status: 409, code: 'busy', title: 'Another user is changing this right now, try again' },
+};
+
 const RESERVED = new Set(['message', 'code', 'errors', 'statusCode', 'error', 'type', 'title', 'status', 'detail', 'instance']);
 function extras(body: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(body).filter(([k]) => !RESERVED.has(k)));
@@ -73,8 +82,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       };
     }
     const pgCode = (e as { code?: string })?.code;
-    if (pgCode && PG[pgCode]) {
-      const m = PG[pgCode];
+    const constraint = (e as { constraint?: string })?.constraint;
+    if (pgCode && (PG[pgCode] || (constraint && CONSTRAINTS[constraint]))) {
+      const m = (constraint && CONSTRAINTS[constraint]) || PG[pgCode];
       // the database message names tables and constraints: log it, never send it
       this.logger.warn(`${pgCode} ${(e as Error).message}`);
       return { type: 'about:blank', title: m.title, status: m.status, code: m.code, detail: m.title };

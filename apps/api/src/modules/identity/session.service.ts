@@ -63,7 +63,8 @@ export class SessionService {
       expiresIn: this.tokens.accessTtlSeconds,
       refreshToken,
       user: { id: user.id, name: user.full_name, email: user.email, phone: user.phone ? maskPhone(user.phone) : null },
-      clinic: { id: m.tenant_id, slug: m.slug, nameAr: m.name_ar, nameEn: m.name_en, role: m.role_key, status: m.tenant_status },
+      // permissions are for showing/hiding UI only; every endpoint still checks them itself
+      clinic: { id: m.tenant_id, slug: m.slug, nameAr: m.name_ar, nameEn: m.name_en, role: m.role_key, status: m.tenant_status, permissions: member.permissions },
       clinics: active.map((r) => ({ slug: r.slug, nameAr: r.name_ar, nameEn: r.name_en })),
     };
   }

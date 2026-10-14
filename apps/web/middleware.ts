@@ -18,6 +18,7 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
 
   if (isPlatform) {
+    if (url.pathname.startsWith('/api/')) return NextResponse.next(); // internal routes (cache revalidation)
     if (url.pathname.startsWith('/sites')) return NextResponse.rewrite(new URL('/404', req.url)); // not reachable directly
     return NextResponse.next();
   }

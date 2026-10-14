@@ -18,7 +18,7 @@ export interface Session {
   accessToken: string;
   expiresIn: number;
   user: { id: string; name: string; email: string | null; phone: string | null };
-  clinic: { id: string; slug: string; nameAr: string | null; nameEn: string | null; role: string; status: string };
+  clinic: { id: string; slug: string; nameAr: string | null; nameEn: string | null; role: string; status: string; permissions: string[] };
   clinics: { slug: string; nameAr: string | null; nameEn: string | null }[];
 }
 
@@ -94,3 +94,6 @@ export async function logout() {
   await raw('/auth/logout', { method: 'POST' }, null).catch(() => undefined);
   setSession(null);
 }
+
+/** UI hint only (hide buttons the API would refuse); the API checks every permission itself. */
+export const can = (s: Session, perm: string) => s.clinic.permissions?.includes('*') || s.clinic.permissions?.includes(perm) || false;

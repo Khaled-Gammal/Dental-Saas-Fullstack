@@ -134,6 +134,7 @@ Reports and what was fixed or deferred are in `docs/reviews/`. A phase is done w
 - ✅ Week 1 — foundation: monorepo, Docker, schema, tenant isolation, CI
 - ✅ Week 2 — sign-up, phone verification, login, sessions
 - ✅ Design system — "Trust blue" tokens, dashboard + clinic website redesign, dental arch / canvas visuals (`docs/design-system.md`)
-- Week 3 — step 0: backend pattern hardening from `docs/reviews/2026-10-17-design-and-patterns.md`;
-  then the onboarding wizard (clinic profile, branches & hours, doctors, services, website publish) → site shows it
+- Week 3 — ✅ step 0: backend pattern hardening (`docs/reviews/2026-10-17-design-and-patterns.md`)
+  - ✅ part 1: clinic profile + brand colour, branches (edit, main branch), weekly hours with split shifts, live setup checklist
+  - part 2: doctors (branches + weekly schedule), services & prices (from the dental catalogue), website publish
 - Then — online booking with slot hold → booking code → reception check-in

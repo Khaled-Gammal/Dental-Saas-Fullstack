@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { refreshSession, subscribeSession, type Session } from './api';
+import { can, refreshSession, subscribeSession, type Session } from './api';
 import { savedLang, t, type Lang } from './i18n';
 import { LangContext } from './lang';
 import { AuthLayout, Login, Signup, Verify, type AuthScreen } from './screens/auth';
 import { Branches, Overview } from './screens/pages';
+import { Profile } from './screens/profile';
 import { AppShell } from './screens/shell';
 import { Logo, Spinner } from './ui/components';
 import { useHashPage } from './util';
@@ -52,7 +53,9 @@ export function App() {
   } else {
     view = (
       <AppShell lang={lang} onLang={toggleLang} session={session} page={page} go={go}>
-        {page === 'branches' ? <Branches lang={lang} clinicId={session.clinic.id} /> : <Overview lang={lang} session={session} go={go} />}
+        {page === 'branches' ? <Branches lang={lang} clinicId={session.clinic.id} canWrite={can(session, 'branches:write')} />
+          : page === 'profile' ? <Profile lang={lang} clinicId={session.clinic.id} canEdit={can(session, 'settings:write')} />
+          : <Overview lang={lang} session={session} go={go} />}
       </AppShell>
     );
   }
