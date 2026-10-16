@@ -1,0 +1,117 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import type { Session } from '../api';
+import { siteUrl } from '../config';
+import { roleLabel, t, type Key, type Lang } from '../i18n';
+import { navigate } from '../hooks';
+import { useBranches, useOnboarding, usePublish } from '../queries';
+import { to, type Page } from '../router';
+import { Badge, Button, Card, ErrorText } from '../ui/components';
+import { CheckIcon, CopyIcon, ExternalIcon, PinIcon, ReceiptIcon, ShieldIcon } from '../ui/icons';
+import { DentalArch } from '../ui/illustrations';
+
+const ARCH_TEETH = 14;
+const COPIED_MS = 1800;
+
+type Step = { key: Key; done: boolean; action?: { label: Key; go: () => void; busy?: boolean } };
+
+export function Overview({ lang, session }: { lang: Lang; session: Session }) {
+  const go = (p: Page) => navigate(to.list(p));
+  const clinicId = session.clinic.id;
+  const branches = useBranches(clinicId);
+  const status = useOnboarding(clinicId).data; // derived on the server from the clinic's data
+  const publish = usePublish(clinicId);
+  const site = siteUrl(session.clinic.slug);
+
+  const steps: Step[] = [
+    { key: 'stepAccount', done: true },
+    { key: 'stepProfile', done: !!status?.profile, action: { label: 'goProfile', go: () => go('profile') } },
+    { key: 'stepBranch', done: !!status?.branches, action: { label: 'goBranches', go: () => go('branches') } },
+    { key: 'stepHours', done: !!status?.hours, action: { label: 'goHours', go: () => go('branches') } },
+    { key: 'stepDoctors', done: !!status?.doctors, action: { label: 'goDoctors', go: () => go('doctors') } },
+    { key: 'stepServices', done: !!status?.services, action: { label: 'goServices', go: () => go('services') } },
+    // "published" also means "nothing waiting": a pending draft re-opens the step
+    { key: 'stepPublish', done: !!status?.published && !status?.pendingChanges, action: { label: 'goPublish', go: () => publish.mutate(), busy: publish.isPending } },
+  ];
+  const done = steps.filter((s) => s.done).length;
+  const next = steps.find((s) => !s.done);
+
+  return (
+    <>
+      <section className="hero-card">
+        <div className="hero-text">
+          <p className="eyebrow">{t('welcome', lang)}{lang === 'ar' ? '، ' : ', '}<bdi>{session.user.name}</bdi></p>
+          <h1>{t('overviewSub', lang)}</h1>
+          <SiteLink url={site} lang={lang} />
+        </div>
+        <div className="hero-art">
+          <DentalArch filled={(done / steps.length) * ARCH_TEETH} label={`${done}/${steps.length} ${t('stepsDone', lang)}`} />
+          <span className="hero-art-caption">{t('archCaption', lang)}</span>
+        </div>
+      </section>
+
+      <div className="stats">
+        <Stat label={t('statBranches', lang)} value={branches.isLoading ? '…' : branches.isError ? '—' : String(branches.data?.length ?? 0)} icon={<PinIcon />} />
+        <Stat label={t('statPlan', lang)} value={session.clinic.status === 'trialing' ? t('trial', lang) : t('active', lang)} icon={<ReceiptIcon />} />
+        <Stat label={t('statRole', lang)} value={roleLabel(session.clinic.role, lang)} icon={<ShieldIcon />} />
+      </div>
+
+      <ErrorText error={publish.error} />
+      <Card className="setup">
+        <div className="setup-head">
+          <div>
+            <h2>{t('setupTitle', lang)}</h2>
+            <p className="muted">{t('setupSub', lang)}</p>
+          </div>
+          <div className="progress-ring" style={{ ['--p' as string]: `${(done / steps.length) * 100}` }}
+            role="img" aria-label={`${done}/${steps.length} ${t('stepsDone', lang)}`}>
+            <span><bdi>{done}/{steps.length}</bdi></span>
+          </div>
+        </div>
+        <ol className="steps">
+          {steps.map((s, i) => (
+            <li key={s.key} className={`step${s.done ? ' done' : ''}${s === next ? ' current' : ''}`}>
+              <span className="step-dot">{s.done ? <CheckIcon size={14} /> : i + 1}</span>
+              <span className="step-label">{t(s.key, lang)}</span>
+              {!s.done && (s.action
+                ? <Button variant={s === next ? 'primary' : 'secondary'} onClick={s.action.go} loading={s.action.busy}>{t(s.action.label, lang)}</Button>
+                : <Badge>{t('soon', lang)}</Badge>)}
+            </li>
+          ))}
+        </ol>
+      </Card>
+    </>
+  );
+}
+
+function Stat({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
+  return (
+    <div className="stat">
+      <span className="stat-icon">{icon}</span>
+      <span className="stat-text"><small>{label}</small><strong>{value}</strong></span>
+    </div>
+  );
+}
+
+function SiteLink({ url, lang }: { url: string; lang: Lang }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      clearTimeout(timer.current); // repeated clicks restart the timer instead of stacking them
+      timer.current = setTimeout(() => setCopied(false), COPIED_MS);
+    } catch { /* clipboard blocked: the link stays selectable */ }
+  };
+  return (
+    <div className="site-link">
+      <span className="site-url" dir="ltr">{url.replace(/^https?:\/\//, '')}</span>
+      <button type="button" className="chip-btn" onClick={() => void copy()}>
+        {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}{copied ? t('copied', lang) : t('copy', lang)}
+      </button>
+      <span role="status" className="sr-only">{copied ? t('copiedAnnounce', lang) : ''}</span>
+      <a className="chip-btn" href={url} target="_blank" rel="noreferrer"><ExternalIcon size={16} />{t('open', lang)}</a>
+    </div>
+  );
+}

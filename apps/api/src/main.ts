@@ -16,7 +16,7 @@ async function bootstrap() {
   app.enableCors({ origin: [cfg.DASHBOARD_URL], credentials: true });
   app.enableShutdownHooks();
   // behind a proxy (Caddy / load balancer) req.ip must be the client's address, not the proxy's
-  app.getHttpAdapter().getInstance().set('trust proxy', 'loopback');
+  app.getHttpAdapter().getInstance().set('trust proxy', cfg.TRUST_PROXY); // see TRUST_PROXY in config.ts
 
   const openapi = SwaggerModule.createDocument(
     app,

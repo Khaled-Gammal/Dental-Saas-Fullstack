@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import '../src/config'; // loads the root .env
@@ -6,11 +6,8 @@ import '../src/config'; // loads the root .env
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 process.env.RATE_LIMIT_ENABLED = 'false'; // per-IP throttles off: every test request comes from 127.0.0.1
 process.env.REFRESH_RACE_GRACE_MS = '1000'; // short two-tabs grace so the reuse test waits 1 s, not 10
-// eslint-disable-next-line import/first
 import { AppModule } from '../src/app.module';
-// eslint-disable-next-line import/first
 import type { DevSmsSender } from '../src/shared/notifications/dev-sms.sender';
-// eslint-disable-next-line import/first
 import { SMS_SENDER } from '../src/shared/notifications/ports';
 
 const cookieOf = (res: request.Response) => {

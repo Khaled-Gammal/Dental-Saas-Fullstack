@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { sql, type Json, type Tx } from '@dental/db';
+import { imageJson } from '../../media';
 
 export interface ProfilePatch {
   nameAr?: string | null;
@@ -11,6 +12,7 @@ export interface ProfilePatch {
   email?: string | null;
   specialties?: string[];
   defaultLocale?: 'ar' | 'en';
+  logoFileId?: string | null;
 }
 
 /**
@@ -24,7 +26,7 @@ export class ProfileRepository {
       .leftJoin('sites as s', 's.tenant_id', 't.id')
       .select([
         't.slug', 't.status', 't.name_ar', 't.name_en', 't.about_ar', 't.about_en', 't.primary_phone', 't.whatsapp', 't.email',
-        't.specialties', 't.default_locale',
+        't.specialties', 't.default_locale', 't.logo_file_id', imageJson('t.logo_file_id').as('logo'),
         sql<string | null>`s.draft_theme->>'primary'`.as('brand_color'),
       ])
       .executeTakeFirst();
@@ -41,6 +43,7 @@ export class ProfileRepository {
       ...(p.email !== undefined && { email: p.email }),
       ...(p.specialties !== undefined && { specialties: p.specialties }),
       ...(p.defaultLocale !== undefined && { default_locale: p.defaultLocale }),
+      ...(p.logoFileId !== undefined && { logo_file_id: p.logoFileId }),
     };
     if (!Object.keys(set).length) return;
     await tx.updateTable('tenants').set({ ...set, updated_at: sql<Date>`now()` }).execute();

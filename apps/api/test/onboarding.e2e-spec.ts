@@ -1,10 +1,9 @@
-import { INestApplication } from '@nestjs/common';
+import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import '../src/config'; // loads the root .env
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 process.env.DEV_LOGIN_ENABLED = 'true';
-// eslint-disable-next-line import/first
 import { AppModule } from '../src/app.module';
 
 const NASR = 'd0000000-0000-0000-0000-0000000000a1';
@@ -129,6 +128,30 @@ describe('Onboarding: profile, branches, hours (e2e)', () => {
       expect(edited.body).toMatchObject({ address_ar: '9 شارع 9، المعادي', whatsapp: '+201098765432' });
       const list = await http().post(`/branches/${MAADI}/main`).set(as('ownerA')).expect(200);
       expect(list.body.filter((b: { is_main: boolean }) => b.is_main).map((b: { id: string }) => b.id)).toEqual([MAADI]);
+    });
+
+    it('plan limits are enforced on create (clinic B is on Basic: one branch)', async () => {
+      const res = await http().post('/branches').set(as('ownerB')).send({ nameAr: 'فرع ثانٍ', slug: 'second-branch' }).expect(403);
+      expect(res.body).toMatchObject({ code: 'plan_limit_reached', resource: 'branches', limit: 1, used: 1 });
+      expect(res.headers['x-request-id']).toBeTruthy(); // every response carries its request id
+      expect(res.body.requestId).toBe(res.headers['x-request-id']);
+    });
+
+    it('setup data is readable by any member (the receptionist role holds no doctors/services permission); writes need the permission', async () => {
+      await http().get('/doctors').set(as('receptionA')).expect(200);
+      await http().get('/services').set(as('receptionA')).expect(200);
+      await http().post('/branches').set(as('receptionA')).send({ nameAr: 'فرع', slug: 'x-branch' }).expect(403);
+    });
+
+    it('reactivating takes a seat again (clinic B: one branch)', async () => {
+      // cannot deactivate the only (main) branch, so the rule is exercised through doctors: Basic allows 3
+      const made: string[] = [];
+      for (const n of ['أ', 'ب']) made.push((await http().post('/doctors').set(as('ownerB')).send({ nameAr: `د. ${n}${n}`, branchIds: [HELIOPOLIS_B] }).expect(201)).body.id);
+      expect((await http().post('/doctors').set(as('ownerB')).send({ nameAr: 'د. رابع', branchIds: [HELIOPOLIS_B] }).expect(403)).body.code).toBe('plan_limit_reached');
+      await http().patch(`/doctors/${made[0]}`).set(as('ownerB')).send({ isActive: false }).expect(200); // frees a seat
+      const third = (await http().post('/doctors').set(as('ownerB')).send({ nameAr: 'د. رابع', branchIds: [HELIOPOLIS_B] }).expect(201)).body.id;
+      expect((await http().patch(`/doctors/${made[0]}`).set(as('ownerB')).send({ isActive: true }).expect(403)).body.code).toBe('plan_limit_reached');
+      for (const id of [made[1], third]) await http().patch(`/doctors/${id}`).set(as('ownerB')).send({ isActive: false });
     });
 
     it('the main branch cannot be switched off', async () => {

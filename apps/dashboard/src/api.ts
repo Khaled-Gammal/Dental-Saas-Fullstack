@@ -97,3 +97,32 @@ export async function logout() {
 
 /** UI hint only (hide buttons the API would refuse); the API checks every permission itself. */
 export const can = (s: Session, perm: string) => s.clinic.permissions?.includes('*') || s.clinic.permissions?.includes(perm) || false;
+
+/**
+ * Multipart upload with progress (fetch cannot report upload progress, XMLHttpRequest can). Sends the file as `file`,
+ * refreshes the session once on 401 like `api()`, and turns failures into the same ApiError.
+ */
+export function uploadFile<T>(path: string, file: File, onProgress: (fraction: number) => void, signal?: AbortSignal): Promise<T> {
+  const send = (token: string | null) => new Promise<{ status: number; body: unknown }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_URL}${path}`);
+    xhr.withCredentials = true;
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    xhr.onload = () => { let body: unknown = {}; try { body = JSON.parse(xhr.responseText || '{}'); } catch { /* not JSON */ } resolve({ status: xhr.status, body }); };
+    xhr.onerror = () => reject(new ApiError(0, 'network', 'Network error'));
+    xhr.onabort = () => reject(new ApiError(0, 'aborted', 'Upload cancelled'));
+    signal?.addEventListener('abort', () => xhr.abort());
+    const form = new FormData();
+    form.append('file', file);
+    xhr.send(form);
+  });
+  return (async () => {
+    let res = await send(accessToken);
+    if (res.status === 401 && (await refreshSession())) res = await send(accessToken);
+    const p = res.body as { code?: string; detail?: string; title?: string; errors?: { path: string; message: string }[] };
+    if (res.status < 200 || res.status >= 300) throw new ApiError(res.status, p.code ?? 'error', p.detail ?? p.title ?? 'Upload failed', p.errors, p as Record<string, unknown>);
+    onProgress(1);
+    return res.body as T;
+  })();
+}

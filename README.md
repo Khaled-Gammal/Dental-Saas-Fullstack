@@ -78,7 +78,8 @@ After verifying, your clinic's site is live at `http://<your-subdomain>.lvh.me:3
 | --- | --- |
 | `pnpm dev` | Run API, website and dashboard with hot reload |
 | `pnpm dev:worker` | Run the background worker |
-| `pnpm test` | Database tests (rebuilds `dental_test`) then API e2e tests |
+| `pnpm test` | Database tests (rebuilds `dental_test`), dashboard unit tests (vitest), then API e2e tests |
+| `pnpm lint` | ESLint for every app (includes the rule that only `shared/database` may import `withTenant`) |
 | `pnpm db:test` | Database tests only |
 | `pnpm db:migrate` | Apply new migrations |
 | `pnpm db:types` | Regenerate Kysely types (`packages/db/src/database.ts`) after a migration |
@@ -109,6 +110,17 @@ After verifying, your clinic's site is live at `http://<your-subdomain>.lvh.me:3
   Services throw `AppError` (`shared/errors`), rendered as RFC 9457 `application/problem+json` with a stable `code`.
   Infrastructure is reached through ports (`RATE_LIMITER`, `SMS_SENDER`, `EMAIL_SENDER`, `TokenService`); limits and
   timings live in `AUTH_POLICY` / `WORKER_POLICY` in `config.ts`.
+- **Plan limits:** `shared/plans/PlanLimits` reads `plans.limits` through the live subscription and is called inside the
+  write transaction (create and reactivate) under an advisory lock; `403 plan_limit_reached { resource, limit, used }`.
+- **Observability:** every response carries `X-Request-Id` (also in error bodies as `requestId`); `AccessLogMiddleware`
+  writes one structured line per request (route pattern, status, ms, tenant, user; JSON in production).
+- **Dashboard:** one hash route per screen (`router.ts`: `#/doctors`, `#/doctors/new`, `#/doctors/<id>/edit`,
+  `#/doctors/<id>/schedule`, `#/branches/<id>/hours`, …) so every create/edit page can be reloaded, linked and
+  reached with Back/Forward. Screens live in `screens/<resource>/{list,form,…}.tsx` and share the chrome in
+  `ui/page.tsx` (`FormPage`, `Breadcrumbs`, `ResourceState`, `RouteLink`) and `ui/confirm-dialog.tsx`. Form logic that
+  mirrors API rules is pure and unit-tested (`hours-model.ts`, `schedule-model.ts`, `service-model.ts`); request
+  bodies are diffs against the values the form opened with (`diffText`), so a background refetch can never be
+  saved back over someone else's change. `useUnsavedChanges` guards in-app navigation and tab close.
 
 ## 5. Quality gates
 
@@ -134,7 +146,14 @@ Reports and what was fixed or deferred are in `docs/reviews/`. A phase is done w
 - ✅ Week 1 — foundation: monorepo, Docker, schema, tenant isolation, CI
 - ✅ Week 2 — sign-up, phone verification, login, sessions
 - ✅ Design system — "Trust blue" tokens, dashboard + clinic website redesign, dental arch / canvas visuals (`docs/design-system.md`)
-- Week 3 — ✅ step 0: backend pattern hardening (`docs/reviews/2026-10-17-design-and-patterns.md`)
+- ✅ Phase 1 (architecture) — dashboard routes, dedicated create/edit pages, shared form chrome, unit tests, ESLint + CI lint (`docs/reviews/2026-10-20-phase-1-dashboard.md`)
+- ✅ Week 3 — clinic setup wizard (`docs/reviews/2026-10-19-week-3.md`)
+  - ✅ step 0: backend pattern hardening (`docs/reviews/2026-10-17-design-and-patterns.md`)
   - ✅ part 1: clinic profile + brand colour, branches (edit, main branch), weekly hours with split shifts, live setup checklist
-  - part 2: doctors (branches + weekly schedule), services & prices (from the dental catalogue), website publish
-- Then — online booking with slot hold → booking code → reception check-in
+  - ✅ website publish: draft theme → published theme, instant cache purge of the clinic site
+  - ✅ part 2: doctors (branch assignment + weekly schedule across branches), services & prices from the dental catalogue
+- ✅ Phase 2 — backend hardening: plan limits from `plans.limits` (create + reactivation), access log + `X-Request-Id`, read-permission convention (`docs/reviews/2026-10-21-phase-2-backend.md`)
+- ✅ Website redesign — premium clinic site, doctors/services/branches sections, open-now status (`docs/reviews/2026-10-16-website-redesign.md`)
+- ✅ Phase 3 — online booking: hexagonal `scheduling` module (slot engine, 10-minute holds, email code, reception code), `/book` wizard, outbox → email notifications and reminders in the worker, dashboard Appointments screen with check-in (`docs/reviews/2026-10-16-phase-3-booking.md`)
+- ✅ Week 6 part 1 — patients (search, profile, guardian, medical history), audit trail of record access, dashboard "new appointment" form, automatic no-show; Phase 3 review fixes (`docs/reviews/2026-10-16-week-6-patients.md`)
+- Week 6 part 2 — visits, prescriptions, consent signing; route-level code splitting

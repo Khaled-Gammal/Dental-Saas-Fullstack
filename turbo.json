@@ -11,6 +11,7 @@
         "!.next/cache/**"
       ]
     },
+    "lint": {},
     "typecheck": {
       "dependsOn": [
         "^build"

@@ -33,6 +33,15 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   sites_theme_primary_hex: { status: 400, code: 'invalid_color', title: 'Colour must look like #1d6fd8' },
   branches_main_is_active: { status: 409, code: 'main_branch_inactive', title: 'The main branch cannot be deactivated; make another branch main first' },
   branches_one_main: { status: 409, code: 'busy', title: 'Another user is changing this right now, try again' },
+  services_tenant_catalog_code: { status: 409, code: 'service_already_added', title: 'This catalogue service is already on your price list' },
+  doctor_schedules_no_overlap: { status: 409, code: 'schedule_overlap', title: 'The doctor is already scheduled at that time' },
+  appointments_no_doctor_overlap: { status: 409, code: 'slot_taken', title: 'That time was just taken; pick another slot' },
+  appointments_no_room_overlap: { status: 409, code: 'room_taken', title: 'The room is already booked at that time' },
+  appointments_open_code: { status: 409, code: 'busy', title: 'Another user is changing this right now, try again' },
+  gallery_items_one_featured: { status: 409, code: 'busy', title: 'Another user is changing this right now, try again' },
+  gallery_items_published_described: { status: 400, code: 'alt_required', title: 'Describe the photo (alt text or caption) before publishing it' },
+  gallery_items_featured_published: { status: 400, code: 'featured_requires_published', title: 'Only a published photo can be featured' },
+  gallery_items_branch_fk: { status: 400, code: 'branch_not_found', title: 'Branch not found' },
 };
 
 const RESERVED = new Set(['message', 'code', 'errors', 'statusCode', 'error', 'type', 'title', 'status', 'detail', 'instance']);
@@ -50,8 +59,10 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const req = ctx.getRequest<Request>();
     const problem = this.toProblem(exception);
     problem.instance = req.originalUrl;
+    const rid = res.getHeader('X-Request-Id');
+    problem.requestId = typeof rid === 'string' ? rid : undefined;
     if (typeof problem.retryAfter === 'number') res.setHeader('Retry-After', String(problem.retryAfter)); // 429s
-    if (problem.status >= 500) this.logger.error(exception instanceof Error ? exception.stack : String(exception));
+    if (problem.status >= 500) this.logger.error(`[${problem.requestId}] ${exception instanceof Error ? exception.stack : String(exception)}`);
     res.status(problem.status).type('application/problem+json').json(problem);
   }
 

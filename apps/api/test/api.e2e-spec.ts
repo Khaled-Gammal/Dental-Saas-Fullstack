@@ -1,11 +1,10 @@
-import { INestApplication } from '@nestjs/common';
+import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import '../src/config'; // loads the root .env
 // The e2e suite runs against the test database that `pnpm db:test` rebuilds and seeds.
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 process.env.DEV_LOGIN_ENABLED = 'true';
-// eslint-disable-next-line import/first
 import { AppModule } from '../src/app.module';
 
 describe('API (e2e)', () => {

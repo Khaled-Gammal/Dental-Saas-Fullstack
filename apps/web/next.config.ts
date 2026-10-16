@@ -7,7 +7,8 @@ config({ path: path.resolve(process.cwd(), '../../.env') }); // cwd = apps/web
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@dental/ui'], // workspace package (shared design tokens): let Next bundle it like app code
-  eslint: { ignoreDuringBuilds: true }, // ESLint is not set up yet; add it in a later sprint
+  eslint: { ignoreDuringBuilds: true }, // linting runs from the monorepo root (pnpm lint, eslint.config.mjs), not inside next build
+  distDir: process.env.NEXT_DIST_DIR ?? '.next', // NEXT_DIST_DIR=.next-build next build: verify a production build while `next dev` is running
   env: {
     ROOT_DOMAIN: process.env.ROOT_DOMAIN ?? 'lvh.me',
     API_INTERNAL_URL: process.env.API_INTERNAL_URL ?? process.env.API_PUBLIC_URL ?? 'http://localhost:4000',

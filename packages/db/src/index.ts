@@ -5,6 +5,7 @@ import type { DB } from './database';
 export type { DB } from './database';
 export * from './database';
 export { sql };
+export type { RawBuilder } from 'kysely';
 export type Db = Kysely<DB>;
 export type Tx = Transaction<DB>;
 

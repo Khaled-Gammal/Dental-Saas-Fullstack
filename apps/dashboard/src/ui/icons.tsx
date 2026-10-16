@@ -17,6 +17,7 @@ function Svg({ size = 20, children, ...rest }: P) {
 /** Brand mark: a rounded tooth outline (same path as the website and the dental arch). */
 export const ToothIcon = (p: P) => (<Svg {...p}><path d={TOOTH_PATH} /></Svg>);
 export const HomeIcon = (p: P) => (<Svg {...p}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20h14V9.5" /><path d="M10 20v-5h4v5" /></Svg>);
+export const ImageIcon = (p: P) => (<Svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-9 9" /></Svg>);
 export const PinIcon = (p: P) => (<Svg {...p}>{ICON_PATHS.pin.map((d) => <path key={d} d={d} />)}</Svg>);
 export const CalendarIcon = (p: P) => (<Svg {...p}><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></Svg>);
 export const UsersIcon = (p: P) => (<Svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .6 3.2 2.3 3.5 5.2" /></Svg>);
@@ -36,3 +37,8 @@ export const AlertIcon = (p: P) => (<Svg {...p}><circle cx="12" cy="12" r="9" />
 export const PhoneIcon = (p: P) => (<Svg {...p}>{ICON_PATHS.phone.map((d) => <path key={d} d={d} />)}</Svg>);
 export const ShieldIcon = (p: P) => (<Svg {...p}><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.3 7.5 9.5 4.4-1.2 7.5-4.9 7.5-9.5V6L12 3Z" /><path d="m9 12 2 2 4-4" /></Svg>);
 export const LangIcon = (p: P) => (<Svg {...p}><path d="M4 5h9M8.5 3v2M6 5c.6 3.6 2.8 6.4 6 8M11 5c-.6 3.6-2.8 6.4-6 8" /><path d="m13 21 4-9 4 9M14.5 18h5" /></Svg>);
+export const ListIcon = (p: P) => (<Svg {...p}><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6h.01M4 12h.01M4 18h.01" strokeWidth={2.6} /></Svg>);
+export const EditIcon = (p: P) => (<Svg {...p}><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4Z" /><path d="m13 7 4 4" /></Svg>);
+export const TagIcon = (p: P) => (<Svg {...p}><path d="M3 12V4h8l9 9-8 8-9-9Z" /><path d="M7.5 7.5h.01" strokeWidth={2.6} /></Svg>);
+/** Points forward in reading direction (flipped by CSS in RTL). */
+export const ChevronIcon = (p: P) => (<Svg {...p}><path d="m9 6 6 6-6 6" /></Svg>);

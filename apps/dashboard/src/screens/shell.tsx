@@ -3,26 +3,30 @@ import { pickName } from '@dental/ui/text';
 import { logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
 import { Badge, LinkButton, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, LangIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
 import { useProfile } from '../queries';
-import { useMediaQuery, type Page } from '../util';
+import { useMediaQuery } from '../hooks';
+import { to, type Page } from '../router';
+import { RouteLink } from '../ui/page';
 
 type NavItem = { key: Key; icon: ReactNode; page?: Page };
 const NAV: NavItem[] = [
   { key: 'navOverview', icon: <HomeIcon />, page: 'overview' },
   { key: 'navProfile', icon: <ToothIcon />, page: 'profile' },
   { key: 'navBranches', icon: <PinIcon />, page: 'branches' },
-  { key: 'navAppointments', icon: <CalendarIcon /> },
-  { key: 'navPatients', icon: <UsersIcon /> },
-  { key: 'navDoctors', icon: <StethoscopeIcon /> },
+  { key: 'navAppointments', icon: <CalendarIcon />, page: 'appointments' },
+  { key: 'navPatients', icon: <UsersIcon />, page: 'patients' },
+  { key: 'navDoctors', icon: <StethoscopeIcon />, page: 'doctors' },
+  { key: 'navServices', icon: <ListIcon />, page: 'services' },
   { key: 'navBilling', icon: <ReceiptIcon /> },
+  { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
   { key: 'navWebsite', icon: <GlobeIcon /> },
 ];
 
 export const clinicName = (session: Session, lang: Lang) => pickName(lang, session.clinic.nameAr, session.clinic.nameEn, session.clinic.slug);
 
-export function AppShell({ lang, onLang, session, page, go, children }: {
-  lang: Lang; onLang: () => void; session: Session; page: Page; go: (p: Page) => void; children: ReactNode;
+export function AppShell({ lang, onLang, session, page, children }: {
+  lang: Lang; onLang: () => void; session: Session; page: Page | 'not-found'; children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const isDrawer = useMediaQuery('(max-width: 960px)'); // must match the drawer breakpoint in styles.css
@@ -30,7 +34,6 @@ export function AppShell({ lang, onLang, session, page, go, children }: {
   const closeBtn = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
 
-  useEffect(() => setOpen(false), [page]); // close the drawer after navigating on a phone
   useEffect(() => {
     // move focus into the drawer when it opens and back to the menu button when it closes
     if (open) closeBtn.current?.focus();
@@ -72,10 +75,10 @@ export function AppShell({ lang, onLang, session, page, go, children }: {
             {NAV.map((n) => (
               <li key={n.key}>
                 {n.page ? (
-                  <a href={`#/${n.page}`} className={`nav-item${page === n.page ? ' active' : ''}`} aria-current={page === n.page ? 'page' : undefined}
-                    onClick={(e) => { e.preventDefault(); go(n.page!); }}>
+                  <RouteLink route={to.list(n.page)} className={`nav-item${page === n.page ? ' active' : ''}`} aria-current={page === n.page ? 'page' : undefined}
+                    onClick={() => setOpen(false)}>
                     {n.icon}<span>{t(n.key, lang)}</span>
-                  </a>
+                  </RouteLink>
                 ) : (
                   <span className="nav-item disabled" aria-disabled="true">
                     {n.icon}<span>{t(n.key, lang)}</span><span className="nav-soon">{t('soon', lang)}</span>

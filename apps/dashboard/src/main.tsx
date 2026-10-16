@@ -10,6 +10,7 @@ import '@fontsource/ibm-plex-sans-arabic/600.css';
 import '@fontsource/ibm-plex-sans-arabic/700.css';
 import '@dental/ui/tokens.css';
 import './styles.css';
+import './shadcn.css'; // Tailwind utilities + theme for the shadcn/ui components (no preflight)
 
 
 createRoot(document.getElementById('root')!).render(

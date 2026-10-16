@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { AUTH_POLICY } from '../../config';
+import { clipUserAgent } from '../../shared/request-meta';
 import { TenantDb } from '../../shared/database/tenant-db.service';
 import type { AuthEventType, RequestMeta } from './identity.types';
 
 /** User agents are client-controlled: store a bounded prefix only. */
-export const clipUserAgent = (ua: string | undefined) => ua?.slice(0, AUTH_POLICY.userAgentMaxLength) ?? null;
+export { clipUserAgent }; // kept for existing imports; the helper lives in shared/request-meta
 
 /** Security audit trail (auth_events has no RLS; purged after 180 days by the worker). */
 @Injectable()

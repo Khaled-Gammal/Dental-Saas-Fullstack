@@ -8,3 +8,6 @@ coverage/
 .env.local
 apps/*/.env
 packages/*/.env
+
+# uploaded files in development (STORAGE_DRIVER=local)
+.storage/

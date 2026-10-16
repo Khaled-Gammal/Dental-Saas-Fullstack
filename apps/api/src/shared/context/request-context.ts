@@ -1,4 +1,4 @@
-import { ClsStore } from 'nestjs-cls';
+import { type ClsStore } from 'nestjs-cls';
 
 /** What we know about the caller for the lifetime of one request (stored with AsyncLocalStorage). */
 export interface RequestContext extends ClsStore {
@@ -7,4 +7,7 @@ export interface RequestContext extends ClsStore {
   userId?: string;
   memberId?: string;
   permissions?: string[];
+  /** client address and agent, for audit rows (set by JwtAuthGuard) */
+  ip?: string;
+  userAgent?: string;
 }

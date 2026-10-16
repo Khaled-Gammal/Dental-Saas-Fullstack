@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { sql, type Tx } from '@dental/db';
+import { imageJson } from '../media';
 
 export interface NewBranch {
   nameEn?: string;
@@ -18,11 +19,13 @@ export interface BranchPatch {
   phone?: string | null;
   whatsapp?: string | null;
   isActive?: boolean;
+  photoFileId?: string | null;
 }
 
 export interface HoursRow { weekday: number; opens_at: string; closes_at: string }
 
 const columns = ['id', 'name_en', 'name_ar', 'slug', 'address_en', 'address_ar', 'city', 'phone', 'whatsapp', 'is_main', 'is_active'] as const;
+const photo = imageJson('branches.photo_file_id');
 /** Hours as a JSON array on each branch row: one query for the list, no N+1. */
 const hoursJson = sql<HoursRow[]>`coalesce((
   select json_agg(json_build_object('weekday', h.weekday, 'opens_at', to_char(h.opens_at, 'HH24:MI'), 'closes_at', to_char(h.closes_at, 'HH24:MI'))
@@ -32,27 +35,29 @@ const hoursJson = sql<HoursRow[]>`coalesce((
 /** Plain Kysely queries. RLS adds "WHERE tenant_id = current clinic" to every one of them. */
 @Injectable()
 export class BranchesRepository {
+  /** Active branches count against the plan; a deactivated branch frees its seat. */
+  async countActive(tx: Tx): Promise<number> {
+    const row = await tx.selectFrom('branches').select(({ fn }) => fn.countAll<number>().as('n')).where('is_active', '=', true).executeTakeFirstOrThrow();
+    return Number(row.n);
+  }
+
   list(tx: Tx) {
     return tx.selectFrom('branches')
-      .select([...columns, hoursJson.as('hours')])
+      .select([...columns, photo.as('photo'), hoursJson.as('hours')])
       .orderBy('is_main', 'desc').orderBy('sort_order').orderBy('name_en')
       .execute();
   }
 
   get(tx: Tx, id: string) {
-    return tx.selectFrom('branches').select([...columns, hoursJson.as('hours')]).where('id', '=', id).executeTakeFirst();
-  }
-
-  async exists(tx: Tx, id: string): Promise<boolean> {
-    return !!(await tx.selectFrom('branches').select('id').where('id', '=', id).executeTakeFirst());
+    return tx.selectFrom('branches').select([...columns, photo.as('photo'), hoursJson.as('hours')]).where('id', '=', id).executeTakeFirst();
   }
 
   /**
    * Locks the branch row until the transaction ends; false if it doesn't exist (in this clinic).
    * Two saves of the same week then run one after the other instead of mixing their rows.
    */
-  async lock(tx: Tx, id: string): Promise<boolean> {
-    return !!(await tx.selectFrom('branches').select('id').where('id', '=', id).forUpdate().executeTakeFirst());
+  async lock(tx: Tx, id: string): Promise<{ is_active: boolean; photo_file_id: string | null } | undefined> {
+    return tx.selectFrom('branches').select(['is_active', 'photo_file_id']).where('id', '=', id).forUpdate().executeTakeFirst();
   }
 
   /** Locks every branch of the clinic: two "make main" requests at once then can't both clear-and-set. */
@@ -78,6 +83,7 @@ export class BranchesRepository {
       ...(p.phone !== undefined && { phone: p.phone }),
       ...(p.whatsapp !== undefined && { whatsapp: p.whatsapp }),
       ...(p.isActive !== undefined && { is_active: p.isActive }),
+      ...(p.photoFileId !== undefined && { photo_file_id: p.photoFileId }),
     };
     const row = await tx.updateTable('branches').set({ ...set, updated_at: sql<Date>`now()` })
       .where('id', '=', id).returning('id').executeTakeFirst();

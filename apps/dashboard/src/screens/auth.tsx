@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { api, ApiError, setSession, type Session } from '../api';
+import { api, type ApiError, setSession, type Session } from '../api';
 import { DEMO_PASSWORD, DEMO_USERS, ROOT_DOMAIN } from '../config';
 import { t, type Lang } from '../i18n';
 import { Alert, Button, ErrorText, Field, Input, LinkButton, Logo, OtpInput, PasswordInput } from '../ui/components';
 import { CalendarIcon, CheckIcon, GlobeIcon, LangIcon, PhoneIcon, ShieldIcon } from '../ui/icons';
 import { DentalArch, SmileCanvas } from '../ui/illustrations';
-import { passwordChecks, toAsciiDigits, useDebounced } from '../util';
+import { useDebounced } from '../hooks';
+import { passwordChecks, toAsciiDigits } from '../util';
 
 export type AuthScreen = { name: 'login' } | { name: 'signup' } | { name: 'verify'; phone: string; maskedPhone: string; justSent: boolean };
 

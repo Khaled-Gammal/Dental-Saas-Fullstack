@@ -30,6 +30,7 @@ const UpdateBranch = z.object({
   phone: E164Phone.nullable().optional(),
   whatsapp: E164Phone.nullable().optional(),
   isActive: z.boolean().optional(),
+  photoFileId: z.string().uuid().nullable().optional(), // an image uploaded with ?purpose=photo; null removes it
 }).strict();
 
 // any UUID shape (seed ids are not v4); a malformed id is a 400, an unknown one a 404
@@ -41,14 +42,13 @@ const id = new ParseUUIDPipe();
 export class BranchesController {
   constructor(private readonly branches: BranchesService) {}
 
+  // reads of setup data (it is public on the clinic website) need only membership; writes need the permission
   @Get()
-  @RequirePermission('branches:read')
   list() {
     return this.branches.list();
   }
 
   @Get(':id')
-  @RequirePermission('branches:read')
   get(@Param('id', id) branchId: string) {
     return this.branches.get(branchId);
   }

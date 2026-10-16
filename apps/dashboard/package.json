@@ -7,20 +7,34 @@
     "dev": "vite --port 5173",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 5173",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@dental/ui": "workspace:*",
     "@fontsource/ibm-plex-sans-arabic": "^5.0.0",
+    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.75.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cn": "^0.4.0",
+    "date-fns": "^4.4.0",
+    "lucide-react": "^1.57.0",
+    "radix-ui": "^1.8.1",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-day-picker": "^10.0.2",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^3.1.0"
   }
 }

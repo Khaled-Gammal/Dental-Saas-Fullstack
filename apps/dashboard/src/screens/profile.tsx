@@ -2,11 +2,14 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { onColor, pickName, readableOnWhite } from '@dental/ui/text';
 import { api } from '../api';
+import { ImageField } from '../components/image-field';
+import { imageFieldValue } from '../media-model';
 import { t, type Lang } from '../i18n';
 import { keys, useInvalidate, useOnboarding, useProfile, usePublish } from '../queries';
-import type { ClinicProfile } from '../types';
+import type { ClinicProfile, MediaImage } from '../types';
 import { Alert, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../ui/components';
 import { CheckIcon, GlobeIcon, PhoneIcon, ToothIcon } from '../ui/icons';
+import { diffText } from '../util';
 
 /** Dental-friendly presets; any #rrggbb works and the website keeps text readable on it. */
 const PRESETS = ['#1d6fd8', '#0e9aa7', '#12b5a0', '#0f2f5c', '#6d4ed6', '#d6457a'];
@@ -14,22 +17,15 @@ const DEFAULT_BRAND = PRESETS[0];
 
 type Form = {
   nameAr: string; nameEn: string; aboutAr: string; aboutEn: string;
-  primaryPhone: string; whatsapp: string; email: string; brandColor: string;
+  primaryPhone: string; whatsapp: string; email: string; brandColor: string; logo: MediaImage | null;
 };
 const toForm = (p: ClinicProfile): Form => ({
   nameAr: p.nameAr ?? '', nameEn: p.nameEn ?? '', aboutAr: p.aboutAr ?? '', aboutEn: p.aboutEn ?? '',
   primaryPhone: p.primaryPhone ?? '', whatsapp: p.whatsapp ?? '', email: p.email ?? '',
-  brandColor: (p.brandColor ?? DEFAULT_BRAND).toLowerCase(),
+  brandColor: (p.brandColor ?? DEFAULT_BRAND).toLowerCase(), logo: p.logo ?? null,
 });
-/** Only the fields that changed are sent; an emptied field is sent as null (cleared). */
-function diff(before: Form, after: Form): Record<string, string | null> {
-  const out: Record<string, string | null> = {};
-  for (const k of Object.keys(after) as (keyof Form)[]) {
-    const a = after[k].trim();
-    if (a !== before[k].trim()) out[k] = a === '' ? null : a;
-  }
-  return out;
-}
+const FIELDS = ['nameAr', 'nameEn', 'aboutAr', 'aboutEn', 'primaryPhone', 'whatsapp', 'email', 'brandColor'] as const;
+type Changes = Partial<Record<(typeof FIELDS)[number] | 'logoFileId', string | null>>;
 
 export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: string; canEdit: boolean }) {
   const profile = useProfile(clinicId);
@@ -45,17 +41,19 @@ export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: str
     if (profile.data && !orig) { const f = toForm(profile.data); setOrig(f); setForm(f); }
   }, [profile.data, orig]);
 
-  const changes = form && orig ? diff(orig, form) : {};
+  const logoChange = form && orig ? imageFieldValue(form.logo, orig.logo) : undefined;
+  const changes: Changes = form && orig ? { ...diffText(orig, form, FIELDS), ...(logoChange !== undefined && { logoFileId: logoChange }) } : {};
   const dirty = Object.keys(changes).length > 0;
 
   const save = useMutation({
-    mutationFn: (body: Record<string, string | null>) => api<ClinicProfile>('/clinic/profile', { method: 'PATCH', body: JSON.stringify(body) }),
+    mutationFn: (body: Changes) => api<ClinicProfile>('/clinic/profile', { method: 'PATCH', body: JSON.stringify(body) }),
     onSuccess: (p, sent) => {
       qc.setQueryData(keys.profile(clinicId), p);
       const saved = toForm(p);
       setOrig(saved);
       // keep anything typed while the request was in flight; only the fields we sent take the server's value
-      setForm((f) => (f ? { ...f, ...Object.fromEntries(Object.keys(sent).map((k) => [k, saved[k as keyof Form]])) } : saved));
+      const field = (k: string): keyof Form => (k === 'logoFileId' ? 'logo' : (k as keyof Form));
+      setForm((f) => (f ? { ...f, ...Object.fromEntries(Object.keys(sent).map((k) => [field(k), saved[field(k)]])) } : saved));
       void invalidate();
     },
   });
@@ -113,6 +111,10 @@ export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: str
 
         <aside className="stack profile-side">
           <Card>
+            <ImageField lang={lang} purpose="logo" shape="logo" value={form.logo} label={t('clinicLogo', lang)} disabled={!canEdit}
+              onChange={(logo) => { setForm((f) => (f ? { ...f, logo } : f)); if (save.isSuccess || save.isError) save.reset(); }} />
+          </Card>
+          <Card>
             <h2>{t('secBrand', lang)}</h2>
             <p className="muted small">{t('brandHint', lang)}</p>
             <div className="swatches mt" role="group" aria-label={t('secBrand', lang)}>
@@ -154,7 +156,7 @@ function BrandPreview({ lang, form }: { lang: Lang; form: Form }) {
     <div className="mt">
       <span className="eyebrow-label">{t('preview', lang)}</span>
       <div className="brand-preview" style={style} aria-hidden>
-        <div className="bp-nav"><span className="bp-mark"><ToothIcon size={14} /></span><bdi>{name}</bdi></div>
+        <div className="bp-nav">{form.logo ? <img className="bp-logo" src={form.logo.thumbUrl} alt="" /> : <span className="bp-mark"><ToothIcon size={14} /></span>}<bdi>{name}</bdi></div>
         <div className="bp-body">
           <strong><bdi>{name}</bdi></strong>
           <p>{(lang === 'ar' ? form.aboutAr || form.aboutEn : form.aboutEn || form.aboutAr).slice(0, 90) || '…'}</p>

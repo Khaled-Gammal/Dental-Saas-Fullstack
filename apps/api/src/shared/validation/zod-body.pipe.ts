@@ -1,4 +1,4 @@
-import { BadRequestException, PipeTransform } from '@nestjs/common';
+import { BadRequestException, type PipeTransform } from '@nestjs/common';
 import type { ZodType, ZodTypeDef } from 'zod';
 
 /** Validates a request body with a Zod schema: @Body(new ZodBody(schema)) */

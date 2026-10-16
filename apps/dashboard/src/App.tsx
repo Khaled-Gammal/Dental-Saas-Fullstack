@@ -3,18 +3,36 @@ import { can, refreshSession, subscribeSession, type Session } from './api';
 import { savedLang, t, type Lang } from './i18n';
 import { LangContext } from './lang';
 import { AuthLayout, Login, Signup, Verify, type AuthScreen } from './screens/auth';
-import { Branches, Overview } from './screens/pages';
+import { useRoute } from './hooks';
+import { BranchForm } from './screens/branches/form';
+import { BranchHours } from './screens/branches/hours';
+import { BranchesList } from './screens/branches/list';
+import { DoctorForm } from './screens/doctors/form';
+import { DoctorsList } from './screens/doctors/list';
+import { DoctorSchedule } from './screens/doctors/schedule';
+import { Appointments } from './screens/appointments/list';
+import { NewAppointment } from './screens/appointments/new';
+import { PatientForm } from './screens/patients/form';
+import { PatientsList } from './screens/patients/list';
+import { PatientProfile } from './screens/patients/profile';
+import { GalleryForm } from './screens/gallery/form';
+import { GalleryList } from './screens/gallery/list';
+import { GalleryUpload } from './screens/gallery/new';
+import { Overview } from './screens/overview';
 import { Profile } from './screens/profile';
+import { ServiceFormPage } from './screens/services/form';
+import { ServicesList } from './screens/services/list';
 import { AppShell } from './screens/shell';
 import { Logo, Spinner } from './ui/components';
-import { useHashPage } from './util';
+import { NotFound } from './ui/page';
+import { to, type Route } from './router';
 
 export function App() {
   const [lang, setLang] = useState<Lang>(savedLang);
   const [session, setSessionState] = useState<Session | null>(null);
   const [booting, setBooting] = useState(true);
   const [screen, setScreen] = useState<AuthScreen>({ name: 'login' });
-  const [page, go] = useHashPage();
+  const route = useRoute();
 
   useEffect(() => {
     subscribeSession((s) => {
@@ -52,12 +70,62 @@ export function App() {
     );
   } else {
     view = (
-      <AppShell lang={lang} onLang={toggleLang} session={session} page={page} go={go}>
-        {page === 'branches' ? <Branches lang={lang} clinicId={session.clinic.id} canWrite={can(session, 'branches:write')} />
-          : page === 'profile' ? <Profile lang={lang} clinicId={session.clinic.id} canEdit={can(session, 'settings:write')} />
-          : <Overview lang={lang} session={session} go={go} />}
+      <AppShell lang={lang} onLang={toggleLang} session={session} page={route.page}>
+        <Screen route={route} lang={lang} session={session} />
       </AppShell>
     );
   }
   return <LangContext.Provider value={lang}>{view}</LangContext.Provider>;
+}
+
+/** Route -> screen. Permissions only hide what the API would refuse; the server is the real gate. */
+function Screen({ route, lang, session }: { route: Route; lang: Lang; session: Session }) {
+  const clinicId = session.clinic.id;
+  const settings = can(session, 'settings:write');
+  const { page, id, action } = route;
+  switch (page) {
+    case 'overview': return <Overview lang={lang} session={session} />;
+    case 'profile': return <Profile lang={lang} clinicId={clinicId} canEdit={settings} />;
+    case 'branches': {
+      const w = can(session, 'branches:write');
+      if (action === 'new' && w) return <BranchForm lang={lang} clinicId={clinicId} />;
+      if (action === 'edit' && w) return <BranchForm lang={lang} clinicId={clinicId} id={id} />;
+      if (action === 'hours' && w) return <BranchHours lang={lang} clinicId={clinicId} id={id} />;
+      if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('branches')} backLabel={t('branches', lang)} />;
+      return <BranchesList lang={lang} clinicId={clinicId} canWrite={w} />;
+    }
+    case 'appointments':
+      if (action === 'new' && can(session, 'appointments:write')) return <NewAppointment lang={lang} clinicId={clinicId} patientId={route.query?.patient} canOverride={can(session, 'appointments:override')} />;
+      if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('appointments')} backLabel={t('navAppointments', lang)} />;
+      return <Appointments lang={lang} clinicId={clinicId} canWrite={can(session, 'appointments:write')} canOwn={can(session, 'appointments:write:own')} query={route.query} />;
+    case 'gallery': {
+      // website content is the owner's (SRS 2.2: Website & content)
+      if (!can(session, 'website:write')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
+      if (action === 'new') return <GalleryUpload lang={lang} clinicId={clinicId} query={route.query} />;
+      if (action === 'edit') return <GalleryForm lang={lang} clinicId={clinicId} id={id} />;
+      return <GalleryList lang={lang} clinicId={clinicId} query={route.query} />;
+    }
+    case 'patients': {
+      const write = can(session, 'patients:write');
+      if (!can(session, 'patients:read')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
+      if (action === 'new' && write) return <PatientForm lang={lang} clinicId={clinicId} />;
+      if (action === 'edit' && write) return <PatientForm lang={lang} clinicId={clinicId} id={id} />;
+      if (action === 'view') return <PatientProfile lang={lang} clinicId={clinicId} id={id} session={session} />;
+      if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('patients')} backLabel={t('navPatients', lang)} />;
+      return <PatientsList lang={lang} clinicId={clinicId} canWrite={write} canBook={can(session, 'appointments:write')} />;
+    }
+    case 'doctors':
+      if (action === 'new' && settings) return <DoctorForm lang={lang} clinicId={clinicId} />;
+      if (action === 'edit' && settings) return <DoctorForm lang={lang} clinicId={clinicId} id={id} />;
+      if (action === 'schedule' && settings) return <DoctorSchedule lang={lang} clinicId={clinicId} id={id} />;
+      if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('doctors')} backLabel={t('navDoctors', lang)} />;
+      return <DoctorsList lang={lang} clinicId={clinicId} canWrite={settings} />;
+    case 'services':
+      if (action === 'new' && settings) return <ServiceFormPage lang={lang} clinicId={clinicId} catalogCode={route.query?.catalog} />;
+      if (action === 'edit' && settings) return <ServiceFormPage lang={lang} clinicId={clinicId} id={id} />;
+      if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('services')} backLabel={t('navServices', lang)} />;
+      return <ServicesList lang={lang} clinicId={clinicId} canWrite={settings} />;
+    default:
+      return <NotFound text={t('notFoundText', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
+  }
 }

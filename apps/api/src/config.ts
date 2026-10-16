@@ -30,6 +30,24 @@ const schema = z.object({
   // the Next.js website, reached from the API to purge its cache after a publish
   WEB_INTERNAL_URL: z.string().default('http://localhost:3000'),
   REVALIDATE_SECRET: z.string().min(16).default('dev-only-revalidate-secret'),
+  // Which proxy hops may set X-Forwarded-For (Express "trust proxy"): 'loopback' when the website runs on the same host;
+  // a subnet or list ("loopback, 10.0.0.0/8") when it runs in another container; a hop count ("1"); or true/false.
+  // The public booking throttles are per client IP, so this must match the deployment.
+  TRUST_PROXY: z.string().default('loopback').transform((v): boolean | number | string => (v === 'true' ? true : v === 'false' ? false : /^\d+$/.test(v) ? Number(v) : v)),
+  // public address of this API: signed media links in the dashboard point here
+  API_PUBLIC_URL: z.string().default('http://localhost:4000'),
+  // Object storage for uploads. 'local' keeps files on disk (development and tests); 's3' is any S3-compatible service
+  // (Cloudflare R2, AWS S3, MinIO, SeaweedFS ...). Production refuses 'local'.
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_DIR: z.string().default(path.resolve(__dirname, '../../../.storage')),
+  S3_ENDPOINT: z.string().optional(),
+  S3_REGION: z.string().default('us-east-1'),
+  S3_ACCESS_KEY: z.string().optional(),
+  S3_SECRET_KEY: z.string().optional(),
+  S3_BUCKET: z.string().default('dental-dev'),
+  S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  // signs short-lived links to private media (dashboard previews of unpublished images)
+  MEDIA_URL_SECRET: z.string().min(16).default('dev-only-media-url-secret'),
   SWAGGER_ENABLED: z.enum(['true', 'false']).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
 });
 
@@ -47,7 +65,9 @@ export function loadConfig(overrides: Partial<Record<keyof AppConfig, string>> =
       c.DEV_LOGIN_ENABLED && 'DEV_LOGIN_ENABLED must be false',
       !c.RATE_LIMIT_ENABLED && 'RATE_LIMIT_ENABLED must be true',
       c.SMS_PROVIDER === 'dev' && 'SMS_PROVIDER=dev cannot send real texts; configure a real provider',
-      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET'] as const)
+      c.STORAGE_DRIVER === 'local' && 'STORAGE_DRIVER=local keeps uploads on one machine; use s3 (R2, S3 or another S3-compatible service)',
+      c.STORAGE_DRIVER === 's3' && !(c.S3_ENDPOINT && c.S3_ACCESS_KEY && c.S3_SECRET_KEY) && 'S3_ENDPOINT, S3_ACCESS_KEY and S3_SECRET_KEY are required for STORAGE_DRIVER=s3',
+      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET', 'MEDIA_URL_SECRET'] as const)
         .filter((k) => c[k] === DEV_OTP_SECRET || c[k].startsWith('dev-only') || c[k].length < 32)
         .map((k) => `${k} must be a long random value (not the development one)`),
     ].filter(Boolean);
@@ -86,9 +106,34 @@ export const AUTH_POLICY = {
   userAgentMaxLength: 300,
 } as const;
 
+/** Image uploads: what is accepted and what is produced. */
+export const MEDIA_POLICY = {
+  maxUploadBytes: 10 * 1024 * 1024,
+  acceptedFormats: ['jpeg', 'png', 'webp'] as const,
+  maxInputPixels: 40_000_000, // ~ a 7300 x 5500 photo; bigger is refused before decoding
+  webpQuality: 80, // WebP renditions at the purpose's widths, never upscaled
+  signedUrlSeconds: 15 * 60,
+  /**
+   * What an upload is for decides its stored kind, the smallest accepted side and the rendition widths:
+   * gallery photos are shown large; doctor/service/branch photos as cards; a logo is small and often wide and short.
+   */
+  purposes: {
+    gallery: { kind: 'gallery', minSide: 200, widths: [480, 960, 1600] },
+    photo: { kind: 'image', minSide: 200, widths: [320, 640, 1280] },
+    logo: { kind: 'logo', minSide: 48, widths: [128, 256, 512] },
+  },
+} as const;
+
+export type MediaPurpose = keyof typeof MEDIA_POLICY.purposes;
+export type MediaKind = (typeof MEDIA_POLICY.purposes)[MediaPurpose]['kind'];
+
 /** Background job schedule. */
 export const WORKER_POLICY = {
+  outboxEveryMs: 5_000,
+  notificationsEveryMs: 30_000,
   releaseHoldsEveryMs: 60_000,
+  noShowEveryMs: 5 * 60_000,
   purgeAuthCron: '15 3 * * *',
+  purgeImagesCron: '45 3 * * *',
   timezone: 'Africa/Cairo',
 } as const;

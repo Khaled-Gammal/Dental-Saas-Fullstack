@@ -1,0 +1,55 @@
+/*
+ * Tailwind v4 for the shadcn/ui components only. Preflight is NOT imported: the dashboard's own stylesheet
+ * (styles.css) keeps its base styles, and Tailwind supplies the theme and the utilities the components use.
+ * The shadcn colour variables point at the design tokens in @dental/ui/tokens.css, so both systems share one palette.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+:root {
+  --background: var(--card);
+  --foreground: var(--ink);
+  --card-foreground: var(--ink);
+  --popover: var(--card);
+  --popover-foreground: var(--ink);
+  --primary: var(--primary-500);
+  --primary-foreground: #ffffff;
+  --secondary: var(--primary-50);
+  --secondary-foreground: var(--primary-700);
+  /* --muted and --ring are NOT redefined here: the design tokens already use those names (muted = secondary text
+     colour, ring = the focus box-shadow), and overwriting them broke grey text and focus rings app-wide.
+     The Tailwind colours below point at the right tokens instead. */
+  --accent: var(--primary-50);
+  --accent-foreground: var(--primary-700);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --font-sans: var(--font);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--surface);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--primary-500);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}

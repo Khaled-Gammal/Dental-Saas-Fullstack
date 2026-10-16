@@ -7,9 +7,9 @@ BEGIN;
 
 INSERT INTO plans (id, code, name_en, name_ar, price_monthly_minor, price_yearly_minor, currency, limits, features, sort_order) VALUES
  ('00000000-0000-0000-0000-00000000a001','basic','Basic','الأساسية', 50000, 500000,'EGP',
-  '{"branches":1,"staff":5,"patients":2000,"sms_credits":200,"storage_mb":2048}','{"custom_domain":false,"online_payments":false}',1),
+  '{"branches":1,"doctors":3,"staff":5,"patients":2000,"sms_credits":200,"storage_mb":2048}','{"custom_domain":false,"online_payments":false}',1),
  ('00000000-0000-0000-0000-00000000a002','pro','Pro','الاحترافية', 120000, 1200000,'EGP',
-  '{"branches":5,"staff":30,"patients":50000,"sms_credits":1000,"storage_mb":20480}','{"custom_domain":true,"online_payments":true,"remove_badge":true}',2)
+  '{"branches":5,"doctors":15,"staff":30,"patients":50000,"sms_credits":1000,"storage_mb":20480}','{"custom_domain":true,"online_payments":true,"remove_badge":true}',2)
 ON CONFLICT DO NOTHING;  -- also created by migration 0003
 
 INSERT INTO templates (id, code, name, sections_schema, default_theme) VALUES

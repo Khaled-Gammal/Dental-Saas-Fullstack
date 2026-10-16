@@ -51,7 +51,7 @@ export function SmileCanvas({ className = '' }: { className?: string }) {
     const sparkle = new Path2D(SPARKLE_PATH);
     let w = 0, h = 0, raf = 0, last = 0, visible = true;
     let rect = canvas.getBoundingClientRect(); // cached: reading it on every pointermove would force layout
-    let parts: Particle[] = [];
+    const parts: Particle[] = [];
     const pointer = { x: 0.5, y: 0.5 };
     // colours come from the design tokens so the canvas follows any palette change
     const css = getComputedStyle(canvas);

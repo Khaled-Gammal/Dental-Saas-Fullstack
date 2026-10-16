@@ -30,8 +30,8 @@ export function Overview({ lang, session, go }: { lang: Lang; session: Session; 
     { key: 'stepProfile', done: !!status?.profile, action: { label: 'goProfile', go: () => go('profile') } },
     { key: 'stepBranch', done: !!status?.branches, action: { label: 'goBranches', go: () => go('branches') } },
     { key: 'stepHours', done: !!status?.hours, action: { label: 'goHours', go: () => go('branches') } },
-    { key: 'stepDoctors', done: !!status?.doctors },
-    { key: 'stepServices', done: !!status?.services },
+    { key: 'stepDoctors', done: !!status?.doctors, action: { label: 'goDoctors', go: () => go('doctors') } },
+    { key: 'stepServices', done: !!status?.services, action: { label: 'goServices', go: () => go('services') } },
     // "published" also means "nothing waiting": a pending draft re-opens the step
     { key: 'stepPublish', done: !!status?.published && !status?.pendingChanges, action: { label: 'goPublish', go: () => publish.mutate(), busy: publish.isPending } },
   ];

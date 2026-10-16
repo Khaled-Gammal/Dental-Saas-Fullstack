@@ -1,46 +1,8 @@
-import { useEffect, useState } from 'react';
+import type { Lang } from './i18n';
 export { toAsciiDigits } from '@dental/ui/text';
 
-export function useDebounced<T>(value: T, ms: number): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(id);
-  }, [value, ms]);
-  return v;
-}
-
-/** True while the media query matches; follows window resizes. */
-export function useMediaQuery(query: string): boolean {
-  const [match, setMatch] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const m = window.matchMedia(query);
-    const on = () => setMatch(m.matches);
-    on();
-    m.addEventListener('change', on);
-    return () => m.removeEventListener('change', on);
-  }, [query]);
-  return match;
-}
-
-export type Page = 'overview' | 'profile' | 'branches';
-const PAGES: readonly Page[] = ['overview', 'profile', 'branches'];
-/** The page named in the URL hash, or null for any other hash (e.g. the #main skip-link target). */
-const readHash = (): Page | null => {
-  const p = window.location.hash.replace(/^#\/?/, '');
-  return (PAGES as readonly string[]).includes(p) ? (p as Page) : null;
-};
-
-/** Tiny hash router: the page survives a reload and Back/Forward work, without a router dependency. */
-export function useHashPage(): [Page, (p: Page) => void] {
-  const [page, setPage] = useState<Page>(() => readHash() ?? 'overview');
-  useEffect(() => {
-    const on = () => { const p = readHash(); if (p) setPage(p); }; // unknown hashes (anchors) keep the current page
-    window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
-  }, []);
-  return [page, (p) => { window.location.hash = `/${p}`; }];
-}
+/** Numbers everywhere in the dashboard use Western digits with Egyptian grouping (6/7, 10:00, 2,500), in both languages. */
+export const fmtNumber = (n: number, lang: Lang) => n.toLocaleString(lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-EG');
 
 /**
  * Password rules shown live under the field; the API enforces the same ones (identity/crypto.ts).
@@ -48,4 +10,30 @@ export function useHashPage(): [Page, (p: Page) => void] {
  */
 export function passwordChecks(pw: string) {
   return { length: pw.length >= 8 && pw.length <= 128, letter: /\p{L}/u.test(pw), digit: /\p{Nd}/u.test(pw) };
+}
+
+/** Only the fields that changed are sent; an emptied text field is sent as null (cleared). */
+export function diffText<K extends string>(before: Record<K, string>, after: Record<K, string>, keys: readonly K[]): Partial<Record<K, string | null>> {
+  const out: Partial<Record<K, string | null>> = {};
+  for (const k of keys) {
+    const a = after[k].trim();
+    if (a !== before[k].trim()) out[k] = a === '' ? null : a;
+  }
+  return out;
+}
+
+/**
+ * The instant (ms) of a wall-clock time on a date in an IANA zone, e.g. 17:00 on 2026-10-24 in Africa/Cairo.
+ * Two passes over the zone offset handle DST edges. Same algorithm as the API's shared/time/clinic-time.ts.
+ */
+export function zonedToUtc(date: string, time: string, tz: string): number {
+  const [y, m, d] = date.split('-').map(Number);
+  const [h, mi] = time.split(':').map(Number);
+  const asUtc = Date.UTC(y, m - 1, d, h, mi);
+  const offsetAt = (ms: number) => {
+    const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ms));
+    const n = (type: Intl.DateTimeFormatPartTypes) => Number(p.find((x) => x.type === type)?.value ?? '0');
+    return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour') % 24, n('minute'), n('second')) - ms;
+  };
+  return asUtc - offsetAt(asUtc - offsetAt(asUtc));
 }

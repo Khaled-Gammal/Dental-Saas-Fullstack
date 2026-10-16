@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '../../config';
+import { DevEmailSender } from './dev-email.sender';
 import { DevSmsSender } from './dev-sms.sender';
 import { EMAIL_SENDER, SMS_SENDER, type EmailSender, type SmsSender } from './ports';
 import { SmtpEmailSender } from './smtp-email.sender';
@@ -8,7 +9,12 @@ import { SmtpEmailSender } from './smtp-email.sender';
 @Global()
 @Module({
   providers: [
-    { provide: EMAIL_SENDER, useClass: SmtpEmailSender },
+    {
+      // production talks SMTP directly; development/test keep a copy in memory and survive a stopped Mailpit
+      provide: EMAIL_SENDER,
+      inject: [APP_CONFIG],
+      useFactory: (cfg: AppConfig): EmailSender => (cfg.NODE_ENV === 'production' ? new SmtpEmailSender(cfg) : new DevEmailSender(new SmtpEmailSender(cfg))),
+    },
     {
       // one adapter per provider; config.ts refuses SMS_PROVIDER=dev in production
       provide: SMS_SENDER,

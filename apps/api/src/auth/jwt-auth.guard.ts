@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import type { Request } from 'express';
 import type { RequestContext } from '../shared/context/request-context';
+import { clipUserAgent } from '../shared/request-meta';
 import { IS_PUBLIC } from './decorators';
 import { TokenService, type AccessTokenPayload } from './token.service';
 
@@ -16,10 +17,15 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest<Request>();
+    // who is calling, for audit rows — public requests too (an online booking writes patient audit entries)
+    if (req.ip) this.cls.set('ip', req.ip);
+    const ua = clipUserAgent(req.headers['user-agent']);
+    if (ua) this.cls.set('userAgent', ua);
+
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, [ctx.getHandler(), ctx.getClass()]);
     if (isPublic) return true;
 
-    const req = ctx.switchToHttp().getRequest<Request>();
     const [scheme, token] = (req.headers.authorization ?? '').split(' ');
     if (scheme !== 'Bearer' || !token) throw new UnauthorizedException('Missing access token');
 

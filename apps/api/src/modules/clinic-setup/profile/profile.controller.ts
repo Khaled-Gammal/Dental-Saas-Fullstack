@@ -21,6 +21,7 @@ const UpdateProfile = z.object({
   specialties: z.array(z.string().trim().min(2).max(60)).max(12).optional(),
   defaultLocale: z.enum(['ar', 'en']).optional(),
   brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #1d6fd8').optional(),
+  logoFileId: z.string().uuid().nullable().optional(), // an image uploaded with ?purpose=logo; null removes it
 }).strict();
 
 @ApiTags('clinic')
