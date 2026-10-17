@@ -10,7 +10,6 @@ import { AppModule } from '../src/app.module';
 const NASR = 'd0000000-0000-0000-0000-0000000000a1';
 const SCALING = '90000000-0000-0000-0000-0000000000a2'; // 600.00
 const FILLING = '90000000-0000-0000-0000-0000000000a3'; // 800.00–1200.00
-const NOUR = '70000000-0000-0000-0000-0000000000a2'; // never treated by Dr. Mona in this suite
 
 describe('Billing: invoices, payments, reversals, refunds (e2e, Phase E1)', () => {
   let app: INestApplication;
@@ -52,7 +51,9 @@ describe('Billing: invoices, payments, reversals, refunds (e2e, Phase E1)', () =
 
   it('the doctor sees their own patient\'s billing, not others\'; the accountant sees all; another clinic nothing', async () => {
     await http().get(`/patients/${patientId}/billing`).set(as('doctorA')).expect(200);
-    expect((await http().get(`/patients/${NOUR}/billing`).set(as('doctorA')).expect(403)).body.code).toBe('missing_permission');
+    // a patient Dr. Mona has never seen or booked (not a seed patient: other suites book those with her)
+    const stranger = (await http().post('/patients').set(as('receptionA')).send({ fullName: `لم يزر د. منى ${run}`, phone: `0105${run}` }).expect(201)).body.id;
+    expect((await http().get(`/patients/${stranger}/billing`).set(as('doctorA')).expect(403)).body.code).toBe('missing_permission');
     await http().get(`/invoices/${invoiceId}`).set(as('accountantA')).expect(200);
     await http().get(`/invoices/${invoiceId}`).set(as('ownerB')).expect(404);
   });
