@@ -44,7 +44,7 @@ Applied to the test and dev databases; types regenerated. No data is deleted or 
 | API e2e + unit | **18 suites, 194 tests passed** (new `patients-d3.e2e-spec.ts`, 7 cases: normalised search, duplicates by phone/name and never a block, versions and reception refused, X-ray upload with the type taken from the bytes, signed link bound to the member + tampering + audit, reception and another clinic refused, archive with reason; new `clinical-files.spec.ts`, 5 cases: file sniffing, link signing/expiry/binding, storage keys) |
 | Dashboard unit | **51 passed** |
 | Website unit | 20 passed |
-| GitHub CI | D2 branch run 39055317969 **success**; D3 runs when the branch is pushed |
+| GitHub CI | **success**: run 39056413149 on `v4/phase-d3-patients` (commit 3c2dfb4) |
 
 **Not done: the browser check.** Same limit as in D1/D2: the connected Chrome could not open `localhost:5173`.
 

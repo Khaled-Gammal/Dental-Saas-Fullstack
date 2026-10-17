@@ -16,7 +16,7 @@ Last updated: 2026-10-17, end of Phase D3 (reviews in `docs/reviews/`: phase C, 
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
-| CI on GitHub | run 39055317969 on `v4/phase-d2-scheduling`: **success** (all steps). D3 not pushed yet |
+| CI on GitHub | **success**: run 39055317969 (`v4/phase-d2-scheduling`) and run 39056413149 (`v4/phase-d3-patients`, commit 3c2dfb4) |
 | Browser check of the D1, D2 and D3 screens | **not done**: the connected Chrome could not open `localhost:5173` (see the D1 review) |
 
 ## Clinic workflow (SRS §3)
