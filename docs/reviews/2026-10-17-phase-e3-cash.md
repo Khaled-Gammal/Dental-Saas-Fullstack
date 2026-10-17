@@ -78,7 +78,7 @@ Scope: SRS EXP-001…004 and CASH-001…004, with the accepted defaults of CLR-0
 | API (`pnpm --filter @dental/api test`) | 26 suites, **259 tests passed** (new unit `finance-rules.spec.ts`: 7; new e2e `finance.e2e-spec.ts`: 7 — run twice in a row on the same database to check it is repeatable) |
 | Dashboard / website unit | 67 / 20 passed (new `finance-model.test.ts`) |
 | `pnpm build`, `pnpm typecheck`, `pnpm lint` | passed |
-| CI | pending (pushed with this commit) |
+| CI | **success**: run 39069462390 (`v4/phase-e3-cash`, ccc0942) |
 | Browser | not driven by me: two Chrome browsers were connected. You were already using `#/cash` and `#/expenses` on the dev data (you opened Nasr City at 5 000, recorded a cash rent expense at Maadi, and closed at a counted 6 400 = expected 6 400). I read the same data back through the API as the owner, and it was correct |
 
 ## Decisions made in this phase (please confirm or change)
