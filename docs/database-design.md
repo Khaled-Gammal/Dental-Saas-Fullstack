@@ -222,6 +222,14 @@ active and in `doctor_branches` for the branch. Risk: low. Existing rows are not
 
 ### 6.2 Phase D — clinic workflow
 
+**D1 applied 2026-10-17 (migration 0017):** D-01 (`invitations.job_title`, `invitations.doctor_id`, one open
+invitation per email `invitations_one_open_per_email`, definer `open_invitation(token_hash)`); D-02
+(`tenant_members.access_version`, bumped by triggers on role/status/all_branches and on `member_branches`, read per
+request through definer `member_access_state(member)`); plus `tenant_members_keep_owner()` (a clinic keeps one active
+owner, serialized by an advisory lock) and the audit triggers of AUDIT-003 on clinic setup and staff tables
+(`audit_row_change()` now also handles tables keyed by something other than `id`, and stays silent during a tenant
+hard delete). D-03 onwards are still proposals.
+
 | ID | Change | Requirement | Risk |
 | --- | --- | --- | --- |
 | D-01 | `invitations` + `job_title text`, `doctor_id uuid` (composite FK to `doctors`), index on `(tenant_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL` | ACCESS-001 | low |

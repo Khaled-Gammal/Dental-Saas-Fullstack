@@ -2,7 +2,7 @@
  * Hash routes, one per screen: `#/doctors`, `#/doctors/new`, `#/doctors/<id>/edit`, `#/doctors/<id>/schedule`.
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
-export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery';
+export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff';
 export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view';
 
 /** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
@@ -23,7 +23,17 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   gallery: ['new', 'edit'],
   doctors: ['new', 'edit', 'schedule'],
   services: ['new', 'edit'],
+  staff: ['new', 'edit'], // `new` = invite someone; `edit` = a member's role, branches and status
 };
+
+/**
+ * `#/invite/<token>`: the link in a staff invitation email. Not a dashboard page — it opens without a session —
+ * so it is parsed on its own. Returns the token, or null for any other hash.
+ */
+export function invitationToken(hash: string): string | null {
+  const m = /^#\/invite\/([A-Za-z0-9_-]{32,64})$/.exec(hash);
+  return m ? m[1] : null;
+}
 const isPage = (s: string): s is Page => s in ACTIONS;
 const NOT_FOUND: Route = { page: 'not-found' };
 

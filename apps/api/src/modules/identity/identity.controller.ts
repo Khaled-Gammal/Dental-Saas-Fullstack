@@ -9,6 +9,7 @@ import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { DisplayName, OtpCode, PhoneText, TenantSlug } from '../../shared/validation/common';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { LoginService } from './login.service';
+import { PasswordResetService } from './password-reset.service';
 import { SessionCookie, requestMeta } from './session-cookie';
 import { SessionService } from './session.service';
 import { SignupService } from './signup.service';
@@ -27,6 +28,8 @@ const SlugQuery = z.string().trim().toLowerCase().max(63).catch('');
 const Email = z.string().trim().toLowerCase().email().max(200);
 const Resend = z.object({ email: Email });
 const Verify = z.object({ email: Email, code: OtpCode });
+const ForgotPassword = z.object({ email: Email });
+const ResetPassword = z.object({ email: Email, code: OtpCode, password: z.string().min(8).max(128) });
 const Login = z.object({
   identifier: z.string().trim().min(3).max(200), // email or phone
   password: z.string().min(1).max(128),
@@ -42,6 +45,7 @@ export class IdentityController {
   constructor(
     private readonly signups: SignupService,
     private readonly logins: LoginService,
+    private readonly passwords: PasswordResetService,
     private readonly sessions: SessionService,
     private readonly cookie: SessionCookie,
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
@@ -83,6 +87,24 @@ export class IdentityController {
   async verifyEmail(@Body(new ZodBody(Verify)) body: z.infer<typeof Verify>, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.throttle(req, 'otpVerify');
     return this.cookie.issue(res, await this.signups.verifyEmail(body.email, body.code, requestMeta(req)));
+  }
+
+  /** Forgot password: always 202, whether or not the email has an account (SRS AUTH-102). */
+  @Public()
+  @Post('password/forgot')
+  @HttpCode(202)
+  async forgotPassword(@Body(new ZodBody(ForgotPassword)) body: z.infer<typeof ForgotPassword>, @Req() req: Request) {
+    await this.throttle(req, 'otpResend');
+    return this.passwords.request(body.email, requestMeta(req));
+  }
+
+  /** The emailed code + a new password. Ends every session of the account; the user then signs in again. */
+  @Public()
+  @Post('password/reset')
+  @HttpCode(204)
+  async resetPassword(@Body(new ZodBody(ResetPassword)) body: z.infer<typeof ResetPassword>, @Req() req: Request) {
+    await this.throttle(req, 'otpVerify');
+    await this.passwords.reset(body.email, body.code, body.password, requestMeta(req));
   }
 
   @Public()

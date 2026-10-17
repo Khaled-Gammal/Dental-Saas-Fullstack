@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { href, parseRoute, to } from '../router';
+import { href, invitationToken, parseRoute, to } from '../router';
 
 describe('parseRoute', () => {
   it('maps hashes to routes', () => {
@@ -26,6 +26,24 @@ describe('parseRoute', () => {
 
   it('keeps a query on create pages', () => {
     expect(parseRoute('#/services/new?catalog=rct')).toEqual({ page: 'services', action: 'new', query: { catalog: 'rct' } });
+  });
+});
+
+describe('staff and invitation links', () => {
+  it('has invite and edit pages', () => {
+    expect(parseRoute('#/staff')).toEqual({ page: 'staff' });
+    expect(parseRoute('#/staff/new')).toEqual({ page: 'staff', action: 'new' });
+    expect(parseRoute('#/staff/m1/edit')).toEqual({ page: 'staff', id: 'm1', action: 'edit' });
+    expect(parseRoute('#/staff/m1/schedule')).toEqual({ page: 'not-found' });
+  });
+
+  it('reads the token of an invitation link only', () => {
+    const token = 'A'.repeat(43);
+    expect(invitationToken(`#/invite/${token}`)).toBe(token);
+    expect(invitationToken('#/invite/short')).toBeNull();
+    expect(invitationToken(`#/invite/${token}/x`)).toBeNull();
+    expect(invitationToken('#/staff')).toBeNull();
+    expect(parseRoute(`#/invite/${token}`)).toEqual({ page: 'not-found' }); // never a dashboard page
   });
 });
 

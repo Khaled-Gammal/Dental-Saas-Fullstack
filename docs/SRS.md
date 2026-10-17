@@ -51,6 +51,8 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-17 | The product is Arabic only; no English localization, now or as a future feature | L10N-001…008; supersedes the bilingual parts of LND-01, WEB-04, NFR-09, NTF-02, DSH-16 and §7.1 item 6 |
 | 2026-10-17 | **D-01: sign-up verifies the owner by email code; no SMS for now** | AUTH-101; AUTH-02 (phone OTP) superseded for sign-up; AUTH-06 and AUTH-08 use email only |
 | 2026-10-17 | No WhatsApp, SMS, paid messaging, payment gateways or other paid external services in this phase | Part D |
+| 2026-10-17 | CLR-05 default accepted (refunds: owner + accountant; reception reverses its own same-day entry; refund method recorded, may differ) | B.1, PAY-003, PAY-005 |
+| 2026-10-17 | Proposed defaults accepted for CLR-06, CLR-10, CLR-11, CLR-13, CLR-14, CLR-15, CLR-16 (Part C) | VISIT-002, APPT-004, TPLAN-002, roadmap, Part D, PATIENT-003, VISIT-003 |
 
 ---
 
@@ -1052,7 +1054,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   with the right code; (5) production starts with no SMS provider configured.
 - *Entities:* `users.email_verified_at`, `otp_codes` (`purpose = verify_email`), `auth_events`.
 
-**AUTH-102 — Password reset by email** · NOT_IMPLEMENTED · Phase D (refines AUTH-06)
+**AUTH-102 — Password reset by email** · IMPLEMENTED (2026-10-17) · Phase D1 (refines AUTH-06)
 - *Description:* A member who forgot their password receives a 6-digit email code and sets a new password.
 - *Role:* any member (public endpoint).
 - *Behaviour:* the request always answers the same way whether or not the email exists (no account enumeration).
@@ -1063,7 +1065,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   are refused; (3) `auth_events` records `password_reset`.
 - *Entities:* `users`, `otp_codes` (`reset_password`), `refresh_tokens`, `auth_events`.
 
-**ACCESS-001 — Staff invitation by email** · NOT_IMPLEMENTED (DB only) · Phase D (refines AUTH-08)
+**ACCESS-001 — Staff invitation by email** · IMPLEMENTED (2026-10-17) · Phase D1 (refines AUTH-08)
 - *Description:* The owner invites a staff member by email with a role and branch access.
 - *Role:* owner (`staff:manage`); invitee.
 - *Preconditions:* the clinic is under its plan's `staff` limit.
@@ -1072,13 +1074,13 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   The invitee opens the link, creates an account (email verified by the same link) or signs in, and becomes an
   active member. The owner can revoke a pending invitation.
 - *Validation:* email; role exists in the clinic; branches belong to the clinic; doctor not already linked.
-- *Errors:* `invitation_expired`, `invitation_revoked`, `already_member`, `plan_limit_reached`, `doctor_already_linked`.
+- *Errors:* `invitation_invalid` (one answer for wrong, used, revoked or expired links, so a link reveals nothing), `invitation_pending`, `already_member`, `plan_limit_reached` (`staff` = active members + open invitations), `doctor_already_linked`, `invalid_credentials` (existing account, wrong password; the link stays usable).
 - *Acceptance:* (1) an invited receptionist signs in and sees only what the receptionist role allows; (2) an
   expired or revoked link does nothing; (3) a token from clinic A can never join clinic B; (4) the invitation and
   acceptance are audited.
 - *Entities:* `invitations`, `tenant_members`, `member_branches`, `users`, `doctors.member_id`, `audit_log`.
 
-**ACCESS-002 — Member management** · NOT_IMPLEMENTED · Phase D
+**ACCESS-002 — Member management** · IMPLEMENTED (2026-10-17) · Phase D1
 - *Description:* The owner lists members, changes a member's role and branches, and disables or re-enables them.
 - *Behaviour:* the last active owner cannot be disabled or demoted. Changes take effect per ACCESS-005 and are audited.
 - *Errors:* `last_owner`, `plan_limit_reached` (re-enable).
@@ -1108,7 +1110,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   history; (3) a test compares B.1 with `default_role_permissions()`.
 - *Entities:* `roles.permissions`, `default_role_permissions()`.
 
-**ACCESS-005 — Access changes take effect on the next request** · NOT_IMPLEMENTED · Phase D1
+**ACCESS-005 — Access changes take effect on the next request** · IMPLEMENTED (2026-10-17) · Phase D1
 - *Description:* Disabling a member, changing their role or changing their branches takes effect on their next API
   request, not when their 15-minute access token expires.
 - *Acceptance:* (1) after the owner disables a member, that member's very next request answers 401/403;
@@ -1587,7 +1589,7 @@ fixed data); a branch-limited member never sees another branch's figures.
   every view or download of clinical documents are audited. As in v3 §6.9, the audit row says *what* changed,
   never the clinical text itself (that lives, versioned, in the clinical tables).
 
-**AUDIT-003 — Operational audit trail** · PARTIALLY_IMPLEMENTED (bookings done) · Phase C/D
+**AUDIT-003 — Operational audit trail** · IMPLEMENTED (2026-10-17: bookings, clinic and booking settings, branches, hours, holidays, rooms, doctors, schedules, time off, services, members, branches of members, invitations, roles) · Phase C/D1
 - *Description:* Appointment creation, moves and status changes; clinic settings, booking settings, doctors and
   services changes; invitations, role and branch changes; discount and expense approvals.
 
@@ -1615,6 +1617,9 @@ fixed data); a branch-limited member never sees another branch's figures.
 
 Nothing listed here is implemented until it is answered. Each item has the default I propose. `CLR-n`
 corresponds to `D-n` in `docs/implementation-audit.md`.
+
+**Answered 2026-10-17:** CLR-01 (email), and the proposed defaults below for **CLR-05, CLR-06, CLR-10, CLR-11, CLR-13,
+CLR-14, CLR-15 and CLR-16**. These defaults are now the requirement. Still open: CLR-02, 03, 04, 07, 08, 09, 12, 17.
 
 | ID | Question | Blocks | Proposed default |
 | --- | --- | --- | --- |

@@ -18,7 +18,7 @@ export interface SignupInput {
 
 export type OtpPurpose = 'verify_email' | 'verify_phone' | 'login' | 'reset_password' | 'booking';
 
-export type AuthEventType = 'login_ok' | 'login_failed' | 'logout' | 'otp_sent' | 'otp_failed' | 'locked' | 'token_reuse';
+export type AuthEventType = 'login_ok' | 'login_failed' | 'logout' | 'password_reset' | 'otp_sent' | 'otp_failed' | 'locked' | 'token_reuse';
 
 export interface Session {
   accessToken: string;

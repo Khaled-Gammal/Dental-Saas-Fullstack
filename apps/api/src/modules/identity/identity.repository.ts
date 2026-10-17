@@ -89,7 +89,7 @@ export class IdentityRepository {
   activeMember(tenantId: string, userId: string) {
     return this.db.runAs(tenantId, (tx) =>
       tx.selectFrom('tenant_members as tm').innerJoin('roles as r', 'r.id', 'tm.role_id')
-        .select(['tm.id', 'r.permissions'])
+        .select(['tm.id', 'r.permissions', 'tm.access_version'])
         .where('tm.user_id', '=', userId).where('tm.status', '=', 'active')
         .executeTakeFirst(),
     );
@@ -134,6 +134,12 @@ export class IdentityRepository {
     return this.db.platform().updateTable('refresh_tokens').set({ revoked_at: sql<Date>`now()` })
       .where('token_hash', '=', tokenHash).where('revoked_at', 'is', null)
       .returning(['user_id', 'family_id']).executeTakeFirst();
+  }
+
+  /** Ends every session of a user (after a password reset). */
+  async revokeAllSessions(userId: string): Promise<void> {
+    await this.db.platform().updateTable('refresh_tokens').set({ revoked_at: sql<Date>`now()` })
+      .where('user_id', '=', userId).where('revoked_at', 'is', null).execute();
   }
 
   async revokeFamily(familyId: string): Promise<void> {

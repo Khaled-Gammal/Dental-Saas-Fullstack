@@ -11,6 +11,8 @@ export interface AccessTokenPayload {
   tid: string; // tenant (clinic) id
   mid: string; // tenant_members id
   perms: string[];
+  /** tenant_members.access_version when the token was signed; a role/status/branch change makes the token stale */
+  av: number;
 }
 
 /** The only place access tokens are signed. Other modules depend on this, not on JwtService or the guard. */

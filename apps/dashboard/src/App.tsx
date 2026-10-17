@@ -2,8 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { can, refreshSession, subscribeSession, type Session } from './api';
 import { savedLang, t, type Lang } from './i18n';
 import { LangContext } from './lang';
-import { AuthLayout, Login, Signup, Verify, type AuthScreen } from './screens/auth';
-import { useRoute } from './hooks';
+import { AuthLayout, Forgot, Login, ResetPassword, Signup, Verify, type AuthScreen } from './screens/auth';
+import { AcceptInvite } from './screens/accept-invite';
+import { navigate, useRoute } from './hooks';
+import { StaffEdit } from './screens/staff/edit';
+import { StaffInvite } from './screens/staff/invite';
+import { StaffList } from './screens/staff/list';
 import { BranchForm } from './screens/branches/form';
 import { BranchHours } from './screens/branches/hours';
 import { BranchesList } from './screens/branches/list';
@@ -25,7 +29,7 @@ import { ServicesList } from './screens/services/list';
 import { AppShell } from './screens/shell';
 import { Logo, Spinner } from './ui/components';
 import { NotFound } from './ui/page';
-import { to, type Route } from './router';
+import { invitationToken, to, type Route } from './router';
 
 export function App() {
   const [lang, setLang] = useState<Lang>(savedLang);
@@ -52,6 +56,9 @@ export function App() {
 
   const toggleLang = () => setLang(lang === 'ar' ? 'en' : 'ar');
 
+  // an invitation link opens with or without a session: accepting it signs in as the invitee
+  const invite = invitationToken(window.location.hash);
+
   let view: ReactNode;
   if (booting) {
     view = (
@@ -60,12 +67,20 @@ export function App() {
         <Spinner />
       </div>
     );
+  } else if (invite) {
+    view = (
+      <AuthLayout lang={lang} onLang={toggleLang}>
+        <AcceptInvite lang={lang} token={invite} done={() => navigate(to.list('overview'))} />
+      </AuthLayout>
+    );
   } else if (!session) {
     view = (
       <AuthLayout lang={lang} onLang={toggleLang}>
         {screen.name === 'signup' ? <Signup lang={lang} go={setScreen} />
           : screen.name === 'verify' ? <Verify lang={lang} email={screen.email} masked={screen.maskedEmail} justSent={screen.justSent} back={() => setScreen({ name: 'login' })} />
-          : <Login lang={lang} go={setScreen} />}
+          : screen.name === 'forgot' ? <Forgot lang={lang} go={setScreen} />
+          : screen.name === 'reset' ? <ResetPassword lang={lang} email={screen.email} go={setScreen} />
+          : <Login lang={lang} go={setScreen} notice={screen.notice} />}
       </AuthLayout>
     );
   } else {
@@ -125,6 +140,12 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
       if (action === 'edit' && settings) return <ServiceFormPage lang={lang} clinicId={clinicId} id={id} />;
       if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('services')} backLabel={t('navServices', lang)} />;
       return <ServicesList lang={lang} clinicId={clinicId} canWrite={settings} />;
+    case 'staff':
+      // staff & roles are the owner's (SRS 2.2)
+      if (!can(session, 'staff:manage')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
+      if (action === 'new') return <StaffInvite lang={lang} clinicId={clinicId} />;
+      if (action === 'edit') return <StaffEdit lang={lang} clinicId={clinicId} id={id} />;
+      return <StaffList lang={lang} clinicId={clinicId} session={session} />;
     default:
       return <NotFound text={t('notFoundText', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
   }

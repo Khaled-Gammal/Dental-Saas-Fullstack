@@ -7,5 +7,5 @@ export const siteUrl = (slug: string) =>
   import.meta.env.DEV ? `http://${slug}.${ROOT_DOMAIN}:3000` : `https://${slug}.${ROOT_DOMAIN}`;
 
 /** Seeded demo accounts for the development quick sign-in (password in packages/db/seeds/dev_seed.sql). */
-export const DEMO_USERS = ['owner.a@demo.test', 'reception.a@demo.test', 'doctor.a@demo.test', 'owner.b@demo.test'];
+export const DEMO_USERS = ['owner.a@demo.test', 'reception.a@demo.test', 'reception.maadi@demo.test', 'doctor.a@demo.test', 'owner.b@demo.test'];
 export const DEMO_PASSWORD = 'Demo@12345';

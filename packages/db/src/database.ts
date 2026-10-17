@@ -358,10 +358,12 @@ export interface Invitations {
   accepted_at: Timestamp | null;
   branch_ids: Generated<string[]>;
   created_at: Generated<Timestamp>;
+  doctor_id: string | null;
   email: string | null;
   expires_at: Timestamp;
   id: Generated<string>;
   invited_by: string;
+  job_title: string | null;
   phone: string | null;
   revoked_at: Timestamp | null;
   role_id: string;
@@ -923,6 +925,7 @@ export interface TenantCounters {
 }
 
 export interface TenantMembers {
+  access_version: Generated<number>;
   all_branches: Generated<boolean>;
   created_at: Generated<Timestamp>;
   id: Generated<string>;

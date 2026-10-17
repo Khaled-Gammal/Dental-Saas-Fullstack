@@ -166,4 +166,6 @@ Reports and what was fixed or deferred are in `docs/reviews/`. A phase is done w
 - ✅ Website redesign — premium clinic site, doctors/services/branches sections, open-now status (`docs/reviews/2026-10-16-website-redesign.md`)
 - ✅ Phase 3 — online booking: hexagonal `scheduling` module (slot engine, 10-minute holds, email code, reception code), `/book` wizard, outbox → email notifications and reminders in the worker, dashboard Appointments screen with check-in (`docs/reviews/2026-10-16-phase-3-booking.md`)
 - ✅ Week 6 part 1 — patients (search, profile, guardian, medical history), audit trail of record access, dashboard "new appointment" form, automatic no-show; Phase 3 review fixes (`docs/reviews/2026-10-16-week-6-patients.md`)
-- Week 6 part 2 — visits, prescriptions, consent signing; route-level code splitting
+- ✅ v4 Phase A–C — audit, SRS v4, security and data integrity (`docs/reviews/2026-10-17-phase-c-security.md`)
+- ✅ v4 Phase D1 — staff invitations (email link), team screen, access changes on the next request, password reset (`docs/reviews/2026-10-17-phase-d1-staff.md`)
+- Next: v4 Phase D2 onwards — `docs/roadmap.md` (consent signing is deferred, CLR-14)

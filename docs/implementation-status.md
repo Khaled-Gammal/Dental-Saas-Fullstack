@@ -3,20 +3,21 @@
 The tracker for every requirement in `docs/SRS.md`. **Where this file and the SRS disagree, this file wins.**
 It is updated at the end of every phase. A status changes only with evidence: code, plus a test that ran and passed.
 
-Last updated: 2026-10-17, end of Phase C (review: `docs/reviews/2026-10-17-phase-c-security.md`).
+Last updated: 2026-10-17, end of Phase D1 (reviews: `docs/reviews/2026-10-17-phase-c-security.md`, `docs/reviews/2026-10-17-phase-d1-staff.md`).
 
-## Last verification run (2026-10-17, end of Phase C)
+## Last verification run (2026-10-17, end of Phase D1)
 
 | Check | Result |
 | --- | --- |
-| Database tests (`pnpm db:test`) | 17 files, **215 checks passed** |
-| API e2e + unit (`pnpm --filter @dental/api test`) | 14 suites, **155 tests passed** |
-| Dashboard unit (vitest) | 37 passed |
+| Database tests (`pnpm db:test`) | 18 files, **233 checks passed** |
+| API e2e + unit (`pnpm --filter @dental/api test`) | 15 suites, **169 tests passed** |
+| Dashboard unit (vitest) | 44 passed |
 | Website unit (vitest) | 20 passed |
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
 | CI on GitHub | workflow in place; first run not yet observed (not pushed) |
+| Browser check of the D1 screens | **not done**: the connected Chrome could not open `localhost:5173` (see the D1 review) |
 
 ## Clinic workflow (SRS §3)
 
@@ -25,7 +26,7 @@ Last updated: 2026-10-17, end of Phase C (review: `docs/reviews/2026-10-17-phase
 | 1 | Sign up | IMPLEMENTED | terms acceptance (AUTH-01) |
 | 2 | Clinic setup | IMPLEMENTED | currency display setting (L10N-005) |
 | 3 | Branch setup | PARTIALLY | holidays, rooms (APPT-005/006) |
-| 4 | Staff and doctor setup | PARTIALLY | invitations, members (ACCESS-001/002/005); branch access is enforced |
+| 4 | Staff and doctor setup | IMPLEMENTED | doctor time off (APPT-005) |
 | 5 | Services and pricing | IMPLEMENTED | — |
 | 6 | Booking | PARTIALLY | reschedule (APPT-001) |
 | 7 | Check-in | PARTIALLY | waiting list (APPT-003) |
@@ -44,12 +45,12 @@ Last updated: 2026-10-17, end of Phase C (review: `docs/reviews/2026-10-17-phase
 | ID | Title | Status | Phase | Evidence / note |
 | --- | --- | --- | --- | --- |
 | AUTH-101 | Email verification at sign-up | IMPLEMENTED | C | `signup.service.ts`, `POST /auth/verify-email`; `identity.e2e-spec.ts` (code by email, none by SMS, lockout, resend limits) |
-| AUTH-102 | Password reset by email | NOT_IMPLEMENTED | D1 | No endpoint |
-| ACCESS-001 | Staff invitation by email | NOT_IMPLEMENTED | D1 | `invitations`, `invitation_by_token()` DB only |
-| ACCESS-002 | Member management | NOT_IMPLEMENTED | D1 | — |
+| AUTH-102 | Password reset by email | IMPLEMENTED | D1 | `password-reset.service.ts`; `staff.e2e-spec.ts` (code by email, old sessions end, no enumeration) |
+| ACCESS-001 | Staff invitation by email | IMPLEMENTED | D1 | `modules/staff`, migration 0017 `open_invitation()`; dashboard `#/staff/new`, `#/invite/<token>`; `staff.e2e-spec.ts`, `17_staff_access.sql` |
+| ACCESS-002 | Member management | IMPLEMENTED | D1 | `PATCH /staff/members/:id`, last-owner guard (API + trigger); dashboard `#/staff/<id>/edit` |
 | ACCESS-003 | Branch-scoped access | IMPLEMENTED | C | Restrictive RLS (migration 0015) + `branch_forbidden` in scheduling; `15_branch_access.sql`, `access.e2e-spec.ts`. Cash sessions get the policy when they exist (E) |
 | ACCESS-004 | Permission catalogue + separation | IMPLEMENTED | C | Migration 0014; `16_permissions_and_users.sql`. New permissions are enforced as their features arrive (`patients:block` now) |
-| ACCESS-005 | Access changes on the next request | NOT_IMPLEMENTED | D1 | Permissions live in the 15-min JWT; a disabled member already loses branch-scoped rows |
+| ACCESS-005 | Access changes on the next request | IMPLEMENTED | D1 | `access_version` + `member_access_state()` checked in `JwtAuthGuard`; `staff.e2e-spec.ts` |
 | APPT-001 | Reschedule | NOT_IMPLEMENTED | D2 | — |
 | APPT-002 | Staff booking validation | IMPLEMENTED | C | API (`doctor_inactive`, `doctor_not_at_branch`) + trigger (0012); `access.e2e-spec.ts`, `13_money_integrity.sql` |
 | APPT-003 | Waiting list | PARTIALLY | D2 | Day list shows `checked_in` |
@@ -105,7 +106,7 @@ Last updated: 2026-10-17, end of Phase C (review: `docs/reviews/2026-10-17-phase
 | L10N-008 | Remove multilingual infrastructure | NOT_IMPLEMENTED | F | `i18n.ts` (~520 AR/EN entries), toggle in `App.tsx` |
 | AUDIT-001 | Financial audit | IMPLEMENTED (DB) | C | Triggers on invoices, lines, payments, refunds, plans, installments, expenses (0013); `14_audit_triggers.sql`. New money tables (discounts, cash) add the same trigger in E |
 | AUDIT-002 | Clinical audit | PARTIALLY | D4 | Patient record + medical history audited (`audit-log.ts`) |
-| AUDIT-003 | Operational audit | PARTIALLY | C/D | Bookings, moves, status changes audited by trigger (0013); settings, doctors/services, staff in D |
+| AUDIT-003 | Operational audit | IMPLEMENTED | C/D1 | Triggers on bookings (0013) and on clinic, settings, branches, hours, holidays, rooms, doctors, schedules, time off, services, members, member branches, invitations, roles (0017) |
 | SEC-101 | Cross-record consistency | IMPLEMENTED | C | 0012; `13_money_integrity.sql` |
 | SEC-102 | Responsible-staff FKs | IMPLEMENTED | C | 0012 (9 columns, validated) |
 | SEC-103 | Least privilege on `users` | IMPLEMENTED | C | 0016 `login_candidate()`; `16_permissions_and_users.sql`, identity e2e |
@@ -117,9 +118,9 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 
 | Status | IDs |
 | --- | --- |
-| IMPLEMENTED | AUTH-03, AUTH-04 (M part), AUTH-05, AUTH-09, WEB-03, BOOK-01, BOOK-02, BOOK-03 (email deviation), BOOK-05, BOOK-06, BOOK-07 (email deviation), BOOK-09 (doctor), BOOK-10, BOOK-11, NTF-04, BIL-02, BIL-08, NFR-01, NFR-10 (DB) |
+| IMPLEMENTED | AUTH-03, AUTH-04 (M part), AUTH-05, AUTH-06 (email, AUTH-102), AUTH-08 (email, ACCESS-001), AUTH-09, WEB-03, BOOK-01, BOOK-02, BOOK-03 (email deviation), BOOK-05, BOOK-06, BOOK-07 (email deviation), BOOK-09 (doctor), BOOK-10, BOOK-11, NTF-04, BIL-02, BIL-08, NFR-01, NFR-10 (DB) |
 | PARTIALLY_IMPLEMENTED | AUTH-01, ONB-01, ONB-02, WEB-01, WEB-02, WEB-05, WEB-06, WEB-10, BOOK-04, BOOK-09 (room), DSH-01, DSH-02, DSH-03, DSH-10, DSH-12, DSH-13, DSH-15, NTF-01, NTF-03, BIL-01, NFR-02, NFR-03, NFR-12, NFR-14, NFR-16 |
-| NOT_IMPLEMENTED | LND-01, LND-02, LND-03, LND-04, LND-05, AUTH-06 (→ AUTH-102), AUTH-08 (→ ACCESS-001), DSH-04 (→ CHART-001), DSH-05 (→ TPLAN-*), DSH-06 (→ VISIT-*), DSH-07 (→ BILLING/PAY/DISC), DSH-08 (→ EXP-*), DSH-11 (→ REPORT-*), DSH-16, DSH-18 (→ PAY-004), DSH-19 (→ VISIT-005), BIL-04…07, ADM-01, ADM-02, ADM-04, NFR-04, NFR-08, NFR-15 |
+| NOT_IMPLEMENTED | LND-01, LND-02, LND-03, LND-04, LND-05, DSH-04 (→ CHART-001), DSH-05 (→ TPLAN-*), DSH-06 (→ VISIT-*), DSH-07 (→ BILLING/PAY/DISC), DSH-08 (→ EXP-*), DSH-11 (→ REPORT-*), DSH-16, DSH-18 (→ PAY-004), DSH-19 (→ VISIT-005), BIL-04…07, ADM-01, ADM-02, ADM-04, NFR-04, NFR-08, NFR-15 |
 | SUPERSEDED | AUTH-02 for sign-up (→ AUTH-101, done: the phone-code endpoints were removed), WEB-04 (→ L10N-001), NFR-09 bilingual parts (→ L10N-*), §7.1 item 6 |
 | DEFERRED | AUTH-04 Google, AUTH-07, ONB-03, WEB-07, WEB-08, WEB-09, BOOK-08, BOOK-12, DSH-09, DSH-14, DSH-17, DSH-20, NTF-02, NTF-05, BIL-03, ADM-03, ADM-05, ADM-06 |
 | NEEDS_VERIFICATION | NFR-05, NFR-06, NFR-07, NFR-11, NFR-13 |
@@ -130,4 +131,5 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-17 | D1 | Migration 0017; ACCESS-001/002/005, AUTH-102, AUDIT-003 done. Defaults accepted for CLR-06, 10, 11, 13, 14, 15, 16 |
 | 2026-10-17 | C | Migrations 0012–0016; AUTH-101, ACCESS-003/004, APPT-002, PAY-003, AUDIT-001, SEC-101/102/103, OPS-001 done; AUDIT-003 partly. CLR-05 default and branch-access option B applied |

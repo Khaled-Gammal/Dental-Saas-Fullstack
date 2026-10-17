@@ -102,6 +102,8 @@ export const AUTH_POLICY = {
     otpVerify: [30, 10 * 60],
     login: [30, 60],
   },
+  /** Staff invitation links (SRS AUTH-08 / ACCESS-001). */
+  invitationTtlDays: 7,
   signupPlan: 'pro',
   userAgentMaxLength: 300,
 } as const;

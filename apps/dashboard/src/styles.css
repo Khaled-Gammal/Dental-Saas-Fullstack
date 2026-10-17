@@ -527,3 +527,7 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 @media (max-width: 480px) {
   .image-field.is-wide .image-field-preview { width: 100%; }
 }
+
+/* Team screen (Phase D1): headings between the members and invitations lists */
+.section-title { font-size: var(--fs-lg); font-weight: 700; margin: 0 0 12px; }
+.section-title.mt { margin-top: 28px; }

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { sql, withTenant, type Db, type Tx } from '@dental/db';
+import { sql, withTenant, type Db, type Tx, type TxActor } from '@dental/db';
 import type { RequestContext } from '../context/request-context';
 import { Err } from '../errors/app-error';
 import { DB } from './tokens';
@@ -32,8 +32,13 @@ export class TenantDb {
     return withTenant(this.db, tenantId, (tx) => fn(tx, tenantId), actor);
   }
 
-  runAs<T>(tenantId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
-    return withTenant(this.db, tenantId, fn);
+  runAs<T>(tenantId: string, fn: (tx: Tx) => Promise<T>, actor?: TxActor): Promise<T> {
+    return withTenant(this.db, tenantId, fn, actor);
+  }
+
+  /** Names who acts for the rest of the transaction (e.g. a login created inside it), for the audit triggers. */
+  async actAs(tx: Tx, userId: string): Promise<void> {
+    await sql`select set_config('app.user_id', ${userId}, true), set_config('app.actor_type', 'member', true)`.execute(tx);
   }
 
   /** Resolves the clinic from a website hostname and runs `fn` in its context; null when no clinic owns the host. */

@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CatalogEntry, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  PatientDetail, PatientPage, Service, StaffSlots, WebsiteStatus,
+  PatientDetail, PatientPage, Service, StaffInvitation, StaffMember, StaffRole, StaffSlots, WebsiteStatus,
 } from './types';
 
 /**
@@ -17,7 +17,16 @@ export const keys = {
   services: (clinicId: string) => ['services', clinicId] as const,
   catalog: (clinicId: string) => ['catalog', clinicId] as const,
   appointments: (clinicId: string) => ['appointments', clinicId] as const,
+  staff: (clinicId: string) => ['staff', clinicId] as const,
 };
+
+/** Members, open invitations and roles (owner only: `staff:manage`). One key, so one invalidation refreshes all three. */
+export const useMembers = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.staff(clinicId), 'members'] as const, queryFn: () => api<StaffMember[]>('/staff/members') });
+export const useInvitations = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.staff(clinicId), 'invitations'] as const, queryFn: () => api<StaffInvitation[]>('/staff/invitations') });
+export const useRoles = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.staff(clinicId), 'roles'] as const, queryFn: () => api<StaffRole[]>('/staff/roles'), staleTime: 5 * 60_000 });
 
 /** Publishes the draft website; refreshes the checklist (pendingChanges) afterwards. */
 export function usePublish(clinicId: string) {

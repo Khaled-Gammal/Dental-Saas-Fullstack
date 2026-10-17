@@ -42,6 +42,9 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   gallery_items_published_described: { status: 400, code: 'alt_required', title: 'Describe the photo (alt text or caption) before publishing it' },
   gallery_items_featured_published: { status: 400, code: 'featured_requires_published', title: 'Only a published photo can be featured' },
   gallery_items_branch_fk: { status: 400, code: 'branch_not_found', title: 'Branch not found' },
+  invitations_one_open_per_email: { status: 409, code: 'invitation_pending', title: 'This email already has an open invitation; resend it instead' },
+  tenant_members_tenant_id_user_id_key: { status: 409, code: 'already_member', title: 'This person is already a member of the clinic' },
+  doctors_member_unique: { status: 409, code: 'doctor_already_linked', title: 'This doctor already has a login' },
 };
 
 const RESERVED = new Set(['message', 'code', 'errors', 'statusCode', 'error', 'type', 'title', 'status', 'detail', 'instance']);

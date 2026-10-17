@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { pickName } from '@dental/ui/text';
-import { logout, type Session } from '../api';
+import { can, logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
 import { Badge, LinkButton, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
 import { useProfile } from '../queries';
 import { useMediaQuery } from '../hooks';
 import { to, type Page } from '../router';
 import { RouteLink } from '../ui/page';
 
-type NavItem = { key: Key; icon: ReactNode; page?: Page };
+/** `perm`: shown only to members who hold it (the page refuses others anyway). */
+type NavItem = { key: Key; icon: ReactNode; page?: Page; perm?: string };
 const NAV: NavItem[] = [
   { key: 'navOverview', icon: <HomeIcon />, page: 'overview' },
   { key: 'navProfile', icon: <ToothIcon />, page: 'profile' },
@@ -18,6 +19,7 @@ const NAV: NavItem[] = [
   { key: 'navPatients', icon: <UsersIcon />, page: 'patients' },
   { key: 'navDoctors', icon: <StethoscopeIcon />, page: 'doctors' },
   { key: 'navServices', icon: <ListIcon />, page: 'services' },
+  { key: 'navStaff', icon: <ShieldIcon />, page: 'staff', perm: 'staff:manage' },
   { key: 'navBilling', icon: <ReceiptIcon /> },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
   { key: 'navWebsite', icon: <GlobeIcon /> },
@@ -72,7 +74,7 @@ export function AppShell({ lang, onLang, session, page, children }: {
         </div>
         <nav aria-label={t('mainNav', lang)}>
           <ul className="nav">
-            {NAV.map((n) => (
+            {NAV.filter((n) => !n.perm || can(session, n.perm)).map((n) => (
               <li key={n.key}>
                 {n.page ? (
                   <RouteLink route={to.list(n.page)} className={`nav-item${page === n.page ? ' active' : ''}`} aria-current={page === n.page ? 'page' : undefined}

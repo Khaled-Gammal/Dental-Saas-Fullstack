@@ -203,3 +203,21 @@ export interface GalleryItem {
 export interface GalleryPage { items: GalleryItem[]; nextCursor: string | null }
 /** all | clinic (clinic-wide photos) | a branch id */
 export type GalleryScope = string;
+
+/** A role of the clinic (seeded: owner, doctor, receptionist, assistant, accountant). */
+export interface StaffRole { id: string; key: string; name_ar: string; name_en: string; is_system: boolean }
+export interface StaffRoleRef { id: string; key: string; name_ar: string; name_en: string }
+export interface DoctorRef { id: string; name_ar: string | null; name_en: string | null }
+export interface StaffMember {
+  id: string; status: 'active' | 'disabled'; all_branches: boolean; branch_ids: string[]; job_title: string | null; joined_at: string;
+  role: StaffRoleRef; user: { full_name: string; email: string | null; phone: string | null }; doctor: DoctorRef | null;
+}
+export interface StaffInvitation {
+  id: string; email: string; branch_ids: string[]; job_title: string | null; expires_at: string; created_at: string; expired: boolean;
+  role: StaffRoleRef; doctor: DoctorRef | null; invited_by: string | null;
+}
+/** What an invitation link shows before the invitee signs in. */
+export interface InvitationPreview {
+  clinic: { slug: string; nameAr: string | null; nameEn: string | null }; role: { key: string; nameAr: string };
+  email: string; jobTitle: string | null; expiresAt: string; allBranches: boolean; accountExists: boolean;
+}

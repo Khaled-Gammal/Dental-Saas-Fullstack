@@ -10,7 +10,8 @@ import { useDebounced } from '../hooks';
 import { passwordChecks, toAsciiDigits } from '../util';
 
 /** Sign-up is confirmed by an email code (SRS AUTH-101; no SMS). */
-export type AuthScreen = { name: 'login' } | { name: 'signup' } | { name: 'verify'; email: string; maskedEmail: string; justSent: boolean };
+export type AuthScreen = { name: 'login'; notice?: string } | { name: 'signup' } | { name: 'verify'; email: string; maskedEmail: string; justSent: boolean }
+  | { name: 'forgot' } | { name: 'reset'; email: string };
 
 const RESEND_COOLDOWN_S = 30;
 
@@ -42,7 +43,7 @@ export function AuthLayout({ lang, onLang, children }: { lang: Lang; onLang: () 
   );
 }
 
-export function Login({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void }) {
+export function Login({ lang, go, notice }: { lang: Lang; go: (s: AuthScreen) => void; notice?: string }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const login = useMutation<Session, ApiError>({
@@ -62,6 +63,7 @@ export function Login({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void })
         <h2>{t('signIn', lang)}</h2>
         <p>{t('signInSub', lang)}</p>
       </header>
+      {notice && <Alert tone="success">{notice}</Alert>}
       <form onSubmit={submit} className="stack" noValidate={false}>
         <Field label={t('identifier', lang)}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} value={identifier} onChange={(e) => setIdentifier(e.target.value)} dir="ltr" autoComplete="username" required autoFocus />}
@@ -73,8 +75,9 @@ export function Login({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void })
         <ErrorText error={login.error} />
         <Button type="submit" block loading={login.isPending}>{t('signIn', lang)}</Button>
       </form>
-      <p className="form-foot">
+      <p className="form-foot row-between">
         <LinkButton onClick={() => go({ name: 'signup' })}>{t('noAccount', lang)}</LinkButton>
+        <LinkButton onClick={() => go({ name: 'forgot' })}>{t('forgotLink', lang)}</LinkButton>
       </p>
       {import.meta.env.DEV && <DevQuickLogin lang={lang} />}
     </>
@@ -241,6 +244,68 @@ export function Verify({ lang, email, masked, justSent, back }: { lang: Lang; em
       {resend.isSuccess && <Alert tone="success">{t('resent', lang)}</Alert>}
       <ErrorText error={resend.error} />
       <p className="form-foot center"><LinkButton onClick={back}>{t('changePhone', lang)}</LinkButton></p>
+      {import.meta.env.DEV && <p className="dev-note">{t('devHint', lang)}</p>}
+    </>
+  );
+}
+
+/** Forgot password, step 1: the email (SRS AUTH-102). The API answers the same whether or not the account exists. */
+export function Forgot({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void }) {
+  const [email, setEmail] = useState('');
+  const send = useMutation({
+    mutationFn: () => api('/auth/password/forgot', { method: 'POST', body: JSON.stringify({ email: email.trim() }) }),
+    onSuccess: () => go({ name: 'reset', email: email.trim().toLowerCase() }),
+  });
+  const submit = (e: FormEvent) => { e.preventDefault(); send.mutate(); };
+  return (
+    <>
+      <header className="form-head">
+        <div className="form-icon"><ShieldIcon size={22} /></div>
+        <h2>{t('forgotTitle', lang)}</h2>
+        <p>{t('forgotSub', lang)}</p>
+      </header>
+      <form onSubmit={submit} className="stack">
+        <Field label={t('email', lang)}>
+          {(a) => <Input id={a.id} type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" autoComplete="email" required autoFocus />}
+        </Field>
+        <ErrorText error={send.error} />
+        <Button type="submit" block loading={send.isPending}>{t('sendCode', lang)}</Button>
+      </form>
+      <p className="form-foot center"><LinkButton onClick={() => go({ name: 'login' })}>{t('backToLogin', lang)}</LinkButton></p>
+    </>
+  );
+}
+
+/** Forgot password, step 2: the emailed code and the new password. Every session of the account ends. */
+export function ResetPassword({ lang, email, go }: { lang: Lang; email: string; go: (s: AuthScreen) => void }) {
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const pwc = passwordChecks(password);
+  const pwOk = pwc.length && pwc.letter && pwc.digit;
+  const reset = useMutation({
+    mutationFn: () => api('/auth/password/reset', { method: 'POST', body: JSON.stringify({ email, code, password }) }),
+    onSuccess: () => go({ name: 'login', notice: t('resetDone', lang) }),
+  });
+  const submit = (e: FormEvent) => { e.preventDefault(); if (code.length === 6 && pwOk) reset.mutate(); };
+  return (
+    <>
+      <header className="form-head">
+        <div className="form-icon"><ShieldIcon size={22} /></div>
+        <h2>{t('resetTitle', lang)}</h2>
+        <p>{t('resetSub', lang)}</p>
+      </header>
+      <form onSubmit={submit} className="stack">
+        <Field label={t('code', lang)}>
+          {(a) => <OtpInput id={a.id} value={code} onChange={(v) => setCode(toAsciiDigits(v).replace(/\D/g, '').slice(0, 6))} label={t('code', lang)} />}
+        </Field>
+        <Field label={t('newPassword', lang)}>
+          {(a) => <PasswordInput id={a.id} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required
+            showLabel={t('showPw', lang)} hideLabel={t('hidePw', lang)} />}
+        </Field>
+        <ErrorText error={reset.error} />
+        <Button type="submit" block loading={reset.isPending} disabled={code.length !== 6 || !pwOk}>{t('save', lang)}</Button>
+      </form>
+      <p className="form-foot center"><LinkButton onClick={() => go({ name: 'login' })}>{t('backToLogin', lang)}</LinkButton></p>
       {import.meta.env.DEV && <p className="dev-note">{t('devHint', lang)}</p>}
     </>
   );

@@ -13,6 +13,7 @@ import { MediaModule } from './modules/media';
 import { PatientsModule } from './modules/patients';
 import { PublicSiteModule } from './modules/public-site/public-site.module';
 import { SchedulingModule } from './modules/scheduling';
+import { StaffModule } from './modules/staff/staff.module';
 import { WebsiteModule } from './modules/website/website.module';
 import { AuditModule } from './shared/audit/audit.module';
 import { DatabaseModule } from './shared/database/database.module';
@@ -61,6 +62,7 @@ class ConfigModule {}
     PatientsModule,
     MediaModule,
     GalleryModule,
+    StaffModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemDetailsFilter }],
 })
