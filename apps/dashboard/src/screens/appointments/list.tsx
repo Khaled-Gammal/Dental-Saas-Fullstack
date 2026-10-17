@@ -5,7 +5,7 @@ import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { t, type Key, type Lang } from '../../i18n';
 import { waitingList } from '../../calendar-model';
-import { useAppointmentAction, useAppointments, useBranches, useCheckIn, type AppointmentAction } from '../../queries';
+import { send, useAppointmentAction, useAppointments, useBranches, useCheckIn, useClinicalMutation, type AppointmentAction } from '../../queries';
 import { to } from '../../router';
 import { RouteLink } from '../../ui/page';
 import type { Appointment, AppointmentStatus, Branch } from '../../types';
@@ -49,9 +49,24 @@ type View = 'all' | 'waiting' | 'mine';
 const VIEWS: { v: View; key: Key }[] = [{ v: 'all', key: 'viewAll' }, { v: 'waiting', key: 'viewWaiting' }, { v: 'mine', key: 'viewMine' }];
 /** What "Change" can do per status: move while pending/confirmed, set the chair until the visit ends. */
 const CHANGEABLE: AppointmentStatus[] = ['pending', 'confirmed', 'checked_in', 'in_progress'];
+/** A visit is opened once the patient has arrived (VISIT-001). */
+const VISITABLE: AppointmentStatus[] = ['checked_in', 'in_progress'];
 
-export function Appointments({ lang, clinicId, canWrite, canOwn, query, defaultView = 'all' }: {
+/** Opens the visit of an arrived patient (or the one already open) and goes to it; another doctor's is refused by the API. */
+function OpenVisitButton({ lang, clinicId, appointmentId }: { lang: Lang; clinicId: string; appointmentId: string }) {
+  const open = useClinicalMutation(clinicId, () => send<{ id: string }>('/visits', 'POST', { appointmentId }));
+  return (
+    <>
+      <Button variant="secondary" loading={open.isPending} onClick={() => open.mutate(undefined, { onSuccess: (v) => navigate(to.visit(v.id)) })}>{t('openVisit', lang)}</Button>
+      <ErrorText error={open.error} />
+    </>
+  );
+}
+
+export function Appointments({ lang, clinicId, canWrite, canOwn, query, defaultView = 'all', canVisit = false, canReadVisit = false }: {
   lang: Lang; clinicId: string; canWrite: boolean; canOwn: boolean; query?: Record<string, string>; defaultView?: View;
+  /** clinical:write: open the visit of an arrived patient (the API checks it is the doctor's own); clinical:read: open an existing one */
+  canVisit?: boolean; canReadVisit?: boolean;
 }) {
   const date = query?.date && ISO.test(query.date) ? query.date : isoDate(new Date());
   const branchId = query?.branch || undefined;
@@ -143,8 +158,10 @@ export function Appointments({ lang, clinicId, canWrite, canOwn, query, defaultV
                   {a.patient_notes && <p className="appt-notes">{a.patient_notes}</p>}
                   {a.cancel_reason && <p className="appt-notes muted">{a.cancel_reason}</p>}
                 </div>
-                {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status))) && (
+                {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status)) || (a.visit_id && canReadVisit) || (canVisit && VISITABLE.includes(a.status))) && (
                   <div className="appt-actions">
+                    {a.visit_id && canReadVisit ? <RouteLink route={to.visit(a.visit_id)} className="btn btn-secondary">{t('openVisit', lang)}</RouteLink>
+                      : canVisit && VISITABLE.includes(a.status) && <OpenVisitButton lang={lang} clinicId={clinicId} appointmentId={a.id} />}
                     {canWrite && CHANGEABLE.includes(a.status) && (
                       <RouteLink route={to.edit('appointments', a.id)} className="btn btn-ghost"><EditIcon size={16} />{t('editAppointment', lang)}</RouteLink>
                     )}

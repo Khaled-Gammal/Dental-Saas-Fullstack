@@ -49,6 +49,26 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   rooms_branch_id_name_key: { status: 409, code: 'room_name_taken', title: 'This branch already has a room with this name' },
   doctor_time_off_max_length: { status: 400, code: 'time_off_too_long', title: 'Time off can last at most a year' },
   tenant_settings_reminder_offsets: { status: 400, code: 'invalid_reminders', title: 'Up to four reminders, between 15 minutes and 7 days before' },
+  // clinical workflow (Phase D4): rules the database keeps whatever the caller
+  visits_finalized: { status: 409, code: 'visit_finalized', title: 'The visit is final; add an amendment instead' },
+  visits_never_deleted: { status: 409, code: 'visit_kept', title: 'Clinical visits are never deleted' },
+  visit_amendments_reason: { status: 400, code: 'amendment_reason_required', title: 'Give the reason for the amendment' },
+  visit_amendments_visit_final: { status: 409, code: 'visit_not_final', title: 'The visit is still a draft; edit the notes directly' },
+  treatment_plans_transition: { status: 409, code: 'invalid_transition', title: 'The plan cannot move to that status' },
+  treatment_plans_closed: { status: 409, code: 'plan_closed', title: 'The plan is closed' },
+  treatment_plans_locked: { status: 409, code: 'plan_locked', title: 'The acceptance of a plan is not changed' },
+  treatment_plan_items_locked: { status: 409, code: 'plan_locked', title: 'Items of an accepted plan are fixed; cancel an item instead' },
+  treatment_plan_items_status: { status: 409, code: 'invalid_item_status', title: 'The plan item cannot move to that status' },
+  treatment_plan_items_tooth: { status: 400, code: 'invalid_tooth', title: 'Use an FDI tooth number (11–48, 51–85)' },
+  visit_procedures_billed: { status: 409, code: 'procedure_billed', title: 'The procedure is on an invoice' },
+  visit_procedures_price_range: { status: 400, code: 'price_out_of_range', title: 'The price must be within the service price range' },
+  visit_procedures_plan_not_accepted: { status: 409, code: 'plan_not_accepted', title: 'Record the patient’s acceptance of the plan first' },
+  visit_procedures_plan_item_closed: { status: 409, code: 'plan_item_closed', title: 'The plan item is already done or cancelled' },
+  visit_procedures_fixed: { status: 409, code: 'procedure_fixed', title: 'Record another procedure instead' },
+  tooth_records_visit_patient: { status: 400, code: 'visit_mismatch', title: 'The visit belongs to another patient' },
+  prescriptions_visit_match: { status: 400, code: 'prescription_mismatch', title: 'The prescription does not match its visit' },
+  prescriptions_issued: { status: 409, code: 'prescription_issued', title: 'An issued prescription is not changed; issue a correction' },
+  prescriptions_replaced_once: { status: 409, code: 'prescription_already_corrected', title: 'This prescription was already corrected' },
 };
 
 const RESERVED = new Set(['message', 'code', 'errors', 'statusCode', 'error', 'type', 'title', 'status', 'detail', 'instance']);

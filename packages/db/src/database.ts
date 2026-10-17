@@ -746,8 +746,10 @@ export interface Prescriptions {
   doctor_id: string;
   id: Generated<string>;
   issued_at: Generated<Timestamp>;
+  issued_by: string | null;
   notes: string | null;
   patient_id: string;
+  replaces_id: string | null;
   tenant_id: string;
   visit_id: string;
 }
@@ -756,6 +758,7 @@ export interface Recalls {
   appointment_id: string | null;
   contact_attempts: Generated<number>;
   created_at: Generated<Timestamp>;
+  created_by: string | null;
   doctor_id: string | null;
   due_date: Timestamp;
   id: Generated<string>;
@@ -1028,6 +1031,7 @@ export interface TreatmentPlanItems {
 
 export interface TreatmentPlans {
   accepted_at: Timestamp | null;
+  accepted_by: string | null;
   created_at: Generated<Timestamp>;
   doctor_id: string;
   id: Generated<string>;
@@ -1066,10 +1070,22 @@ export interface Users {
   updated_at: Generated<Timestamp>;
 }
 
+export interface VisitAmendments {
+  author_id: string;
+  created_at: Generated<Timestamp>;
+  field: string;
+  id: Generated<string>;
+  new_text: string;
+  reason: string;
+  tenant_id: string;
+  visit_id: string;
+}
+
 export interface VisitProcedures {
   commission_bp: Generated<number>;
   commission_minor: Generated<Int8 | null>;
   created_at: Generated<Timestamp>;
+  created_by: string | null;
   doctor_id: string;
   id: Generated<string>;
   notes: string | null;
@@ -1092,9 +1108,12 @@ export interface Visits {
   created_by: string | null;
   diagnosis: string | null;
   doctor_id: string;
+  finalized_at: Timestamp | null;
+  finalized_by: string | null;
   id: Generated<string>;
   next_visit_note: string | null;
   patient_id: string;
+  status: Generated<string>;
   tenant_id: string;
   updated_at: Generated<Timestamp>;
   visit_at: Generated<Timestamp>;
@@ -1200,6 +1219,7 @@ export interface DB {
   treatment_plans: TreatmentPlans;
   usage_counters: UsageCounters;
   users: Users;
+  visit_amendments: VisitAmendments;
   visit_procedures: VisitProcedures;
   visits: Visits;
   waitlist_entries: WaitlistEntries;

@@ -2,7 +2,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CatalogEntry, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  BookingSettings, HistoryVersion, Holiday, PatientDetail, PatientFile, PatientPage, PatientRow, Room, Service, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, WebsiteStatus,
+  BookingSettings, HistoryVersion, Holiday, PatientChart, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
+  StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
 
 /**
@@ -247,3 +248,45 @@ export const galleryApi = {
   remove: (id: string) => api<void>(`/gallery/${id}`, { method: 'DELETE' }),
   reorder: (branchId: string | null, ids: string[]) => api<{ ok: true }>('/gallery/order', { method: 'PUT', body: JSON.stringify({ branchId, ids }) }),
 };
+
+// ---------- clinical (Phase D4: visits, chart, plans, prescriptions, follow-ups) ----------
+export const clinicalKeys = {
+  all: (clinicId: string) => ['clinical', clinicId] as const,
+  visit: (clinicId: string, id: string) => ['clinical', clinicId, 'visit', id] as const,
+  patient: (clinicId: string, patientId: string) => ['clinical', clinicId, 'patient', patientId] as const,
+  plan: (clinicId: string, id: string) => ['clinical', clinicId, 'plan', id] as const,
+  prescription: (clinicId: string, id: string) => ['clinical', clinicId, 'prescription', id] as const,
+  recalls: (clinicId: string, view: string) => ['clinical', clinicId, 'recalls', view] as const,
+};
+export const useVisit = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: clinicalKeys.visit(clinicId, id ?? ''), queryFn: () => api<Visit>(`/visits/${id}`), enabled: !!id });
+export const usePatientVisits = (clinicId: string, patientId: string, enabled: boolean) =>
+  useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'visits'] as const, queryFn: () => api<VisitSummary[]>(`/patients/${patientId}/visits`), enabled });
+export const usePatientChart = (clinicId: string, patientId: string, enabled: boolean) =>
+  useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'chart'] as const, queryFn: () => api<PatientChart>(`/patients/${patientId}/chart`), enabled });
+export const usePatientPlans = (clinicId: string, patientId: string) =>
+  useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'plans'] as const, queryFn: () => api<PlanRow[]>(`/patients/${patientId}/plans`) });
+export const usePatientRecalls = (clinicId: string, patientId: string) =>
+  useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'recalls'] as const, queryFn: () => api<Recall[]>(`/patients/${patientId}/recalls`) });
+export const usePlan = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: clinicalKeys.plan(clinicId, id ?? ''), queryFn: () => api<PlanDetail>(`/plans/${id}`), enabled: !!id });
+export const usePrescription = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: clinicalKeys.prescription(clinicId, id ?? ''), queryFn: () => api<PrescriptionPrint>(`/prescriptions/${id}`), enabled: !!id });
+export const useRecalls = (clinicId: string, view: 'due' | 'upcoming' | 'closed') =>
+  useQuery({ queryKey: clinicalKeys.recalls(clinicId, view), queryFn: () => api<{ today: string; items: Recall[] }>(`/recalls?view=${view}`) });
+
+/** JSON write to the API. */
+export const send = <R>(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown) =>
+  api<R>(path, { method, ...(body !== undefined && { body: JSON.stringify(body) }) });
+
+/**
+ * Every clinical write refreshes the clinical cache, and the appointments too: opening a visit starts the appointment,
+ * and a cancelled booking puts its plan item or follow-up back on the list (database triggers).
+ */
+export function useClinicalMutation<V, R = unknown>(clinicId: string, fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: keys.appointments(clinicId) })]),
+  });
+}

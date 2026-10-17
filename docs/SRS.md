@@ -161,9 +161,9 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | DSH-01 | M | PARTIALLY_IMPLEMENTED | Setup progress only; refined by REPORT-006 |
 | DSH-02 | M | PARTIALLY_IMPLEMENTED | Day list per branch; no week view, per-doctor/chair columns or drag-reschedule. Refined by APPT-001…004 |
 | DSH-03 | M | PARTIALLY_IMPLEMENTED | Profile, contacts, file no., tags, guardian, opt-in, medical history and its versions, X-rays and documents done; timeline (D4 visits) and merge (D5) missing. Refined by PATIENT-001…005 |
-| DSH-04 | V1 | NOT_IMPLEMENTED (DB only) | Brought into v4: CHART-001 |
-| DSH-05 | V1 | NOT_IMPLEMENTED (DB only) | Brought into v4: TPLAN-001…004 |
-| DSH-06 | M | NOT_IMPLEMENTED (DB only) | Refined by VISIT-001…005 |
+| DSH-04 | V1 | IMPLEMENTED (2026-10-17, D4) | Brought into v4: CHART-001 |
+| DSH-05 | V1 | PARTIALLY_IMPLEMENTED | Brought into v4: TPLAN-001…004 (D4); converting steps to invoice items comes with billing (Phase E) |
+| DSH-06 | M | IMPLEMENTED (2026-10-17, D4) | Refined by VISIT-001…005 |
 | DSH-07 | M | NOT_IMPLEMENTED (DB only) | Refined by BILLING-*, PAY-*, DISC-* |
 | DSH-08 | V1 | NOT_IMPLEMENTED (minimal table) | Brought into v4: EXP-001…004 |
 | DSH-09 | V2 | DEFERRED | — |
@@ -176,7 +176,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | DSH-16 | M | NOT_IMPLEMENTED | *AR/EN templates* superseded by L10N-001 (Arabic only). Scope question CLR-14 |
 | DSH-17 | V1 | DEFERRED (brief) | Dental laboratory tracking |
 | DSH-18 | V1 | NOT_IMPLEMENTED (DB only) | Brought into v4: PAY-004 |
-| DSH-19 | V1 | NOT_IMPLEMENTED (DB only) | v4 delivers a manual follow-up list (VISIT-005); automatic recalls deferred |
+| DSH-19 | V1 | PARTIALLY_IMPLEMENTED | v4 delivers a manual follow-up list (VISIT-005, done D4); automatic recalls deferred |
 | DSH-20 | V1 | DEFERRED (brief) | Doctor commissions |
 | NTF-01 | M / V1 | PARTIALLY_IMPLEMENTED | Email done; in-app not built; SMS and WhatsApp deferred (brief) |
 | NTF-02 | V1 | DEFERRED | When built: Arabic templates only |
@@ -1170,7 +1170,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Errors:* `slot_taken` (room), `room_not_in_branch`.
 - *Entities:* `rooms`, `appointments.room_id`.
 
-**APPT-007 — Follow-up booking from a visit** · NOT_IMPLEMENTED · Phase D4 (needs visits)
+**APPT-007 — Follow-up booking from a visit** · IMPLEMENTED (2026-10-17, D4) · Phase D4
 - *Description:* From a visit, staff book the next appointment pre-filled with patient, doctor, branch and the
   next planned treatment item. Booking a planned item links it (`treatment_plan_items.appointment_id`, status `scheduled`).
 - *Entities:* `appointments`, `treatment_plan_items`, `visits.next_visit_note`.
@@ -1213,7 +1213,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   at the merged record except `merged_into_id`.
 - *Entities:* `patients` and every table with `patient_id`.
 
-**PATIENT-004 — Clinical documents and images** · IMPLEMENTED for the patient (2026-10-17, D3; linking a file to a visit comes with VISIT-001 in D4) · Phase D
+**PATIENT-004 — Clinical documents and images** · IMPLEMENTED for the patient (2026-10-17, D3; attaching a file to a visit is not built yet: `patient_files.visit_id` exists, no screen sets it) · Phase D
 - *Description:* Staff with `clinical:write` upload X-rays, clinical photos and documents (JPEG, PNG, WebP, PDF) to a
   patient, optionally to a visit.
 - *Behaviour:* the content is checked by the server whatever the file name says, and the size is capped. Files are
@@ -1224,7 +1224,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   (3) another clinic's member can never open one.
 - *Entities:* `files` (kinds `xray`, `clinical_photo`, `document`; private by CHECK), `patient_files`, `audit_log`.
 
-**PATIENT-005 — Medical history versions and alerts** · PARTIALLY_IMPLEMENTED (versions and profile alerts done 2026-10-17, D3; the visit-screen alert comes with VISIT-001 in D4) · Phase D
+**PATIENT-005 — Medical history versions and alerts** · IMPLEMENTED (versions and profile alerts D3; visit-screen alert D4, 2026-10-17) · Phase D
 - *Description:* Every save of medical history keeps the previous version (who, when, what). Allergies and
   important conditions are shown prominently whenever a doctor opens the patient or a visit.
 - *Acceptance:* (1) after two edits, both earlier versions can be viewed; (2) an allergy is visible on the visit
@@ -1233,7 +1233,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.5 Clinical
 
-**VISIT-001 — Clinical visit** · NOT_IMPLEMENTED (DB only) · Phase D (refines DSH-06)
+**VISIT-001 — Clinical visit** · IMPLEMENTED (2026-10-17, D4) · Phase D (refines DSH-06)
 - *Description:* The doctor's workspace for one visit: chief complaint, diagnosis, clinical notes, next-visit
   note, with medical history and alerts visible.
 - *Role:* doctor (own appointments), owner.
@@ -1247,7 +1247,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   visit exists but cannot write it; (3) accountants cannot read it.
 - *Entities:* `visits`, `appointments`.
 
-**VISIT-002 — Finalize and amend clinical notes** · NOT_IMPLEMENTED · Phase D — rules pending CLR-06
+**VISIT-002 — Finalize and amend clinical notes** · IMPLEMENTED (2026-10-17, D4; CLR-06 default) · Phase D
 - *Description:* A visit note is a draft until finalized. After finalization it is never overwritten. A change is an
   **amendment**: the new text, reason, author and time, with the original kept and both visible.
 - *Behaviour:* when a note becomes final, and who may amend, are decided in CLR-06. Whatever is decided, the
@@ -1257,7 +1257,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   and every amendment in order.
 - *Entities:* `visits` (+ finalization columns, amendments table).
 
-**VISIT-003 — Procedures performed** · NOT_IMPLEMENTED (DB only) · Phase D
+**VISIT-003 — Procedures performed** · IMPLEMENTED (2026-10-17, D4; CLR-16 default) · Phase D
 - *Description:* The doctor records what was done: service, tooth (FDI) and surfaces, notes, optionally the plan item.
 - *Behaviour:* linking a plan item marks it done (TPLAN-003). The procedure's price comes from the service (rule
   pending CLR-16). Once billed on a non-void invoice it cannot be billed again (existing trigger), and it becomes
@@ -1265,7 +1265,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Errors:* `procedure_billed`, `plan_item_mismatch` (item of another patient).
 - *Entities:* `visit_procedures`, `treatment_plan_items`, `services`.
 
-**VISIT-004 — Prescriptions** · NOT_IMPLEMENTED (DB only) · Phase D
+**VISIT-004 — Prescriptions** · IMPLEMENTED (2026-10-17, D4); printing from Chrome, Edge and Safari not yet verified on paper · Phase D
 - *Description:* The doctor writes a prescription in a visit: drug, dose, frequency, duration, instructions.
 - *Behaviour:* the printout is Arabic, RTL, with clinic header and logo, branch address and phone, doctor name and
   title, patient name, age and file number, and date. Drug names written in Latin letters display correctly inside
@@ -1273,14 +1273,14 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Acceptance:* the printout fits A5 and A4 and prints correctly from Chrome, Edge and Safari.
 - *Entities:* `prescriptions`, `prescription_items`.
 
-**VISIT-005 — Follow-up list (manual)** · NOT_IMPLEMENTED (DB only) · Phase D (replaces DSH-19 for v4)
+**VISIT-005 — Follow-up list (manual)** · IMPLEMENTED (2026-10-17, D4) · Phase D (replaces DSH-19 for v4)
 - *Description:* Doctors or reception add a follow-up for a patient (reason, due date, note). Reception works the
   list of due and overdue follow-ups: record a call (note, attempts), book (links the appointment), or dismiss.
 - *Behaviour:* **no automatic messages**. Calls are made by staff (Part D: WhatsApp/SMS). Reasons: check-up,
   cleaning, orthodontic adjustment, post-operative, implant follow-up, other.
 - *Entities:* `recalls`.
 
-**CHART-001 — Dental chart** · NOT_IMPLEMENTED (DB only) · Phase D (refines DSH-04)
+**CHART-001 — Dental chart** · IMPLEMENTED (2026-10-17, D4) · Phase D (refines DSH-04)
 - *Description:* FDI chart, permanent 11–48 and primary 51–85, per tooth and surface (M, O, D, B, L, I, F, P) with
   conditions (healthy, caries, filled, crown, bridge, missing, implant, root canal, fractured, extraction needed,
   veneer, sealant, other).
@@ -1294,7 +1294,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.6 Treatment plans (feature F6)
 
-**TPLAN-001 — Create and edit a treatment plan** · NOT_IMPLEMENTED (DB only) · Phase D (refines DSH-05)
+**TPLAN-001 — Create and edit a treatment plan** · IMPLEMENTED (2026-10-17, D4) · Phase D (refines DSH-05)
 - *Description:* A doctor builds a plan of items (service, tooth, surfaces, estimated price) for a patient.
 - *Behaviour:* the plan estimate is the sum of its items (price − item discount), **derived by the database**
   (SEC-101), never typed. A discount on a plan item is an estimate only. When that item is invoiced, the discount
@@ -1302,20 +1302,20 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Permissions:* `treatments:write:own` (doctor, own patients' plans); owner all; others read.
 - *Entities:* `treatment_plans`, `treatment_plan_items`.
 
-**TPLAN-002 — Plan status** · NOT_IMPLEMENTED · Phase D
+**TPLAN-002 — Plan status** · IMPLEMENTED (2026-10-17, D4; CLR-11 default) · Phase D
 - *Description:* `draft → proposed → accepted → in_progress → completed`, or `cancelled` from any non-final status.
   `accepted` records when and by whom the patient agreed (how: CLR-11). The first performed item moves an accepted
   plan to `in_progress`. The plan completes when every item is done or cancelled.
 - *Errors:* `invalid_transition`.
 
-**TPLAN-003 — Planned vs. performed** · NOT_IMPLEMENTED · Phase D
+**TPLAN-003 — Planned vs. performed** · IMPLEMENTED (2026-10-17, D4) · Phase D
 - *Description:* Planned items and performed procedures are separate records. An item is `planned`, `scheduled`
   (has an appointment), `done` (a procedure links to it) or `cancelled`. The plan shows completed and remaining
   items and the remaining estimate.
 - *Acceptance:* (1) recording a procedure for a planned item marks it done; (2) a cancelled item stays visible as
   cancelled (items are never deleted once the plan is accepted).
 
-**TPLAN-004 — Plan summary** · NOT_IMPLEMENTED · Phase D/E
+**TPLAN-004 — Plan summary** · PARTIALLY_IMPLEMENTED (D4: estimate, done, remaining, next recommended visit; invoiced, paid and balance come with billing in Phase E) · Phase D/E
 - *Description:* For a plan: total estimate, invoiced so far, paid so far, the patient's balance (BILLING-005),
   remaining estimate, and the next recommended visit (next planned item and the doctor's next-visit note).
 - *Entities:* plans, procedures, invoices, payments.
@@ -1584,7 +1584,7 @@ fixed data); a branch-limited member never sees another branch's figures.
   transaction, so no code path can skip it.
 - *Entities:* `audit_log`.
 
-**AUDIT-002 — Clinical audit trail** · PARTIALLY_IMPLEMENTED · Phase D
+**AUDIT-002 — Clinical audit trail** · IMPLEMENTED (2026-10-17, D4) · Phase D
 - *Description:* Opening, finalizing and amending visits, chart entries, plans, procedures, prescriptions, and
   every view or download of clinical documents are audited. As in v3 §6.9, the audit row says *what* changed,
   never the clinical text itself (that lives, versioned, in the clinical tables).

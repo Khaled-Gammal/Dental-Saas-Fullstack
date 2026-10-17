@@ -245,8 +245,22 @@ production table run it in a quiet window). The trigram index `patients_name_nor
 in its own migration without a transaction; the old raw-name trigram index is kept for now. D-04 as proposed
 (back-filled with each patient's current history as the first version; RLS; `REVOKE UPDATE, DELETE`). D-05 as
 proposed, plus caption length and "archived together" CHECKs, and the 0001 `files_check` is replaced by
-`files_clinical_private` (X-ray, clinical photo, consent **and document** files must be private). D-06 onwards are
-still proposals.
+`files_clinical_private` (X-ray, clinical photo, consent **and document** files must be private).
+
+**D4 applied 2026-10-17 (migration 0021):** D-06 (`visits.status` draft/final, `finalized_at`, `finalized_by`;
+`visits_guard` refuses any change to a final note and every delete; `visit_amendments` append-only, only on final
+visits; completing the appointment finalizes its draft visit, opening a visit starts a checked-in appointment), D-07
+(`treatment_plans.accepted_by`; `treatment_plans_guard` allows only draft → proposed → accepted and cancel from an
+open status; accepted ↔ in progress ↔ completed are derived from the items in `treatment_plans_derive`;
+`treatment_plan_items_guard` fixes the items of an accepted plan, keeps cancelled items, and sets "done" only through a
+procedure), D-08 (`recalls.created_by`). Also: `visit_procedures_workflow` (CLR-16 price range, plan item must be open
+in an accepted plan, fixed once the visit is final or billed), `tooth_records_validate` (a visit's entries are its
+patient's), prescriptions `replaces_id` (once), `issued_by`, `REVOKE UPDATE, DELETE` and lines only in the issuing
+transaction; follow-ups and scheduled plan items go back on the list when their appointment is cancelled or missed,
+and a completed appointment closes its follow-up (`appointments_clinical_follow`). Clinical audit triggers use
+`audit_row_change` with the clinical text columns marked secret (logged as `true`). Every guard is silent during a
+tenant hard delete. The clinical tables had no rows, so no data was rewritten. D-09 onwards: D-09/D-10 applied in D2;
+the rest are still proposals.
 
 | ID | Change | Requirement | Risk |
 | --- | --- | --- | --- |

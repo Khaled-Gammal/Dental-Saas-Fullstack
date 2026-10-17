@@ -2,8 +2,9 @@
  * Hash routes, one per screen: `#/doctors`, `#/doctors/new`, `#/doctors/<id>/edit`, `#/doctors/<id>/schedule`.
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
-export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking';
-export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms';
+export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking'
+  | 'visits' | 'plans' | 'prescriptions' | 'followups';
+export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print';
 
 /** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
 export type Route = (
@@ -26,6 +27,10 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   staff: ['new', 'edit'], // `new` = invite someone; `edit` = a member's role, branches and status
   holidays: [], // closed days (whole clinic or one branch)
   booking: [], // the website booking rules and reminders
+  visits: ['view'], // the doctor's visit: notes, procedures, prescriptions, chart
+  plans: ['view'], // a treatment plan
+  prescriptions: ['print'], // the printable prescription (A5/A4)
+  followups: [], // the follow-up list reception works
 };
 
 /**
@@ -71,4 +76,7 @@ export const to = {
   schedule: (id: string): Route => ({ page: 'doctors', id, action: 'schedule' }),
   timeOff: (id: string): Route => ({ page: 'doctors', id, action: 'timeoff' }),
   rooms: (id: string): Route => ({ page: 'branches', id, action: 'rooms' }),
+  visit: (id: string): Route => ({ page: 'visits', id, action: 'view' }),
+  plan: (id: string): Route => ({ page: 'plans', id, action: 'view' }),
+  printPrescription: (id: string): Route => ({ page: 'prescriptions', id, action: 'print' }),
 };

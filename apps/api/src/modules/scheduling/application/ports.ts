@@ -80,6 +80,8 @@ export interface AppointmentView {
   room: { id: string; name: string } | null;
   /** a website booking whose reception code is still open */
   has_code: boolean;
+  /** the clinical visit opened on it, if any */
+  visit_id: string | null;
 }
 
 export interface TransitionRow { id: string; status: AppointmentStatus; doctor_id: string; doctor_member_id: string | null; has_code: boolean }

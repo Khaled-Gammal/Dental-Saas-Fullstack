@@ -170,4 +170,5 @@ Reports and what was fixed or deferred are in `docs/reviews/`. A phase is done w
 - ✅ v4 Phase D1 — staff invitations (email link), team screen, access changes on the next request, password reset (`docs/reviews/2026-10-17-phase-d1-staff.md`)
 - ✅ v4 Phase D2 — reschedule, waiting list, my day, holidays, doctor time off, chairs, booking rules (`docs/reviews/2026-10-17-phase-d2-scheduling.md`)
 - ✅ v4 Phase D3 — Arabic-normalised patient search, duplicate warning, medical history versions, X-rays and documents (`docs/reviews/2026-10-17-phase-d3-patients.md`)
-- Next: v4 Phase D4 (clinical visits) onwards — `docs/roadmap.md` (consent signing is deferred, CLR-14)
+- ✅ v4 Phase D4 — clinical visits with finalize/amend, procedures, prescriptions (print), dental chart, treatment plans, follow-up list, booking the next visit (`docs/reviews/2026-10-17-phase-d4-clinical.md`)
+- Next: v4 Phase D5 (patient merge), then Phase E (billing and payments) — `docs/roadmap.md` (consent signing is deferred, CLR-14)

@@ -1,6 +1,6 @@
 -- Demo data for local development and tests. Runs as the admin role (bypasses RLS).
 --   Clinic A  http://clinic-a.lvh.me:3000   owner.a@demo.test / reception.a@demo.test / doctor.a@demo.test
---             reception.maadi@demo.test (receptionist limited to the Maadi branch)
+--             reception.maadi@demo.test (receptionist limited to the Maadi branch), accountant.a@demo.test
 --   Clinic B  http://clinic-b.lvh.me:3000   owner.b@demo.test
 --   Every demo account's password is  Demo@12345  (dev only; hash below is scrypt N=16384 r=8 p=1)
 -- Fixed ids so tests and docs can refer to them.
@@ -44,7 +44,11 @@ INSERT INTO roles (id, tenant_id, key, name_en, name_ar, is_system, permissions)
  ('a0000000-0000-0000-0000-0000000000a2','11111111-1111-1111-1111-111111111111','receptionist','Receptionist','الاستقبال',true,
   '{patients:read,patients:write,patients:block,appointments:read,appointments:write,appointments:override,invoices:read,invoices:write,payments:write,branches:read}'),
  ('a0000000-0000-0000-0000-0000000000a3','11111111-1111-1111-1111-111111111111','doctor','Doctor','طبيب',true,
-  '{patients:read,patients:write,appointments:read,appointments:write:own,clinical:write,branches:read}'),
+  '{patients:read,patients:write,appointments:read,appointments:write:own,clinical:read,clinical:write,treatments:write:own,branches:read}'),
+ -- the accountant reads no clinical data (SRS B.1); the receptionist above is deliberately left without clinical:read
+ -- (new clinics give it to receptionists), so the tests cover a role that has no clinical access at all
+ ('a0000000-0000-0000-0000-0000000000a4','11111111-1111-1111-1111-111111111111','accountant','Accountant','المحاسب',true,
+  '{branches:read,patients:read,appointments:read,invoices:read,invoices:write,invoices:void,payments:write,payments:refund,discounts:apply,expenses:read,expenses:write,reports:read}'),
  ('a0000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222','owner','Owner','المالك',true,'{*}');
 
 INSERT INTO users (id, email, phone, full_name, locale, email_verified_at, phone_verified_at, password_hash) VALUES
@@ -52,12 +56,14 @@ INSERT INTO users (id, email, phone, full_name, locale, email_verified_at, phone
  ('b0000000-0000-0000-0000-0000000000a2','reception.a@demo.test','+201000000112','Sara Mohamed','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
  ('b0000000-0000-0000-0000-0000000000a3','doctor.a@demo.test','+201000000113','Dr. Mona Hassan','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
  ('b0000000-0000-0000-0000-0000000000a4','reception.maadi@demo.test','+201000000114','Hala Fathy','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
+ ('b0000000-0000-0000-0000-0000000000a5','accountant.a@demo.test','+201000000115','Mahmoud Ibrahim','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
  ('b0000000-0000-0000-0000-0000000000b1','owner.b@demo.test','+201000000211','Dr. Karim Adel','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A');
 
 INSERT INTO tenant_members (id, tenant_id, user_id, role_id) VALUES
  ('c0000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','b0000000-0000-0000-0000-0000000000a1','a0000000-0000-0000-0000-0000000000a1'),
  ('c0000000-0000-0000-0000-0000000000a2','11111111-1111-1111-1111-111111111111','b0000000-0000-0000-0000-0000000000a2','a0000000-0000-0000-0000-0000000000a2'),
  ('c0000000-0000-0000-0000-0000000000a3','11111111-1111-1111-1111-111111111111','b0000000-0000-0000-0000-0000000000a3','a0000000-0000-0000-0000-0000000000a3'),
+ ('c0000000-0000-0000-0000-0000000000a5','11111111-1111-1111-1111-111111111111','b0000000-0000-0000-0000-0000000000a5','a0000000-0000-0000-0000-0000000000a4'),
  ('c0000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222','b0000000-0000-0000-0000-0000000000b1','a0000000-0000-0000-0000-0000000000b1');
 -- a receptionist who works only at the Maadi branch (branch-scoped access, SRS ACCESS-003)
 INSERT INTO tenant_members (id, tenant_id, user_id, role_id, all_branches) VALUES

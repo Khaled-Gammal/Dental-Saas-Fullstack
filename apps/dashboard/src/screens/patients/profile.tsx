@@ -4,13 +4,16 @@ import { can, type Session } from '../../api';
 import { useFlash } from '../../hooks';
 import { t, tOr, type Key, type Lang } from '../../i18n';
 import { ageOn, hasAlerts } from '../../patient-model';
-import { usePatient, usePatientActivity, useSavePatient } from '../../queries';
+import { usePatient, usePatientActivity, usePatientVisits, useSavePatient } from '../../queries';
 import { to } from '../../router';
 import type { AuditEntry, PatientDetail } from '../../types';
 import { Alert, Badge, Button, Card, ErrorText, PageHeader } from '../../ui/components';
 import { AlertIcon, CalendarIcon, EditIcon, PhoneIcon, ShieldIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
+import { ChartCard } from '../clinical/chart';
+import { PatientFollowUpsCard } from '../clinical/followups';
+import { PlansCard } from '../clinical/plans';
 import { FilesCard } from './files-card';
 import { MedicalHistoryCard } from './medical-history';
 
@@ -50,9 +53,13 @@ export function PatientProfile({ lang, clinicId, id, session }: { lang: Lang; cl
         <div className="stack">
           <DetailsCard lang={lang} p={p} />
           <MedicalHistoryCard lang={lang} clinicId={clinicId} patientId={p.id} history={p.medicalHistory} canEdit={can(session, 'clinical:write')} />
+          {p.medicalHistory && <ChartCard lang={lang} clinicId={clinicId} patientId={p.id} canWrite={can(session, 'clinical:write')} age={ageOn(p.date_of_birth ?? '', today())} />}
           {p.medicalHistory && <FilesCard lang={lang} clinicId={clinicId} patientId={p.id} canWrite={can(session, 'clinical:write')} />}
         </div>
         <div className="stack">
+          {p.medicalHistory && <ClinicalVisitsCard lang={lang} clinicId={clinicId} patientId={p.id} />}
+          <PlansCard lang={lang} clinicId={clinicId} patientId={p.id} canCreate={can(session, 'treatments:write:own')} />
+          <PatientFollowUpsCard lang={lang} clinicId={clinicId} patientId={p.id} canWrite={write} canBook={can(session, 'appointments:write') && !p.is_blocked} />
           <VisitsCard lang={lang} p={p} />
           {can(session, 'audit:read') && <ActivityCard lang={lang} clinicId={clinicId} patientId={p.id} />}
         </div>
@@ -129,6 +136,34 @@ function VisitsCard({ lang, p }: { lang: Lang; p: PatientDetail }) {
           ))}
         </ol>
       )}
+    </Card>
+  );
+}
+
+/** The clinical visits (VISIT-001): the doctor, the diagnosis, what was done; each opens the visit. */
+function ClinicalVisitsCard({ lang, clinicId, patientId }: { lang: Lang; clinicId: string; patientId: string }) {
+  const visits = usePatientVisits(clinicId, patientId, true);
+  const fmt = new Intl.DateTimeFormat(loc(lang), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  return (
+    <Card>
+      <h2>{t('clinicalVisits', lang)}</h2>
+      {visits.isError ? <ErrorText error={visits.error} onRetry={() => void visits.refetch()} />
+        : !visits.data?.length ? <p className="muted small mt-sm">{t('noClinicalVisits', lang)}</p>
+        : (
+          <ol className="timeline mt">
+            {visits.data.map((v) => (
+              <li key={v.id}>
+                <span className="timeline-when"><RouteLink route={to.visit(v.id)}>{fmt.format(new Date(v.visit_at))}</RouteLink></span>
+                <span className="timeline-what">
+                  <bdi>{pickName(lang, v.doctor.name_ar, v.doctor.name_en)}</bdi>
+                  {v.diagnosis && <> · <bdi>{v.diagnosis}</bdi></>}
+                  {v.procedures > 0 && <span className="muted small"> · {fmtNumber(v.procedures, lang)} {t('proceduresCount', lang)}</span>}
+                </span>
+                <Badge tone={v.status === 'final' ? 'neutral' : 'warning'}>{t(v.status === 'final' ? 'visitFinal' : 'visitDraft', lang)}</Badge>
+              </li>
+            ))}
+          </ol>
+        )}
     </Card>
   );
 }

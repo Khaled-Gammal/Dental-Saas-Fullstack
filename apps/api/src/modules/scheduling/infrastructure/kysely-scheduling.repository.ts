@@ -14,6 +14,8 @@ const VIEW_COLUMNS = [
   'a.id', 'a.status', 'a.source', 'a.starts_at', 'a.ends_at', 'a.branch_id', 'a.doctor_id', 'a.service_id', 'a.room_id', 'a.payment_mode',
   'a.quoted_price_minor', 'a.patient_notes', 'a.internal_notes', 'a.cancel_reason', 'a.confirmed_at', 'a.checked_in_at', 'a.completed_at', 'a.cancelled_at', 'a.created_at',
 ] as const;
+/** the clinical visit opened on this appointment, if any (VISIT-001: reception sees that it exists) */
+const visitId = sql<string | null>`(select v.id from visits v where v.appointment_id = a.id)`;
 const hasCode = sql<boolean>`(a.check_in_code_hash is not null and a.check_in_code_used_at is null)`;
 const patientJson = sql<AppointmentView['patient']>`case when p.id is null then null else json_build_object('id', p.id, 'full_name', p.full_name, 'phone', p.phone, 'file_no', p.file_no) end`;
 const doctorJson = sql<AppointmentView['doctor']>`json_build_object('name_ar', d.name_ar, 'name_en', d.name_en)`;
@@ -143,7 +145,7 @@ export class KyselySchedulingRepository implements SchedulingRepository {
       .innerJoin('doctors as d', 'd.id', 'a.doctor_id')
       .leftJoin('services as s', 's.id', 'a.service_id')
       .leftJoin('rooms as r', 'r.id', 'a.room_id')
-      .select([...VIEW_COLUMNS, patientJson.as('patient'), doctorJson.as('doctor'), serviceJson.as('service'), roomJson.as('room'), hasCode.as('has_code')]);
+      .select([...VIEW_COLUMNS, patientJson.as('patient'), doctorJson.as('doctor'), serviceJson.as('service'), roomJson.as('room'), hasCode.as('has_code'), visitId.as('visit_id')]);
   }
 
   private static toView(r: Awaited<ReturnType<ReturnType<KyselySchedulingRepository['view']>['execute']>>[number]): AppointmentView {

@@ -66,3 +66,14 @@ describe('href', () => {
     }
   });
 });
+
+describe('clinical routes (Phase D4)', () => {
+  it('visit, plan, printable prescription and the follow-up list round-trip', () => {
+    for (const r of [to.visit('v1'), to.plan('p1'), to.printPrescription('rx1'), to.list('followups'), { page: 'followups' as const, query: { view: 'upcoming' } },
+      to.create('appointments', { patient: 'p', doctor: 'd', branch: 'b', service: 's', plan: 'pl', item: 'i' })]) {
+      expect(parseRoute(href(r))).toEqual(r);
+    }
+    expect(parseRoute('#/visits/v1/edit')).toEqual({ page: 'not-found' });
+    expect(parseRoute('#/prescriptions/rx1/view')).toEqual({ page: 'not-found' });
+  });
+});

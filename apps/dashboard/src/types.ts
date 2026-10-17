@@ -113,6 +113,8 @@ export interface Appointment {
   completed_at: string | null;
   /** a website booking whose reception code is still open (checking in without it needs a reason) */
   has_code: boolean;
+  /** the clinical visit opened on it, if any (everyone who reads appointments sees that it exists) */
+  visit_id: string | null;
   patient: { id: string; full_name: string; phone: string; file_no: number } | null;
   doctor: { name_ar: string | null; name_en: string | null };
   service: { name_ar: string | null; name_en: string | null; duration_minutes: number } | null;
@@ -251,4 +253,70 @@ export type ClinicalFileKind = 'xray' | 'clinical_photo' | 'document';
 export interface PatientFile {
   file_id: string; kind: ClinicalFileKind; mime_type: string; size_bytes: number; caption: string | null; taken_at: string | null;
   created_at: string; uploaded_by_name: string | null; archived_at: string | null; archive_reason: string | null; url: string;
+}
+
+// ---------- clinical (Phase D4) ----------
+export type NoteField = 'chief_complaint' | 'diagnosis' | 'clinical_notes' | 'next_visit_note';
+export type ToothCondition = 'healthy' | 'caries' | 'filled' | 'crown' | 'bridge' | 'missing' | 'implant' | 'root_canal' | 'fractured'
+  | 'extraction_needed' | 'veneer' | 'sealant' | 'other';
+export type Surface = 'M' | 'O' | 'D' | 'B' | 'L' | 'I' | 'F' | 'P';
+export interface ChartEntry {
+  id: string; tooth_code: number; surfaces: Surface[]; condition: ToothCondition; notes: string | null; visit_id: string | null;
+  recorded_at: string; recorded_by_name: string | null;
+}
+export interface PatientChart { current: ChartEntry[]; entries: ChartEntry[] }
+export interface Procedure {
+  id: string; service_id: string; service_ar: string | null; service_en: string | null; tooth_code: number | null; surfaces: Surface[];
+  price_minor: number; plan_item_id: string | null; notes: string | null; created_at: string; billed: boolean;
+}
+export interface PrescriptionLine { id: string; drug_name: string; dose: string | null; frequency: string | null; duration: string | null; instructions: string | null }
+export interface Prescription {
+  id: string; visit_id: string; patient_id: string; doctor_id: string; notes: string | null; issued_at: string; replaces_id: string | null;
+  replaced_by_id: string | null; issued_by_name: string | null; items: PrescriptionLine[];
+}
+export interface PrescriptionPrint extends Prescription {
+  branch_id: string;
+  doctor: { name_ar: string | null; name_en: string | null; title_ar: string | null; title_en: string | null };
+  patient: { id: string; full_name: string; file_no: number; date_of_birth: string | null; gender: Gender | null } | null;
+}
+export interface Amendment { id: string; field: NoteField; new_text: string; reason: string; created_at: string; author_name: string | null }
+export interface Visit {
+  id: string; status: 'draft' | 'final'; appointment_id: string | null; patient_id: string; doctor_id: string; branch_id: string; visit_at: string;
+  chief_complaint: string | null; diagnosis: string | null; clinical_notes: string | null; next_visit_note: string | null;
+  finalized_at: string | null; finalized_by_name: string | null; created_at: string;
+  doctor: { name_ar: string | null; name_en: string | null; title_ar: string | null; title_en: string | null };
+  branch: { name_ar: string | null; name_en: string | null };
+  patient: { id: string; file_no: number; full_name: string; phone: string; gender: Gender | null; date_of_birth: string | null; medicalHistory: MedicalHistory } | null;
+  amendments: Amendment[]; procedures: Procedure[]; prescriptions: Prescription[]; chart: ChartEntry[];
+  can: { writeNotes: boolean; amend: boolean; procedures: boolean; prescribe: boolean; chart: boolean };
+}
+export type VisitSummary = Omit<Visit, 'patient' | 'amendments' | 'procedures' | 'prescriptions' | 'chart' | 'can'> & { procedures: number };
+
+export type PlanStatus = 'draft' | 'proposed' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+export type PlanItemStatus = 'planned' | 'scheduled' | 'done' | 'cancelled';
+export interface PlanItem {
+  id: string; plan_id: string; service_id: string; service_ar: string | null; service_en: string | null; duration_minutes: number; tooth_code: number | null;
+  surfaces: Surface[]; price_minor: number; discount_minor: number; status: PlanItemStatus; appointment_id: string | null; appointment_at: string | null;
+  sort_order: number; done_visit_id: string | null;
+}
+export interface PlanSummary {
+  items_total: number; items_done: number; items_cancelled: number; estimate_minor: number; done_estimate_minor: number; remaining_estimate_minor: number;
+}
+export interface PlanRow {
+  id: string; patient_id: string; doctor_id: string; title: string; status: PlanStatus; total_estimate_minor: number; notes: string | null;
+  accepted_at: string | null; accepted_by_name: string | null; created_at: string; updated_at: string;
+  doctor: { name_ar: string | null; name_en: string | null }; summary: PlanSummary;
+}
+export interface PlanDetail extends PlanRow {
+  items: PlanItem[];
+  next: { item: PlanItem | null; next_visit_note: string | null; noted_at: string | null };
+  can: { write: boolean; schedule: boolean };
+}
+
+export type RecallReason = 'checkup' | 'cleaning' | 'ortho_adjustment' | 'post_op' | 'implant_followup' | 'other';
+export type RecallStatus = 'pending' | 'contacted' | 'booked' | 'done' | 'dismissed';
+export interface Recall {
+  id: string; patient_id: string; doctor_id: string | null; reason: RecallReason; status: RecallStatus; due_date: string; appointment_id: string | null;
+  appointment_at: string | null; source_visit_id: string | null; last_contacted_at: string | null; contact_attempts: number; notes: string | null; created_at: string;
+  patient: { id: string; full_name: string; phone: string; file_no: number }; doctor: { name_ar: string | null; name_en: string | null } | null;
 }

@@ -3,7 +3,7 @@ import { pickName } from '@dental/ui/text';
 import { can, logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
 import { Badge, LinkButton, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
 import { useProfile } from '../queries';
 import { useMediaQuery } from '../hooks';
 import { to, type Page } from '../router';
@@ -17,6 +17,7 @@ const NAV: NavItem[] = [
   { key: 'navBranches', icon: <PinIcon />, page: 'branches' },
   { key: 'navAppointments', icon: <CalendarIcon />, page: 'appointments' },
   { key: 'navPatients', icon: <UsersIcon />, page: 'patients' },
+  { key: 'navFollowUps', icon: <PhoneIcon />, page: 'followups', perm: 'patients:read' },
   { key: 'navDoctors', icon: <StethoscopeIcon />, page: 'doctors' },
   { key: 'navServices', icon: <ListIcon />, page: 'services' },
   { key: 'navStaff', icon: <ShieldIcon />, page: 'staff', perm: 'staff:manage' },

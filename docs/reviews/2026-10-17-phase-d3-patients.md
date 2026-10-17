@@ -50,8 +50,9 @@ Applied to the test and dev databases; types regenerated. No data is deleted or 
 
 ## Notes and follow-ups
 
-- The e2e test refuses reception (no `clinical:read`); the accountant role has no `clinical:read` either, so the
-  same check applies, but there is no separate accountant case.
+- The e2e test refuses "reception": the **seed** receptionist role has no `clinical:read`. New clinics give receptionists
+  `clinical:read` (SRS B.1), so in a real clinic reception can view files. The test covers "a role without
+  `clinical:read`". D4 added a seed accountant (`accountant.a@demo.test`) and tests that it cannot read visits, prescriptions or the chart; files have no separate accountant test.
 - Clinical files go to the same object storage as website images, under a separate key prefix, and are only served
   through the signed `GET /clinical-files/…` route (never a public URL).
 - The 413 the API returns for oversize uploads is the shared one (it mentions the website image limit); the

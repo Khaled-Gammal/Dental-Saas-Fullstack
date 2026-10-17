@@ -545,3 +545,83 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 .seg-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 0; border-radius: var(--r-sm, 8px); background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
 .seg-btn:hover { background: var(--primary-50); }
 .seg-btn.is-on { background: var(--primary-500); color: #fff; }
+
+/* ---------- clinical (Phase D4) ---------- */
+.stack-sm { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.chip-toggle { min-width: 36px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--card); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.chip-toggle:hover { background: var(--primary-50); }
+.chip-toggle.is-on { background: var(--primary-500); border-color: var(--primary-500); color: #fff; }
+.chip-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
+.surface-picker { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tooth-panel { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.tooth-panel h3, .card h3 { margin: 0; font-size: var(--fs-md); }
+
+/* the dental chart is drawn left to right in every language (CHART-001) */
+.dental-chart { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
+.chart-sides { display: flex; justify-content: space-between; min-width: 400px; }
+.chart-row { display: flex; justify-content: center; gap: 3px; min-width: 400px; }
+.chart-row + .chart-row { padding-top: 4px; }
+.chart-row:nth-child(2) { border-bottom: 2px solid var(--line-strong); padding-bottom: 8px; }
+.tooth { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1 1 0; min-width: 20px; max-width: 34px; height: 40px; padding: 0;
+  border: 1px solid var(--line-strong); border-radius: 8px 8px 12px 12px; background: var(--card); color: var(--ink); font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
+.tooth.mid { margin-inline-start: 8px; }
+.tooth:hover { border-color: var(--primary-300); }
+.tooth:focus-visible { outline: none; box-shadow: var(--ring); }
+.tooth.is-on { outline: 2px solid var(--primary-500); outline-offset: 1px; }
+.tooth-surf { font-size: 9px; font-weight: 600; opacity: .85; }
+.tone-problem { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+.tone-treated { background: var(--primary-50); border-color: var(--primary-300); color: var(--primary-700); }
+.tone-missing { background: repeating-linear-gradient(45deg, var(--surface), var(--surface) 4px, var(--line) 4px, var(--line) 8px); color: var(--muted); border-style: dashed; }
+.tone-healthy { background: var(--success-bg); border-color: var(--success); color: var(--success); }
+.tone-other { background: var(--warning-bg); color: var(--warning-ink); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; margin: 10px 0 0; padding: 0; }
+.chart-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line-strong); }
+
+/* priced lines (procedures, plan items) */
+.line-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.line-list > li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.line-list > li:last-child { border-bottom: 0; }
+.line-list > li.is-cancelled > span:first-child { text-decoration: line-through; color: var(--muted); }
+.line-end { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.line-total { font-weight: 700; }
+
+.note-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.amendment { margin-top: 8px; padding: 8px 10px; border-inline-start: 3px solid var(--warning-ink); background: var(--warning-bg); border-radius: var(--r-sm); }
+.call-log { white-space: pre-wrap; font-size: var(--fs-xs); }
+.progress { height: 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--primary-500); }
+
+.rx-item { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.rx-item.is-replaced { opacity: .65; }
+.rx-lines { margin: 8px 0 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; }
+.rx-line-form { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+
+/* the printable prescription (VISIT-004): A5 or A4, Arabic, only the sheet prints */
+.rx-sheet { margin: 16px auto; padding: 20px 24px; background: #fff; color: #111; border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.6; }
+.rx-a5 { width: min(148mm, 100%); min-height: 190mm; }
+.rx-a4 { width: min(210mm, 100%); min-height: 270mm; }
+.rx-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #222; padding-bottom: 10px; }
+.rx-clinic { margin: 0; font-size: 20px; }
+.rx-branch { margin: 4px 0 0; font-size: 12px; color: #444; }
+.rx-logo { max-width: 72px; max-height: 72px; object-fit: contain; }
+.rx-doctor { display: flex; flex-direction: column; }
+.rx-doctor span { font-size: 12px; color: #444; }
+.rx-patient { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; margin: 0; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; }
+.rx-patient div { display: flex; gap: 6px; }
+.rx-patient dt { color: #555; }
+.rx-patient dd { margin: 0; font-weight: 600; }
+.rx-symbol { font-size: 28px; font-weight: 700; line-height: 1; }
+.rx-items { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.rx-drug { font-weight: 700; font-size: 15px; }
+.rx-how { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.rx-note { font-size: 12px; color: #333; }
+.rx-foot { display: flex; justify-content: flex-end; padding-top: 28px; }
+.rx-foot span { border-top: 1px solid #333; padding-top: 4px; min-width: 40%; text-align: center; font-size: 12px; }
+@media print {
+  body * { visibility: hidden; }
+  .rx-sheet, .rx-sheet * { visibility: visible; }
+  .rx-sheet { position: absolute; inset: 0 auto auto 0; width: 100%; min-height: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+  .no-print { display: none !important; }
+}
