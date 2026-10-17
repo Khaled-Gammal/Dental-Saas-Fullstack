@@ -30,6 +30,8 @@ export interface ClinicProfile {
   email: string | null;
   specialties: string[];
   defaultLocale: 'ar' | 'en';
+  /** CLR-09: ISO code, default EGP; fixed once an invoice is issued */
+  currency: string;
   brandColor: string | null;
   logo: MediaImage | null;
 }
@@ -320,3 +322,36 @@ export interface Recall {
   appointment_at: string | null; source_visit_id: string | null; last_contacted_at: string | null; contact_attempts: number; notes: string | null; created_at: string;
   patient: { id: string; full_name: string; phone: string; file_no: number }; doctor: { name_ar: string | null; name_en: string | null } | null;
 }
+
+// ---------- billing (Phase E1) ----------
+export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void';
+export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'wallet' | 'instapay';
+export interface InvoiceRow {
+  id: string; number: string | null; status: InvoiceStatus; currency: string; patient_id: string; branch_id: string;
+  subtotal_minor: number; discount_minor: number; tax_minor: number; total_minor: number; paid_minor: number; balance_minor: number;
+  issue_date: string | null; due_date: string | null; notes: string | null; void_reason: string | null; voided_at: string | null; created_at: string;
+  created_by_name: string | null; voided_by_name: string | null;
+  patient: { id: string; full_name: string; file_no: number; phone: string }; branch: { name_ar: string | null; name_en: string | null };
+}
+export interface InvoiceLine {
+  id: string; service_id: string | null; visit_procedure_id: string | null; doctor_id: string | null; description: string; tooth_code: number | null;
+  quantity: number; unit_price_minor: number; discount_minor: number; line_total_minor: number; sort_order: number;
+}
+export interface Refund { id: string; amount_minor: number; method: PaymentMethod; reason: string; reference: string | null; refunded_at: string; created_by_name: string | null }
+export interface Payment {
+  id: string; invoice_id: string | null; patient_id: string; branch_id: string; amount_minor: number; refunded_minor: number; currency: string; method: PaymentMethod;
+  reference: string | null; status: 'succeeded' | 'partially_refunded' | 'refunded' | 'reversed' | 'pending' | 'failed'; paid_at: string; notes: string | null;
+  received_by: string | null; received_by_name: string | null; reversed_at: string | null; reversal_reason: string | null; reversed_by_name: string | null;
+  refunds?: Refund[]; can?: { reverse: boolean; refund: boolean };
+}
+export interface InvoiceDetail extends InvoiceRow {
+  lines: InvoiceLine[]; payments: (Payment & { refunds: Refund[]; can: { reverse: boolean; refund: boolean } })[];
+  tax_rate_bp: number; tax_preview_minor: number;
+  can: { edit: boolean; issue: boolean; void: boolean; pay: boolean };
+}
+export interface UnbilledProcedure {
+  id: string; visit_id: string; service_id: string; service_ar: string | null; service_en: string | null; tooth_code: number | null; surfaces: Surface[];
+  price_minor: number; doctor_id: string; branch_id: string; visit_at: string; doctor_ar: string | null; doctor_en: string | null;
+}
+export interface PatientBilling { currency: string; balance_minor: number; invoices: InvoiceRow[]; unbilled: UnbilledProcedure[] }
+export interface PaymentReceipt extends Payment { invoice: InvoiceRow | null }

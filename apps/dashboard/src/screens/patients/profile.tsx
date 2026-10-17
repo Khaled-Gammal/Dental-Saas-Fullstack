@@ -14,6 +14,7 @@ import { fmtNumber } from '../../util';
 import { ChartCard } from '../clinical/chart';
 import { PatientFollowUpsCard } from '../clinical/followups';
 import { PlansCard } from '../clinical/plans';
+import { PatientBillingCard } from '../billing/list';
 import { FilesCard } from './files-card';
 import { MedicalHistoryCard } from './medical-history';
 
@@ -63,6 +64,7 @@ export function PatientProfile({ lang, clinicId, id, session }: { lang: Lang; cl
         </div>
         <div className="stack">
           {p.medicalHistory && <ClinicalVisitsCard lang={lang} clinicId={clinicId} patientId={p.id} />}
+          {(can(session, 'invoices:read') || can(session, 'invoices:read:own')) && <PatientBillingCard lang={lang} clinicId={clinicId} patientId={p.id} canWrite={can(session, 'invoices:write')} />}
           <PlansCard lang={lang} clinicId={clinicId} patientId={p.id} canCreate={can(session, 'treatments:write:own')} />
           <PatientFollowUpsCard lang={lang} clinicId={clinicId} patientId={p.id} canWrite={write} canBook={can(session, 'appointments:write') && !p.is_blocked} />
           <VisitsCard lang={lang} p={p} />

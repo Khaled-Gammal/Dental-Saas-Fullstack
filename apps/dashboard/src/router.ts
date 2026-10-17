@@ -3,7 +3,7 @@
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
 export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking'
-  | 'visits' | 'plans' | 'prescriptions' | 'followups';
+  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments';
 export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge';
 
 /** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
@@ -31,6 +31,8 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   plans: ['view'], // a treatment plan
   prescriptions: ['print'], // the printable prescription (A5/A4)
   followups: [], // the follow-up list reception works
+  invoices: ['new', 'view', 'print'], // print = the A4 invoice
+  payments: ['print'], // the A5 receipt
 };
 
 /**
@@ -79,4 +81,7 @@ export const to = {
   visit: (id: string): Route => ({ page: 'visits', id, action: 'view' }),
   plan: (id: string): Route => ({ page: 'plans', id, action: 'view' }),
   printPrescription: (id: string): Route => ({ page: 'prescriptions', id, action: 'print' }),
+  invoice: (id: string): Route => ({ page: 'invoices', id, action: 'view' }),
+  printInvoice: (id: string): Route => ({ page: 'invoices', id, action: 'print' }),
+  printReceipt: (id: string): Route => ({ page: 'payments', id, action: 'print' }),
 };

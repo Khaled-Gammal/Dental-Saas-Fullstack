@@ -21,7 +21,7 @@ const NAV: NavItem[] = [
   { key: 'navDoctors', icon: <StethoscopeIcon />, page: 'doctors' },
   { key: 'navServices', icon: <ListIcon />, page: 'services' },
   { key: 'navStaff', icon: <ShieldIcon />, page: 'staff', perm: 'staff:manage' },
-  { key: 'navBilling', icon: <ReceiptIcon /> },
+  { key: 'navBilling', icon: <ReceiptIcon />, page: 'invoices', perm: 'invoices:read' },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
   { key: 'navWebsite', icon: <GlobeIcon /> },
 ];

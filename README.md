@@ -172,4 +172,5 @@ Reports and what was fixed or deferred are in `docs/reviews/`. A phase is done w
 - ✅ v4 Phase D3 — Arabic-normalised patient search, duplicate warning, medical history versions, X-rays and documents (`docs/reviews/2026-10-17-phase-d3-patients.md`)
 - ✅ v4 Phase D4 — clinical visits with finalize/amend, procedures, prescriptions (print), dental chart, treatment plans, follow-up list, booking the next visit (`docs/reviews/2026-10-17-phase-d4-clinical.md`)
 - ✅ v4 Phase D5 — merging duplicate patients (`docs/reviews/2026-10-17-phase-d5-merge.md`)
-- Next: v4 Phase E (billing, payments, discounts, expenses, cash) — `docs/roadmap.md`; open decisions CLR-02, 03, 04, 09, 12, 17 block parts of it
+- ✅ v4 Phase E1 — invoices, payments by method, reversals, refunds, Arabic invoice and receipt printouts, clinic currency (`docs/reviews/2026-10-17-phase-e1-billing.md`)
+- Next: v4 Phase E2 (discounts with approval, installment plans, waivers) — `docs/roadmap.md`

@@ -21,6 +21,10 @@ import { BookingRules } from './screens/calendar/booking-settings';
 import { Holidays } from './screens/calendar/holidays';
 import { BranchRooms } from './screens/calendar/rooms';
 import { DoctorTimeOff } from './screens/calendar/time-off';
+import { InvoicePage } from './screens/billing/invoice';
+import { InvoicesList } from './screens/billing/list';
+import { NewInvoice } from './screens/billing/new';
+import { InvoicePrint, ReceiptPrint } from './screens/billing/print';
 import { FollowUps } from './screens/clinical/followups';
 import { PlanPage } from './screens/clinical/plans';
 import { PrescriptionPrint } from './screens/clinical/prescription-print';
@@ -158,11 +162,19 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
       return <ServicesList lang={lang} clinicId={clinicId} canWrite={settings} />;
     case 'visits':
       if (!can(session, 'clinical:read') && !can(session, 'clinical:write')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
-      return <VisitPage lang={lang} clinicId={clinicId} id={id} />;
+      return <VisitPage lang={lang} clinicId={clinicId} id={id} canInvoice={can(session, 'invoices:write')} />;
     case 'plans': return <PlanPage lang={lang} clinicId={clinicId} id={id} />;
     case 'prescriptions': return <PrescriptionPrint lang={lang} clinicId={clinicId} id={id} />;
     case 'followups':
       return <FollowUps lang={lang} clinicId={clinicId} canWrite={can(session, 'patients:write')} canBook={can(session, 'appointments:write')} query={route.query} />;
+    case 'invoices':
+      if (action === 'new' && can(session, 'invoices:write')) return <NewInvoice lang={lang} clinicId={clinicId} query={route.query} />;
+      if (action === 'view') return <InvoicePage lang={lang} clinicId={clinicId} id={id} />;
+      if (action === 'print') return <InvoicePrint lang={lang} clinicId={clinicId} id={id} />;
+      if (action || !can(session, 'invoices:read')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
+      return <InvoicesList lang={lang} clinicId={clinicId} query={route.query} />;
+    case 'payments':
+      return <ReceiptPrint lang={lang} clinicId={clinicId} id={id} />;
     case 'holidays': return <Holidays lang={lang} clinicId={clinicId} canWrite={settings} />;
     case 'booking': return <BookingRules lang={lang} clinicId={clinicId} canWrite={settings} />;
     case 'staff':

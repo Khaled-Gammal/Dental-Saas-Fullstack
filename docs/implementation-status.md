@@ -3,28 +3,28 @@
 The tracker for every requirement in `docs/SRS.md`. **Where this file and the SRS disagree, this file wins.**
 It is updated at the end of every phase. A status changes only with evidence: code, plus a test that ran and passed.
 
-Last updated: 2026-10-17, end of Phase D5 (reviews in `docs/reviews/`: phase C and D1–D5 of 2026-10-17).
+Last updated: 2026-10-17, end of Phase E1 (reviews in `docs/reviews/`: phase C, D1–D5 and E1 of 2026-10-17).
 
-## Last verification run (2026-10-17, end of Phase D5)
+## Last verification run (2026-10-17, end of Phase E1)
 
 | Check | Result |
 | --- | --- |
-| Database tests (`pnpm db:test`) | 22 files, **327 checks passed** |
-| API e2e + unit (`pnpm --filter @dental/api test`) | 21 suites, **221 tests passed** |
+| Database tests (`pnpm db:test`) | 23 files, **355 checks passed** |
+| API e2e + unit (`pnpm --filter @dental/api test`) | 23 suites, **235 tests passed** |
 | Dashboard unit (vitest) | 60 passed |
 | Website unit (vitest) | 20 passed |
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
 | CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4), 39061929809 (`v4/phase-d5-merge`, c687e15) |
-| Browser check | **partial** (D4, D5 merge page viewed): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through |
+| Browser check | **partial** (D4; D5 merge page; E1 invoice list, new-invoice form, patient account card, currency card viewed — no invoice created in the dev data): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through |
 
 ## Clinic workflow (SRS §3)
 
 | # | Step | Status | Missing for "done" |
 | --- | --- | --- | --- |
 | 1 | Sign up | IMPLEMENTED | terms acceptance (AUTH-01) |
-| 2 | Clinic setup | IMPLEMENTED | currency display setting (L10N-005) |
+| 2 | Clinic setup | IMPLEMENTED | — (currency setting added in E1) |
 | 3 | Branch setup | IMPLEMENTED | — |
 | 4 | Staff and doctor setup | IMPLEMENTED | — |
 | 5 | Services and pricing | IMPLEMENTED | — |
@@ -34,8 +34,8 @@ Last updated: 2026-10-17, end of Phase D5 (reviews in `docs/reviews/`: phase C a
 | 9 | Chart and treatment plan | IMPLEMENTED | invoiced/paid in the plan summary (TPLAN-004, Phase E) |
 | 10 | Procedures | IMPLEMENTED | — |
 | 11 | Prescription | IMPLEMENTED | print check on paper (Chrome, Edge, Safari) |
-| 12 | Invoice | NOT_IMPLEMENTED (DB only) | BILLING-*, DISC-* |
-| 13 | Payments | NOT_IMPLEMENTED (DB only) | PAY-* |
+| 12 | Invoice | IMPLEMENTED (E1) | discounts (DISC-*, E2) |
+| 13 | Payments | IMPLEMENTED (E1) | installments, waivers (PAY-004/006, E2) |
 | 14 | Follow-up | IMPLEMENTED | — |
 | 15 | Expenses and cash | NOT_IMPLEMENTED | EXP-*, CASH-* |
 | 16 | Reporting | NOT_IMPLEMENTED | REPORT-* |
@@ -75,32 +75,32 @@ Last updated: 2026-10-17, end of Phase D5 (reviews in `docs/reviews/`: phase C a
 | TPLAN-002 | Plan status | IMPLEMENTED | D4 | CLR-11 default (member + time); `treatment_plans_guard`; progress derived from items |
 | TPLAN-003 | Planned vs. performed | IMPLEMENTED | D4 | item done through a procedure only; accepted items fixed, cancelled kept |
 | TPLAN-004 | Plan summary | PARTIALLY | D4/E | estimate, done, remaining, next recommended visit; invoiced/paid/balance in Phase E |
-| BILLING-001 | Draft invoice | NOT_IMPLEMENTED (DB only) | E | `invoices_derive()`, `04_billing.sql` |
-| BILLING-002 | Issue invoice + numbering | NOT_IMPLEMENTED | E | No `issue_invoice()` |
-| BILLING-003 | Void invoice | NOT_IMPLEMENTED (DB only) | E | Void rules tested |
-| BILLING-004 | Arabic invoice/receipt print | NOT_IMPLEMENTED | E | Needs CLR-17 |
-| BILLING-005 | Patient balance | NOT_IMPLEMENTED (DB only) | E | `balance_minor` generated |
-| PAY-001 | Record a payment (methods) | PARTIALLY (DB only) | E | Method CHECK has cash/card/wallet/bank_transfer/instapay; no reference column |
-| PAY-002 | Partial and multiple payments | PARTIALLY (DB only) | E | Tested in `04_billing.sql`, `05_concurrency.sql` |
-| PAY-003 | Immutable payments | IMPLEMENTED (DB) | C | `payments_guard()`, refunds not editable (0012); `13_money_integrity.sql`. The reversal path is built with billing (E-01) |
+| BILLING-001 | Draft invoice | IMPLEMENTED | E1 | `modules/billing`, `POST /invoices` from unbilled procedures and service lines; `#/invoices/new` |
+| BILLING-002 | Issue invoice + numbering | IMPLEMENTED | E1 | migration 0023 `issue_invoice()` ({prefix}-{year}-{seq}, gap-free, tax half up), number locked; `22_billing_payments.sql` |
+| BILLING-003 | Void invoice | IMPLEMENTED | E1 | `POST /invoices/:id/void` (invoices:void, reason, nothing paid) |
+| BILLING-004 | Arabic invoice/receipt print | IMPLEMENTED (print not verified on paper) | E1 | `#/invoices/<id>/print` (A4), `#/payments/<id>/print` (A5) |
+| BILLING-005 | Patient balance | PARTIALLY | E1 | `GET /patients/:id/billing` (invoices:read, or :own for the doctor's patients); profile card; not shown at check-in yet |
+| PAY-001 | Record a payment (methods) | IMPLEMENTED | E1 | receiver = signed-in member, idempotency key, reference CHECK; recorded now (dating with cash days, E3) |
+| PAY-002 | Partial and multiple payments | IMPLEMENTED | E1 | status derived; `billing.e2e-spec.ts` |
+| PAY-003 | Immutable payments | IMPLEMENTED | C/E1 | `payments_guard()` (0012, 0023: succeeded → reversed with reason, nothing else); owner, or the receiver the same day (CLR-05) |
 | PAY-004 | Installment plans | PARTIALLY (DB only) | E | Status derivation and totals (0012) tested; no API |
-| PAY-005 | Refunds | PARTIALLY (DB only) | E | No method/branch; needs CLR-05 |
-| PAY-006 | Adjustments | BLOCKED | E | CLR-12 |
+| PAY-005 | Refunds | IMPLEMENTED | E1 | method (may differ), branch, time, reason; payments:refund (owner, accountant); cash-day effect in E3 |
+| PAY-006 | Adjustments | NOT_IMPLEMENTED | E2 | CLR-12 answered (waiver, write-off; owner only) |
 | DISC-001 | Fixed/percent discount + reason | NOT_IMPLEMENTED | E | Amount columns only |
-| DISC-002 | Authorization limits | NOT_IMPLEMENTED | E | CLR-02 |
-| DISC-003 | Discount approval | NOT_IMPLEMENTED | E | CLR-02 |
+| DISC-002 | Authorization limits | NOT_IMPLEMENTED | E2 | CLR-02 answered |
+| DISC-003 | Discount approval | NOT_IMPLEMENTED | E2 | CLR-02 answered |
 | EXP-001 | Record an expense | NOT_IMPLEMENTED (minimal table) | E | — |
 | EXP-002 | Expense categories | NOT_IMPLEMENTED | E | — |
-| EXP-003 | Expense approval | NOT_IMPLEMENTED | E | CLR-03 |
+| EXP-003 | Expense approval | NOT_IMPLEMENTED | E3 | CLR-03 answered |
 | EXP-004 | Expense corrections | NOT_IMPLEMENTED | E | — |
-| CASH-001…004 | Cash sessions, expected cash, close, reopen | NOT_IMPLEMENTED | E | No tables; CLR-04 |
+| CASH-001…004 | Cash sessions, expected cash, close, reopen | NOT_IMPLEMENTED | E3 | CLR-04 answered |
 | REPORT-001…005 | Reports | NOT_IMPLEMENTED | E | — |
 | REPORT-006 | Home per role | PARTIALLY | F | Setup checklist only (`screens/overview.tsx`) |
 | L10N-001 | Arabic only | PARTIALLY | F | Website Arabic-only; dashboard has AR/EN switch (`App.tsx`) |
 | L10N-002 | RTL everywhere | PARTIALLY | F | Website `dir="rtl"`; dashboard follows the switch |
 | L10N-003 | Arabic errors | PARTIALLY | F | 42 of 57 API codes translated; Zod messages English |
 | L10N-004 | Arabic emails | PARTIALLY | F | Booking emails bilingual |
-| L10N-005 | Currency | PARTIALLY | F | EGP hard-coded in UI; `tenants.currency` exists |
+| L10N-005 | Currency | PARTIALLY | E1/F | clinic setting + lock (CLR-09), shared formatter in billing/clinical screens; price list and website still EGP-only |
 | L10N-006 | Dates and times | PARTIALLY | F | Branch timezone used; digits inconsistent (CLR-08) |
 | L10N-007 | Arabic data | PARTIALLY | F | Arabic stored and searched with normalisation (PATIENT-001); no export yet |
 | L10N-008 | Remove multilingual infrastructure | NOT_IMPLEMENTED | F | `i18n.ts` (~520 AR/EN entries), toggle in `App.tsx` |
@@ -131,6 +131,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-17 | E1 | Migration 0023; BILLING-001…004, PAY-001/002/003/005 done; BILLING-005 partly. CLR-02, 03, 04, 09, 12, 17 defaults accepted. Seed: receptionist payments:reverse, doctor invoices:read:own |
 | 2026-10-17 | D5 | Migration 0022; PATIENT-003 done (merge with CLR-15 default); D4 CI green |
 | 2026-10-17 | D4 | Migration 0021; VISIT-001…005, CHART-001, TPLAN-001…003, APPT-007, AUDIT-002, PATIENT-005 done; TPLAN-004 partly. Seed: doctor role gains clinical:read and treatments:write:own; demo accountant added |
 | 2026-10-17 | D3 | Migrations 0019–0020; PATIENT-001, 002, 004 done; PATIENT-005 versions done (visit alert in D4); OPS-001 verified on GitHub |

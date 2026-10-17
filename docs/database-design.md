@@ -275,6 +275,8 @@ after its versions moved. The merged row gets `merged_into_id` + `merged_at`; gu
 repointed. New grants to `app_definer`: SELECT/UPDATE on the moved tables and `installments`, INSERT on
 `audit_log` and history versions, SELECT on the tables the fired triggers read. Rollback tested (down + up).
 
+**E1 applied 2026-10-17 (migration 0023):** E-01 (`payments.reference`, `reversed_at/by`, `reversal_reason`, status `reversed`; `payments_guard` allows only succeeded → reversed with a reason and no refunds, then nothing; payment notes stay editable as before), E-02 (`payments_reference_required`), E-03 (`refunds.method` — defaulted to the payment's when a caller omits it, CLR-05 allows a different one — `branch_id` (always the payment's), `reference`, `refunded_at`), E-04 (`issue_invoice()`: draft only, at least one line, `{prefix}-{year}-{00001}` from `next_tenant_counter('invoice:'||year)` in the clinic time zone, tax half up from `tax_rate_bp`; `invoices_lock_number` keeps number and date fixed, starts invoices as drafts in the clinic currency). Also `invoices.voided_at/by`, and CLR-09: `tenants_currency_code` CHECK, `tenants_currency_lock` (no change once an invoice left draft), `GRANT UPDATE (currency)`. The dev database had no invoices, payments or refunds; nothing was rewritten. E-05 onwards are E2–E4.
+
 | ID | Change | Requirement | Risk |
 | --- | --- | --- | --- |
 | D-01 | `invitations` + `job_title text`, `doctor_id uuid` (composite FK to `doctors`), index on `(tenant_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL` | ACCESS-001 | low |

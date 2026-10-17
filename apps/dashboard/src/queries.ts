@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CatalogEntry, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  BookingSettings, HistoryVersion, Holiday, PatientChart, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
+  BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
   StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
 
@@ -288,5 +288,31 @@ export function useClinicalMutation<V, R = unknown>(clinicId: string, fn: (v: V)
   return useMutation({
     mutationFn: fn,
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: keys.appointments(clinicId) })]),
+  });
+}
+
+// ---------- billing (Phase E1) ----------
+export const billingKeys = {
+  all: (clinicId: string) => ['billing', clinicId] as const,
+  list: (clinicId: string, status: string) => ['billing', clinicId, 'list', status] as const,
+  invoice: (clinicId: string, id: string) => ['billing', clinicId, 'invoice', id] as const,
+  patient: (clinicId: string, patientId: string) => ['billing', clinicId, 'patient', patientId] as const,
+  payment: (clinicId: string, id: string) => ['billing', clinicId, 'payment', id] as const,
+};
+export const useInvoices = (clinicId: string, status: string) =>
+  useQuery({ queryKey: billingKeys.list(clinicId, status), queryFn: () => api<InvoiceRow[]>(`/invoices${status === 'all' ? '' : `?status=${status}`}`) });
+export const useInvoice = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: billingKeys.invoice(clinicId, id ?? ''), queryFn: () => api<InvoiceDetail>(`/invoices/${id}`), enabled: !!id });
+export const usePatientBilling = (clinicId: string, patientId: string | undefined, enabled = true) =>
+  useQuery({ queryKey: billingKeys.patient(clinicId, patientId ?? ''), queryFn: () => api<PatientBilling>(`/patients/${patientId}/billing`), enabled: enabled && !!patientId });
+export const usePaymentReceipt = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: billingKeys.payment(clinicId, id ?? ''), queryFn: () => api<PaymentReceipt>(`/payments/${id}`), enabled: !!id });
+
+/** Every billing write refreshes invoices, balances and the clinical cache (unbilled procedures). */
+export function useBillingMutation<V, R = unknown>(clinicId: string, fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: billingKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) })]),
   });
 }

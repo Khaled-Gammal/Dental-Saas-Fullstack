@@ -13,6 +13,8 @@ export interface ProfilePatch {
   specialties?: string[];
   defaultLocale?: 'ar' | 'en';
   logoFileId?: string | null;
+  /** CLR-09: chosen by the clinic (default EGP); the database refuses a change once an invoice is issued */
+  currency?: string;
 }
 
 /**
@@ -26,7 +28,7 @@ export class ProfileRepository {
       .leftJoin('sites as s', 's.tenant_id', 't.id')
       .select([
         't.slug', 't.status', 't.name_ar', 't.name_en', 't.about_ar', 't.about_en', 't.primary_phone', 't.whatsapp', 't.email',
-        't.specialties', 't.default_locale', 't.logo_file_id', imageJson('t.logo_file_id').as('logo'),
+        't.specialties', 't.default_locale', 't.currency', 't.logo_file_id', imageJson('t.logo_file_id').as('logo'),
         sql<string | null>`s.draft_theme->>'primary'`.as('brand_color'),
       ])
       .executeTakeFirst();
@@ -44,6 +46,7 @@ export class ProfileRepository {
       ...(p.specialties !== undefined && { specialties: p.specialties }),
       ...(p.defaultLocale !== undefined && { default_locale: p.defaultLocale }),
       ...(p.logoFileId !== undefined && { logo_file_id: p.logoFileId }),
+      ...(p.currency !== undefined && { currency: p.currency }),
     };
     if (!Object.keys(set).length) return;
     await tx.updateTable('tenants').set({ ...set, updated_at: sql<Date>`now()` }).execute();

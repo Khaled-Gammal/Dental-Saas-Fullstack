@@ -19,6 +19,7 @@ const toDto = (r: Row, logo: MediaView | null) => ({
   email: r.email,
   specialties: r.specialties,
   defaultLocale: r.default_locale,
+  currency: r.currency,
   brandColor: r.brand_color,
   logo,
 });

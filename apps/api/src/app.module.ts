@@ -7,6 +7,7 @@ import { APP_CONFIG, loadConfig } from './config';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { ClinicSetupModule } from './modules/clinic-setup/clinic-setup.module';
+import { BillingModule } from './modules/billing';
 import { ClinicalModule } from './modules/clinical';
 import { IdentityModule } from './modules/identity/identity.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
@@ -62,6 +63,7 @@ class ConfigModule {}
     SchedulingModule,
     PatientsModule,
     ClinicalModule,
+    BillingModule,
     MediaModule,
     GalleryModule,
     StaffModule,

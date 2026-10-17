@@ -76,5 +76,9 @@ describe('clinical routes (Phase D4)', () => {
     expect(parseRoute('#/visits/v1/edit')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/prescriptions/rx1/view')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/patients/p1/merge')).toEqual({ page: 'patients', id: 'p1', action: 'merge' });
+    for (const r of [to.invoice('i1'), to.printInvoice('i1'), to.printReceipt('p1'), to.create('invoices', { patient: 'p', visit: 'v' }), { page: 'invoices' as const, query: { status: 'open' } }]) {
+      expect(parseRoute(href(r))).toEqual(r);
+    }
+    expect(parseRoute('#/payments/p1/view')).toEqual({ page: 'not-found' });
   });
 });

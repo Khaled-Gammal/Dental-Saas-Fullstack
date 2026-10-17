@@ -410,6 +410,8 @@ export interface Invoices {
   total_minor: Generated<Int8>;
   updated_at: Generated<Timestamp>;
   void_reason: string | null;
+  voided_at: Timestamp | null;
+  voided_by: string | null;
 }
 
 export interface LabOrders {
@@ -663,7 +665,11 @@ export interface Payments {
   provider: string | null;
   provider_ref: string | null;
   received_by: string | null;
+  reference: string | null;
   refunded_minor: Generated<Int8>;
+  reversal_reason: string | null;
+  reversed_at: Timestamp | null;
+  reversed_by: string | null;
   status: Generated<string>;
   tenant_id: string;
 }
@@ -787,12 +793,16 @@ export interface RefreshTokens {
 
 export interface Refunds {
   amount_minor: Int8;
+  branch_id: string;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   id: Generated<string>;
+  method: string;
   payment_id: string;
   provider_ref: string | null;
   reason: string;
+  reference: string | null;
+  refunded_at: Generated<Timestamp>;
   tenant_id: string;
 }
 

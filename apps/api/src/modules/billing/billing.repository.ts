@@ -1,0 +1,191 @@
+import { Injectable } from '@nestjs/common';
+import { sql, type Tx } from '@dental/db';
+
+const memberName = (alias: string) => sql<string | null>`(select u.full_name from tenant_members m join users u on u.id = m.user_id where m.id = ${sql.ref(alias)})`;
+const n = (v: string | number | null) => (v === null ? null : Number(v));
+/** bigint columns arrive as strings; amounts go out as numbers (piastres stay far below 2^53). */
+const money = <T extends Record<string, unknown>, K extends keyof T>(r: T, keys: readonly K[]) => {
+  const out: Record<string, unknown> = { ...r };
+  for (const k of keys) out[k as string] = Number(r[k] ?? 0);
+  return out as Omit<T, K> & { [P in K]: number };
+};
+const INVOICE_MONEY = ['subtotal_minor', 'discount_minor', 'tax_minor', 'total_minor', 'paid_minor', 'balance_minor'] as const;
+const dateText = (col: string) => sql<string | null>`to_char(${sql.ref(col)}, 'YYYY-MM-DD')`;
+
+/** Invoices, their lines, payments and refunds (SRS BILLING-*, PAY-*). Totals, numbers and locks live in the database. */
+@Injectable()
+export class BillingRepository {
+  private invoices(tx: Tx) {
+    return tx.selectFrom('invoices as i').innerJoin('patients as p', 'p.id', 'i.patient_id').innerJoin('branches as b', 'b.id', 'i.branch_id')
+      .select([
+        'i.id', 'i.number', 'i.status', 'i.currency', 'i.patient_id', 'i.branch_id', 'i.subtotal_minor', 'i.discount_minor', 'i.tax_minor', 'i.total_minor',
+        'i.paid_minor', 'i.balance_minor', dateText('i.issue_date').as('issue_date'), dateText('i.due_date').as('due_date'), 'i.notes', 'i.void_reason', 'i.voided_at',
+        'i.created_at', memberName('i.created_by').as('created_by_name'), memberName('i.voided_by').as('voided_by_name'),
+        sql<{ id: string; full_name: string; file_no: number; phone: string }>`json_build_object('id', p.id, 'full_name', p.full_name, 'file_no', p.file_no, 'phone', p.phone)`.as('patient'),
+        sql<{ name_ar: string | null; name_en: string | null }>`json_build_object('name_ar', b.name_ar, 'name_en', b.name_en)`.as('branch'),
+      ]);
+  }
+
+  async list(tx: Tx, q: { status?: string; patientId?: string; from?: string; to?: string; limit: number }) {
+    let query = this.invoices(tx);
+    if (q.patientId) query = query.where('i.patient_id', '=', q.patientId);
+    if (q.status === 'open') query = query.where('i.status', 'in', ['issued', 'partially_paid']);
+    else if (q.status) query = query.where('i.status', '=', q.status);
+    if (q.from) query = query.where(sql<boolean>`coalesce(i.issue_date, i.created_at::date) >= ${q.from}::date`);
+    if (q.to) query = query.where(sql<boolean>`coalesce(i.issue_date, i.created_at::date) <= ${q.to}::date`);
+    const rows = await query.orderBy('i.created_at', 'desc').limit(q.limit).execute();
+    return rows.map((r) => money(r, INVOICE_MONEY));
+  }
+
+  async get(tx: Tx, id: string) {
+    const r = await this.invoices(tx).where('i.id', '=', id).executeTakeFirst();
+    return r && money(r, INVOICE_MONEY);
+  }
+
+  lock(tx: Tx, id: string) {
+    return tx.selectFrom('invoices').select(['id', 'status', 'patient_id', 'branch_id', 'currency']).where('id', '=', id).forUpdate().executeTakeFirst();
+  }
+
+  async create(tx: Tx, tenantId: string, i: { patientId: string; branchId: string; currency: string; notes: string | null; dueDate: string | null; createdBy: string }): Promise<string> {
+    const r = await tx.insertInto('invoices').values({
+      tenant_id: tenantId, patient_id: i.patientId, branch_id: i.branchId, currency: i.currency, notes: i.notes, due_date: i.dueDate, created_by: i.createdBy,
+    }).returning('id').executeTakeFirstOrThrow();
+    return r.id;
+  }
+
+  async update(tx: Tx, id: string, f: { notes?: string | null; due_date?: string | null; status?: string; void_reason?: string; voided_at?: Date; voided_by?: string }): Promise<void> {
+    if (Object.keys(f).length) await tx.updateTable('invoices').set(f).where('id', '=', id).execute();
+  }
+
+  async remove(tx: Tx, id: string): Promise<void> {
+    await tx.deleteFrom('invoices').where('id', '=', id).where('status', '=', 'draft').execute();
+  }
+
+  async issue(tx: Tx, id: string): Promise<string> {
+    const r = await sql<{ n: string }>`select issue_invoice(${id}) as n`.execute(tx);
+    return r.rows[0]!.n;
+  }
+
+  lines(tx: Tx, invoiceId: string) {
+    return tx.selectFrom('invoice_items').select([
+      'id', 'service_id', 'visit_procedure_id', 'doctor_id', 'description', 'tooth_code', 'quantity', 'unit_price_minor', 'discount_minor', 'line_total_minor', 'sort_order',
+    ]).where('invoice_id', '=', invoiceId).orderBy('sort_order').orderBy('id').execute()
+      .then((rows) => rows.map((r) => money(r, ['unit_price_minor', 'discount_minor', 'line_total_minor'])));
+  }
+
+  async addLine(tx: Tx, tenantId: string, invoiceId: string, l: {
+    serviceId: string | null; procedureId: string | null; doctorId: string | null; description: string; toothCode: number | null; quantity: number; unitPriceMinor: number;
+  }): Promise<void> {
+    const next = await tx.selectFrom('invoice_items').select((e) => sql<number>`coalesce(max(${e.ref('sort_order')}), -1) + 1`.as('n'))
+      .where('invoice_id', '=', invoiceId).executeTakeFirstOrThrow();
+    await tx.insertInto('invoice_items').values({
+      tenant_id: tenantId, invoice_id: invoiceId, service_id: l.serviceId, visit_procedure_id: l.procedureId, doctor_id: l.doctorId, description: l.description,
+      tooth_code: l.toothCode, quantity: l.quantity, unit_price_minor: l.unitPriceMinor, line_total_minor: l.quantity * l.unitPriceMinor, sort_order: Number(next.n),
+    }).execute();
+  }
+
+  async removeLine(tx: Tx, invoiceId: string, lineId: string): Promise<boolean> {
+    const r = await tx.deleteFrom('invoice_items').where('id', '=', lineId).where('invoice_id', '=', invoiceId).executeTakeFirst();
+    return Number(r.numDeletedRows) > 0;
+  }
+
+  /** Procedures of this patient not on any non-void invoice: what is left to bill (BILLING-001). */
+  unbilledProcedures(tx: Tx, patientId: string, ids?: string[]) {
+    let q = tx.selectFrom('visit_procedures as vp').innerJoin('visits as v', 'v.id', 'vp.visit_id').innerJoin('services as s', 's.id', 'vp.service_id')
+      .innerJoin('doctors as d', 'd.id', 'vp.doctor_id')
+      .select([
+        'vp.id', 'vp.visit_id', 'vp.service_id', 's.name_ar as service_ar', 's.name_en as service_en', 'vp.tooth_code', 'vp.surfaces', 'vp.price_minor', 'vp.doctor_id',
+        'v.branch_id', 'v.visit_at', 'd.name_ar as doctor_ar', 'd.name_en as doctor_en',
+      ])
+      .where('v.patient_id', '=', patientId)
+      .where(sql<boolean>`not exists (select 1 from invoice_items ii join invoices i on i.id = ii.invoice_id where ii.visit_procedure_id = vp.id and i.status <> 'void')`);
+    if (ids) q = q.where('vp.id', 'in', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+    return q.orderBy('v.visit_at').orderBy('vp.created_at').execute().then((rows) => rows.map((r) => ({ ...r, price_minor: Number(r.price_minor) })));
+  }
+
+  service(tx: Tx, id: string) {
+    return tx.selectFrom('services').select(['id', 'name_ar', 'name_en', 'price_minor', 'price_max_minor']).where('id', '=', id).executeTakeFirst()
+      .then((s) => s && { ...s, price_minor: Number(s.price_minor), price_max_minor: n(s.price_max_minor) });
+  }
+
+  clinic(tx: Tx, tenantId: string) {
+    return tx.selectFrom('tenants as t').innerJoin('tenant_settings as s', 's.tenant_id', 't.id').select(['t.currency', 't.timezone', 's.tax_rate_bp', 's.invoice_prefix'])
+      .where('t.id', '=', tenantId).executeTakeFirstOrThrow();
+  }
+
+  branchExists(tx: Tx, id: string) {
+    return tx.selectFrom('branches').select('id').where('id', '=', id).where('is_active', '=', true).executeTakeFirst();
+  }
+
+  /** Doctors with invoices:read:own see the billing of patients they have treated or booked (SRS BILLING-005). */
+  doctorTreats(tx: Tx, doctorId: string, patientId: string) {
+    return sql<{ ok: boolean }>`select exists (select 1 from visits where doctor_id = ${doctorId} and patient_id = ${patientId})
+      or exists (select 1 from appointments where doctor_id = ${doctorId} and patient_id = ${patientId}) as ok`.execute(tx).then((r) => !!r.rows[0]?.ok);
+  }
+
+  doctorOfMember(tx: Tx, memberId: string) {
+    return tx.selectFrom('doctors').select('id').where('member_id', '=', memberId).executeTakeFirst().then((d) => d?.id ?? null);
+  }
+
+  /** The patient's outstanding balance: issued and partly paid invoices, never typed (BILLING-005). */
+  balance(tx: Tx, patientId: string) {
+    return tx.selectFrom('invoices').select((e) => sql<string>`coalesce(sum(${e.ref('balance_minor')}), 0)`.as('b'))
+      .where('patient_id', '=', patientId).where('status', 'in', ['issued', 'partially_paid']).executeTakeFirstOrThrow().then((r) => Number(r.b));
+  }
+
+  // ---------- payments ----------
+  private payments(tx: Tx) {
+    return tx.selectFrom('payments as pm').select([
+      'pm.id', 'pm.invoice_id', 'pm.patient_id', 'pm.branch_id', 'pm.amount_minor', 'pm.refunded_minor', 'pm.currency', 'pm.method', 'pm.reference', 'pm.status',
+      'pm.paid_at', 'pm.notes', 'pm.received_by', 'pm.reversed_at', 'pm.reversal_reason', memberName('pm.received_by').as('received_by_name'),
+      memberName('pm.reversed_by').as('reversed_by_name'),
+    ]);
+  }
+
+  async paymentsOf(tx: Tx, invoiceId: string) {
+    const rows = await this.payments(tx).where('pm.invoice_id', '=', invoiceId).orderBy('pm.paid_at').execute();
+    if (!rows.length) return [];
+    const refunds = await tx.selectFrom('refunds as r').select([
+      'r.id', 'r.payment_id', 'r.amount_minor', 'r.method', 'r.reason', 'r.reference', 'r.refunded_at', memberName('r.created_by').as('created_by_name'),
+    ]).where('r.payment_id', 'in', rows.map((r) => r.id)).orderBy('r.refunded_at').execute();
+    return rows.map((p) => ({
+      ...money(p, ['amount_minor', 'refunded_minor']),
+      refunds: refunds.filter((r) => r.payment_id === p.id).map(({ payment_id: _p, ...r }) => ({ ...r, amount_minor: Number(r.amount_minor) })),
+    }));
+  }
+
+  async payment(tx: Tx, id: string) {
+    const r = await this.payments(tx).where('pm.id', '=', id).executeTakeFirst();
+    return r && money(r, ['amount_minor', 'refunded_minor']);
+  }
+
+  lockPayment(tx: Tx, id: string) {
+    return tx.selectFrom('payments').select(['id', 'status', 'invoice_id', 'received_by', 'refunded_minor', 'paid_at']).where('id', '=', id).forUpdate().executeTakeFirst();
+  }
+
+  byIdempotencyKey(tx: Tx, key: string) {
+    return tx.selectFrom('payments').select(['id', 'invoice_id']).where('idempotency_key', '=', key).executeTakeFirst();
+  }
+
+  async addPayment(tx: Tx, tenantId: string, p: {
+    invoiceId: string; patientId: string; branchId: string; amountMinor: number; currency: string; method: string; reference: string | null;
+    notes: string | null; idempotencyKey: string; receivedBy: string;
+  }): Promise<string> {
+    const r = await tx.insertInto('payments').values({
+      tenant_id: tenantId, invoice_id: p.invoiceId, patient_id: p.patientId, branch_id: p.branchId, amount_minor: p.amountMinor, currency: p.currency,
+      method: p.method, reference: p.reference, notes: p.notes, idempotency_key: p.idempotencyKey, received_by: p.receivedBy, paid_at: sql<Date>`now()`, status: 'succeeded',
+    }).returning('id').executeTakeFirstOrThrow();
+    return r.id;
+  }
+
+  async reverse(tx: Tx, id: string, by: string, reason: string): Promise<void> {
+    await tx.updateTable('payments').set({ status: 'reversed', reversed_at: sql<Date>`now()`, reversed_by: by, reversal_reason: reason }).where('id', '=', id).execute();
+  }
+
+  async addRefund(tx: Tx, tenantId: string, r: { paymentId: string; amountMinor: number; method: string; reason: string; reference: string | null; createdBy: string }): Promise<void> {
+    await tx.insertInto('refunds').values({
+      tenant_id: tenantId, payment_id: r.paymentId, amount_minor: r.amountMinor, method: r.method, reason: r.reason, reference: r.reference, created_by: r.createdBy,
+      branch_id: sql<string>`(select branch_id from payments where id = ${r.paymentId})`,
+    }).execute();
+  }
+}

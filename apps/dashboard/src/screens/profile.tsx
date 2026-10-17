@@ -131,6 +131,8 @@ export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: str
             <BrandPreview lang={lang} form={form} />
           </Card>
 
+          <CurrencyCard lang={lang} clinicId={clinicId} current={profile.data?.currency ?? 'EGP'} canEdit={canEdit} />
+
           {canEdit && (
             <div className="save-bar">
               {save.isSuccess && !dirty && <Alert tone="success">{t('saved', lang)}</Alert>}
@@ -165,5 +167,30 @@ function BrandPreview({ lang, form }: { lang: Lang; form: Form }) {
       </div>
       {light && <p className="muted small mt-sm">{t('lightColorNote', lang)}</p>}
     </div>
+  );
+}
+
+const CURRENCIES = ['EGP', 'SAR', 'AED', 'KWD', 'QAR', 'BHD', 'OMR', 'JOD', 'USD', 'EUR'];
+
+/** CLR-09: the clinic's currency (default EGP); the API refuses a change once an invoice is issued. Saved on its own. */
+function CurrencyCard({ lang, clinicId, current, canEdit }: { lang: Lang; clinicId: string; current: string; canEdit: boolean }) {
+  const [value, setValue] = useState(current);
+  const qc = useQueryClient();
+  const save = useMutation({
+    mutationFn: () => api<ClinicProfile>('/clinic/profile', { method: 'PATCH', body: JSON.stringify({ currency: value }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.profile(clinicId) }),
+  });
+  return (
+    <Card>
+      <h2>{t('currency', lang)}</h2>
+      <p className="muted small">{t('currencyHint', lang)}</p>
+      <div className="row-end mt-sm">
+        <select className="select" value={value} onChange={(e) => setValue(e.target.value)} disabled={!canEdit} aria-label={t('currency', lang)}>
+          {(CURRENCIES.includes(current) ? CURRENCIES : [current, ...CURRENCIES]).map((c) => <option key={c} value={c}>{c === 'EGP' ? `${t('egpName', lang)} (EGP)` : c}</option>)}
+        </select>
+        {canEdit && <Button variant="secondary" loading={save.isPending} disabled={value === current} onClick={() => save.mutate()}>{t('save', lang)}</Button>}
+      </div>
+      <ErrorText error={save.error} />
+    </Card>
   );
 }

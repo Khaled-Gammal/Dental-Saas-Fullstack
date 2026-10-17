@@ -635,3 +635,17 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 .compare-table tr.is-diff td { background: var(--warning-bg); }
 .compare-table td .badge { margin-inline-start: 6px; }
 .pick-item.is-on { border-color: var(--primary-500); background: var(--primary-50); }
+
+/* billing (Phase E1) */
+.text-owed { color: var(--danger); }
+.check-row { display: inline-flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.check-row input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--primary-500); }
+.rx-doc-title { margin: 6px 0 0; font-weight: 700; font-size: 16px; }
+.print-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.print-table th, .print-table td { border-bottom: 1px solid #ccc; padding: 6px 8px; text-align: start; }
+.print-table th { background: #f3f3f3; }
+.print-totals { margin: 0; display: flex; flex-direction: column; gap: 4px; align-self: flex-end; min-width: 50%; }
+.print-totals div { display: flex; justify-content: space-between; gap: 16px; }
+.print-totals dd { margin: 0; }
+.print-totals .is-total { font-weight: 700; border-top: 1px solid #333; padding-top: 4px; }
+.receipt-amount { font-size: 28px; font-weight: 800; text-align: center; margin: 8px 0; }

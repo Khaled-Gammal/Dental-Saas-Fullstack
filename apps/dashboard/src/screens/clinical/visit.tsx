@@ -30,7 +30,7 @@ const todayIso = () => new Date().toLocaleDateString('en-CA');
  * `#/visits/<id>/view`: the doctor's workspace for one visit (SRS VISIT-001…004, CHART-001). The patient's allergies
  * and conditions stay on top (PATIENT-005). What the member may do comes from the API (`can`), which checks again.
  */
-export function VisitPage({ lang, clinicId, id }: { lang: Lang; clinicId: string; id?: string }) {
+export function VisitPage({ lang, clinicId, id, canInvoice = false }: { lang: Lang; clinicId: string; id?: string; canInvoice?: boolean }) {
   const visit = useVisit(clinicId, id);
   if (!visit.data) {
     return <ResourceState isLoading={visit.isLoading} isError={visit.isError} error={visit.error} notFound={false} refetch={() => void visit.refetch()} back={to.list('appointments')} backLabel={t('navAppointments', lang)} />;
@@ -58,7 +58,7 @@ export function VisitPage({ lang, clinicId, id }: { lang: Lang; clinicId: string
       <div className="profile-grid">
         <div className="stack">
           <NotesCard lang={lang} clinicId={clinicId} v={v} />
-          <ProceduresCard lang={lang} clinicId={clinicId} v={v} />
+          <ProceduresCard lang={lang} clinicId={clinicId} v={v} canInvoice={canInvoice} />
           <PrescriptionsCard lang={lang} clinicId={clinicId} v={v} />
         </div>
         <div className="stack">
@@ -158,7 +158,7 @@ function AmendDialog({ lang, clinicId, visitId, field, onClose }: { lang: Lang; 
 }
 
 /** VISIT-003: what was done. A procedure from the plan takes the item's service, tooth and estimated price. */
-function ProceduresCard({ lang, clinicId, v }: { lang: Lang; clinicId: string; v: Visit }) {
+function ProceduresCard({ lang, clinicId, v, canInvoice }: { lang: Lang; clinicId: string; v: Visit; canInvoice: boolean }) {
   const [adding, setAdding] = useState(false);
   const remove = useClinicalMutation(clinicId, (procId: string) => send(`/visits/${v.id}/procedures/${procId}`, 'DELETE'));
   const total = v.procedures.reduce((s, p) => s + p.price_minor, 0);
@@ -166,7 +166,10 @@ function ProceduresCard({ lang, clinicId, v }: { lang: Lang; clinicId: string; v
     <Card>
       <div className="row-between">
         <h2>{t('procedures', lang)}</h2>
-        {v.can.procedures && !adding && <Button variant="secondary" onClick={() => setAdding(true)}><PlusIcon size={16} />{t('addProcedure', lang)}</Button>}
+        <div className="row-end">
+          {canInvoice && v.procedures.some((p) => !p.billed) && <RouteLink route={to.create('invoices', { patient: v.patient_id, visit: v.id })} className="btn btn-ghost">{t('invoiceThisVisit', lang)}</RouteLink>}
+          {v.can.procedures && !adding && <Button variant="secondary" onClick={() => setAdding(true)}><PlusIcon size={16} />{t('addProcedure', lang)}</Button>}
+        </div>
       </div>
       {v.procedures.length === 0 ? <p className="muted small mt-sm">{t('noProcedures', lang)}</p> : (
         <ul className="line-list mt">

@@ -52,6 +52,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-17 | **D-01: sign-up verifies the owner by email code; no SMS for now** | AUTH-101; AUTH-02 (phone OTP) superseded for sign-up; AUTH-06 and AUTH-08 use email only |
 | 2026-10-17 | No WhatsApp, SMS, paid messaging, payment gateways or other paid external services in this phase | Part D |
 | 2026-10-17 | CLR-05 default accepted (refunds: owner + accountant; reception reverses its own same-day entry; refund method recorded, may differ) | B.1, PAY-003, PAY-005 |
+| 2026-10-17 | Proposed defaults accepted for CLR-02, CLR-03, CLR-04, CLR-09, CLR-12, CLR-17 ("implement what you recommend") (Part C) | DISC-002/003, EXP-003, CASH-*, L10N-005, PAY-006, BILLING-004 |
 | 2026-10-17 | Proposed defaults accepted for CLR-06, CLR-10, CLR-11, CLR-13, CLR-14, CLR-15, CLR-16 (Part C) | VISIT-002, APPT-004, TPLAN-002, roadmap, Part D, PATIENT-003, VISIT-003 |
 
 ---
@@ -1020,8 +1021,8 @@ it is decided only the owner (`*`) holds the permission.
 | `invoices:read` ✓ / `invoices:read:own` ✓ / `invoices:write` ✓ | Draft, issue | ✓ | read:own | read, write | — | read, write |
 | `invoices:void` | Void an invoice (§2.2 column D) | ✓ | — | — | — | ✓ |
 | `payments:write` ✓ | Record payments, create installment plans | ✓ | — | ✓ | — | ✓ |
-| `payments:refund` | Refund a payment | ✓ | — | pending CLR-05 | — | pending CLR-05 |
-| `payments:reverse` | Reverse a payment entered in error (PAY-003) | ✓ | — | pending CLR-05 | — | pending CLR-05 |
+| `payments:refund` | Refund a payment | ✓ | — | — | — | ✓ (CLR-05) |
+| `payments:reverse` | Reverse a payment entered in error (PAY-003) | ✓ | — | ✓ own entry, same day (CLR-05) | — | — |
 | `payments:adjust` | Waive / write off (PAY-006) | ✓ | — | — | — | pending CLR-12 |
 | `discounts:apply` | Apply a discount within the role's limit (DISC-002) | ✓ | — | ✓ (limit) | — | ✓ (limit) |
 | `discounts:approve` | Approve discounts above a limit | ✓ | — | — | — | pending CLR-02 |
@@ -1323,7 +1324,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.7 Billing (invoices)
 
-**BILLING-001 — Draft invoice** · NOT_IMPLEMENTED (DB only) · Phase E
+**BILLING-001 — Draft invoice** · IMPLEMENTED (2026-10-17, E1; line discounts come with DISC-* in E2) · Phase E
 - *Description:* Reception or the accountant drafts an invoice from a visit's unbilled procedures, or from service
   lines for a walk-in, for one patient and one branch, in the clinic currency.
 - *Behaviour:* lines hold a description (Arabic), quantity, unit price and line discount. Totals are derived by
@@ -1331,7 +1332,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Permissions:* `invoices:write`.
 - *Entities:* `invoices`, `invoice_items`, `visit_procedures`.
 
-**BILLING-002 — Issue an invoice** · NOT_IMPLEMENTED · Phase E
+**BILLING-002 — Issue an invoice** · IMPLEMENTED (2026-10-17, E1; the pending-discount refusal comes with DISC-003 in E2) · Phase E
 - *Description:* Issuing gives the invoice its number and date and locks it.
 - *Behaviour:* the number is `{prefix}-{year}-{sequence}` from `tenant_settings.invoice_prefix` and a gap-free
   per-clinic counter, assigned by the database in the issuing transaction. After issue the lines, discounts, tax,
@@ -1343,21 +1344,21 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   (2) editing an issued line fails in the database.
 - *Entities:* `invoices`, `tenant_counters`, `tenant_settings`.
 
-**BILLING-003 — Void an invoice** · NOT_IMPLEMENTED · Phase E
+**BILLING-003 — Void an invoice** · IMPLEMENTED (2026-10-17, E1) · Phase E
 - *Description:* An invoice issued by mistake is voided with a reason. It is never deleted.
 - *Behaviour:* allowed only when nothing is paid (refund first, existing rule). A voided invoice's procedures can be
   billed again.
 - *Permissions:* `invoices:void`.
 - *Errors:* `invoice_has_payments`, `void_reason_required`.
 
-**BILLING-004 — Printable invoice and receipt (Arabic)** · NOT_IMPLEMENTED · Phase E
+**BILLING-004 — Printable invoice and receipt (Arabic)** · IMPLEMENTED (2026-10-17, E1; A4 invoice, A5 receipt per CLR-17); printing on paper not yet verified · Phase E
 - *Description:* An Arabic RTL invoice and a receipt per payment, printed from the browser (no paid PDF service).
 - *Content:* clinic name and logo, branch address and phone, invoice number and date, patient name and file number,
   lines, discounts, tax, total, paid, balance; on the receipt the amount, method, reference, date, receiver and
-  remaining balance. Paper format pending CLR-17.
+  remaining balance. Paper format (CLR-17): A4 invoice and A5 receipt from the browser; thermal printers later.
 - *Acceptance:* Arabic, numbers and currency print correctly; nothing is cut off on the chosen paper size.
 
-**BILLING-005 — Patient balance** · NOT_IMPLEMENTED · Phase E
+**BILLING-005 — Patient balance** · PARTIALLY_IMPLEMENTED (2026-10-17, E1: profile and payment screen; not yet at check-in) · Phase E
 - *Description:* A patient's outstanding balance is the sum of balances of their issued, non-void invoices (derived,
   never stored by the client). It is shown on the patient profile, at check-in and on the payment screen to members
   with `invoices:read` (doctors: their own patients, `invoices:read:own`).
@@ -1365,7 +1366,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.8 Payments (features F1, F2)
 
-**PAY-001 — Record a payment** · PARTIALLY_IMPLEMENTED (DB only) · Phase E
+**PAY-001 — Record a payment** · IMPLEMENTED (2026-10-17, E1; recorded at the current time — dating a payment and the cash-day rule come with CASH-* in E3) · Phase E
 - *Description:* Reception or the accountant records money received against an issued invoice or an installment.
 - *Methods offered:* cash (نقدي), bank transfer (تحويل بنكي), card (بطاقة), electronic wallet (محفظة إلكترونية),
   InstaPay (إنستاباي). (`online` and `insurance` exist in the database for later and are not offered.) This is
@@ -1383,13 +1384,13 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   (2) a wallet payment without a reference is refused; (3) the receipt shows who received the money.
 - *Entities:* `payments` (+ `reference` column and responsible-staff FK, see database design).
 
-**PAY-002 — Partial and multiple payments** · PARTIALLY_IMPLEMENTED (DB only) · Phase E
+**PAY-002 — Partial and multiple payments** · IMPLEMENTED (2026-10-17, E1) · Phase E
 - *Description:* An invoice can be paid in any number of payments. The invoice shows its payment history and the
   remaining balance, and its status is issued → partially paid → paid (derived).
 - *Acceptance:* paying 300 then 700 of a 1 000 invoice shows two payments and status *paid*; the balance never
   disagrees with the sum of payments minus refunds (database-derived).
 
-**PAY-003 — Recorded payments are immutable** · IMPLEMENTED in the database (2026-10-17); reversal built in Phase E · Phase C
+**PAY-003 — Recorded payments are immutable** · IMPLEMENTED (database C; reversal E1, 2026-10-17) · Phase C/E
 - *Description:* Nobody, through any path including direct database access by the API role, can change a recorded
   payment's amount, currency, method, date, patient, invoice, installment or receiver, or delete it.
 - *Behaviour:* mistakes are corrected only by a **reversal** (a payment entered in error, marked reversed with a
@@ -1412,7 +1413,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   installment the day after its due date.
 - *Entities:* `payment_plans`, `installments`, `payments`.
 
-**PAY-005 — Refunds** · PARTIALLY_IMPLEMENTED (DB only) · Phase E — permissions pending CLR-05
+**PAY-005 — Refunds** · IMPLEMENTED (2026-10-17, E1; CLR-05; the cash-day effect comes with CASH-002 in E3) · Phase E
 - *Description:* Money returned to a patient against a succeeded payment.
 - *Behaviour:* the refund records amount, reason, refund method, date, branch and the staff member. Total refunds
   never exceed the payment, and concurrent refunds are serialized (existing trigger). The invoice balance reopens.
@@ -1422,7 +1423,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Errors:* `refund_exceeds_payment`, `payment_not_refundable`, `reason_required`.
 - *Entities:* `refunds` (+ method, branch, responsible-staff FK).
 
-**PAY-006 — Authorized adjustments** · BLOCKED (CLR-12) · Phase E
+**PAY-006 — Authorized adjustments** · NOT_IMPLEMENTED (CLR-12 answered: waiver and write-off rows with a reason, owner only, no credit notes) · Phase E2
 - *Description:* An authorized person reduces what a patient owes without receiving or returning money (for example
   waiving an installment or writing off a small remainder). It is never an edit of a payment or an issued invoice.
   The exact forms (waiver, write-off, credit note) are decided in CLR-12.
@@ -1552,7 +1553,7 @@ fixed data); a branch-limited member never sees another branch's figures.
 - *Description:* Subjects and bodies of every email (verification codes, booking confirmations, reminders,
   invitations, password reset) are Arabic only, RTL in HTML mail, with a plain-text alternative.
 
-**L10N-005 — Currency** · PARTIALLY_IMPLEMENTED · Phase F
+**L10N-005 — Currency** · PARTIALLY_IMPLEMENTED (E1: clinic setting, locked after the first invoice per CLR-09; one formatter used by billing and clinical screens; the price list and website still show ج.م) · Phase F
 - *Description:* Amounts display in the clinic currency (`tenants.currency`, default `EGP`, shown as "ج.م" /
   "جنيه مصري") through one shared formatter. No screen, email or printout hard-codes a currency. Stored values are
   integer minor units; display formatting never changes them. Whether a clinic may change its currency after
@@ -1619,8 +1620,9 @@ fixed data); a branch-limited member never sees another branch's figures.
 Nothing listed here is implemented until it is answered. Each item has the default I propose. `CLR-n`
 corresponds to `D-n` in `docs/implementation-audit.md`.
 
-**Answered 2026-10-17:** CLR-01 (email), and the proposed defaults below for **CLR-05, CLR-06, CLR-10, CLR-11, CLR-13,
-CLR-14, CLR-15 and CLR-16**. These defaults are now the requirement. Still open: CLR-02, 03, 04, 07, 08, 09, 12, 17.
+**Answered 2026-10-17:** CLR-01 (email), and the proposed defaults below for **CLR-02, CLR-03, CLR-04, CLR-05, CLR-06, CLR-09,
+CLR-10, CLR-11, CLR-12, CLR-13, CLR-14, CLR-15, CLR-16 and CLR-17**. These defaults are now the requirement. Still open:
+CLR-07 and CLR-08 (Arabic-only cleanup, Phase F).
 
 | ID | Question | Blocks | Proposed default |
 | --- | --- | --- | --- |
