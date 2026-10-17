@@ -97,5 +97,5 @@ Scope: SRS EXP-001…004 and CASH-001…004, with the accepted defaults of CLR-0
 ## Notes
 
 - The dev database never received the accountant demo user (`accountant.a@demo.test`, added to the seed in D4)
-  because it was not reseeded. I left it alone. The test database has it.
+  because it was not reseeded. Added on request after this phase (only the seed's role, user and membership rows).
 - Next: E4 reports (REPORT-001…005), which can build on `cash_day_totals()` and the expense totals.
