@@ -64,7 +64,7 @@ export function App() {
     view = (
       <AuthLayout lang={lang} onLang={toggleLang}>
         {screen.name === 'signup' ? <Signup lang={lang} go={setScreen} />
-          : screen.name === 'verify' ? <Verify lang={lang} phone={screen.phone} masked={screen.maskedPhone} justSent={screen.justSent} back={() => setScreen({ name: 'login' })} />
+          : screen.name === 'verify' ? <Verify lang={lang} email={screen.email} masked={screen.maskedEmail} justSent={screen.justSent} back={() => setScreen({ name: 'login' })} />
           : <Login lang={lang} go={setScreen} />}
       </AuthLayout>
     );

@@ -29,13 +29,29 @@ export function createDb(connectionString: string, opts: CreateDbOptions = {}): 
 }
 
 /**
- * Runs fn inside one transaction scoped to a clinic: RLS sees only that tenant's rows.
- * `set_config(..., true)` is transaction-local, so the setting can never leak to the next request
- * that reuses the pooled connection.
+ * Who acts in a transaction. `memberId` turns on branch-scoped access (the member's branches only); the audit
+ * triggers record `userId` and `actorType`. Leave both empty for work no signed-in member does (website, jobs).
  */
-export async function withTenant<T>(db: Db, tenantId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export interface TxActor {
+  userId?: string | null;
+  memberId?: string | null;
+  actorType?: 'member' | 'patient' | 'system';
+}
+
+/** Sets the clinic and the actor for the current transaction (transaction-local, so nothing leaks to the next request). */
+export async function enterTenant(tx: Tx, tenantId: string, actor: TxActor = {}): Promise<void> {
+  await sql`select set_config('app.tenant_id', ${tenantId}, true), set_config('app.user_id', ${actor.userId ?? ''}, true),
+    set_config('app.member_id', ${actor.memberId ?? ''}, true), set_config('app.actor_type', ${actor.actorType ?? ''}, true)`.execute(tx);
+}
+
+/**
+ * Runs fn inside one transaction scoped to a clinic: RLS sees only that tenant's rows (and, with a member, only
+ * that member's branches). `set_config(..., true)` is transaction-local, so the settings can never leak to the next
+ * request that reuses the pooled connection.
+ */
+export async function withTenant<T>(db: Db, tenantId: string, fn: (tx: Tx) => Promise<T>, actor: TxActor = {}): Promise<T> {
   return db.transaction().execute(async (tx) => {
-    await sql`select set_config('app.tenant_id', ${tenantId}, true)`.execute(tx);
+    await enterTenant(tx, tenantId, actor);
     return fn(tx);
   });
 }

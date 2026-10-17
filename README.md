@@ -1,7 +1,8 @@
 # Dental SaaS
 
 Multi-tenant platform for dental clinics: a website per clinic, online booking, and a clinic dashboard.
-Requirements, schema and architecture are in the SRS doc (sections 1–8).
+Requirements: `docs/SRS.md` (v4; the original v3 SRS is preserved in its Part A). Progress: `docs/implementation-status.md`.
+Database: `docs/database-design.md`. Plan: `docs/roadmap.md`.
 
 | Part | Path | Local URL |
 | --- | --- | --- |
@@ -28,7 +29,7 @@ docker compose up -d          # Postgres 16, Redis, Mailpit (first start creates
 pnpm install
 pnpm db:migrate               # applies packages/db/migrations
 pnpm db:seed                  # 2 demo clinics, staff, doctors, services
-pnpm test                     # 67 database checks + API end-to-end tests
+pnpm test                     # 215 database checks + unit tests + API end-to-end tests
 pnpm dev                      # API :4000, website :3000, dashboard :5173
 ```
 
@@ -50,8 +51,8 @@ If you are offline, add `127.0.0.1 lvh.me clinic-a.lvh.me clinic-b.lvh.me` to `C
 
 ### Accounts
 
-**Create your own clinic:** open http://localhost:5173 → *New clinic? Create an account*. The 6-digit phone code
-arrives in **Mailpit** (http://localhost:8025) as an email to `sms-<number>@sms.local`, and is also printed in the API log.
+**Create your own clinic:** open http://localhost:5173 → *New clinic? Create an account*. The 6-digit code
+arrives by email in **Mailpit** (http://localhost:8025). No SMS is sent.
 After verifying, your clinic's site is live at `http://<your-subdomain>.lvh.me:3000`.
 
 **Demo accounts** (password `Demo@12345` for all; the login screen has a quick sign-in in development):
@@ -60,13 +61,15 @@ After verifying, your clinic's site is live at `http://<your-subdomain>.lvh.me:3
 | --- | --- | --- |
 | owner.a@demo.test | Smile Dental Clinic (clinic-a) | Owner (all permissions) |
 | reception.a@demo.test | Smile Dental Clinic | Receptionist (cannot add branches) |
+| reception.maadi@demo.test | Smile Dental Clinic | Receptionist limited to the Maadi branch (needs `pnpm db:reset` on an older dev database) |
 | doctor.a@demo.test | Smile Dental Clinic | Doctor |
 | owner.b@demo.test | Cairo Dental Care (clinic-b) | Owner |
 
 ### How sign-in works
 
 - Sign-up creates the user and the whole clinic in **one transaction** (`provision_tenant`: roles, owner, main branch,
-  14-day trial, website draft, subdomain). Then a phone code is sent; login is blocked until the phone is verified.
+  14-day trial, website draft, subdomain). Then a code is emailed; login is blocked until the email is verified
+  (accounts verified by phone before this change stay valid).
 - Passwords: scrypt (built into Node). Codes: 6 digits, 5 minutes, 5 tries, max 3 sends per 10 minutes.
   Login: 10 failures in 15 minutes locks that email/phone for 15 minutes.
 - Access token: 15-minute JWT, kept in memory by the dashboard. Refresh token: 30 days, **httpOnly cookie** on `/auth`,
@@ -101,10 +104,17 @@ After verifying, your clinic's site is live at `http://<your-subdomain>.lvh.me:3
   `runForHost(host)` for public websites, and `platform()` only for the tables without RLS (users, otp_codes,
   refresh_tokens, auth_events). PostgreSQL row-level security does the filtering, so a missed `WHERE` cannot leak
   another clinic's data.
+- **Branch access:** `run` also sets the signed-in member (`app.member_id`). A member limited to some branches sees
+  and changes only their branches' appointments, visits, invoices, payments and expenses (restrictive RLS policies,
+  migration 0015). Patients stay clinic-wide. The API answers `403 branch_forbidden` when such a member picks
+  another branch.
+- **Audit:** the database writes `audit_log` rows for every money change and every booking/status change (actor from
+  the request), so no code path can skip them. Recorded payments can never be edited or deleted.
 - **Roles:** `app_user` (API), `app_worker` (worker, crosses clinics for jobs), `app_definer` (owns the few lookup
   functions used before a clinic is known: login, invitation links, webhooks, website hostnames).
 - **Business rules in the database:** double booking, slot holds, booking codes, invoice totals, payments, refunds,
-  installments and payouts are enforced by constraints and triggers (see `packages/db/test` for every rule).
+  installments (totals must add up), payouts, visit ↔ appointment consistency and "the doctor works at this branch"
+  are enforced by constraints and triggers (see `packages/db/test` for every rule).
 - **Modules:** controller (HTTP edge: validation, throttles, cookies) → service (one use case, one `TenantDb` call) →
   repository (all SQL, `tx` first). Hexagonal (domain / application / infrastructure + ports) for scheduling and billing.
   Services throw `AppError` (`shared/errors`), rendered as RFC 9457 `application/problem+json` with a stable `code`.

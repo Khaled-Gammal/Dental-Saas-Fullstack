@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          # add `cache: pnpm` here once pnpm-lock.yaml is committed
+          cache: pnpm
 
       - name: Environment
         run: |
@@ -41,11 +41,11 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d dental -v ON_ERROR_STOP=1 -f docker/postgres/init/01-roles-and-databases.sql
 
-      # switch to --frozen-lockfile once pnpm-lock.yaml is committed after your first local install
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - run: pnpm db:migrate
       - run: pnpm build
       - run: pnpm typecheck
-      # db tests rebuild dental_test and run 67 SQL checks (isolation, booking, billing, concurrency);
-      # API e2e tests run after them against the same database
+      - run: pnpm lint
+      # db tests rebuild dental_test and run every SQL check (isolation, branch access, booking, billing, money
+      # integrity, audit, concurrency); dashboard/website unit tests and API e2e tests run after them
       - run: pnpm test

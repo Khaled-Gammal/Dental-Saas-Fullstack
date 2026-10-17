@@ -7,29 +7,34 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE
 process.env.RATE_LIMIT_ENABLED = 'false'; // per-IP throttles off: every test request comes from 127.0.0.1
 process.env.REFRESH_RACE_GRACE_MS = '1000'; // short two-tabs grace so the reuse test waits 1 s, not 10
 import { AppModule } from '../src/app.module';
+import type { DevEmailSender } from '../src/shared/notifications/dev-email.sender';
 import type { DevSmsSender } from '../src/shared/notifications/dev-sms.sender';
-import { SMS_SENDER } from '../src/shared/notifications/ports';
+import { EMAIL_SENDER, SMS_SENDER } from '../src/shared/notifications/ports';
 
 const cookieOf = (res: request.Response) => {
   const raw = res.headers['set-cookie'] as unknown as string[] | undefined;
   return raw?.find((c) => c.startsWith('rt='))?.split(';')[0];
 };
 
-describe('Identity: sign-up, verify, login, sessions (e2e)', () => {
+describe('Identity: sign-up, email verification, login, sessions (e2e)', () => {
   let app: INestApplication;
   let sms: DevSmsSender;
+  let mail: DevEmailSender;
   const run = Date.now().toString().slice(-7);
   const phoneLocal = `0101${run}`; // Egyptian local format, normalised to +20...
   const phone = `+20101${run}`;
   const email = `owner.${run}@signup.test`;
   const slug = `clinic-${run}`;
-  const lastCode = () => /(\d{6})/.exec(sms.outbox.get(phone) ?? '')?.[1] ?? '';
+  /** the newest code emailed to an address (SRS AUTH-101: sign-up codes go by email, never SMS) */
+  const codeFor = (to: string) => /(\d{6})/.exec(mail.outbox.get(to)?.text ?? '')?.[1] ?? '';
+  const lastCode = () => codeFor(email);
 
   beforeAll(async () => {
     const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = mod.createNestApplication();
     await app.init();
     sms = app.get(SMS_SENDER);
+    mail = app.get(EMAIL_SENDER);
   });
   afterAll(async () => {
     await app.close();
@@ -52,14 +57,17 @@ describe('Identity: sign-up, verify, login, sessions (e2e)', () => {
     expect(arabicDigits.body.code).toBe('weak_password');
   });
 
-  it('signs up: creates the clinic and texts a code', async () => {
+  it('signs up: creates the clinic and emails a code (no SMS)', async () => {
     const res = await http().post('/auth/signup').send({
       fullName: 'Dr Test Owner', email, phone: phoneLocal, password: 'Secret123',
       clinicNameAr: 'عيادة الاختبار', clinicNameEn: 'Test Clinic', slug,
     }).expect(201);
-    expect(res.body.next).toBe('verify_phone');
+    expect(res.body.next).toBe('verify_email');
+    expect(res.body.email).not.toBe(email); // masked
     expect(res.body.website).toContain(`${slug}.`);
     expect(lastCode()).toMatch(/^\d{6}$/);
+    expect(mail.outbox.get(email)?.subject).toBe('رمز تأكيد البريد الإلكتروني');
+    expect(sms.outbox.get(phone)).toBeUndefined();
   });
 
   it('refuses a second account with the same email or a taken subdomain', async () => {
@@ -73,22 +81,22 @@ describe('Identity: sign-up, verify, login, sessions (e2e)', () => {
     expect(taken.body.code).toBe('slug_taken');
   });
 
-  it('blocks login until the phone is verified', async () => {
+  it('blocks login until the email is verified', async () => {
     const res = await http().post('/auth/login').send({ identifier: email, password: 'Secret123' }).expect(403);
-    expect(res.body.code).toBe('phone_not_verified');
-    expect(res.body.phone).toBe(phone);
+    expect(res.body.code).toBe('email_not_verified');
+    expect(res.body.email).toBe(email);
   });
 
-  it('verifies the phone: a wrong code fails, the right one signs in', async () => {
+  it('verifies the email: a wrong code fails, the right one signs in', async () => {
     const wrong = lastCode() === '000000' ? '111111' : '000000';
-    expect((await http().post('/auth/verify-phone').send({ phone, code: wrong }).expect(400)).body.code).toBe('otp_invalid');
-    const res = await http().post('/auth/verify-phone').send({ phone, code: lastCode() }).expect(200);
+    expect((await http().post('/auth/verify-email').send({ email, code: wrong }).expect(400)).body.code).toBe('otp_invalid');
+    const res = await http().post('/auth/verify-email').send({ email, code: lastCode() }).expect(200);
     expect(res.body.accessToken).toBeTruthy();
     expect(res.body.refreshToken).toBeUndefined(); // only in the cookie
     expect(res.body.clinic).toMatchObject({ slug, role: 'owner', status: 'trialing' });
     expect(cookieOf(res)).toBeTruthy();
-    // the code works only once, and every other open code for this phone is void too
-    const again = await http().post('/auth/verify-phone').send({ phone, code: lastCode() }).expect(400);
+    // the code works only once, and every other open code for this email is void too
+    const again = await http().post('/auth/verify-email').send({ email, code: lastCode() }).expect(400);
     expect(again.body.code).toBe('otp_expired');
   });
 
@@ -137,7 +145,7 @@ describe('Identity: sign-up, verify, login, sessions (e2e)', () => {
     const run2 = (Number(run) + 1).toString().padStart(7, '0').slice(-7);
     const phone2 = `+20102${run2}`;
     const email2 = `owner2.${run2}@signup.test`;
-    const code2 = () => /(\d{6})/.exec(sms.outbox.get(phone2) ?? '')?.[1] ?? '';
+    const code2 = () => codeFor(email2);
 
     it('signs up', async () => {
       await http().post('/auth/signup').send({
@@ -148,14 +156,14 @@ describe('Identity: sign-up, verify, login, sessions (e2e)', () => {
     it('locks a code after 5 wrong tries, even for the right code', async () => {
       const right = code2();
       const wrong = right === '000000' ? '111111' : '000000';
-      for (let i = 0; i < 5; i++) await http().post('/auth/verify-phone').send({ phone: phone2, code: wrong }).expect(400);
-      expect((await http().post('/auth/verify-phone').send({ phone: phone2, code: right }).expect(429)).body.code).toBe('otp_locked');
+      for (let i = 0; i < 5; i++) await http().post('/auth/verify-email').send({ email: email2, code: wrong }).expect(400);
+      expect((await http().post('/auth/verify-email').send({ email: email2, code: right }).expect(429)).body.code).toBe('otp_locked');
     });
 
     it('a new code works, and Arabic-Indic digits are accepted', async () => {
-      await http().post('/auth/otp/resend').send({ phone: phone2 }).expect(202);
+      await http().post('/auth/otp/resend').send({ email: email2 }).expect(202);
       const arabic = code2().replace(/\d/g, (d) => String.fromCharCode(0x0660 + Number(d)));
-      await http().post('/auth/verify-phone').send({ phone: phone2, code: arabic }).expect(200);
+      await http().post('/auth/verify-email').send({ email: email2, code: arabic }).expect(200);
     });
 
     it('locks login after 10 attempts from the same device, even with the right password', async () => {
@@ -167,16 +175,23 @@ describe('Identity: sign-up, verify, login, sessions (e2e)', () => {
     });
   });
 
-  it('limits code sends to 3 per 10 minutes per phone', async () => {
+  it('limits code sends to 3 per 10 minutes per email', async () => {
     const run3 = (Number(run) + 2).toString().padStart(7, '0').slice(-7);
     const phone3 = `+20106${run3}`;
+    const email3 = `owner3.${run3}@signup.test`;
     await http().post('/auth/signup').send({
-      fullName: 'Dr Third', email: `owner3.${run3}@signup.test`, phone: phone3, password: 'Secret123',
+      fullName: 'Dr Third', email: email3, phone: phone3, password: 'Secret123',
       clinicNameAr: 'عيادة ثالثة', slug: `third-${run3}`,
     }).expect(201); // send 1
-    await http().post('/auth/otp/resend').send({ phone: phone3 }).expect(202); // send 2
-    await http().post('/auth/otp/resend').send({ phone: phone3 }).expect(202); // send 3
-    expect((await http().post('/auth/otp/resend').send({ phone: phone3 }).expect(429)).body.code).toBe('otp_rate_limited');
+    await http().post('/auth/otp/resend').send({ email: email3 }).expect(202); // send 2
+    await http().post('/auth/otp/resend').send({ email: email3 }).expect(202); // send 3
+    expect((await http().post('/auth/otp/resend').send({ email: email3 }).expect(429)).body.code).toBe('otp_rate_limited');
+  });
+
+  it('a resend for an unknown address answers the same way and sends nothing', async () => {
+    const ghost = `nobody.${run}@signup.test`;
+    await http().post('/auth/otp/resend').send({ email: ghost }).expect(202);
+    expect(mail.outbox.get(ghost)).toBeUndefined();
   });
 
   it('an unknown clinic slug at login is an error, not a silent switch', async () => {

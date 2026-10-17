@@ -9,7 +9,8 @@ import { DentalArch, SmileCanvas } from '../ui/illustrations';
 import { useDebounced } from '../hooks';
 import { passwordChecks, toAsciiDigits } from '../util';
 
-export type AuthScreen = { name: 'login' } | { name: 'signup' } | { name: 'verify'; phone: string; maskedPhone: string; justSent: boolean };
+/** Sign-up is confirmed by an email code (SRS AUTH-101; no SMS). */
+export type AuthScreen = { name: 'login' } | { name: 'signup' } | { name: 'verify'; email: string; maskedEmail: string; justSent: boolean };
 
 const RESEND_COOLDOWN_S = 30;
 
@@ -48,8 +49,8 @@ export function Login({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void })
     mutationFn: () => api<Session>('/auth/login', { method: 'POST', body: JSON.stringify({ identifier: identifier.trim(), password }) }),
     onSuccess: setSession,
     onError: (e) => {
-      if (e.code === 'phone_not_verified' && typeof e.body.phone === 'string') {
-        go({ name: 'verify', phone: e.body.phone, maskedPhone: String(e.body.maskedPhone ?? e.body.phone), justSent: false });
+      if (e.code === 'email_not_verified' && typeof e.body.email === 'string') {
+        go({ name: 'verify', email: e.body.email, maskedEmail: String(e.body.maskedEmail ?? e.body.email), justSent: false });
       }
     },
   });
@@ -119,11 +120,11 @@ export function Signup({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void }
   const pw = passwordChecks(f.password);
 
   const signup = useMutation({
-    mutationFn: () => api<{ phone: string; website: string }>('/auth/signup', {
+    mutationFn: () => api<{ email: string; website: string }>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ ...f, phone: toAsciiDigits(f.phone), clinicNameEn: f.clinicNameEn || undefined, slug: typedSlug, locale: lang }),
     }),
-    onSuccess: (r) => go({ name: 'verify', phone: toAsciiDigits(f.phone), maskedPhone: r.phone, justSent: true }),
+    onSuccess: (r) => go({ name: 'verify', email: f.email.trim().toLowerCase(), maskedEmail: r.email, justSent: true }),
   });
   const submit = (e: FormEvent) => { e.preventDefault(); signup.mutate(); };
 
@@ -193,7 +194,7 @@ export function Signup({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void }
   );
 }
 
-export function Verify({ lang, phone, masked, justSent, back }: { lang: Lang; phone: string; masked: string; justSent: boolean; back: () => void }) {
+export function Verify({ lang, email, masked, justSent, back }: { lang: Lang; email: string; masked: string; justSent: boolean; back: () => void }) {
   const [code, setCode] = useState('');
   const [cooldown, setCooldown] = useState(justSent ? RESEND_COOLDOWN_S : 0);
   useEffect(() => {
@@ -203,11 +204,11 @@ export function Verify({ lang, phone, masked, justSent, back }: { lang: Lang; ph
   }, [cooldown]);
 
   const verify = useMutation({
-    mutationFn: (c: string) => api<Session>('/auth/verify-phone', { method: 'POST', body: JSON.stringify({ phone, code: c }) }),
+    mutationFn: (c: string) => api<Session>('/auth/verify-email', { method: 'POST', body: JSON.stringify({ email, code: c }) }),
     onSuccess: setSession,
   });
   const resend = useMutation({
-    mutationFn: () => api('/auth/otp/resend', { method: 'POST', body: JSON.stringify({ phone }) }),
+    mutationFn: () => api('/auth/otp/resend', { method: 'POST', body: JSON.stringify({ email }) }),
     onSuccess: () => { setCooldown(RESEND_COOLDOWN_S); setCode(''); verify.reset(); },
   });
   const onCode = (v: string) => {
@@ -220,7 +221,7 @@ export function Verify({ lang, phone, masked, justSent, back }: { lang: Lang; ph
   return (
     <>
       <header className="form-head">
-        <div className="form-icon"><PhoneIcon size={22} /></div>
+        <div className="form-icon"><ShieldIcon size={22} /></div>
         <h2>{t('verifyTitle', lang)}</h2>
         <p>{t('verifySent', lang)} <bdi dir="ltr" className="strong">{masked}</bdi></p>
       </header>

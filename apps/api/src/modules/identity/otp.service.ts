@@ -54,10 +54,10 @@ export class OtpService {
     }
   }
 
-  /** The same code, delivered by email (online booking verifies the visitor's email address). */
-  async sendByEmail(email: string, purpose: OtpPurpose, meta: RequestMeta, subject = 'رمز التحقق | Verification code'): Promise<void> {
+  /** The same code, delivered by email (sign-up verifies the owner's email; online booking the visitor's). */
+  async sendByEmail(email: string, purpose: OtpPurpose, meta: RequestMeta, subject = 'رمز التحقق | Verification code', userId?: string): Promise<void> {
     const target = email.toLowerCase();
-    const code = await this.issue(target, purpose, meta);
+    const code = await this.issue(target, purpose, meta, userId);
     try {
       await this.email.send(target, subject, `رمز التحقق: ${code}\nصالح لمدة ${P.ttlMinutes} دقائق. إذا لم تطلب هذا الرمز فتجاهل الرسالة.\n\nYour verification code: ${code} (valid ${P.ttlMinutes} minutes).`);
     } catch (err) {

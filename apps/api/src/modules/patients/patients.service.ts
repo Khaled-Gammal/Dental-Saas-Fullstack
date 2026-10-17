@@ -83,6 +83,8 @@ export class PatientsService {
   }
 
   update(id: string, input: UpdatePatientInput) {
+    // blocking someone from online booking is reception's and the owner's call, not every writer's (SRS B.1)
+    if (input.isBlocked !== undefined && !this.can('patients:block')) throw Err.forbidden('missing_permission', 'Missing permission: patients:block');
     return this.db.run(async (tx, tenantId) => {
       const before = await this.repo.lock(tx, tenantId, id);
       if (!before) throw notFound();

@@ -35,7 +35,7 @@ export default defineConfig(
     ignores: ['apps/api/src/shared/database/**', 'apps/api/src/worker.ts'], // the worker runs as the worker role, outside RLS, by design
     rules: {
       'no-restricted-imports': ['error', {
-        paths: [{ name: '@dental/db', importNames: ['withTenant', 'createDb'], message: 'Use TenantDb (shared/database). Nothing else may open a tenant transaction.' }],
+        paths: [{ name: '@dental/db', importNames: ['withTenant', 'enterTenant', 'createDb'], message: 'Use TenantDb (shared/database). Nothing else may open a tenant transaction.' }],
       }],
     },
   },

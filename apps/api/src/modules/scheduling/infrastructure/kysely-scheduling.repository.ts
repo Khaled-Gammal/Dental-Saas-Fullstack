@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { sql } from '@dental/db';
 import { Err } from '../../../shared/errors/app-error';
-import { BLOCKING_STATUSES } from '../domain/appointment-status';
 import type { BookingPolicy } from '../domain/booking-policy';
 import type {
   AppointmentView, BookingOptions, BookingService, CheckInResult, DayContext, DayQuery, DoctorsQuery, FinalizeInput, HoldInput, HoldRow,
@@ -23,8 +22,9 @@ const serviceJson = sql<AppointmentView['service']>`case when s.id is null then 
 /** Kysely adapter for the scheduling port. Every query runs under the clinic's RLS context (`tx`). */
 @Injectable()
 export class KyselySchedulingRepository implements SchedulingRepository {
+  /** The website visitor confirming their booking: the clinic's context, audited as the patient's act. */
   async enterTenant(tx: Session, tenantId: string): Promise<void> {
-    await sql`select set_config('app.tenant_id', ${tenantId}, true)`.execute(tx);
+    await sql`select set_config('app.tenant_id', ${tenantId}, true), set_config('app.actor_type', 'patient', true)`.execute(tx);
   }
 
   async policy(tx: Session): Promise<BookingPolicy> {
@@ -75,6 +75,20 @@ export class KyselySchedulingRepository implements SchedulingRepository {
     return (await query.orderBy('d.sort_order').orderBy('d.name_en').execute()).map((r) => r.id);
   }
 
+  async branchAllowed(tx: Session, branchId: string): Promise<boolean> {
+    const { rows } = await sql<{ ok: boolean }>`select branch_allowed(${branchId}::uuid) as ok`.execute(tx);
+    return rows[0]?.ok === true;
+  }
+
+  async doctorAtBranch(tx: Session, doctorId: string, branchId: string): Promise<'ok' | 'not_found' | 'inactive' | 'not_at_branch'> {
+    const d = await tx.selectFrom('doctors as d')
+      .leftJoin('doctor_branches as db', (j) => j.onRef('db.doctor_id', '=', 'd.id').on('db.branch_id', '=', branchId))
+      .select(['d.is_active', 'db.branch_id']).where('d.id', '=', doctorId).executeTakeFirst();
+    if (!d) return 'not_found';
+    if (!d.is_active) return 'inactive';
+    return d.branch_id ? 'ok' : 'not_at_branch';
+  }
+
   async dayContext(tx: Session, q: DayQuery): Promise<DayContext> {
     const holiday = await tx.selectFrom('holidays').select('id')
       .where(sql<boolean>`date = ${q.date}::date`).where((eb) => eb.or([eb('branch_id', 'is', null), eb('branch_id', '=', q.branchId)]))
@@ -82,12 +96,12 @@ export class KyselySchedulingRepository implements SchedulingRepository {
     const branchHours = await tx.selectFrom('branch_hours').select(['opens_at', 'closes_at']).where('branch_id', '=', q.branchId).where('weekday', '=', q.weekday).execute();
     const shifts = await tx.selectFrom('doctor_schedules').select(['doctor_id', 'starts_at', 'ends_at'])
       .where('branch_id', '=', q.branchId).where('weekday', '=', q.weekday).where('doctor_id', 'in', q.doctorIds).execute();
-    // appointments that keep the doctor busy anywhere (not only at this branch), live holds included; stale holds do not block
-    const appointments = await tx.selectFrom('appointments').select(['doctor_id', 'starts_at', 'ends_at'])
-      .where('doctor_id', 'in', q.doctorIds).where('starts_at', '<', q.to).where('ends_at', '>', q.from)
-      .where('status', 'in', [...BLOCKING_STATUSES])
-      .where((eb) => eb.or([eb('status', '<>', 'held'), eb('hold_expires_at', '>', sql<Date>`now()`)]))
-      .execute();
+    // appointments that keep the doctor busy anywhere (not only at this branch), live holds included; stale holds do not
+    // block. Read through doctor_busy_intervals(): a branch-limited receptionist cannot read other branches' bookings,
+    // but the doctor is still busy there. The function returns times only, for this clinic, the same statuses as
+    // BLOCKING_STATUSES.
+    const { rows: appointments } = await sql<{ doctor_id: string; starts_at: Date; ends_at: Date }>`
+      select doctor_id, starts_at, ends_at from doctor_busy_intervals(${sql.val(q.doctorIds)}::uuid[], ${q.from}, ${q.to})`.execute(tx);
     const timeOff = await tx.selectFrom('doctor_time_off').select(['doctor_id', 'starts_at', 'ends_at'])
       .where('doctor_id', 'in', q.doctorIds).where('starts_at', '<', q.to).where('ends_at', '>', q.from).execute();
     return { closed: !!holiday, branchHours, shifts, blocked: [...appointments, ...timeOff] };

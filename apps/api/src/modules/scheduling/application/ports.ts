@@ -88,6 +88,10 @@ export interface SchedulingRepository {
   branchTimezone(tx: Session, branchId: string): Promise<string | null | undefined>;
   /** Doctors who work at the branch, perform the service and (for the website) accept online booking. */
   doctorsFor(tx: Session, q: DoctorsQuery): Promise<string[]>;
+  /** Whether the signed-in member may work in this branch (branch-scoped access; true for all-branch members). */
+  branchAllowed(tx: Session, branchId: string): Promise<boolean>;
+  /** Whether a staff booking may name this doctor at this branch: the doctor exists, is active and works there. */
+  doctorAtBranch(tx: Session, doctorId: string, branchId: string): Promise<'ok' | 'not_found' | 'inactive' | 'not_at_branch'>;
   dayContext(tx: Session, q: DayQuery): Promise<DayContext>;
   releaseExpiredHolds(tx: Session, doctorId: string): Promise<void>;
   insertHold(tx: Session, h: HoldInput): Promise<{ id: string }>;

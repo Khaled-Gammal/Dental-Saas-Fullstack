@@ -30,7 +30,7 @@ const fields = {
   guardianPatientId: Uuid.nullable(),
   marketingOptIn: z.boolean(),
 };
-/** Only reception and owners change this, after repeated no-shows or fake bookings. */
+/** Only members with `patients:block` (reception, owners) change this, after repeated no-shows or fake bookings. */
 const IsBlocked = z.boolean();
 
 export const CreatePatient = z.object(fields).partial().required({ fullName: true, phone: true }).strict();
