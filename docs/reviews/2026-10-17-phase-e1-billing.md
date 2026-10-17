@@ -47,6 +47,7 @@ Seed (fresh databases only): the receptionist role gets `payments:reverse` and t
 | API e2e + unit | **23 suites, 235 tests passed** (new `billing.e2e-spec.ts`, 8 cases; `billing-rules.spec.ts`, 6 cases) |
 | Dashboard unit | **60 passed** (router: billing pages) |
 | Website unit | 20 passed |
+| GitHub CI | first run 39063865688 **failed**: the billing e2e case "a doctor cannot read another patient's billing" used the seed patient Nour, whom the calendar suite books with the same doctor; CI ran that suite first. Fixed with a fresh patient (fb47040); run 39064242614 **passed** |
 
 **Browser check: partial.** Viewed on your dev data as clinic A's owner: the invoice list, the new-invoice form, the
 patient's account card (balance 0 ج.م) and the currency card; no console errors. I did not create invoices or

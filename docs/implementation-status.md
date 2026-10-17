@@ -16,7 +16,7 @@ Last updated: 2026-10-17, end of Phase E1 (reviews in `docs/reviews/`: phase C, 
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
-| CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4), 39061929809 (`v4/phase-d5-merge`, c687e15) |
+| CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4), 39061929809 (`v4/phase-d5-merge`, c687e15), 39064242614 (`v4/phase-e1-billing`, fb47040; the first E1 run failed on an order-dependent test, fixed) |
 | Browser check | **partial** (D4; D5 merge page; E1 invoice list, new-invoice form, patient account card, currency card viewed — no invoice created in the dev data): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through |
 
 ## Clinic workflow (SRS §3)
