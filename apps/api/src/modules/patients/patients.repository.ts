@@ -200,6 +200,24 @@ export class PatientsRepository {
     }).returning('id').executeTakeFirstOrThrow();
   }
 
+  /** A record that was merged: where it went (its URL keeps working). */
+  mergedInto(tx: Tx, tenantId: string, id: string) {
+    return tx.selectFrom('patients').select(['merged_into_id']).where('tenant_id', '=', tenantId).where('id', '=', id)
+      .where('merged_into_id', 'is not', null).executeTakeFirst().then((r) => r?.merged_into_id ?? null);
+  }
+
+  /** What a merge would move from this record, per table (database function: every table, every branch). */
+  async mergeCounts(tx: Tx, id: string): Promise<Record<string, number>> {
+    const r = await sql<{ c: Record<string, number> }>`select patient_merge_counts(${id}) as c`.execute(tx);
+    return r.rows[0]?.c ?? {};
+  }
+
+  /** SRS PATIENT-003: one database function moves everything in one transaction (see migration 0022). */
+  async merge(tx: Tx, survivorId: string, mergedId: string): Promise<Record<string, number>> {
+    const r = await sql<{ m: Record<string, number> }>`select merge_patients(${survivorId}, ${mergedId}) as m`.execute(tx);
+    return r.rows[0]?.m ?? {};
+  }
+
   bookable(tx: Tx, tenantId: string, id: string) {
     return this.base(tx, tenantId).select(['p.id', 'p.is_blocked']).where('p.id', '=', id).executeTakeFirst();
   }

@@ -68,6 +68,8 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   tooth_records_visit_patient: { status: 400, code: 'visit_mismatch', title: 'The visit belongs to another patient' },
   prescriptions_visit_match: { status: 400, code: 'prescription_mismatch', title: 'The prescription does not match its visit' },
   prescriptions_issued: { status: 409, code: 'prescription_issued', title: 'An issued prescription is not changed; issue a correction' },
+  patients_merge_self: { status: 400, code: 'merge_self', title: 'Choose another record to merge into this one' },
+  patients_already_merged: { status: 409, code: 'already_merged', title: 'One of the records is already merged' },
   prescriptions_replaced_once: { status: 409, code: 'prescription_already_corrected', title: 'This prescription was already corrected' },
 };
 

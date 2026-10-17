@@ -8,7 +8,7 @@ import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
 import { normalizePhone } from '../../shared/phone';
 import { PlanLimits } from '../../shared/plans/plan-limits.service';
-import { auditChanges, classifySearch, cleanList, cleanTags, decodeCursor, encodeCursor, NEEDS_REVIEW } from './patient-rules';
+import { auditChanges, classifySearch, cleanList, cleanTags, decodeCursor, encodeCursor, MERGE_FIELDS, mergeConflicts, NEEDS_REVIEW, unionList } from './patient-rules';
 import { PatientsRepository, type PatientFields } from './patients.repository';
 import type { CreatePatientInput, MedicalHistoryInput, UpdatePatientInput } from './patients.schemas';
 
@@ -62,7 +62,7 @@ export class PatientsService {
   get(id: string) {
     return this.db.run(async (tx, tenantId) => {
       const patient = await this.repo.get(tx, tenantId, id);
-      if (!patient) throw notFound();
+      if (!patient) throw await this.notFoundOrMerged(tx, tenantId, id);
       await this.audit.recordView(tx, tenantId, 'patient', id);
       const [appointments, medicalHistory] = await Promise.all([
         this.repo.appointments(tx, id),
@@ -142,6 +142,55 @@ export class PatientsService {
       if (!(await this.repo.exists(tx, tenantId, id))) throw notFound();
       return this.repo.activity(tx, tenantId, id, 100);
     });
+  }
+
+  /**
+   * What merging `mergedId` into `id` would do (SRS PATIENT-003): both records, what moves, the fields that differ
+   * (the survivor keeps its own, CLR-15) and, for members who read clinical data, the combined medical lists.
+   */
+  mergePreview(id: string, mergedId: string) {
+    return this.db.run(async (tx, tenantId) => {
+      const [survivor, merged] = await this.mergePair(tx, tenantId, id, mergedId);
+      const clinical = this.canReadClinical();
+      const [hs, hm] = clinical ? await Promise.all([this.repo.medicalHistory(tx, id), this.repo.medicalHistory(tx, mergedId)]) : [null, null];
+      return {
+        survivor, merged,
+        moves: await this.repo.mergeCounts(tx, mergedId),
+        conflicts: mergeConflicts(survivor as unknown as Record<string, unknown>, merged as unknown as Record<string, unknown>, MERGE_FIELDS),
+        medicalHistory: hs && hm && {
+          allergies: unionList(hs.allergies, hm.allergies), conditions: unionList(hs.conditions, hm.conditions), medications: unionList(hs.medications, hm.medications),
+          conflicts: mergeConflicts(hs as unknown as Record<string, unknown>, hm as unknown as Record<string, unknown>, ['is_pregnant', 'is_smoker', 'notes']),
+        },
+      };
+    });
+  }
+
+  /** Not reversible from the UI; audited on both records. The merged record keeps its data and points at the survivor. */
+  merge(id: string, mergedId: string) {
+    return this.db.run(async (tx, tenantId) => {
+      const [, merged] = await this.mergePair(tx, tenantId, id, mergedId);
+      const moved = await this.repo.merge(tx, id, mergedId);
+      await this.audit.record(tx, tenantId, { action: 'patient.merge', entityType: 'patient', entityId: id, changes: { merged_id: mergedId, merged_file_no: merged.file_no, moved } });
+      await this.audit.record(tx, tenantId, { action: 'patient.merged_into', entityType: 'patient', entityId: mergedId, changes: { survivor_id: id } });
+    }).then(() => this.get(id));
+  }
+
+  private async mergePair(tx: Tx, tenantId: string, id: string, mergedId: string) {
+    if (id === mergedId) throw Err.badRequest('merge_self', 'Choose another record to merge into this one');
+    const [survivor, merged] = await Promise.all([this.repo.get(tx, tenantId, id), this.repo.get(tx, tenantId, mergedId)]);
+    for (const [p, pid] of [[survivor, id], [merged, mergedId]] as const) {
+      if (!p) {
+        if (await this.repo.mergedInto(tx, tenantId, pid)) throw Err.conflict('already_merged', 'One of the records is already merged');
+        throw notFound();
+      }
+    }
+    return [survivor!, merged!] as const;
+  }
+
+  /** A merged record's link still leads somewhere: the answer names the record it was merged into. */
+  private async notFoundOrMerged(tx: Tx, tenantId: string, id: string) {
+    const into = await this.repo.mergedInto(tx, tenantId, id);
+    return into ? Err.notFound('patient_merged', 'This record was merged into another one', { mergedInto: into }) : notFound();
   }
 
   /** References must be in this clinic (RLS hides others, so "not found" is the answer for both). */

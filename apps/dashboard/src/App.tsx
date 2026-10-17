@@ -27,6 +27,7 @@ import { PrescriptionPrint } from './screens/clinical/prescription-print';
 import { VisitPage } from './screens/clinical/visit';
 import { PatientForm } from './screens/patients/form';
 import { PatientsList } from './screens/patients/list';
+import { PatientMerge } from './screens/patients/merge';
 import { PatientProfile } from './screens/patients/profile';
 import { GalleryForm } from './screens/gallery/form';
 import { GalleryList } from './screens/gallery/list';
@@ -139,6 +140,7 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
       if (action === 'new' && write) return <PatientForm lang={lang} clinicId={clinicId} />;
       if (action === 'edit' && write) return <PatientForm lang={lang} clinicId={clinicId} id={id} />;
       if (action === 'view') return <PatientProfile lang={lang} clinicId={clinicId} id={id} session={session} />;
+      if (action === 'merge' && can(session, 'patients:merge')) return <PatientMerge lang={lang} clinicId={clinicId} id={id} />;
       if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('patients')} backLabel={t('navPatients', lang)} />;
       return <PatientsList lang={lang} clinicId={clinicId} canWrite={write} canBook={can(session, 'appointments:write')} />;
     }

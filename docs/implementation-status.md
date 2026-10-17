@@ -3,21 +3,21 @@
 The tracker for every requirement in `docs/SRS.md`. **Where this file and the SRS disagree, this file wins.**
 It is updated at the end of every phase. A status changes only with evidence: code, plus a test that ran and passed.
 
-Last updated: 2026-10-17, end of Phase D4 (reviews in `docs/reviews/`: phase C, D1, D2, D3 and D4 of 2026-10-17).
+Last updated: 2026-10-17, end of Phase D5 (reviews in `docs/reviews/`: phase C and D1–D5 of 2026-10-17).
 
-## Last verification run (2026-10-17, end of Phase D4)
+## Last verification run (2026-10-17, end of Phase D5)
 
 | Check | Result |
 | --- | --- |
-| Database tests (`pnpm db:test`) | 21 files, **308 checks passed** |
-| API e2e + unit (`pnpm --filter @dental/api test`) | 20 suites, **216 tests passed** |
+| Database tests (`pnpm db:test`) | 22 files, **327 checks passed** |
+| API e2e + unit (`pnpm --filter @dental/api test`) | 21 suites, **221 tests passed** |
 | Dashboard unit (vitest) | 60 passed |
 | Website unit (vitest) | 20 passed |
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
-| CI on GitHub | **success**: run 39055317969 (`v4/phase-d2-scheduling`) and run 39056413149 (`v4/phase-d3-patients`, commit 3c2dfb4) |
-| Browser check | **partial** (D4): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through |
+| CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4). D5 runs when pushed |
+| Browser check | **partial** (D4, D5 merge page viewed): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through |
 
 ## Clinic workflow (SRS §3)
 
@@ -62,7 +62,7 @@ Last updated: 2026-10-17, end of Phase D4 (reviews in `docs/reviews/`: phase C, 
 | APPT-009 | Booking settings screen | IMPLEMENTED | D2 | `/clinic/booking-settings`; dashboard `#/booking` |
 | PATIENT-001 | Arabic-normalised search | IMPLEMENTED | D3 | migrations 0019 `ar_normalize()`, `patients.full_name_norm` (generated) + 0020 trigram index; `patients.repository.ts`; `19_patients_search_history_files.sql`, `patients-d3.e2e-spec.ts` |
 | PATIENT-002 | Possible-duplicate warning | IMPLEMENTED | D3 | `GET /patients/duplicates` (main, alternative or guardian phone; same normalised name; close name + same birth date); warning on the new-patient form, never a block; e2e |
-| PATIENT-003 | Merge duplicates | NOT_IMPLEMENTED (DB only) | D5 | `merged_into_id` honoured by reads |
+| PATIENT-003 | Merge duplicates | IMPLEMENTED | D5 | migration 0022 `merge_patients()` (one transaction, every table, clinic-checked, app_definer), `patient_merge_counts()`; `GET /patients/:id/merge-preview`, `POST /patients/:id/merge` (patients:merge); `#/patients/<id>/merge`; `21_patient_merge.sql`, `patients-merge.e2e-spec.ts` |
 | PATIENT-004 | Clinical documents and images | IMPLEMENTED (patient level) | D3 | `patient-files.*`, `clinical-files.ts` (type from the bytes, 20 MB, 5-minute links bound to clinic + file + user, audited opening), archive with reason, `files_clinical_private`; dashboard files card; unit + e2e. Visit link waits for D4 |
 | PATIENT-005 | Medical history versions + alerts | IMPLEMENTED | D3/D4 | Versions: `patient_medical_history_versions` (append-only, trigger, back-filled), `GET /patients/:id/medical-history/versions` (clinical:read, audited); profile alerts. D4: allergies, pregnancy and conditions on top of the visit screen (`GET /visits/:id` includes the history) |
 | VISIT-001 | Clinical visit | IMPLEMENTED | D4 | `modules/clinical`, `POST /visits` (own appointment, checked in; walk-in), trigger starts the appointment; dashboard `#/visits/<id>/view`, "فتح الزيارة" on the day list; e2e + `20_clinical_workflow.sql` |
@@ -118,8 +118,8 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 
 | Status | IDs |
 | --- | --- |
-| IMPLEMENTED | DSH-04 (CHART-001), DSH-06 (VISIT-*), AUTH-03, AUTH-04 (M part), AUTH-05, AUTH-06 (email, AUTH-102), AUTH-08 (email, ACCESS-001), AUTH-09, WEB-03, BOOK-01, BOOK-02, BOOK-03 (email deviation), BOOK-05, BOOK-06, BOOK-07 (email deviation), BOOK-09 (doctor), BOOK-10, BOOK-11, NTF-04, BIL-02, BIL-08, NFR-01, NFR-10 (DB) |
-| PARTIALLY_IMPLEMENTED | DSH-05 (TPLAN-*; invoicing in E), DSH-19 (manual list VISIT-005; automatic recalls deferred), AUTH-01, ONB-01, ONB-02, WEB-01, WEB-02, WEB-05, WEB-06, WEB-10, BOOK-04, BOOK-09 (room), DSH-01, DSH-02, DSH-03, DSH-10, DSH-12, DSH-13, DSH-15, NTF-01, NTF-03, BIL-01, NFR-02, NFR-03, NFR-12, NFR-14, NFR-16 |
+| IMPLEMENTED | DSH-03 (PATIENT-*), DSH-04 (CHART-001), DSH-06 (VISIT-*), AUTH-03, AUTH-04 (M part), AUTH-05, AUTH-06 (email, AUTH-102), AUTH-08 (email, ACCESS-001), AUTH-09, WEB-03, BOOK-01, BOOK-02, BOOK-03 (email deviation), BOOK-05, BOOK-06, BOOK-07 (email deviation), BOOK-09 (doctor), BOOK-10, BOOK-11, NTF-04, BIL-02, BIL-08, NFR-01, NFR-10 (DB) |
+| PARTIALLY_IMPLEMENTED | DSH-05 (TPLAN-*; invoicing in E), DSH-19 (manual list VISIT-005; automatic recalls deferred), AUTH-01, ONB-01, ONB-02, WEB-01, WEB-02, WEB-05, WEB-06, WEB-10, BOOK-04, BOOK-09 (room), DSH-01, DSH-02, DSH-10, DSH-12, DSH-13, DSH-15, NTF-01, NTF-03, BIL-01, NFR-02, NFR-03, NFR-12, NFR-14, NFR-16 |
 | NOT_IMPLEMENTED | LND-01, LND-02, LND-03, LND-04, LND-05, DSH-07 (→ BILLING/PAY/DISC), DSH-08 (→ EXP-*), DSH-11 (→ REPORT-*), DSH-16, DSH-18 (→ PAY-004), BIL-04…07, ADM-01, ADM-02, ADM-04, NFR-04, NFR-08, NFR-15 |
 | SUPERSEDED | AUTH-02 for sign-up (→ AUTH-101, done: the phone-code endpoints were removed), WEB-04 (→ L10N-001), NFR-09 bilingual parts (→ L10N-*), §7.1 item 6 |
 | DEFERRED | AUTH-04 Google, AUTH-07, ONB-03, WEB-07, WEB-08, WEB-09, BOOK-08, BOOK-12, DSH-09, DSH-14, DSH-17, DSH-20, NTF-02, NTF-05, BIL-03, ADM-03, ADM-05, ADM-06 |
@@ -131,6 +131,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-17 | D5 | Migration 0022; PATIENT-003 done (merge with CLR-15 default); D4 CI green |
 | 2026-10-17 | D4 | Migration 0021; VISIT-001…005, CHART-001, TPLAN-001…003, APPT-007, AUDIT-002, PATIENT-005 done; TPLAN-004 partly. Seed: doctor role gains clinical:read and treatments:write:own; demo accountant added |
 | 2026-10-17 | D3 | Migrations 0019–0020; PATIENT-001, 002, 004 done; PATIENT-005 versions done (visit alert in D4); OPS-001 verified on GitHub |
 | 2026-10-17 | D2 | Migration 0018; APPT-001, 003, 004, 005, 006, 009 done; CI also runs on `v4/**` pushes |

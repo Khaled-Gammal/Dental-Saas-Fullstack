@@ -160,7 +160,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | BOOK-12 | V2 | DEFERRED | — |
 | DSH-01 | M | PARTIALLY_IMPLEMENTED | Setup progress only; refined by REPORT-006 |
 | DSH-02 | M | PARTIALLY_IMPLEMENTED | Day list per branch; no week view, per-doctor/chair columns or drag-reschedule. Refined by APPT-001…004 |
-| DSH-03 | M | PARTIALLY_IMPLEMENTED | Profile, contacts, file no., tags, guardian, opt-in, medical history and its versions, X-rays and documents done; timeline (D4 visits) and merge (D5) missing. Refined by PATIENT-001…005 |
+| DSH-03 | M | IMPLEMENTED (2026-10-17, D5) | Profile, contacts, file no., tags, guardian, opt-in, medical history and its versions, X-rays and documents, clinical timeline (D4), merge (D5). Refined by PATIENT-001…005 |
 | DSH-04 | V1 | IMPLEMENTED (2026-10-17, D4) | Brought into v4: CHART-001 |
 | DSH-05 | V1 | PARTIALLY_IMPLEMENTED | Brought into v4: TPLAN-001…004 (D4); converting steps to invoice items comes with billing (Phase E) |
 | DSH-06 | M | IMPLEMENTED (2026-10-17, D4) | Refined by VISIT-001…005 |
@@ -1201,13 +1201,14 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   or confirms "new patient".
 - *Acceptance:* entering an existing patient's phone shows that patient before saving.
 
-**PATIENT-003 — Merge duplicates** · NOT_IMPLEMENTED (DB only) · Phase D (later sub-phase) (refines DSH-03)
+**PATIENT-003 — Merge duplicates** · IMPLEMENTED (2026-10-17, D5; CLR-15 default) · Phase D (refines DSH-03)
 - *Description:* Two records of the same person become one.
 - *Role:* `patients:merge`.
 - *Behaviour:* the user picks the surviving record. Appointments, visits, chart entries, plans, prescriptions,
   documents, invoices, payments, installment plans and follow-ups of the other record move to it. The other record
-  gets `merged_into_id` and disappears from lists. The merge is audited and is not reversible from the UI. How
-  medical-history differences are combined is pending CLR-15.
+  gets `merged_into_id` and disappears from lists. The merge is audited and is not reversible from the UI. Medical
+  history (CLR-15): allergies, conditions and medications are combined; the survivor's other fields are kept, and the
+  differences are listed before the user confirms.
 - *Errors:* `already_merged`, `merge_self`.
 - *Acceptance:* (1) after a merge, the survivor's balance equals the sum of both balances; (2) no row still points
   at the merged record except `merged_into_id`.

@@ -87,3 +87,25 @@ export function cleanList(items: string[]): string[] {
   }
   return out.slice(0, 30);
 }
+
+/** The record fields a merge compares (SRS PATIENT-003): the survivor's value is kept, a different one is listed. */
+export const MERGE_FIELDS = ['full_name', 'phone', 'phone_alt', 'email', 'date_of_birth', 'gender', 'address', 'city', 'occupation',
+  'guardian_name', 'guardian_phone', 'guardian_relation', 'notes'] as const;
+
+const same = (a: unknown, b: unknown) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+const empty = (v: unknown) => v === null || v === undefined || String(v).trim() === '';
+
+/**
+ * CLR-15: fields where both records have a value and the values differ. The survivor keeps its own; the user sees
+ * the other before confirming (the merged record keeps it too, it is never deleted).
+ */
+export function mergeConflicts<T extends Record<string, unknown>>(survivor: T, merged: T, fields: readonly (keyof T & string)[]) {
+  return fields.filter((f) => !empty(survivor[f]) && !empty(merged[f]) && !same(survivor[f], merged[f]))
+    .map((f) => ({ field: f, survivor: survivor[f], merged: merged[f] }));
+}
+
+/** Two lists as one, the first spelling kept, no repeats ignoring case and spaces (same rule as `text_array_union`). */
+export function unionList(a: readonly string[], b: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return [...a, ...b].filter((x) => { const k = x.trim().toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+}

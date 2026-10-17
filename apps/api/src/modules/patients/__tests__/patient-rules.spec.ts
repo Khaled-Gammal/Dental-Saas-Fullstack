@@ -1,4 +1,4 @@
-import { ageOn, auditChanges, classifySearch, cleanList, cleanTags, decodeCursor, encodeCursor, escapeLike, NEEDS_REVIEW } from '../patient-rules';
+import { ageOn, auditChanges, classifySearch, cleanList, cleanTags, decodeCursor, encodeCursor, escapeLike, NEEDS_REVIEW, mergeConflicts, unionList } from '../patient-rules';
 
 describe('classifySearch', () => {
   it('empty is the full list', () => {
@@ -67,5 +67,19 @@ describe('cleaning lists', () => {
   });
   it('medical items: unique case-insensitively', () => {
     expect(cleanList(['Penicillin', 'penicillin ', ' ', 'Latex'])).toEqual(['Penicillin', 'Latex']);
+  });
+});
+
+describe('merge rules (PATIENT-003, CLR-15)', () => {
+  it('lists the fields where both records differ; empty values and case differences are not conflicts', () => {
+    const a: Record<string, string | null> = { full_name: 'Hala Samir', phone: '+201077700001', email: null, city: 'Cairo', notes: 'x' };
+    const b = { full_name: 'HALA SAMIR', phone: '+201077700002', email: 'h@x.test', city: '', notes: 'y' };
+    expect(mergeConflicts(a, b, ['full_name', 'phone', 'email', 'city', 'notes'])).toEqual([
+      { field: 'phone', survivor: '+201077700001', merged: '+201077700002' }, { field: 'notes', survivor: 'x', merged: 'y' },
+    ]);
+  });
+  it('combines lists without losing an item or repeating one', () => {
+    expect(unionList(['Penicillin'], ['penicillin ', 'Latex'])).toEqual(['Penicillin', 'Latex']);
+    expect(unionList([], ['سكري'])).toEqual(['سكري']);
   });
 });

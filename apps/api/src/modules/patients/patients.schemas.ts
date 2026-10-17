@@ -51,6 +51,10 @@ export const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(25),
 }).strict();
 
+/** Merge another record into this one (SRS PATIENT-003). */
+export const MergeBody = z.object({ mergedId: Uuid }).strict();
+export const MergePreviewQuery = z.object({ other: Uuid }).strict();
+
 /** "Is this person already registered?" — any of phone, name and birth date, as typed in the new-patient form. */
 export const DuplicatesQuery = z.object({
   phone: z.string().trim().max(30).optional(),

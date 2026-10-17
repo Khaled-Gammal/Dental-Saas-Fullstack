@@ -625,3 +625,13 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
   .rx-sheet { position: absolute; inset: 0 auto auto 0; width: 100%; min-height: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
   .no-print { display: none !important; }
 }
+
+/* patient merge (Phase D5) */
+.table-wrap { overflow-x: auto; }
+.compare-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.compare-table th, .compare-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: start; vertical-align: top; }
+.compare-table thead th { color: var(--muted); font-weight: 600; }
+.compare-table tbody th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+.compare-table tr.is-diff td { background: var(--warning-bg); }
+.compare-table td .badge { margin-inline-start: 6px; }
+.pick-item.is-on { border-color: var(--primary-500); background: var(--primary-50); }

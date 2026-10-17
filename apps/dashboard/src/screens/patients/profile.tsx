@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { pickName } from '@dental/ui/text';
-import { can, type Session } from '../../api';
+import { ApiError, can, type Session } from '../../api';
 import { useFlash } from '../../hooks';
 import { t, tOr, type Key, type Lang } from '../../i18n';
 import { ageOn, hasAlerts } from '../../patient-model';
@@ -25,6 +25,10 @@ export function PatientProfile({ lang, clinicId, id, session }: { lang: Lang; cl
   const flash = useFlash();
   const one = usePatient(clinicId, id);
   if (!one.data) {
+    // a merged record's old link: say where it went (SRS PATIENT-003)
+    if (one.error instanceof ApiError && one.error.code === 'patient_merged' && typeof one.error.body.mergedInto === 'string') {
+      return <Alert tone="info">{t('patientMergedNotice', lang)} <RouteLink route={to.view('patients', one.error.body.mergedInto)}>{t('openSurvivor', lang)}</RouteLink></Alert>;
+    }
     return <ResourceState isLoading={one.isLoading} isError={one.isError} error={one.error} notFound={false} refetch={() => void one.refetch()} back={to.list('patients')} backLabel={t('navPatients', lang)} />;
   }
   const p = one.data;
@@ -37,6 +41,7 @@ export function PatientProfile({ lang, clinicId, id, session }: { lang: Lang; cl
         sub={`${t('fileNo', lang)} ${fmtNumber(p.file_no, lang)}`}
         action={
           <div className="row-end">
+            {can(session, 'patients:merge') && <RouteLink route={{ page: 'patients', id: p.id, action: 'merge' }} className="btn btn-ghost">{t('mergeAction', lang)}</RouteLink>}
             {write && <RouteLink route={to.edit('patients', p.id)} className="btn btn-secondary"><EditIcon size={16} />{t('edit', lang)}</RouteLink>}
             {can(session, 'appointments:write') && !p.is_blocked && <RouteLink route={to.create('appointments', { patient: p.id })} className="btn btn-primary"><CalendarIcon size={16} />{t('book', lang)}</RouteLink>}
           </div>

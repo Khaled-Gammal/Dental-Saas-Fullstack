@@ -75,5 +75,6 @@ describe('clinical routes (Phase D4)', () => {
     }
     expect(parseRoute('#/visits/v1/edit')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/prescriptions/rx1/view')).toEqual({ page: 'not-found' });
+    expect(parseRoute('#/patients/p1/merge')).toEqual({ page: 'patients', id: 'p1', action: 'merge' });
   });
 });

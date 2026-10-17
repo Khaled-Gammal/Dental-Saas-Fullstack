@@ -262,6 +262,19 @@ and a completed appointment closes its follow-up (`appointments_clinical_follow`
 tenant hard delete. The clinical tables had no rows, so no data was rewritten. D-09 onwards: D-09/D-10 applied in D2;
 the rest are still proposals.
 
+**D5 applied 2026-10-17 (migration 0022):** `merge_patients(survivor, merged)` and `patient_merge_counts(patient)`,
+SECURITY DEFINER owned by `app_definer` (BYPASSRLS), so the merge can move rows the API role may not change (recorded
+payments, issued invoices, final visits, accepted plans, issued prescriptions, chart entries). Every statement names
+the clinic (`current_tenant_id()`); a patient of another clinic is "not found". Rows move in dependency order
+(appointments → invoices → installment plans → payments → visits → …) so each cross-record check passes. The four
+guards (`payments_guard`, `invoices_derive`, `visits_guard`, `treatment_plans_guard`) allow a change of
+`patient_id` alone only when `current_user = app_definer` and `app.patient_merge = on` (`patient_merge_only()`,
+generated columns ignored); the API role setting that GUC changes nothing (tested). Medical history: lists combined with
+`text_array_union` (case- and space-insensitive), survivor's flags and notes kept, the duplicate's history row removed
+after its versions moved. The merged row gets `merged_into_id` + `merged_at`; guardians and earlier merges are
+repointed. New grants to `app_definer`: SELECT/UPDATE on the moved tables and `installments`, INSERT on
+`audit_log` and history versions, SELECT on the tables the fired triggers read. Rollback tested (down + up).
+
 | ID | Change | Requirement | Risk |
 | --- | --- | --- | --- |
 | D-01 | `invitations` + `job_title text`, `doctor_id uuid` (composite FK to `doctors`), index on `(tenant_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL` | ACCESS-001 | low |

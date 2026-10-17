@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { z } from 'zod';
 import { RequirePermission } from '../../auth/decorators';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { PatientsService } from './patients.service';
-import { CreatePatient, DuplicatesQuery, ListQuery, MedicalHistoryBody, UpdatePatient } from './patients.schemas';
+import { CreatePatient, DuplicatesQuery, ListQuery, MedicalHistoryBody, MergeBody, MergePreviewQuery, UpdatePatient } from './patients.schemas';
 
 const id = new ParseUUIDPipe();
 
@@ -58,6 +58,20 @@ export class PatientsController {
   @RequirePermission('patients:read')
   historyVersions(@Param('id', id) patientId: string) {
     return this.patients.historyVersions(patientId);
+  }
+
+  /** What merging another record into this one would do (SRS PATIENT-003). */
+  @Get(':id/merge-preview')
+  @RequirePermission('patients:merge')
+  mergePreview(@Param('id', id) patientId: string, @Query(new ZodBody(MergePreviewQuery)) q: z.infer<typeof MergePreviewQuery>) {
+    return this.patients.mergePreview(patientId, q.other);
+  }
+
+  /** Moves everything of the other record to this one; not reversible from the dashboard. */
+  @Post(':id/merge') @HttpCode(200)
+  @RequirePermission('patients:merge')
+  merge(@Param('id', id) patientId: string, @Body(new ZodBody(MergeBody)) body: z.infer<typeof MergeBody>) {
+    return this.patients.merge(patientId, body.mergedId);
   }
 
   /** Who viewed or changed this record (DSH-15). Owners only by default. */
