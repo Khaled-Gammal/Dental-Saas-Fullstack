@@ -649,3 +649,4 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 .print-totals dd { margin: 0; }
 .print-totals .is-total { font-weight: 700; border-top: 1px solid #333; padding-top: 4px; }
 .receipt-amount { font-size: 28px; font-weight: 800; text-align: center; margin: 8px 0; }
+ul.stack { list-style: none; padding: 0; margin-block: 0; }
