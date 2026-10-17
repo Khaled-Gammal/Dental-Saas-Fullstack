@@ -328,7 +328,9 @@ export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'vo
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'wallet' | 'instapay';
 export interface InvoiceRow {
   id: string; number: string | null; status: InvoiceStatus; currency: string; patient_id: string; branch_id: string;
-  subtotal_minor: number; discount_minor: number; tax_minor: number; total_minor: number; paid_minor: number; balance_minor: number;
+  subtotal_minor: number; discount_minor: number; tax_minor: number; total_minor: number; paid_minor: number; adjusted_minor: number; balance_minor: number;
+  discount_type: DiscountType | null; discount_bp: number | null; discount_reason: string | null; discount_status: DiscountStatus; discount_requested_by: string | null;
+  discount_requested_by_name: string | null; discount_decided_by_name: string | null; discount_decided_at: string | null; discount_note: string | null;
   issue_date: string | null; due_date: string | null; notes: string | null; void_reason: string | null; voided_at: string | null; created_at: string;
   created_by_name: string | null; voided_by_name: string | null;
   patient: { id: string; full_name: string; file_no: number; phone: string }; branch: { name_ar: string | null; name_en: string | null };
@@ -336,6 +338,7 @@ export interface InvoiceRow {
 export interface InvoiceLine {
   id: string; service_id: string | null; visit_procedure_id: string | null; doctor_id: string | null; description: string; tooth_code: number | null;
   quantity: number; unit_price_minor: number; discount_minor: number; line_total_minor: number; sort_order: number;
+  discount_type: DiscountType | null; discount_bp: number | null; discount_reason: string | null;
 }
 export interface Refund { id: string; amount_minor: number; method: PaymentMethod; reason: string; reference: string | null; refunded_at: string; created_by_name: string | null }
 export interface Payment {
@@ -346,8 +349,8 @@ export interface Payment {
 }
 export interface InvoiceDetail extends InvoiceRow {
   lines: InvoiceLine[]; payments: (Payment & { refunds: Refund[]; can: { reverse: boolean; refund: boolean } })[];
-  tax_rate_bp: number; tax_preview_minor: number;
-  can: { edit: boolean; issue: boolean; void: boolean; pay: boolean };
+  tax_rate_bp: number; tax_preview_minor: number; plan: PaymentPlan | null; adjustments: Adjustment[];
+  can: { edit: boolean; issue: boolean; void: boolean; pay: boolean; discount: boolean; decideDiscount: boolean; plan: boolean; adjust: boolean };
 }
 export interface UnbilledProcedure {
   id: string; visit_id: string; service_id: string; service_ar: string | null; service_en: string | null; tooth_code: number | null; surfaces: Surface[];
@@ -355,3 +358,21 @@ export interface UnbilledProcedure {
 }
 export interface PatientBilling { currency: string; balance_minor: number; invoices: InvoiceRow[]; unbilled: UnbilledProcedure[] }
 export interface PaymentReceipt extends Payment { invoice: InvoiceRow | null }
+
+// ---------- discounts, installments, adjustments (Phase E2) ----------
+export type DiscountType = 'amount' | 'percent';
+export type DiscountStatus = 'none' | 'within_limit' | 'pending' | 'approved' | 'rejected';
+export interface Installment {
+  id: string; seq: number; due_date: string; amount_minor: number; paid_minor: number; status: 'due' | 'partially_paid' | 'paid' | 'waived';
+  paid_at: string | null; waived_at: string | null; waived_reason: string | null; waived_by_name: string | null;
+}
+export interface PaymentPlan {
+  id: string; status: 'active' | 'completed' | 'defaulted' | 'cancelled'; total_minor: number; down_payment_minor: number; installments_count: number;
+  start_date: string; notes: string | null; installments: Installment[];
+}
+export interface Adjustment { id: string; kind: 'waiver' | 'write_off'; installment_id: string | null; amount_minor: number; reason: string; created_at: string; created_by_name: string | null }
+export interface RoleLimit { id: string; key: string; name_ar: string; name_en: string; is_system: boolean; max_discount_bp: number; max_discount_minor: number | null; unlimited: boolean }
+export interface OverdueInstallment {
+  id: string; seq: number; due_date: string; amount_minor: number; paid_minor: number; status: string; invoice_id: string; number: string | null; currency: string;
+  patient: { id: string; full_name: string; file_no: number; phone: string };
+}

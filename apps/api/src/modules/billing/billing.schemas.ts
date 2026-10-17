@@ -28,6 +28,8 @@ export const NewPayment = z.object({
   amountMinor: Money, method: z.enum(PAYMENT_METHODS), reference: Text(100).nullable().optional(), notes: Text(500).nullable().optional(),
   /** the same key twice records one payment (a double click, a retried request) */
   idempotencyKey: z.string().trim().min(8).max(100),
+  /** PAY-004: paying an installment of the invoice's plan */
+  installmentId: Uuid.optional(),
 }).strict();
 export const Reverse = z.object({ reason: Reason }).strict();
 export const NewRefund = z.object({
@@ -46,3 +48,20 @@ export type NewLineInput = z.infer<typeof NewLine>;
 export type NewPaymentInput = z.infer<typeof NewPayment>;
 export type NewRefundInput = z.infer<typeof NewRefund>;
 export type InvoicesQueryInput = z.infer<typeof InvoicesQuery>;
+
+/** DISC-001: a fixed amount (minor units) or a percentage (basis points, 0–10000), always with a reason. */
+export const Discount = z.object({
+  type: z.enum(['amount', 'percent']), value: z.number().int().min(1).max(100_000_000), reason: z.string().trim().min(3).max(300),
+}).strict().refine((d) => d.type !== 'percent' || d.value <= 10000, 'a percentage is at most 100 %');
+export const Decision = z.object({ note: Text(500).nullable().optional() }).strict();
+export const Rejection = z.object({ note: z.string().trim().min(3).max(500) }).strict();
+export const RoleLimit = z.object({ maxDiscountBp: z.number().int().min(0).max(10000), maxDiscountMinor: z.number().int().min(0).max(100_000_000).nullable() }).strict();
+export const NewPlan = z.object({
+  installments: z.array(z.object({ dueDate: z.string().regex(ISO_DATE), amountMinor: z.number().int().min(1).max(100_000_000) }).strict()).min(1).max(60),
+  notes: Text(500).nullable().optional(),
+}).strict();
+export const MoveInstallment = z.object({ dueDate: z.string().regex(ISO_DATE) }).strict();
+export const WriteOff = z.object({ amountMinor: Money, reason: Reason }).strict();
+export const Waive = z.object({ reason: Reason }).strict();
+export type DiscountInput = z.infer<typeof Discount>;
+export type NewPlanInput = z.infer<typeof NewPlan>;

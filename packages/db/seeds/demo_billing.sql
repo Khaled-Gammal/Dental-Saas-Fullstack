@@ -1,5 +1,5 @@
 -- Demo invoices and payments for clinic A, to look at the billing screens (dev only, never run in production).
--- Run: pnpm --filter @dental/db seed:demo-billing   (safe to run twice: it does nothing if the demo data exists)
+-- Run: pnpm --filter @dental/db seed:demo-billing   (safe to run again: each part does nothing if its data exists)
 --
 -- What it creates (branch Nasr City, receptionist Sara as the receiver unless said otherwise):
 --   Omar Khaled  — a final visit by Dr. Mona with three procedures; invoice from two of them, partly paid
@@ -99,3 +99,53 @@ BEGIN
 
   RAISE NOTICE 'demo billing data created';
 END $demo$;
+
+-- Phase E2 demo (separate guard, so it can be added to a database that already has the E1 demo):
+--   Nour Ali  — a draft with a 15 % discount entered by the receptionist (limit 10 %): waiting for the owner's approval
+--   كريم حسن  — 6,000 EGP orthodontics on 6 monthly installments: the first paid, the second overdue, the last waived
+DO $demo2$
+DECLARE
+  t   constant uuid := '11111111-1111-1111-1111-111111111111';
+  nasr constant uuid := 'd0000000-0000-0000-0000-0000000000a1';
+  sara constant uuid := 'c0000000-0000-0000-0000-0000000000a2';
+  owner constant uuid := 'c0000000-0000-0000-0000-0000000000a1';
+  nour constant uuid := '70000000-0000-0000-0000-0000000000a2';
+  karim constant uuid := '7f000000-0000-0000-0000-000000000002';
+  inv uuid; plan uuid; first_ins uuid; last_ins uuid; k int;
+BEGIN
+  IF EXISTS (SELECT 1 FROM invoices WHERE tenant_id = t AND notes = 'بيانات تجريبية ٢') THEN
+    RAISE NOTICE 'E2 demo data already exists; nothing to do';
+    RETURN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM patients WHERE id = karim) THEN
+    RAISE NOTICE 'run the E1 demo first (it creates the demo patients)';
+    RETURN;
+  END IF;
+  PERFORM set_config('app.tenant_id', t::text, true), set_config('app.member_id', sara::text, true),
+          set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a2', true), set_config('app.actor_type', 'member', true);
+
+  -- a discount above the receptionist's 10 % limit, waiting for the owner
+  INSERT INTO invoices (tenant_id, branch_id, patient_id, currency, notes, created_by) VALUES (t, nasr, nour, 'EGP', 'بيانات تجريبية ٢', sara) RETURNING id INTO inv;
+  INSERT INTO invoice_items (tenant_id, invoice_id, description, quantity, unit_price_minor, line_total_minor) VALUES (t, inv, 'تاج زيركون', 1, 120000, 120000);
+  UPDATE invoices SET discount_type = 'percent', discount_bp = 1500, discount_reason = 'مريضة دائمة منذ سنوات',
+         discount_status = 'pending', discount_requested_by = sara WHERE id = inv;
+
+  -- orthodontics on six monthly installments: one paid, one overdue, the last waived by the owner
+  INSERT INTO invoices (tenant_id, branch_id, patient_id, currency, notes, created_by) VALUES (t, nasr, karim, 'EGP', 'بيانات تجريبية ٢', sara) RETURNING id INTO inv;
+  INSERT INTO invoice_items (tenant_id, invoice_id, description, quantity, unit_price_minor, line_total_minor) VALUES (t, inv, 'تقويم أسنان — المرحلة الأولى', 1, 600000, 600000);
+  PERFORM issue_invoice(inv);
+  INSERT INTO payment_plans (tenant_id, patient_id, invoice_id, currency, total_minor, installments_count, start_date, created_by)
+  VALUES (t, karim, inv, 'EGP', 600000, 6, current_date - 45, sara) RETURNING id INTO plan;
+  FOR k IN 1..6 LOOP
+    INSERT INTO installments (tenant_id, plan_id, seq, due_date, amount_minor) VALUES (t, plan, k, (current_date - 45) + (k - 1) * 30, 100000);
+  END LOOP;
+  SELECT id INTO first_ins FROM installments WHERE plan_id = plan AND seq = 1;
+  SELECT id INTO last_ins FROM installments WHERE plan_id = plan AND seq = 6;
+  INSERT INTO payments (tenant_id, branch_id, patient_id, invoice_id, installment_id, amount_minor, currency, method, paid_at, received_by, idempotency_key)
+  VALUES (t, nasr, karim, inv, first_ins, 100000, 'EGP', 'cash', now(), sara, 'demo2-karim-1');
+  PERFORM set_config('app.member_id', owner::text, true), set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a1', true);
+  INSERT INTO balance_adjustments (tenant_id, invoice_id, installment_id, kind, amount_minor, reason, created_by)
+  VALUES (t, inv, last_ins, 'waiver', 1, 'تخفيف عن المريض بقرار المالك', owner);
+
+  RAISE NOTICE 'E2 demo data created';
+END $demo2$;

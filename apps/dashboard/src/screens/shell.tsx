@@ -3,7 +3,7 @@ import { pickName } from '@dental/ui/text';
 import { can, logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
 import { Badge, LinkButton, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, ToothIcon, UsersIcon } from '../ui/icons';
 import { useProfile } from '../queries';
 import { useMediaQuery } from '../hooks';
 import { to, type Page } from '../router';
@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { key: 'navServices', icon: <ListIcon />, page: 'services' },
   { key: 'navStaff', icon: <ShieldIcon />, page: 'staff', perm: 'staff:manage' },
   { key: 'navBilling', icon: <ReceiptIcon />, page: 'invoices', perm: 'invoices:read' },
+  { key: 'navDiscounts', icon: <TagIcon />, page: 'discounts', perm: 'discounts:approve' },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
   { key: 'navWebsite', icon: <GlobeIcon /> },
 ];

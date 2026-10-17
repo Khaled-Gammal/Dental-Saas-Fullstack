@@ -7,7 +7,8 @@ import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
 import { dateInZone, safeTimeZone } from '../../shared/time/clinic-time';
 import { PatientDirectory } from '../patients';
-import { canReverse, cleanReference, procedureLine, servicePrice, taxOf } from './billing-rules';
+import { AuditLog } from '../../shared/audit/audit-log';
+import { canReverse, cleanReference, discountDecision, procedureLine, servicePrice, taxOf } from './billing-rules';
 import { BillingRepository } from './billing.repository';
 import type { InvoicesQueryInput, NewInvoiceInput, NewLineInput, NewPaymentInput, NewRefundInput, ServiceLineInput } from './billing.schemas';
 
@@ -26,6 +27,7 @@ export class BillingService {
     private readonly repo: BillingRepository,
     private readonly patients: PatientDirectory,
     private readonly cls: ClsService<RequestContext>,
+    private readonly audit: AuditLog,
   ) {}
 
   private can(p: string) { return hasPermission(this.cls.get('permissions'), p); }
@@ -95,6 +97,7 @@ export class BillingService {
       const inv = await this.draft(tx, id);
       if ('procedureId' in line) await this.addProcedures(tx, tenantId, id, inv.patient_id, [line.procedureId]);
       else await this.addServiceLine(tx, tenantId, id, line);
+      await this.reevaluateDiscount(tx, id);
       return this.view(tx, id);
     });
   }
@@ -103,6 +106,7 @@ export class BillingService {
     return this.db.run(async (tx) => {
       await this.draft(tx, id);
       if (!(await this.repo.removeLine(tx, id, lineId))) throw Err.notFound('line_not_found', 'Line not found');
+      await this.reevaluateDiscount(tx, id);
       return this.view(tx, id);
     });
   }
@@ -154,7 +158,15 @@ export class BillingService {
       if (!PAYABLE.includes(inv.status)) throw Err.conflict('invoice_not_payable', inv.status === 'paid' ? 'The invoice is fully paid' : 'Only an issued invoice is paid', { status: inv.status });
       const full = (await this.repo.get(tx, id))!;
       if (input.amountMinor > full.balance_minor) throw Err.badRequest('amount_exceeds_balance', 'The amount is more than what is owed', { balance: full.balance_minor });
+      if (input.installmentId) {
+        // PAY-004: an installment of this invoice's plan, still open, and not more than what is left of it
+        const ins = await this.repo.installment(tx, input.installmentId);
+        if (!ins || ins.invoice_id !== id || ins.plan_status !== 'active') throw Err.badRequest('installment_invoice_mismatch', 'This installment is not on this invoice');
+        if (!['due', 'partially_paid'].includes(ins.status)) throw Err.conflict('installment_closed', `This installment is ${ins.status}`);
+        if (input.amountMinor > ins.amount_minor - ins.paid_minor) throw Err.badRequest('amount_exceeds_installment', 'The amount is more than what is left of the installment', { left: ins.amount_minor - ins.paid_minor });
+      }
       await this.repo.addPayment(tx, tenantId, {
+        installmentId: input.installmentId ?? null,
         invoiceId: id, patientId: inv.patient_id, branchId: inv.branch_id, amountMinor: input.amountMinor, currency: inv.currency, method: input.method,
         reference: cleanReference(input.method, input.reference), notes: input.notes ?? null, idempotencyKey: input.idempotencyKey, receivedBy: this.member(),
       });
@@ -206,12 +218,32 @@ export class BillingService {
     });
   }
 
+  /**
+   * DISC-002: after any change to a draft's discounts or lines, the discounts are measured again against the limit
+   * of the member making the change; an earlier approval does not cover a different discount.
+   */
+  async reevaluateDiscount(tx: Tx, id: string): Promise<void> {
+    const inv = await this.repo.get(tx, id);
+    if (!inv || inv.status !== 'draft') return;
+    const totals = await this.repo.discountTotals(tx, id);
+    const member = this.member();
+    const status = discountDecision(totals, await this.repo.roleLimit(tx, member), this.can('*'));
+    if (status === 'none') {
+      if (inv.discount_status !== 'none') await this.repo.setDiscountStatus(tx, id, { status: 'none', requestedBy: null });
+      return;
+    }
+    await this.repo.setDiscountStatus(tx, id, { status, requestedBy: member });
+    if (status === 'pending' && inv.discount_status !== 'pending') {
+      await this.audit.record(tx, this.cls.get('tenantId')!, { action: 'invoice.discount_requested', entityType: 'invoice', entityId: id, changes: { total_minor: totals.total, gross_minor: totals.gross } });
+    }
+  }
+
   // ---------- helpers ----------
-  private async view(tx: Tx, id: string) {
+  async view(tx: Tx, id: string) {
     const inv = await this.repo.get(tx, id);
     if (!inv) throw invoiceNotFound();
     await this.assertReadsPatient(tx, inv.patient_id);
-    const [lines, payments] = await Promise.all([this.repo.lines(tx, id), this.repo.paymentsOf(tx, id)]);
+    const [lines, payments, plan, adjustments] = await Promise.all([this.repo.lines(tx, id), this.repo.paymentsOf(tx, id), this.repo.plan(tx, id), this.repo.adjustments(tx, id)]);
     const clinic = await this.repo.clinic(tx, this.cls.get('tenantId')!);
     // a draft shows the tax it will get when issued (the database computes the real one)
     const taxPreview = inv.status === 'draft' ? taxOf(inv.subtotal_minor - inv.discount_minor, clinic.tax_rate_bp) : inv.tax_minor;
@@ -219,7 +251,7 @@ export class BillingService {
     const today = dateInZone(Date.now(), tz);
     const actor = { isOwner: this.can('*'), memberId: this.cls.get('memberId') ?? '', can: (x: string) => this.can(x) };
     return {
-      ...inv, lines, tax_rate_bp: clinic.tax_rate_bp, tax_preview_minor: taxPreview,
+      ...inv, lines, plan, adjustments, tax_rate_bp: clinic.tax_rate_bp, tax_preview_minor: taxPreview,
       payments: payments.map((p) => ({
         ...p,
         can: {
@@ -232,6 +264,10 @@ export class BillingService {
         issue: inv.status === 'draft' && this.can('invoices:write'),
         void: ['issued', 'partially_paid', 'paid'].includes(inv.status) && inv.paid_minor === 0 && this.can('invoices:void'),
         pay: PAYABLE.includes(inv.status) && this.can('payments:write'),
+        discount: inv.status === 'draft' && this.can('discounts:apply'),
+        decideDiscount: inv.status === 'draft' && inv.discount_status === 'pending' && this.can('discounts:approve') && inv.discount_requested_by !== actor.memberId,
+        plan: PAYABLE.includes(inv.status) && this.can('payments:write') && (!plan || plan.status !== 'active'),
+        adjust: PAYABLE.includes(inv.status) && this.can('payments:adjust'),
       },
     };
   }

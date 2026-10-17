@@ -9,7 +9,7 @@ const money = <T extends Record<string, unknown>, K extends keyof T>(r: T, keys:
   for (const k of keys) out[k as string] = Number(r[k] ?? 0);
   return out as Omit<T, K> & { [P in K]: number };
 };
-const INVOICE_MONEY = ['subtotal_minor', 'discount_minor', 'tax_minor', 'total_minor', 'paid_minor', 'balance_minor'] as const;
+const INVOICE_MONEY = ['subtotal_minor', 'discount_minor', 'tax_minor', 'total_minor', 'paid_minor', 'adjusted_minor', 'balance_minor'] as const;
 const dateText = (col: string) => sql<string | null>`to_char(${sql.ref(col)}, 'YYYY-MM-DD')`;
 
 /** Invoices, their lines, payments and refunds (SRS BILLING-*, PAY-*). Totals, numbers and locks live in the database. */
@@ -19,7 +19,9 @@ export class BillingRepository {
     return tx.selectFrom('invoices as i').innerJoin('patients as p', 'p.id', 'i.patient_id').innerJoin('branches as b', 'b.id', 'i.branch_id')
       .select([
         'i.id', 'i.number', 'i.status', 'i.currency', 'i.patient_id', 'i.branch_id', 'i.subtotal_minor', 'i.discount_minor', 'i.tax_minor', 'i.total_minor',
-        'i.paid_minor', 'i.balance_minor', dateText('i.issue_date').as('issue_date'), dateText('i.due_date').as('due_date'), 'i.notes', 'i.void_reason', 'i.voided_at',
+        'i.paid_minor', 'i.adjusted_minor', 'i.balance_minor', 'i.discount_type', 'i.discount_bp', 'i.discount_reason', 'i.discount_status', 'i.discount_requested_by',
+        'i.discount_decided_at', 'i.discount_note', memberName('i.discount_requested_by').as('discount_requested_by_name'), memberName('i.discount_decided_by').as('discount_decided_by_name'),
+        dateText('i.issue_date').as('issue_date'), dateText('i.due_date').as('due_date'), 'i.notes', 'i.void_reason', 'i.voided_at',
         'i.created_at', memberName('i.created_by').as('created_by_name'), memberName('i.voided_by').as('voided_by_name'),
         sql<{ id: string; full_name: string; file_no: number; phone: string }>`json_build_object('id', p.id, 'full_name', p.full_name, 'file_no', p.file_no, 'phone', p.phone)`.as('patient'),
         sql<{ name_ar: string | null; name_en: string | null }>`json_build_object('name_ar', b.name_ar, 'name_en', b.name_en)`.as('branch'),
@@ -69,6 +71,7 @@ export class BillingRepository {
   lines(tx: Tx, invoiceId: string) {
     return tx.selectFrom('invoice_items').select([
       'id', 'service_id', 'visit_procedure_id', 'doctor_id', 'description', 'tooth_code', 'quantity', 'unit_price_minor', 'discount_minor', 'line_total_minor', 'sort_order',
+      'discount_type', 'discount_bp', 'discount_reason',
     ]).where('invoice_id', '=', invoiceId).orderBy('sort_order').orderBy('id').execute()
       .then((rows) => rows.map((r) => money(r, ['unit_price_minor', 'discount_minor', 'line_total_minor'])));
   }
@@ -168,11 +171,11 @@ export class BillingRepository {
   }
 
   async addPayment(tx: Tx, tenantId: string, p: {
-    invoiceId: string; patientId: string; branchId: string; amountMinor: number; currency: string; method: string; reference: string | null;
+    installmentId: string | null; invoiceId: string; patientId: string; branchId: string; amountMinor: number; currency: string; method: string; reference: string | null;
     notes: string | null; idempotencyKey: string; receivedBy: string;
   }): Promise<string> {
     const r = await tx.insertInto('payments').values({
-      tenant_id: tenantId, invoice_id: p.invoiceId, patient_id: p.patientId, branch_id: p.branchId, amount_minor: p.amountMinor, currency: p.currency,
+      tenant_id: tenantId, invoice_id: p.invoiceId, installment_id: p.installmentId, patient_id: p.patientId, branch_id: p.branchId, amount_minor: p.amountMinor, currency: p.currency,
       method: p.method, reference: p.reference, notes: p.notes, idempotency_key: p.idempotencyKey, received_by: p.receivedBy, paid_at: sql<Date>`now()`, status: 'succeeded',
     }).returning('id').executeTakeFirstOrThrow();
     return r.id;
@@ -187,5 +190,118 @@ export class BillingRepository {
       tenant_id: tenantId, payment_id: r.paymentId, amount_minor: r.amountMinor, method: r.method, reason: r.reason, reference: r.reference, created_by: r.createdBy,
       branch_id: sql<string>`(select branch_id from payments where id = ${r.paymentId})`,
     }).execute();
+  }
+
+  // ---------- discounts (DISC-*) ----------
+  async setInvoiceDiscount(tx: Tx, id: string, d: { type: 'amount' | 'percent'; value: number; reason: string } | null): Promise<void> {
+    await tx.updateTable('invoices').set(d
+      ? { discount_type: d.type, discount_bp: d.type === 'percent' ? d.value : null, discount_minor: d.type === 'amount' ? d.value : 0, discount_reason: d.reason }
+      : { discount_type: null, discount_bp: null, discount_minor: 0, discount_reason: null }).where('id', '=', id).execute();
+  }
+
+  async setLineDiscount(tx: Tx, invoiceId: string, lineId: string, d: { type: 'amount' | 'percent'; value: number; reason: string } | null): Promise<boolean> {
+    const r = await tx.updateTable('invoice_items').set(d
+      ? { discount_type: d.type, discount_bp: d.type === 'percent' ? d.value : null, discount_minor: d.type === 'amount' ? d.value : 0, discount_reason: d.reason }
+      : { discount_type: null, discount_bp: null, discount_minor: 0, discount_reason: null })
+      .where('id', '=', lineId).where('invoice_id', '=', invoiceId).executeTakeFirst();
+    return Number(r.numUpdatedRows) > 0;
+  }
+
+  /** Every discount on a draft and what it is a share of: the gross is quantity × unit price before any discount. */
+  async discountTotals(tx: Tx, invoiceId: string): Promise<{ gross: number; total: number }> {
+    const r = await sql<{ gross: string; lines: string; invoice: string }>`
+      select coalesce((select sum(quantity * unit_price_minor) from invoice_items where invoice_id = ${invoiceId}), 0) as gross,
+             coalesce((select sum(discount_minor) from invoice_items where invoice_id = ${invoiceId}), 0) as lines,
+             (select discount_minor from invoices where id = ${invoiceId}) as invoice`.execute(tx);
+    const x = r.rows[0]!;
+    return { gross: Number(x.gross), total: Number(x.lines) + Number(x.invoice) };
+  }
+
+  async roleLimit(tx: Tx, memberId: string): Promise<{ bp: number; minor: number | null }> {
+    const r = await tx.selectFrom('tenant_members as m').innerJoin('roles as r', 'r.id', 'm.role_id').select(['r.max_discount_bp', 'r.max_discount_minor'])
+      .where('m.id', '=', memberId).executeTakeFirst();
+    return { bp: r?.max_discount_bp ?? 0, minor: r?.max_discount_minor == null ? null : Number(r.max_discount_minor) };
+  }
+
+  async setDiscountStatus(tx: Tx, id: string, f: { status: string; requestedBy?: string | null; decidedBy?: string | null; note?: string | null }): Promise<void> {
+    await tx.updateTable('invoices').set({
+      discount_status: f.status,
+      ...(f.requestedBy !== undefined && { discount_requested_by: f.requestedBy }),
+      discount_decided_by: f.decidedBy ?? null, discount_decided_at: f.decidedBy ? sql<Date>`now()` : null, discount_note: f.note ?? null,
+    }).where('id', '=', id).execute();
+  }
+
+  async pendingDiscounts(tx: Tx) {
+    const rows = await this.invoices(tx).where('i.discount_status', '=', 'pending').orderBy('i.created_at').limit(200).execute();
+    return rows.map((r) => money(r, INVOICE_MONEY));
+  }
+
+  async roleLimits(tx: Tx) {
+    const rows = await tx.selectFrom('roles').select(['id', 'key', 'name_ar', 'name_en', 'is_system', 'permissions', 'max_discount_bp', 'max_discount_minor'])
+      .orderBy('is_system', 'desc').orderBy('key').execute();
+    return rows.map((r) => ({ ...r, max_discount_minor: r.max_discount_minor == null ? null : Number(r.max_discount_minor), unlimited: r.permissions.includes('*') }));
+  }
+
+  async setRoleLimit(tx: Tx, roleId: string, bp: number, minor: number | null): Promise<boolean> {
+    const r = await tx.updateTable('roles').set({ max_discount_bp: bp, max_discount_minor: minor }).where('id', '=', roleId).executeTakeFirst();
+    return Number(r.numUpdatedRows) > 0;
+  }
+
+  // ---------- installment plans (PAY-004) ----------
+  async plan(tx: Tx, invoiceId: string) {
+    const p = await tx.selectFrom('payment_plans').select(['id', 'status', 'total_minor', 'down_payment_minor', 'installments_count', dateText('start_date').as('start_date'), 'notes', 'created_at'])
+      .where('invoice_id', '=', invoiceId).orderBy('created_at', 'desc').executeTakeFirst();
+    if (!p) return null;
+    const items = await tx.selectFrom('installments').select([
+      'id', 'seq', dateText('due_date').as('due_date'), 'amount_minor', 'paid_minor', 'status', 'paid_at', 'waived_at', 'waived_reason', memberName('waived_by').as('waived_by_name'),
+    ]).where('plan_id', '=', p.id).orderBy('seq').execute();
+    return { ...money(p, ['total_minor', 'down_payment_minor']), installments: items.map((i) => money(i, ['amount_minor', 'paid_minor'])) };
+  }
+
+  async createPlan(tx: Tx, tenantId: string, p: { patientId: string; invoiceId: string; currency: string; total: number; down: number; notes: string | null; createdBy: string;
+    installments: { dueDate: string; amountMinor: number }[] }): Promise<void> {
+    const { id } = await tx.insertInto('payment_plans').values({
+      tenant_id: tenantId, patient_id: p.patientId, invoice_id: p.invoiceId, currency: p.currency, total_minor: p.total, down_payment_minor: p.down,
+      installments_count: p.installments.length, start_date: p.installments[0]!.dueDate, notes: p.notes, created_by: p.createdBy,
+    }).returning('id').executeTakeFirstOrThrow();
+    await tx.insertInto('installments').values(p.installments.map((i, k) => ({
+      tenant_id: tenantId, plan_id: id, seq: k + 1, due_date: i.dueDate, amount_minor: i.amountMinor,
+    }))).execute();
+    await sql`set constraints payment_plans_totals, installments_totals immediate`.execute(tx); // a schedule that does not add up fails here, clearly
+  }
+
+  async installment(tx: Tx, id: string) {
+    const r = await tx.selectFrom('installments as s').innerJoin('payment_plans as p', 'p.id', 's.plan_id')
+      .select(['s.id', 's.plan_id', 's.status', 's.amount_minor', 's.paid_minor', 'p.invoice_id', 'p.status as plan_status']).where('s.id', '=', id).forUpdate('s').executeTakeFirst();
+    return r && money(r, ['amount_minor', 'paid_minor']);
+  }
+
+  async moveInstallment(tx: Tx, id: string, dueDate: string): Promise<void> {
+    await tx.updateTable('installments').set({ due_date: dueDate }).where('id', '=', id).execute();
+  }
+
+  async overdue(tx: Tx, today: string) {
+    const rows = await tx.selectFrom('installments as s').innerJoin('payment_plans as pp', 'pp.id', 's.plan_id').innerJoin('invoices as i', 'i.id', 'pp.invoice_id')
+      .innerJoin('patients as p', 'p.id', 'i.patient_id')
+      .select([
+        's.id', 's.seq', dateText('s.due_date').as('due_date'), 's.amount_minor', 's.paid_minor', 's.status', 'i.id as invoice_id', 'i.number', 'i.currency',
+        sql<{ id: string; full_name: string; file_no: number; phone: string }>`json_build_object('id', p.id, 'full_name', p.full_name, 'file_no', p.file_no, 'phone', p.phone)`.as('patient'),
+      ])
+      .where('s.status', 'in', ['due', 'partially_paid']).where(sql<boolean>`s.due_date < ${today}::date`).where('pp.status', '=', 'active')
+      .orderBy('s.due_date').limit(300).execute();
+    return rows.map((r) => money(r, ['amount_minor', 'paid_minor']));
+  }
+
+  // ---------- waivers and write-offs (PAY-006) ----------
+  async addAdjustment(tx: Tx, tenantId: string, a: { invoiceId: string; installmentId: string | null; kind: 'waiver' | 'write_off'; amountMinor: number; reason: string; createdBy: string }): Promise<void> {
+    await tx.insertInto('balance_adjustments').values({
+      tenant_id: tenantId, invoice_id: a.invoiceId, installment_id: a.installmentId, kind: a.kind, amount_minor: a.amountMinor, reason: a.reason, created_by: a.createdBy,
+    }).execute();
+  }
+
+  async adjustments(tx: Tx, invoiceId: string) {
+    const rows = await tx.selectFrom('balance_adjustments').select(['id', 'kind', 'installment_id', 'amount_minor', 'reason', 'created_at', memberName('created_by').as('created_by_name')])
+      .where('invoice_id', '=', invoiceId).orderBy('created_at').execute();
+    return rows.map((r) => money(r, ['amount_minor']));
   }
 }

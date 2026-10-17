@@ -80,5 +80,7 @@ describe('clinical routes (Phase D4)', () => {
       expect(parseRoute(href(r))).toEqual(r);
     }
     expect(parseRoute('#/payments/p1/view')).toEqual({ page: 'not-found' });
+    expect(parseRoute('#/discounts')).toEqual({ page: 'discounts' });
+    expect(parseRoute('#/invoices?status=overdue')).toEqual({ page: 'invoices', query: { status: 'overdue' } });
   });
 });

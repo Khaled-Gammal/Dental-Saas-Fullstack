@@ -3,21 +3,21 @@
 The tracker for every requirement in `docs/SRS.md`. **Where this file and the SRS disagree, this file wins.**
 It is updated at the end of every phase. A status changes only with evidence: code, plus a test that ran and passed.
 
-Last updated: 2026-10-17, end of Phase E1 (reviews in `docs/reviews/`: phase C, D1–D5 and E1 of 2026-10-17).
+Last updated: 2026-10-17, end of Phase E2 (reviews in `docs/reviews/`: phase C, D1–D5, E1 and E2 of 2026-10-17).
 
-## Last verification run (2026-10-17, end of Phase E1)
+## Last verification run (2026-10-17, end of Phase E2)
 
 | Check | Result |
 | --- | --- |
-| Database tests (`pnpm db:test`) | 23 files, **355 checks passed** |
-| API e2e + unit (`pnpm --filter @dental/api test`) | 23 suites, **235 tests passed** |
-| Dashboard unit (vitest) | 60 passed |
+| Database tests (`pnpm db:test`) | 24 files, **378 checks passed** |
+| API e2e + unit (`pnpm --filter @dental/api test`) | 24 suites, **245 tests passed** |
+| Dashboard unit (vitest) | 63 passed |
 | Website unit (vitest) | 20 passed |
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
 | CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4), 39061929809 (`v4/phase-d5-merge`, c687e15), 39064242614 (`v4/phase-e1-billing`, fb47040; the first E1 run failed on an order-dependent test, fixed) |
-| Browser check | **partial** (D4; D5 merge page; E1 invoice list, new-invoice form, patient account card, currency card viewed — no invoice created in the dev data): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through |
+| Browser check | **partial** (D4; D5 merge page; E1 and E2 on the demo billing data (`seed:demo-billing`): invoice list, invoice page, A4 printout, discounts queue and role limits, overdue tab, installment invoice): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through |
 
 ## Clinic workflow (SRS §3)
 
@@ -34,8 +34,8 @@ Last updated: 2026-10-17, end of Phase E1 (reviews in `docs/reviews/`: phase C, 
 | 9 | Chart and treatment plan | IMPLEMENTED | invoiced/paid in the plan summary (TPLAN-004, Phase E) |
 | 10 | Procedures | IMPLEMENTED | — |
 | 11 | Prescription | IMPLEMENTED | print check on paper (Chrome, Edge, Safari) |
-| 12 | Invoice | IMPLEMENTED (E1) | discounts (DISC-*, E2) |
-| 13 | Payments | IMPLEMENTED (E1) | installments, waivers (PAY-004/006, E2) |
+| 12 | Invoice | IMPLEMENTED (E1, E2) | — |
+| 13 | Payments | IMPLEMENTED (E1, E2) | dating a payment with cash days (E3) |
 | 14 | Follow-up | IMPLEMENTED | — |
 | 15 | Expenses and cash | NOT_IMPLEMENTED | EXP-*, CASH-* |
 | 16 | Reporting | NOT_IMPLEMENTED | REPORT-* |
@@ -83,12 +83,12 @@ Last updated: 2026-10-17, end of Phase E1 (reviews in `docs/reviews/`: phase C, 
 | PAY-001 | Record a payment (methods) | IMPLEMENTED | E1 | receiver = signed-in member, idempotency key, reference CHECK; recorded now (dating with cash days, E3) |
 | PAY-002 | Partial and multiple payments | IMPLEMENTED | E1 | status derived; `billing.e2e-spec.ts` |
 | PAY-003 | Immutable payments | IMPLEMENTED | C/E1 | `payments_guard()` (0012, 0023: succeeded → reversed with reason, nothing else); owner, or the receiver the same day (CLR-05) |
-| PAY-004 | Installment plans | PARTIALLY (DB only) | E | Status derivation and totals (0012) tested; no API |
+| PAY-004 | Installment plans | IMPLEMENTED (invoices) | E2 | `POST /invoices/:id/plan` (schedule = balance, dates in order), one active plan per invoice, installment payments, move a date, `GET /installments/overdue`; invoice page and "أقساط متأخرة" tab |
 | PAY-005 | Refunds | IMPLEMENTED | E1 | method (may differ), branch, time, reason; payments:refund (owner, accountant); cash-day effect in E3 |
-| PAY-006 | Adjustments | NOT_IMPLEMENTED | E2 | CLR-12 answered (waiver, write-off; owner only) |
-| DISC-001 | Fixed/percent discount + reason | NOT_IMPLEMENTED | E | Amount columns only |
-| DISC-002 | Authorization limits | NOT_IMPLEMENTED | E2 | CLR-02 answered |
-| DISC-003 | Discount approval | NOT_IMPLEMENTED | E2 | CLR-02 answered |
+| PAY-006 | Adjustments | IMPLEMENTED | E2 | migration 0024 `balance_adjustments` (append-only; waiver of an installment, write-off ≤ balance); `invoices.adjusted_minor`, balance = total − paid − adjusted; owner only (payments:adjust) |
+| DISC-001 | Fixed/percent discount + reason | IMPLEMENTED | E2 | line and invoice; percent → amount half up, follows the lines on a draft; reason required (DB) |
+| DISC-002 | Authorization limits | IMPLEMENTED | E2 | `roles.max_discount_bp/minor` (CLR-02 defaults, also at sign-up); measured on every change; `#/discounts` |
+| DISC-003 | Discount approval | IMPLEMENTED | E2 | pending blocks issuing (DB), no self-approval (DB), approve/reject with note, audited; owner queue |
 | EXP-001 | Record an expense | NOT_IMPLEMENTED (minimal table) | E | — |
 | EXP-002 | Expense categories | NOT_IMPLEMENTED | E | — |
 | EXP-003 | Expense approval | NOT_IMPLEMENTED | E3 | CLR-03 answered |
@@ -118,9 +118,9 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 
 | Status | IDs |
 | --- | --- |
-| IMPLEMENTED | DSH-03 (PATIENT-*), DSH-04 (CHART-001), DSH-06 (VISIT-*), AUTH-03, AUTH-04 (M part), AUTH-05, AUTH-06 (email, AUTH-102), AUTH-08 (email, ACCESS-001), AUTH-09, WEB-03, BOOK-01, BOOK-02, BOOK-03 (email deviation), BOOK-05, BOOK-06, BOOK-07 (email deviation), BOOK-09 (doctor), BOOK-10, BOOK-11, NTF-04, BIL-02, BIL-08, NFR-01, NFR-10 (DB) |
+| IMPLEMENTED | DSH-07 (BILLING/PAY/DISC), DSH-18 (PAY-004), DSH-03 (PATIENT-*), DSH-04 (CHART-001), DSH-06 (VISIT-*), AUTH-03, AUTH-04 (M part), AUTH-05, AUTH-06 (email, AUTH-102), AUTH-08 (email, ACCESS-001), AUTH-09, WEB-03, BOOK-01, BOOK-02, BOOK-03 (email deviation), BOOK-05, BOOK-06, BOOK-07 (email deviation), BOOK-09 (doctor), BOOK-10, BOOK-11, NTF-04, BIL-02, BIL-08, NFR-01, NFR-10 (DB) |
 | PARTIALLY_IMPLEMENTED | DSH-05 (TPLAN-*; invoicing in E), DSH-19 (manual list VISIT-005; automatic recalls deferred), AUTH-01, ONB-01, ONB-02, WEB-01, WEB-02, WEB-05, WEB-06, WEB-10, BOOK-04, BOOK-09 (room), DSH-01, DSH-02, DSH-10, DSH-12, DSH-13, DSH-15, NTF-01, NTF-03, BIL-01, NFR-02, NFR-03, NFR-12, NFR-14, NFR-16 |
-| NOT_IMPLEMENTED | LND-01, LND-02, LND-03, LND-04, LND-05, DSH-07 (→ BILLING/PAY/DISC), DSH-08 (→ EXP-*), DSH-11 (→ REPORT-*), DSH-16, DSH-18 (→ PAY-004), BIL-04…07, ADM-01, ADM-02, ADM-04, NFR-04, NFR-08, NFR-15 |
+| NOT_IMPLEMENTED | LND-01, LND-02, LND-03, LND-04, LND-05, DSH-08 (→ EXP-*), DSH-11 (→ REPORT-*), DSH-16, BIL-04…07, ADM-01, ADM-02, ADM-04, NFR-04, NFR-08, NFR-15 |
 | SUPERSEDED | AUTH-02 for sign-up (→ AUTH-101, done: the phone-code endpoints were removed), WEB-04 (→ L10N-001), NFR-09 bilingual parts (→ L10N-*), §7.1 item 6 |
 | DEFERRED | AUTH-04 Google, AUTH-07, ONB-03, WEB-07, WEB-08, WEB-09, BOOK-08, BOOK-12, DSH-09, DSH-14, DSH-17, DSH-20, NTF-02, NTF-05, BIL-03, ADM-03, ADM-05, ADM-06 |
 | NEEDS_VERIFICATION | NFR-05, NFR-06, NFR-07, NFR-11, NFR-13 |
@@ -131,6 +131,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-17 | E2 | Migration 0024; DISC-001…003, PAY-004 (invoices), PAY-006 done. Seed: receptionist discounts:apply. Demo data script `seed:demo-billing` |
 | 2026-10-17 | E1 | Migration 0023; BILLING-001…004, PAY-001/002/003/005 done; BILLING-005 partly. CLR-02, 03, 04, 09, 12, 17 defaults accepted. Seed: receptionist payments:reverse, doctor invoices:read:own |
 | 2026-10-17 | D5 | Migration 0022; PATIENT-003 done (merge with CLR-15 default); D4 CI green |
 | 2026-10-17 | D4 | Migration 0021; VISIT-001…005, CHART-001, TPLAN-001…003, APPT-007, AUDIT-002, PATIENT-005 done; TPLAN-004 partly. Seed: doctor role gains clinical:read and treatments:write:own; demo accountant added |

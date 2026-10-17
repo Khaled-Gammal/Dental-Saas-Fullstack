@@ -7,14 +7,15 @@ import { to } from '../../router';
 import { Badge, Button, Card, EmptyState, ErrorText, PageHeader, Skeleton } from '../../ui/components';
 import { ReceiptIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
+import { OverdueInstallments } from './discounts';
 import { STATUS_TONE } from './invoice';
 
-const FILTERS = ['open', 'draft', 'paid', 'void', 'all'] as const;
+const FILTERS = ['open', 'overdue', 'draft', 'paid', 'void', 'all'] as const;
 
 /** `#/invoices`: the clinic's invoices (BILLING-*), open ones first by default. */
 export function InvoicesList({ lang, clinicId, query }: { lang: Lang; clinicId: string; query?: Record<string, string> }) {
   const status = (FILTERS as readonly string[]).includes(query?.status ?? '') ? query!.status : 'open';
-  const list = useInvoices(clinicId, status);
+  const list = useInvoices(clinicId, status === 'overdue' ? 'open' : status);
   return (
     <>
       <PageHeader title={t('navBilling', lang)} sub={t('invoicesSub', lang)} />
@@ -23,7 +24,8 @@ export function InvoicesList({ lang, clinicId, query }: { lang: Lang; clinicId: 
           <RouteLink key={f} route={{ page: 'invoices', query: { status: f } }} className={`seg-btn${f === status ? ' is-on' : ''}`} role="tab" aria-selected={f === status}>{t(`invf_${f}` as Key, lang)}</RouteLink>
         ))}
       </div>
-      {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
+      {status === 'overdue' ? <OverdueInstallments lang={lang} clinicId={clinicId} />
+        : list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
         : list.isLoading ? <Skeleton h={64} count={4} />
         : !list.data?.length ? <Card><EmptyState icon={<ReceiptIcon size={28} />} title={t('noInvoices', lang)} text={t('noInvoicesText', lang)} /></Card>
         : (

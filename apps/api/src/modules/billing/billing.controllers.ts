@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { z } from 'zod';
 import { RequirePermission } from '../../auth/decorators';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
-import { EditInvoice, InvoicesQuery, NewInvoice, NewLine, NewPayment, NewRefund, Reverse, VoidInvoice } from './billing.schemas';
+import {
+  Decision, Discount, EditInvoice, InvoicesQuery, MoveInstallment, NewInvoice, NewLine, NewPayment, NewPlan, NewRefund, Rejection, Reverse, RoleLimit, VoidInvoice, Waive, WriteOff,
+} from './billing.schemas';
 import { BillingService } from './billing.service';
+import { MoneyControlsService } from './money-controls.service';
 
 const id = new ParseUUIDPipe();
 type Body<T extends z.ZodTypeAny> = z.infer<T>;
@@ -112,5 +115,99 @@ export class PatientBillingController {
   @RequirePermission('patients:read')
   billingOf(@Param('id', id) patientId: string) {
     return this.billing.forPatient(patientId);
+  }
+}
+
+/** Discounts (DISC-*), installment plans (PAY-004), waivers and write-offs (PAY-006). */
+@ApiTags('billing')
+@ApiBearerAuth()
+@Controller()
+export class MoneyControlsController {
+  constructor(private readonly controls: MoneyControlsService) {}
+
+  @Put('invoices/:id/discount')
+  @RequirePermission('discounts:apply')
+  setInvoiceDiscount(@Param('id', id) invoiceId: string, @Body(new ZodBody(Discount)) body: Body<typeof Discount>) {
+    return this.controls.setDiscount(invoiceId, null, body);
+  }
+
+  @Delete('invoices/:id/discount')
+  @RequirePermission('discounts:apply')
+  clearInvoiceDiscount(@Param('id', id) invoiceId: string) {
+    return this.controls.setDiscount(invoiceId, null, null);
+  }
+
+  @Put('invoices/:id/lines/:lineId/discount')
+  @RequirePermission('discounts:apply')
+  setLineDiscount(@Param('id', id) invoiceId: string, @Param('lineId', id) lineId: string, @Body(new ZodBody(Discount)) body: Body<typeof Discount>) {
+    return this.controls.setDiscount(invoiceId, lineId, body);
+  }
+
+  @Delete('invoices/:id/lines/:lineId/discount')
+  @RequirePermission('discounts:apply')
+  clearLineDiscount(@Param('id', id) invoiceId: string, @Param('lineId', id) lineId: string) {
+    return this.controls.setDiscount(invoiceId, lineId, null);
+  }
+
+  @Post('invoices/:id/discount/approve') @HttpCode(200)
+  @RequirePermission('discounts:approve')
+  approve(@Param('id', id) invoiceId: string, @Body(new ZodBody(Decision)) body: Body<typeof Decision>) {
+    return this.controls.decide(invoiceId, true, body.note ?? null);
+  }
+
+  @Post('invoices/:id/discount/reject') @HttpCode(200)
+  @RequirePermission('discounts:approve')
+  reject(@Param('id', id) invoiceId: string, @Body(new ZodBody(Rejection)) body: Body<typeof Rejection>) {
+    return this.controls.decide(invoiceId, false, body.note);
+  }
+
+  /** The approval queue (DISC-003). */
+  @Get('discounts/pending')
+  @RequirePermission('discounts:approve')
+  pending() {
+    return this.controls.pending();
+  }
+
+  /** Each role's limit (DISC-002); read by approvers, set by the owner. */
+  @Get('discounts/limits')
+  @RequirePermission('discounts:approve')
+  limits() {
+    return this.controls.limits();
+  }
+
+  @Patch('discounts/limits/:roleId')
+  @RequirePermission('staff:manage')
+  setLimit(@Param('roleId', id) roleId: string, @Body(new ZodBody(RoleLimit)) body: Body<typeof RoleLimit>) {
+    return this.controls.setLimit(roleId, body.maxDiscountBp, body.maxDiscountMinor);
+  }
+
+  @Post('invoices/:id/plan')
+  @RequirePermission('payments:write')
+  createPlan(@Param('id', id) invoiceId: string, @Body(new ZodBody(NewPlan)) body: Body<typeof NewPlan>) {
+    return this.controls.createPlan(invoiceId, body);
+  }
+
+  @Patch('installments/:id')
+  @RequirePermission('payments:write')
+  moveInstallment(@Param('id', id) installmentId: string, @Body(new ZodBody(MoveInstallment)) body: Body<typeof MoveInstallment>) {
+    return this.controls.moveInstallment(installmentId, body.dueDate);
+  }
+
+  @Get('installments/overdue')
+  @RequirePermission('invoices:read')
+  overdue() {
+    return this.controls.overdue();
+  }
+
+  @Post('invoices/:id/write-off')
+  @RequirePermission('payments:adjust')
+  writeOff(@Param('id', id) invoiceId: string, @Body(new ZodBody(WriteOff)) body: Body<typeof WriteOff>) {
+    return this.controls.writeOff(invoiceId, body.amountMinor, body.reason);
+  }
+
+  @Post('installments/:id/waive') @HttpCode(200)
+  @RequirePermission('payments:adjust')
+  waive(@Param('id', id) installmentId: string, @Body(new ZodBody(Waive)) body: Body<typeof Waive>) {
+    return this.controls.waive(installmentId, body.reason);
   }
 }

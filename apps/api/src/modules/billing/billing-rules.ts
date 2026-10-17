@@ -44,3 +44,24 @@ export function servicePrice(s: { price_minor: number; price_max_minor: number |
   if (price < min || price > max) throw Err.badRequest('price_out_of_range', 'The price must be within the service price range; a lower price is a discount', { min, max });
   return price;
 }
+
+export type DiscountStatus = 'none' | 'within_limit' | 'pending' | 'approved' | 'rejected';
+/**
+ * DISC-002 (CLR-02): all discounts on an invoice, as a share of its gross (quantity × unit price), against the
+ * applier's role limit — a percentage and, when set, an amount cap. Over the limit waits for approval. Owners have none.
+ */
+export function discountDecision(t: { gross: number; total: number }, limit: { bp: number; minor: number | null }, unlimited: boolean): DiscountStatus {
+  if (t.total <= 0) return 'none';
+  if (unlimited) return 'within_limit';
+  const withinShare = t.total * 10000 <= limit.bp * t.gross; // no rounding: 10 % of 1000.00 is exactly 100.00
+  const withinCap = limit.minor === null || t.total <= limit.minor;
+  return withinShare && withinCap ? 'within_limit' : 'pending';
+}
+
+/** PAY-004: a schedule must cover exactly what is owed, with dates in order. */
+export function checkSchedule(balance: number, items: { dueDate: string; amountMinor: number }[]): string | null {
+  if (!items.length || items.length > 60) return 'installments_count';
+  if (items.reduce((s, i) => s + i.amountMinor, 0) !== balance) return 'installments_total_mismatch';
+  for (let k = 1; k < items.length; k++) if (items[k]!.dueDate <= items[k - 1]!.dueDate) return 'installments_dates';
+  return null;
+}

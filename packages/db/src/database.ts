@@ -87,6 +87,18 @@ export interface AuthEvents {
   user_id: string | null;
 }
 
+export interface BalanceAdjustments {
+  amount_minor: Int8;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  id: Generated<string>;
+  installment_id: string | null;
+  invoice_id: string;
+  kind: string;
+  reason: string;
+  tenant_id: string;
+}
+
 export interface Branches {
   address_ar: string | null;
   address_en: string | null;
@@ -317,6 +329,9 @@ export interface Installments {
   seq: number;
   status: Generated<string>;
   tenant_id: string;
+  waived_at: Timestamp | null;
+  waived_by: string | null;
+  waived_reason: string | null;
 }
 
 export interface InventoryItems {
@@ -375,7 +390,10 @@ export interface Invitations {
 
 export interface InvoiceItems {
   description: string;
+  discount_bp: number | null;
   discount_minor: Generated<Int8>;
+  discount_reason: string | null;
+  discount_type: string | null;
   doctor_id: string | null;
   id: Generated<string>;
   invoice_id: string;
@@ -390,12 +408,21 @@ export interface InvoiceItems {
 }
 
 export interface Invoices {
+  adjusted_minor: Generated<Int8>;
   balance_minor: Generated<Int8 | null>;
   branch_id: string;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   currency: string;
+  discount_bp: number | null;
+  discount_decided_at: Timestamp | null;
+  discount_decided_by: string | null;
   discount_minor: Generated<Int8>;
+  discount_note: string | null;
+  discount_reason: string | null;
+  discount_requested_by: string | null;
+  discount_status: Generated<string>;
+  discount_type: string | null;
   due_date: Timestamp | null;
   id: Generated<string>;
   issue_date: Timestamp | null;
@@ -825,6 +852,8 @@ export interface Roles {
   id: Generated<string>;
   is_system: Generated<boolean>;
   key: string;
+  max_discount_bp: Generated<number>;
+  max_discount_minor: Int8 | null;
   name_ar: string;
   name_en: string;
   permissions: Generated<string[]>;
@@ -1160,6 +1189,7 @@ export interface DB {
   appointments: Appointments;
   audit_log: AuditLog;
   auth_events: AuthEvents;
+  balance_adjustments: BalanceAdjustments;
   branch_hours: BranchHours;
   branches: Branches;
   consent_templates: ConsentTemplates;

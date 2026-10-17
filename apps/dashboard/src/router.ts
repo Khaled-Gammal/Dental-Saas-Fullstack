@@ -3,7 +3,7 @@
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
 export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking'
-  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments';
+  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts';
 export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge';
 
 /** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
@@ -33,6 +33,7 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   followups: [], // the follow-up list reception works
   invoices: ['new', 'view', 'print'], // print = the A4 invoice
   payments: ['print'], // the A5 receipt
+  discounts: [], // the owner's approval queue and role limits
 };
 
 /**

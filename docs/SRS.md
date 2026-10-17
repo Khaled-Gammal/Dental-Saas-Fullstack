@@ -1324,7 +1324,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.7 Billing (invoices)
 
-**BILLING-001 — Draft invoice** · IMPLEMENTED (2026-10-17, E1; line discounts come with DISC-* in E2) · Phase E
+**BILLING-001 — Draft invoice** · IMPLEMENTED (2026-10-17, E1; line discounts E2) · Phase E
 - *Description:* Reception or the accountant drafts an invoice from a visit's unbilled procedures, or from service
   lines for a walk-in, for one patient and one branch, in the clinic currency.
 - *Behaviour:* lines hold a description (Arabic), quantity, unit price and line discount. Totals are derived by
@@ -1332,7 +1332,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Permissions:* `invoices:write`.
 - *Entities:* `invoices`, `invoice_items`, `visit_procedures`.
 
-**BILLING-002 — Issue an invoice** · IMPLEMENTED (2026-10-17, E1; the pending-discount refusal comes with DISC-003 in E2) · Phase E
+**BILLING-002 — Issue an invoice** · IMPLEMENTED (2026-10-17, E1; pending-discount refusal E2) · Phase E
 - *Description:* Issuing gives the invoice its number and date and locks it.
 - *Behaviour:* the number is `{prefix}-{year}-{sequence}` from `tenant_settings.invoice_prefix` and a gap-free
   per-clinic counter, assigned by the database in the issuing transaction. After issue the lines, discounts, tax,
@@ -1400,7 +1400,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   database; the reversal appears in the payment history and the audit trail.
 - *Entities:* `payments` (+ reversal fields), `audit_log`.
 
-**PAY-004 — Installment plans** · PARTIALLY_IMPLEMENTED (DB only) · Phase E (refines DSH-18)
+**PAY-004 — Installment plans** · IMPLEMENTED for invoices (2026-10-17, E2; a plan on a treatment plan before invoicing is not built) · Phase E (refines DSH-18)
 - *Description:* An issued invoice, or a treatment plan, is split into a down payment and dated installments.
 - *Behaviour:* the schedule is proposed from a start date and count (monthly) and can be edited before saving. The
   installments plus the down payment must equal the plan total, which must equal the invoice total when there is an
@@ -1423,14 +1423,14 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Errors:* `refund_exceeds_payment`, `payment_not_refundable`, `reason_required`.
 - *Entities:* `refunds` (+ method, branch, responsible-staff FK).
 
-**PAY-006 — Authorized adjustments** · NOT_IMPLEMENTED (CLR-12 answered: waiver and write-off rows with a reason, owner only, no credit notes) · Phase E2
+**PAY-006 — Authorized adjustments** · IMPLEMENTED (2026-10-17, E2; CLR-12: installment waiver and invoice write-off, owner only, no credit notes) · Phase E
 - *Description:* An authorized person reduces what a patient owes without receiving or returning money (for example
   waiving an installment or writing off a small remainder). It is never an edit of a payment or an issued invoice.
   The exact forms (waiver, write-off, credit note) are decided in CLR-12.
 
 ### B.9 Discounts (feature F4)
 
-**DISC-001 — Fixed and percentage discounts with a reason** · NOT_IMPLEMENTED · Phase E
+**DISC-001 — Fixed and percentage discounts with a reason** · IMPLEMENTED (2026-10-17, E2) · Phase E
 - *Description:* A discount on an invoice line or on the whole invoice, as a fixed amount or a percentage, always
   with a reason.
 - *Behaviour:* a percentage is stored as basis points and converted to an amount when applied. Rounding is to the
@@ -1441,13 +1441,13 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Errors:* `discount_exceeds_subtotal`, `discount_reason_required`.
 - *Entities:* `invoices`, `invoice_items` (+ discount type, percentage, reason, approver).
 
-**DISC-002 — Authorization limits** · NOT_IMPLEMENTED · Phase E — initial values pending CLR-02
+**DISC-002 — Authorization limits** · IMPLEMENTED (2026-10-17, E2; CLR-02: receptionist 10 %, accountant 20 %, others 0, owner unlimited; the owner changes them) · Phase E
 - *Description:* Each role has a maximum discount the owner configures (a percentage of the invoice, optionally a
   maximum amount). Values are settings, not code. **Until the owner sets them, non-owner roles have a limit of 0**:
   any discount they enter needs approval.
 - *Acceptance:* a receptionist with a 10 % limit applies 10 % directly; 11 % becomes a pending approval.
 
-**DISC-003 — Discount approval** · NOT_IMPLEMENTED · Phase E — mechanics pending CLR-02
+**DISC-003 — Discount approval** · IMPLEMENTED (2026-10-17, E2; CLR-02: in-app queue, the owner approves, the accountant does not) · Phase E
 - *Description:* A discount above the applier's limit is pending until a member with `discounts:approve` approves or
   rejects it with a note. An invoice with a pending discount cannot be issued. Every request, approval and rejection
   is audited. Approving one's own discount request is not allowed.

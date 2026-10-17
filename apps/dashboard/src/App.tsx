@@ -21,6 +21,7 @@ import { BookingRules } from './screens/calendar/booking-settings';
 import { Holidays } from './screens/calendar/holidays';
 import { BranchRooms } from './screens/calendar/rooms';
 import { DoctorTimeOff } from './screens/calendar/time-off';
+import { Discounts } from './screens/billing/discounts';
 import { InvoicePage } from './screens/billing/invoice';
 import { InvoicesList } from './screens/billing/list';
 import { NewInvoice } from './screens/billing/new';
@@ -173,6 +174,9 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
       if (action === 'print') return <InvoicePrint lang={lang} clinicId={clinicId} id={id} />;
       if (action || !can(session, 'invoices:read')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
       return <InvoicesList lang={lang} clinicId={clinicId} query={route.query} />;
+    case 'discounts':
+      if (!can(session, 'discounts:approve')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
+      return <Discounts lang={lang} clinicId={clinicId} canSetLimits={can(session, 'staff:manage')} />;
     case 'payments':
       return <ReceiptPrint lang={lang} clinicId={clinicId} id={id} />;
     case 'holidays': return <Holidays lang={lang} clinicId={clinicId} canWrite={settings} />;

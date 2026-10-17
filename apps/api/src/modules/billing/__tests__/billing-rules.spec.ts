@@ -1,5 +1,5 @@
 import type { AppError } from '../../../shared/errors/app-error';
-import { canReverse, cleanReference, procedureLine, servicePrice, taxOf } from '../billing-rules';
+import { canReverse, checkSchedule, cleanReference, discountDecision, procedureLine, servicePrice, taxOf } from '../billing-rules';
 
 const code = (fn: () => unknown) => { try { fn(); } catch (e) { return (e as AppError).code; } return null; };
 
@@ -43,5 +43,29 @@ describe('lines', () => {
     expect(servicePrice({ price_minor: 30000, price_max_minor: null })).toBe(30000);
     expect(code(() => servicePrice({ price_minor: 80000, price_max_minor: 120000 }, 50000))).toBe('price_out_of_range');
     expect(code(() => servicePrice({ price_minor: 0, price_max_minor: null }))).toBe('price_required');
+  });
+});
+
+describe('discountDecision (DISC-002, CLR-02)', () => {
+  const r10 = { bp: 1000, minor: null };
+  it('within the role share is applied; above it waits for approval; nothing is none', () => {
+    expect(discountDecision({ gross: 100000, total: 10000 }, r10, false)).toBe('within_limit'); // exactly 10 %
+    expect(discountDecision({ gross: 100000, total: 10001 }, r10, false)).toBe('pending');
+    expect(discountDecision({ gross: 100000, total: 0 }, r10, false)).toBe('none');
+  });
+  it('an amount cap applies too; owners have no limit; a 0 % role always asks', () => {
+    expect(discountDecision({ gross: 1_000_000, total: 50000 }, { bp: 1000, minor: 30000 }, false)).toBe('pending');
+    expect(discountDecision({ gross: 100000, total: 90000 }, { bp: 0, minor: null }, true)).toBe('within_limit');
+    expect(discountDecision({ gross: 100000, total: 1 }, { bp: 0, minor: null }, false)).toBe('pending');
+  });
+});
+
+describe('checkSchedule (PAY-004)', () => {
+  it('needs the exact balance, dates in order, 1–60 installments', () => {
+    const s = [{ dueDate: '2031-01-01', amountMinor: 50000 }, { dueDate: '2031-02-01', amountMinor: 50000 }];
+    expect(checkSchedule(100000, s)).toBeNull();
+    expect(checkSchedule(100001, s)).toBe('installments_total_mismatch');
+    expect(checkSchedule(100000, [s[1]!, s[0]!])).toBe('installments_dates');
+    expect(checkSchedule(0, [])).toBe('installments_count');
   });
 });

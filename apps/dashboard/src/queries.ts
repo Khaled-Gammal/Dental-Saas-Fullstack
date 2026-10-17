@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CatalogEntry, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
+  BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
   StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
 
@@ -276,7 +276,7 @@ export const useRecalls = (clinicId: string, view: 'due' | 'upcoming' | 'closed'
   useQuery({ queryKey: clinicalKeys.recalls(clinicId, view), queryFn: () => api<{ today: string; items: Recall[] }>(`/recalls?view=${view}`) });
 
 /** JSON write to the API. */
-export const send = <R>(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown) =>
+export const send = <R>(path: string, method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', body?: unknown) =>
   api<R>(path, { method, ...(body !== undefined && { body: JSON.stringify(body) }) });
 
 /**
@@ -316,3 +316,10 @@ export function useBillingMutation<V, R = unknown>(clinicId: string, fn: (v: V) 
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: billingKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) })]),
   });
 }
+
+export const usePendingDiscounts = (clinicId: string) =>
+  useQuery({ queryKey: [...billingKeys.all(clinicId), 'discounts', 'pending'] as const, queryFn: () => api<InvoiceRow[]>('/discounts/pending') });
+export const useDiscountLimits = (clinicId: string) =>
+  useQuery({ queryKey: [...billingKeys.all(clinicId), 'discounts', 'limits'] as const, queryFn: () => api<RoleLimit[]>('/discounts/limits') });
+export const useOverdueInstallments = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: [...billingKeys.all(clinicId), 'overdue'] as const, queryFn: () => api<{ today: string; items: OverdueInstallment[] }>('/installments/overdue'), enabled });

@@ -4,9 +4,9 @@ BEGIN;
 SET LOCAL ROLE app_user;
 SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111';
 
-INSERT INTO invoices (id, tenant_id, branch_id, patient_id, currency, discount_minor)
+INSERT INTO invoices (id, tenant_id, branch_id, patient_id, currency, discount_minor, discount_reason)
 VALUES ('1a000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','d0000000-0000-0000-0000-0000000000a1',
-        '70000000-0000-0000-0000-0000000000a1','EGP', 20000);
+        '70000000-0000-0000-0000-0000000000a1','EGP', 20000, 'عرض افتتاح');
 INSERT INTO invoice_items (tenant_id, invoice_id, description, quantity, unit_price_minor, line_total_minor)
 VALUES ('11111111-1111-1111-1111-111111111111','1a000000-0000-0000-0000-000000000001','Composite filling', 2, 100000, 200000);
 SELECT test.ok((SELECT subtotal_minor = 200000 AND total_minor = 180000 FROM invoices WHERE id = '1a000000-0000-0000-0000-000000000001'),
@@ -60,9 +60,9 @@ SELECT test.throws($$INSERT INTO refunds (tenant_id, payment_id, amount_minor, r
   VALUES ('11111111-1111-1111-1111-111111111111','2a000000-0000-0000-0000-00000000000f', 5000, 'x')$$, 'only a succeeded payment', 'failed payment cannot be refunded');
 
 -- zero-total invoice is paid as soon as it is issued
-INSERT INTO invoices (id, tenant_id, branch_id, patient_id, currency, discount_minor)
+INSERT INTO invoices (id, tenant_id, branch_id, patient_id, currency, discount_minor, discount_reason)
 VALUES ('1a000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','d0000000-0000-0000-0000-0000000000a1',
-        '70000000-0000-0000-0000-0000000000a2','EGP', 30000);
+        '70000000-0000-0000-0000-0000000000a2','EGP', 30000, 'حالة إنسانية');
 INSERT INTO invoice_items (tenant_id, invoice_id, description, unit_price_minor, line_total_minor)
 VALUES ('11111111-1111-1111-1111-111111111111','1a000000-0000-0000-0000-000000000002','Free check-up', 30000, 30000);
 UPDATE invoices SET status = 'issued', number = 'SMA-2030-2' WHERE id = '1a000000-0000-0000-0000-000000000002';

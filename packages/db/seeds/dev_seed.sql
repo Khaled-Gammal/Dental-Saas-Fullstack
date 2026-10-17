@@ -42,7 +42,7 @@ INSERT INTO subscriptions (tenant_id, plan_id, status, trial_ends_at) VALUES
 INSERT INTO roles (id, tenant_id, key, name_en, name_ar, is_system, permissions) VALUES
  ('a0000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','owner','Owner','المالك',true,'{*}'),
  ('a0000000-0000-0000-0000-0000000000a2','11111111-1111-1111-1111-111111111111','receptionist','Receptionist','الاستقبال',true,
-  '{patients:read,patients:write,patients:block,appointments:read,appointments:write,appointments:override,invoices:read,invoices:write,payments:write,payments:reverse,branches:read}'),
+  '{patients:read,patients:write,patients:block,appointments:read,appointments:write,appointments:override,invoices:read,invoices:write,payments:write,payments:reverse,discounts:apply,branches:read}'),
  ('a0000000-0000-0000-0000-0000000000a3','11111111-1111-1111-1111-111111111111','doctor','Doctor','طبيب',true,
   '{patients:read,patients:write,appointments:read,appointments:write:own,clinical:read,clinical:write,treatments:write:own,invoices:read:own,branches:read}'),
  -- the accountant reads no clinical data (SRS B.1); the receptionist above is deliberately left without clinical:read

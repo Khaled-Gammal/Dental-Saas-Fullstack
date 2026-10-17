@@ -12,6 +12,7 @@ import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHe
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
+import { AdjustmentsCard, DiscountCard, LineDiscount, PlanCard } from './controls';
 
 export const METHODS: PaymentMethod[] = ['cash', 'card', 'bank_transfer', 'wallet', 'instapay'];
 const NEEDS_REF: PaymentMethod[] = ['bank_transfer', 'wallet', 'instapay'];
@@ -58,6 +59,7 @@ export function InvoicePage({ lang, clinicId, id }: { lang: Lang; clinicId: stri
           <PaymentsCard lang={lang} clinicId={clinicId} v={v} />
         </div>
         <div className="stack">
+          <DiscountCard lang={lang} clinicId={clinicId} v={v} />
           <Card>
             <h2>{t('totals', lang)}</h2>
             <dl className="detail-list mt">
@@ -68,11 +70,14 @@ export function InvoicePage({ lang, clinicId, id }: { lang: Lang; clinicId: stri
               )}
               <div><dt><strong>{t('total', lang)}</strong></dt><dd><strong><bdi>{m(v.status === 'draft' ? v.subtotal_minor - v.discount_minor + v.tax_preview_minor : v.total_minor)}</bdi></strong></dd></div>
               {v.status !== 'draft' && <div><dt>{t('paid', lang)}</dt><dd><bdi>{m(v.paid_minor)}</bdi></dd></div>}
+              {v.adjusted_minor > 0 && <div><dt>{t('adjustments', lang)}</dt><dd><bdi>{m(v.adjusted_minor)}</bdi></dd></div>}
               {v.status !== 'draft' && v.status !== 'void' && <div><dt><strong>{t('balance', lang)}</strong></dt><dd><strong><bdi>{m(v.balance_minor)}</bdi></strong></dd></div>}
             </dl>
             {v.status === 'draft' && <p className="muted small mt-sm">{t('draftNote', lang)}</p>}
           </Card>
-          {v.can.pay && <PayForm key={v.paid_minor} lang={lang} clinicId={clinicId} v={v} />}
+          <PlanCard lang={lang} clinicId={clinicId} v={v} />
+          <AdjustmentsCard lang={lang} clinicId={clinicId} v={v} />
+          {v.can.pay && <PayForm key={`${v.paid_minor}-${v.adjusted_minor}`} lang={lang} clinicId={clinicId} v={v} />}
         </div>
       </div>
       <ConfirmDialog open={dialog === 'issue'} title={t('issueInvoice', lang)} confirmLabel={t('issueInvoice', lang)}
@@ -104,9 +109,11 @@ function LinesCard({ lang, clinicId, v }: { lang: Lang; clinicId: string; v: Inv
       <ul className="line-list mt">
         {v.lines.map((l) => (
           <li key={l.id}>
-            <span><bdi>{l.description}</bdi>{l.quantity > 1 && <span className="muted small"> × {fmtNumber(l.quantity, lang)}</span>}</span>
+            <span><bdi>{l.description}</bdi>{l.quantity > 1 && <span className="muted small"> × {fmtNumber(l.quantity, lang)}</span>}
+              {l.discount_minor > 0 && <span className="muted small"> · {t('discount', lang)} <bdi>{money(l.discount_minor, lang, v.currency)}</bdi> — <bdi>{l.discount_reason}</bdi></span>}</span>
             <span className="line-end">
               <bdi>{money(l.line_total_minor, lang, v.currency)}</bdi>
+              {v.can.discount && <LineDiscount lang={lang} clinicId={clinicId} invoiceId={v.id} currency={v.currency} line={l} />}
               {v.can.edit && <LinkButton onClick={() => remove.mutate(l.id)}>{t('remove', lang)}</LinkButton>}
             </span>
           </li>
@@ -150,21 +157,31 @@ function LineForm({ lang, clinicId, invoiceId, onDone }: { lang: Lang; clinicId:
 
 /** PAY-001: the receiver is always the signed-in member; one key per form, so a double click records once. */
 function PayForm({ lang, clinicId, v }: { lang: Lang; clinicId: string; v: InvoiceDetail }) {
-  const [amount, setAmount] = useState(String(v.balance_minor / 100));
+  const open = v.plan?.status === 'active' ? v.plan.installments.filter((i) => i.status === 'due' || i.status === 'partially_paid') : [];
+  const [installmentId, setInstallmentId] = useState(open[0]?.id ?? '');
+  const installment = open.find((i) => i.id === installmentId);
+  const limit = installment ? installment.amount_minor - installment.paid_minor : v.balance_minor;
+  const [amount, setAmount] = useState(String(limit / 100));
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [key] = useState(newKey);
   const minor = toMinor(amount);
   const pay = useBillingMutation(clinicId, () => send(`/invoices/${v.id}/payments`, 'POST', {
-    amountMinor: minor, method, idempotencyKey: key, ...(method !== 'cash' && reference.trim() && { reference: reference.trim() }), ...(notes.trim() && { notes: notes.trim() }),
+    amountMinor: minor, method, idempotencyKey: key, ...(installment && { installmentId: installment.id }), ...(method !== 'cash' && reference.trim() && { reference: reference.trim() }), ...(notes.trim() && { notes: notes.trim() }),
   }));
-  const ready = !!minor && minor > 0 && minor <= v.balance_minor && (!NEEDS_REF.includes(method) || reference.trim().length > 0);
+  const ready = !!minor && minor > 0 && minor <= limit && (!NEEDS_REF.includes(method) || reference.trim().length > 0);
   return (
     <Card>
       <h2>{t('recordPayment', lang)}</h2>
       <form className="stack mt" onSubmit={(e) => { e.preventDefault(); if (ready) pay.mutate(undefined); }}>
-        <Field label={`${t('amount', lang)} (${v.currency === 'EGP' ? t('egp', lang) : v.currency})`} hint={`${t('balance', lang)}: ${money(v.balance_minor, lang, v.currency)}`}>
+        {open.length > 0 && (
+          <Field label={t('installment', lang)}>
+            {(a) => <Choice id={a.id} lang={lang} value={installmentId} onChange={(x) => { setInstallmentId(x); const i = open.find((y) => y.id === x); if (i) setAmount(String((i.amount_minor - i.paid_minor) / 100)); }}
+              options={open.map((i) => ({ value: i.id, label: `${fmtNumber(i.seq, lang)} · ${i.due_date} · ${money(i.amount_minor - i.paid_minor, lang, v.currency)}` }))} />}
+          </Field>
+        )}
+        <Field label={`${t('amount', lang)} (${v.currency === 'EGP' ? t('egp', lang) : v.currency})`} hint={`${t(installment ? 'installmentLeft' : 'balance', lang)}: ${money(limit, lang, v.currency)}`}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />}
         </Field>
         <Field label={t('paymentMethod', lang)}>
