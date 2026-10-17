@@ -11,6 +11,7 @@ import { Alert, Badge, Button, Card, ErrorText, PageHeader } from '../../ui/comp
 import { AlertIcon, CalendarIcon, EditIcon, PhoneIcon, ShieldIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
+import { FilesCard } from './files-card';
 import { MedicalHistoryCard } from './medical-history';
 
 const today = () => new Date().toLocaleDateString('en-CA');
@@ -49,6 +50,7 @@ export function PatientProfile({ lang, clinicId, id, session }: { lang: Lang; cl
         <div className="stack">
           <DetailsCard lang={lang} p={p} />
           <MedicalHistoryCard lang={lang} clinicId={clinicId} patientId={p.id} history={p.medicalHistory} canEdit={can(session, 'clinical:write')} />
+          {p.medicalHistory && <FilesCard lang={lang} clinicId={clinicId} patientId={p.id} canWrite={can(session, 'clinical:write')} />}
         </div>
         <div className="stack">
           <VisitsCard lang={lang} p={p} />

@@ -50,3 +50,10 @@ export const ListQuery = z.object({
   cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(25),
 }).strict();
+
+/** "Is this person already registered?" — any of phone, name and birth date, as typed in the new-patient form. */
+export const DuplicatesQuery = z.object({
+  phone: z.string().trim().max(30).optional(),
+  fullName: z.string().trim().max(120).optional(),
+  dateOfBirth: z.string().regex(ISO_DATE, 'YYYY-MM-DD').optional(),
+}).strict();

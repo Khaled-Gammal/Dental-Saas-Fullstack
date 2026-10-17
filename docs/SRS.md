@@ -160,7 +160,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | BOOK-12 | V2 | DEFERRED | — |
 | DSH-01 | M | PARTIALLY_IMPLEMENTED | Setup progress only; refined by REPORT-006 |
 | DSH-02 | M | PARTIALLY_IMPLEMENTED | Day list per branch; no week view, per-doctor/chair columns or drag-reschedule. Refined by APPT-001…004 |
-| DSH-03 | M | PARTIALLY_IMPLEMENTED | Profile, contacts, file no., tags, guardian, opt-in, medical history done; attachments, timeline, merge missing. Refined by PATIENT-001…005 |
+| DSH-03 | M | PARTIALLY_IMPLEMENTED | Profile, contacts, file no., tags, guardian, opt-in, medical history and its versions, X-rays and documents done; timeline (D4 visits) and merge (D5) missing. Refined by PATIENT-001…005 |
 | DSH-04 | V1 | NOT_IMPLEMENTED (DB only) | Brought into v4: CHART-001 |
 | DSH-05 | V1 | NOT_IMPLEMENTED (DB only) | Brought into v4: TPLAN-001…004 |
 | DSH-06 | M | NOT_IMPLEMENTED (DB only) | Refined by VISIT-001…005 |
@@ -1185,7 +1185,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.4 Patients
 
-**PATIENT-001 — Arabic-normalised search** · NOT_IMPLEMENTED · Phase D
+**PATIENT-001 — Arabic-normalised search** · IMPLEMENTED (2026-10-17, D3) · Phase D
 - *Description:* Name search ignores the spelling variants Egyptian staff type interchangeably.
 - *Behaviour:* the stored name and the query are both normalised: أ إ آ ٱ → ا; ة → ه; ى → ي; ؤ → و; ئ → ي; tatweel
   (ـ) and diacritics removed; spaces collapsed. Existing phone and file-number search, and Arabic-Indic digits,
@@ -1194,7 +1194,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   index-backed (no full scan on 50 000 patients).
 - *Entities:* `patients.full_name` (+ a normalised, indexed column).
 
-**PATIENT-002 — Possible-duplicate warning** · NOT_IMPLEMENTED · Phase D
+**PATIENT-002 — Possible-duplicate warning** · IMPLEMENTED (2026-10-17, D3) · Phase D
 - *Description:* Before a new patient is saved, reception sees existing patients with the same phone (main,
   alternative or guardian) or a closely matching normalised name with the same birth date.
 - *Behaviour:* a warning, never a block (families share phones, §6.5). The receptionist opens the existing record
@@ -1213,7 +1213,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   at the merged record except `merged_into_id`.
 - *Entities:* `patients` and every table with `patient_id`.
 
-**PATIENT-004 — Clinical documents and images** · NOT_IMPLEMENTED · Phase D
+**PATIENT-004 — Clinical documents and images** · IMPLEMENTED for the patient (2026-10-17, D3; linking a file to a visit comes with VISIT-001 in D4) · Phase D
 - *Description:* Staff with `clinical:write` upload X-rays, clinical photos and documents (JPEG, PNG, WebP, PDF) to a
   patient, optionally to a visit.
 - *Behaviour:* the content is checked by the server whatever the file name says, and the size is capped. Files are
@@ -1224,7 +1224,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   (3) another clinic's member can never open one.
 - *Entities:* `files` (kinds `xray`, `clinical_photo`, `document`; private by CHECK), `patient_files`, `audit_log`.
 
-**PATIENT-005 — Medical history versions and alerts** · PARTIALLY_IMPLEMENTED · Phase D
+**PATIENT-005 — Medical history versions and alerts** · PARTIALLY_IMPLEMENTED (versions and profile alerts done 2026-10-17, D3; the visit-screen alert comes with VISIT-001 in D4) · Phase D
 - *Description:* Every save of medical history keeps the previous version (who, when, what). Allergies and
   important conditions are shown prominently whenever a doctor opens the patient or a visit.
 - *Acceptance:* (1) after two edits, both earlier versions can be viewed; (2) an allergy is visible on the visit
@@ -1607,7 +1607,7 @@ fixed data); a branch-limited member never sees another branch's figures.
 - *Description:* The API's database role cannot read password hashes directly. Password checks go through a
   narrowly scoped database function.
 
-**OPS-001 — Green build and CI** · IMPLEMENTED locally (2026-10-17; first GitHub run pending) · Phase C
+**OPS-001 — Green build and CI** · IMPLEMENTED (2026-10-17; first GitHub run green on `v4/phase-d2-scheduling`) · Phase C
 - *Description:* `pnpm typecheck`, `pnpm lint`, `pnpm test` and `pnpm build` pass, and the CI workflow runs them on
   every push.
 

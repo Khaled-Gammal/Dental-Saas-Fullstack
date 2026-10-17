@@ -99,10 +99,11 @@ export async function logout() {
 export const can = (s: Session, perm: string) => s.clinic.permissions?.includes('*') || s.clinic.permissions?.includes(perm) || false;
 
 /**
- * Multipart upload with progress (fetch cannot report upload progress, XMLHttpRequest can). Sends the file as `file`,
+ * Multipart upload with progress (fetch cannot report upload progress, XMLHttpRequest can). Sends the file as `file`
+ * (after any `fields`, e.g. a clinical file's kind and caption),
  * refreshes the session once on 401 like `api()`, and turns failures into the same ApiError.
  */
-export function uploadFile<T>(path: string, file: File, onProgress: (fraction: number) => void, signal?: AbortSignal): Promise<T> {
+export function uploadFile<T>(path: string, file: File, onProgress: (fraction: number) => void, signal?: AbortSignal, fields: Record<string, string> = {}): Promise<T> {
   const send = (token: string | null) => new Promise<{ status: number; body: unknown }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_URL}${path}`);
@@ -114,6 +115,7 @@ export function uploadFile<T>(path: string, file: File, onProgress: (fraction: n
     xhr.onabort = () => reject(new ApiError(0, 'aborted', 'Upload cancelled'));
     signal?.addEventListener('abort', () => xhr.abort());
     const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
     form.append('file', file);
     xhr.send(form);
   });

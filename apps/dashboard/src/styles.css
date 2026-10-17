@@ -451,6 +451,14 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 .link-plain { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
 .history-row { display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: start; }
 .history-notes { white-space: pre-wrap; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); }
+.history-version { display: flex; flex-direction: column; gap: 6px; padding-block: 10px; border-top: 1px solid var(--line); }
+.file-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.file-tile { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.file-thumb { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); }
+.file-thumb:focus-visible { outline: none; box-shadow: var(--ring); }
+.file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.file-pdf { font-weight: 700; color: var(--primary-600); }
+.file-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .tag-input { display: flex; flex-direction: column; gap: 8px; }
 .chip-x { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-inline-start: 2px; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
 .chip-x:hover { background: rgb(0 0 0 / 0.08); }

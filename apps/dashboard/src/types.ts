@@ -240,3 +240,15 @@ export interface BookingSettings {
   autoConfirm: boolean; otpRequired: boolean; minNoticeMinutes: number; maxDaysAhead: number; slotStepMinutes: number;
   cancelWindowHours: number; reminderOffsetsMinutes: number[];
 }
+
+/** One saved version of a patient's medical history (newest first). */
+export interface HistoryVersion {
+  id: number; allergies: string[]; conditions: string[]; medications: string[]; is_pregnant: boolean | null; is_smoker: boolean | null;
+  notes: string | null; saved_at: string; saved_by_name: string | null;
+}
+export type ClinicalFileKind = 'xray' | 'clinical_photo' | 'document';
+/** A clinical file of a patient; `url` is a 5-minute link for the signed-in member. */
+export interface PatientFile {
+  file_id: string; kind: ClinicalFileKind; mime_type: string; size_bytes: number; caption: string | null; taken_at: string | null;
+  created_at: string; uploaded_by_name: string | null; archived_at: string | null; archive_reason: string | null; url: string;
+}

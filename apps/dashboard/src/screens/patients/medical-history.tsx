@@ -1,9 +1,9 @@
 import { useState, type KeyboardEvent } from 'react';
 import { t, type Lang } from '../../i18n';
 import { addItem, historyBody, toHistoryForm, type HistoryForm } from '../../patient-model';
-import { useSaveMedicalHistory } from '../../queries';
+import { useHistoryVersions, useSaveMedicalHistory } from '../../queries';
 import type { MedicalHistory } from '../../types';
-import { Alert, Badge, Button, Card, ErrorText, Field, Input, Switch, TextArea } from '../../ui/components';
+import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, Switch, TextArea } from '../../ui/components';
 import { AlertIcon, CloseIcon, EditIcon } from '../../ui/icons';
 
 type ListKey = 'allergies' | 'conditions' | 'medications';
@@ -49,7 +49,35 @@ export function MedicalHistoryCard({ lang, clinicId, patientId, history, canEdit
           {history.notes && <p className="history-notes">{history.notes}</p>}
         </div>
       )}
+      {history.updated_at && <Versions lang={lang} clinicId={clinicId} patientId={patientId} />}
     </Card>
+  );
+}
+
+/** Earlier versions (SRS PATIENT-005): every save is kept; loaded only when opened (the opening is audited). */
+function Versions({ lang, clinicId, patientId }: { lang: Lang; clinicId: string; patientId: string }) {
+  const [open, setOpen] = useState(false);
+  const versions = useHistoryVersions(clinicId, patientId, open);
+  const fmt = (iso: string) => new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(iso));
+  return (
+    <div className="mt">
+      <LinkButton onClick={() => setOpen(!open)} aria-expanded={open}>{t(open ? 'hideVersions' : 'historyVersions', lang)}</LinkButton>
+      {open && (versions.isError ? <ErrorText error={versions.error} />
+        : versions.isLoading ? <p className="muted small" role="status">{t('loading', lang)}</p>
+        : (
+          <ol className="stack mt-sm">
+            {versions.data?.map((v) => (
+              <li key={v.id} className="history-version">
+                <span className="muted small">{fmt(v.saved_at)}{v.saved_by_name && <> · <bdi>{v.saved_by_name}</bdi></>}</span>
+                {LISTS.map((k) => v[k].length > 0 && (
+                  <div key={k} className="history-row"><span className="muted small">{t(k, lang)}</span><span><bdi>{v[k].join('، ')}</bdi></span></div>
+                ))}
+                {v.notes && <p className="history-notes">{v.notes}</p>}
+              </li>
+            ))}
+          </ol>
+        ))}
+    </div>
   );
 }
 

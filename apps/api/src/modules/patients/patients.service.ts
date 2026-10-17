@@ -6,6 +6,7 @@ import { AuditLog } from '../../shared/audit/audit-log';
 import type { RequestContext } from '../../shared/context/request-context';
 import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
+import { normalizePhone } from '../../shared/phone';
 import { PlanLimits } from '../../shared/plans/plan-limits.service';
 import { auditChanges, classifySearch, cleanList, cleanTags, decodeCursor, encodeCursor, NEEDS_REVIEW } from './patient-rules';
 import { PatientsRepository, type PatientFields } from './patients.repository';
@@ -116,6 +117,23 @@ export class PatientsService {
       await this.repo.saveMedicalHistory(tx, tenantId, id, next, this.cls.get('memberId') ?? null);
       if (Object.keys(changes).length) await this.audit.record(tx, tenantId, { action: 'patient.medical_history.update', entityType: 'patient', entityId: id, changes });
       return this.repo.medicalHistory(tx, id);
+    });
+  }
+
+  /** Possible duplicates of a record about to be created (SRS PATIENT-002): a warning, never a block. */
+  duplicates(q: { phone?: string; fullName?: string; dateOfBirth?: string }) {
+    const phone = q.phone ? normalizePhone(q.phone) : null;
+    const fullName = q.fullName?.trim() || null;
+    return this.db.run((tx, tenantId) => this.repo.possibleDuplicates(tx, tenantId, { phone, fullName, dateOfBirth: q.dateOfBirth ?? null }));
+  }
+
+  /** Earlier versions of the medical history (SRS PATIENT-005); clinical data, so `clinical:read`. */
+  historyVersions(id: string) {
+    if (!this.canReadClinical()) throw Err.forbidden('missing_permission', 'Missing permission: clinical:read');
+    return this.db.run(async (tx, tenantId) => {
+      if (!(await this.repo.exists(tx, tenantId, id))) throw notFound();
+      await this.audit.recordView(tx, tenantId, 'patient_medical_history', id);
+      return this.repo.historyVersions(tx, id);
     });
   }
 

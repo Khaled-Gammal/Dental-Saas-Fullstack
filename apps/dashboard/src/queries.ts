@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CatalogEntry, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  BookingSettings, Holiday, PatientDetail, PatientPage, Room, Service, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, WebsiteStatus,
+  BookingSettings, HistoryVersion, Holiday, PatientDetail, PatientFile, PatientPage, PatientRow, Room, Service, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, WebsiteStatus,
 } from './types';
 
 /**
@@ -119,6 +119,28 @@ export const usePatients = (clinicId: string, q: string) =>
 
 export const usePatient = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: patientKeys.one(clinicId, id ?? ''), queryFn: () => api<PatientDetail>(`/patients/${id}`), enabled: !!id });
+
+/** Possible duplicates while registering someone new (SRS PATIENT-002): same phone, same or close name + birth date. */
+export const usePossibleDuplicates = (clinicId: string, q: { phone: string; fullName: string; dateOfBirth: string }) =>
+  useQuery({
+    queryKey: [...patientKeys.all(clinicId), 'duplicates', q] as const,
+    queryFn: () => api<PatientRow[]>(`/patients/duplicates?${new URLSearchParams({
+      ...(q.phone && { phone: q.phone }), ...(q.fullName && { fullName: q.fullName }), ...(q.dateOfBirth && { dateOfBirth: q.dateOfBirth }),
+    })}`),
+    enabled: !!(q.phone || q.fullName),
+  });
+
+/** Earlier versions of the medical history (SRS PATIENT-005); loaded when the user opens them. */
+export const useHistoryVersions = (clinicId: string, id: string, enabled: boolean) =>
+  useQuery({ queryKey: [...patientKeys.one(clinicId, id), 'history-versions'] as const, queryFn: () => api<HistoryVersion[]>(`/patients/${id}/medical-history/versions`), enabled });
+
+/** X-rays, clinical photos and documents (SRS PATIENT-004). Links inside expire after 5 minutes, so the list refreshes. */
+export const usePatientFiles = (clinicId: string, id: string, archived: boolean, enabled: boolean) =>
+  useQuery({
+    queryKey: [...patientKeys.one(clinicId, id), 'files', archived] as const,
+    queryFn: () => api<PatientFile[]>(`/patients/${id}/files${archived ? '?archived=true' : ''}`),
+    enabled, staleTime: 4 * 60_000, refetchInterval: 4 * 60_000,
+  });
 
 export const usePatientActivity = (clinicId: string, id: string, enabled: boolean) =>
   useQuery({ queryKey: patientKeys.activity(clinicId, id), queryFn: () => api<AuditEntry[]>(`/patients/${id}/activity`), enabled });

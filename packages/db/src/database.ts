@@ -545,6 +545,9 @@ export interface PatientConsents {
 }
 
 export interface PatientFiles {
+  archive_reason: string | null;
+  archived_at: Timestamp | null;
+  archived_by: string | null;
   caption: string | null;
   file_id: string;
   patient_id: string;
@@ -566,6 +569,20 @@ export interface PatientMedicalHistory {
   updated_by: string | null;
 }
 
+export interface PatientMedicalHistoryVersions {
+  allergies: string[];
+  conditions: string[];
+  id: Generated<Int8>;
+  is_pregnant: boolean | null;
+  is_smoker: boolean | null;
+  medications: string[];
+  notes: string | null;
+  patient_id: string;
+  saved_at: Generated<Timestamp>;
+  saved_by: string | null;
+  tenant_id: string;
+}
+
 export interface Patients {
   address: string | null;
   city: string | null;
@@ -576,6 +593,7 @@ export interface Patients {
   email: string | null;
   file_no: Int8;
   full_name: string;
+  full_name_norm: Generated<string | null>;
   gender: string | null;
   guardian_name: string | null;
   guardian_patient_id: string | null;
@@ -1148,6 +1166,7 @@ export interface DB {
   patient_consents: PatientConsents;
   patient_files: PatientFiles;
   patient_medical_history: PatientMedicalHistory;
+  patient_medical_history_versions: PatientMedicalHistoryVersions;
   patients: Patients;
   payment_gateways: PaymentGateways;
   payment_plans: PaymentPlans;

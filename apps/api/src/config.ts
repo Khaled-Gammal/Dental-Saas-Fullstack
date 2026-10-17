@@ -126,6 +126,17 @@ export const MEDIA_POLICY = {
   },
 } as const;
 
+/**
+ * Clinical documents and images of a patient (SRS PATIENT-004, NFR-03). Stored exactly as uploaded (an X-ray must not
+ * be re-compressed), always private, opened only through links valid for 5 minutes and bound to the member.
+ */
+export const CLINICAL_FILE_POLICY = {
+  maxUploadBytes: 20 * 1024 * 1024,
+  linkSeconds: 5 * 60,
+  kinds: ['xray', 'clinical_photo', 'document'] as const,
+} as const;
+export type ClinicalFileKind = (typeof CLINICAL_FILE_POLICY.kinds)[number];
+
 export type MediaPurpose = keyof typeof MEDIA_POLICY.purposes;
 export type MediaKind = (typeof MEDIA_POLICY.purposes)[MediaPurpose]['kind'];
 

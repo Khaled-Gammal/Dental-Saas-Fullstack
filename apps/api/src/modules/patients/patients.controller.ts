@@ -4,7 +4,7 @@ import type { z } from 'zod';
 import { RequirePermission } from '../../auth/decorators';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { PatientsService } from './patients.service';
-import { CreatePatient, ListQuery, MedicalHistoryBody, UpdatePatient } from './patients.schemas';
+import { CreatePatient, DuplicatesQuery, ListQuery, MedicalHistoryBody, UpdatePatient } from './patients.schemas';
 
 const id = new ParseUUIDPipe();
 
@@ -19,6 +19,13 @@ export class PatientsController {
   @RequirePermission('patients:read')
   list(@Query(new ZodBody(ListQuery)) q: z.infer<typeof ListQuery>) {
     return this.patients.list(q);
+  }
+
+  /** Possible duplicates before creating a record (SRS PATIENT-002). Declared before ':id'. */
+  @Get('duplicates')
+  @RequirePermission('patients:read')
+  duplicates(@Query(new ZodBody(DuplicatesQuery)) q: z.infer<typeof DuplicatesQuery>) {
+    return this.patients.duplicates(q);
   }
 
   @Get(':id')
@@ -44,6 +51,13 @@ export class PatientsController {
   @RequirePermission('clinical:write')
   saveMedicalHistory(@Param('id', id) patientId: string, @Body(new ZodBody(MedicalHistoryBody)) body: z.infer<typeof MedicalHistoryBody>) {
     return this.patients.saveMedicalHistory(patientId, body);
+  }
+
+  /** Earlier versions of the medical history (SRS PATIENT-005). Needs clinical:read (checked in the service). */
+  @Get(':id/medical-history/versions')
+  @RequirePermission('patients:read')
+  historyVersions(@Param('id', id) patientId: string) {
+    return this.patients.historyVersions(patientId);
   }
 
   /** Who viewed or changed this record (DSH-15). Owners only by default. */

@@ -228,7 +228,7 @@ invitation per email `invitations_one_open_per_email`, definer `open_invitation(
 request through definer `member_access_state(member)`); plus `tenant_members_keep_owner()` (a clinic keeps one active
 owner, serialized by an advisory lock) and the audit triggers of AUDIT-003 on clinic setup and staff tables
 (`audit_row_change()` now also handles tables keyed by something other than `id`, and stays silent during a tenant
-hard delete). D-03 onwards are still proposals.
+hard delete).
 
 **D2 applied 2026-10-17 (migration 0018):** D-09 (`holidays_one_per_scope_date`, `holidays.created_by` FK, name length
 CHECK); D-10 (`doctor_time_off.created_by` FK and a 366-day maximum length); `tenant_settings_reminder_offsets`
@@ -237,11 +237,22 @@ appointment being moved) and replaced the 3-argument form; `rooms_tenant_branch`
 `appointment.rescheduled` outbox event: the worker cancels the queued reminders of the old time and queues new
 ones keyed by the new start (`reminder:<id>:<offset>:<epoch>`), plus a "your appointment moved" email.
 
+**D3 applied 2026-10-17 (migrations 0019, 0020):** D-03 with one change: `patients.full_name_norm` is a **stored
+generated column** (`GENERATED ALWAYS AS (ar_normalize(full_name)) STORED`) instead of a trigger plus batched
+back-fill. It can never drift from `full_name`, needs no back-fill job and does not touch `updated_at`; the cost is
+one rewrite of `patients` under an exclusive lock when the column is added (seconds at today's size; on a large
+production table run it in a quiet window). The trigram index `patients_name_norm_trgm` is built `CONCURRENTLY`
+in its own migration without a transaction; the old raw-name trigram index is kept for now. D-04 as proposed
+(back-filled with each patient's current history as the first version; RLS; `REVOKE UPDATE, DELETE`). D-05 as
+proposed, plus caption length and "archived together" CHECKs, and the 0001 `files_check` is replaced by
+`files_clinical_private` (X-ray, clinical photo, consent **and document** files must be private). D-06 onwards are
+still proposals.
+
 | ID | Change | Requirement | Risk |
 | --- | --- | --- | --- |
 | D-01 | `invitations` + `job_title text`, `doctor_id uuid` (composite FK to `doctors`), index on `(tenant_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL` | ACCESS-001 | low |
 | D-02 | `tenant_members.access_version int NOT NULL DEFAULT 0`, bumped by trigger on role/status/branch change; the API compares it per request (cached briefly) | ACCESS-005 | low |
-| D-03 | `ar_normalize(text) RETURNS text IMMUTABLE` (translate + regexp_replace for alef forms, ة, ى, ؤ, ئ, tatweel, harakat); `patients.full_name_norm text` maintained by trigger, back-filled in batches; trigram index `(tenant_id, full_name_norm gin_trgm_ops)` built `CONCURRENTLY` | PATIENT-001 | **medium**: back-fill touches every patient row. Done in batches outside the migration transaction; the index is built concurrently (its own migration file, no transaction) |
+| D-03 | `ar_normalize(text) RETURNS text IMMUTABLE` (translate + regexp_replace for alef forms, ة, ى, ؤ, ئ, tatweel, harakat); `patients.full_name_norm` (applied as a stored generated column, see above); trigram index `(tenant_id, full_name_norm gin_trgm_ops)` built `CONCURRENTLY` | PATIENT-001 | **medium**: adding the column rewrites `patients` once under lock; the index is built concurrently (its own migration file, no transaction) |
 | D-04 | `patient_medical_history_versions` (append-only: snapshot of lists/flags/notes, `saved_by`, `saved_at`) filled by trigger on `patient_medical_history` | PATIENT-005 | low; REVOKE UPDATE, DELETE |
 | D-05 | `patient_files` + `archived_at`, `archived_by`, `archive_reason`; `files` kind `document` used for PDFs | PATIENT-004 | low |
 | D-06 | `visits` + `status text CHECK (status IN ('draft','final')) DEFAULT 'draft'`, `finalized_at`, `finalized_by`; `visit_amendments` (visit_id, field, new_text, reason, author, created_at; append-only); `visits_guard()` refuses updates to clinical text when `status = 'final'` | VISIT-002 **(CLR-06)** | low (no rows yet) |

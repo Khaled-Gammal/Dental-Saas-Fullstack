@@ -3,21 +3,21 @@
 The tracker for every requirement in `docs/SRS.md`. **Where this file and the SRS disagree, this file wins.**
 It is updated at the end of every phase. A status changes only with evidence: code, plus a test that ran and passed.
 
-Last updated: 2026-10-17, end of Phase D2 (reviews in `docs/reviews/`: phase C, D1 and D2 of 2026-10-17).
+Last updated: 2026-10-17, end of Phase D3 (reviews in `docs/reviews/`: phase C, D1, D2 and D3 of 2026-10-17).
 
-## Last verification run (2026-10-17, end of Phase D2)
+## Last verification run (2026-10-17, end of Phase D3)
 
 | Check | Result |
 | --- | --- |
-| Database tests (`pnpm db:test`) | 19 files, **248 checks passed** |
-| API e2e + unit (`pnpm --filter @dental/api test`) | 16 suites, **182 tests passed** |
+| Database tests (`pnpm db:test`) | 20 files, **265 checks passed** |
+| API e2e + unit (`pnpm --filter @dental/api test`) | 18 suites, **194 tests passed** |
 | Dashboard unit (vitest) | 51 passed |
 | Website unit (vitest) | 20 passed |
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
-| CI on GitHub | workflow in place; first run not yet observed (not pushed) |
-| Browser check of the D1 and D2 screens | **not done**: the connected Chrome could not open `localhost:5173` (see the D1 review) |
+| CI on GitHub | run 39055317969 on `v4/phase-d2-scheduling`: **success** (all steps). D3 not pushed yet |
+| Browser check of the D1, D2 and D3 screens | **not done**: the connected Chrome could not open `localhost:5173` (see the D1 review) |
 
 ## Clinic workflow (SRS §3)
 
@@ -60,11 +60,11 @@ Last updated: 2026-10-17, end of Phase D2 (reviews in `docs/reviews/`: phase C, 
 | APPT-007 | Follow-up booking from a visit | NOT_IMPLEMENTED | D4 | — |
 | APPT-008 | — | WITHDRAWN | — | Covered by AUDIT-003 |
 | APPT-009 | Booking settings screen | IMPLEMENTED | D2 | `/clinic/booking-settings`; dashboard `#/booking` |
-| PATIENT-001 | Arabic-normalised search | NOT_IMPLEMENTED | D3 | Trigram + ILIKE only |
-| PATIENT-002 | Possible-duplicate warning | NOT_IMPLEMENTED | D3 | — |
+| PATIENT-001 | Arabic-normalised search | IMPLEMENTED | D3 | migrations 0019 `ar_normalize()`, `patients.full_name_norm` (generated) + 0020 trigram index; `patients.repository.ts`; `19_patients_search_history_files.sql`, `patients-d3.e2e-spec.ts` |
+| PATIENT-002 | Possible-duplicate warning | IMPLEMENTED | D3 | `GET /patients/duplicates` (main, alternative or guardian phone; same normalised name; close name + same birth date); warning on the new-patient form, never a block; e2e |
 | PATIENT-003 | Merge duplicates | NOT_IMPLEMENTED (DB only) | D5 | `merged_into_id` honoured by reads |
-| PATIENT-004 | Clinical documents and images | NOT_IMPLEMENTED | D3 | Media handles website images only |
-| PATIENT-005 | Medical history versions + alerts | PARTIALLY | D3 | History saved and audited (`patients.service.ts`); no versions |
+| PATIENT-004 | Clinical documents and images | IMPLEMENTED (patient level) | D3 | `patient-files.*`, `clinical-files.ts` (type from the bytes, 20 MB, 5-minute links bound to clinic + file + user, audited opening), archive with reason, `files_clinical_private`; dashboard files card; unit + e2e. Visit link waits for D4 |
+| PATIENT-005 | Medical history versions + alerts | PARTIALLY | D3/D4 | Versions: `patient_medical_history_versions` (append-only, trigger, back-filled), `GET /patients/:id/medical-history/versions` (clinical:read, audited); profile alerts. Missing: the alert on the visit screen (D4) |
 | VISIT-001 | Clinical visit | NOT_IMPLEMENTED (DB only) | D4 | `visits` |
 | VISIT-002 | Finalize and amend notes | NOT_IMPLEMENTED | D4 | Needs CLR-06 |
 | VISIT-003 | Procedures performed | NOT_IMPLEMENTED (DB only) | D4 | `visit_procedures`, billed-once trigger tested |
@@ -102,7 +102,7 @@ Last updated: 2026-10-17, end of Phase D2 (reviews in `docs/reviews/`: phase C, 
 | L10N-004 | Arabic emails | PARTIALLY | F | Booking emails bilingual |
 | L10N-005 | Currency | PARTIALLY | F | EGP hard-coded in UI; `tenants.currency` exists |
 | L10N-006 | Dates and times | PARTIALLY | F | Branch timezone used; digits inconsistent (CLR-08) |
-| L10N-007 | Arabic data | PARTIALLY | D3/F | Arabic stored and searched; no normalisation; no export yet |
+| L10N-007 | Arabic data | PARTIALLY | F | Arabic stored and searched with normalisation (PATIENT-001); no export yet |
 | L10N-008 | Remove multilingual infrastructure | NOT_IMPLEMENTED | F | `i18n.ts` (~520 AR/EN entries), toggle in `App.tsx` |
 | AUDIT-001 | Financial audit | IMPLEMENTED (DB) | C | Triggers on invoices, lines, payments, refunds, plans, installments, expenses (0013); `14_audit_triggers.sql`. New money tables (discounts, cash) add the same trigger in E |
 | AUDIT-002 | Clinical audit | PARTIALLY | D4 | Patient record + medical history audited (`audit-log.ts`) |
@@ -110,7 +110,7 @@ Last updated: 2026-10-17, end of Phase D2 (reviews in `docs/reviews/`: phase C, 
 | SEC-101 | Cross-record consistency | IMPLEMENTED | C | 0012; `13_money_integrity.sql` |
 | SEC-102 | Responsible-staff FKs | IMPLEMENTED | C | 0012 (9 columns, validated) |
 | SEC-103 | Least privilege on `users` | IMPLEMENTED | C | 0016 `login_candidate()`; `16_permissions_and_users.sql`, identity e2e |
-| OPS-001 | Green build and CI | IMPLEMENTED (local) | C | build/typecheck/lint/test green; `.github/workflows/ci.yml` (first GitHub run not yet observed) |
+| OPS-001 | Green build and CI | IMPLEMENTED | C | build/typecheck/lint/test green; `.github/workflows/ci.yml`, GitHub run 39055317969 green |
 
 ## Part A — original requirements
 
@@ -131,6 +131,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-17 | D3 | Migrations 0019–0020; PATIENT-001, 002, 004 done; PATIENT-005 versions done (visit alert in D4); OPS-001 verified on GitHub |
 | 2026-10-17 | D2 | Migration 0018; APPT-001, 003, 004, 005, 006, 009 done; CI also runs on `v4/**` pushes |
 | 2026-10-17 | D1 | Migration 0017; ACCESS-001/002/005, AUTH-102, AUDIT-003 done. Defaults accepted for CLR-06, 10, 11, 13, 14, 15, 16 |
 | 2026-10-17 | C | Migrations 0012–0016; AUTH-101, ACCESS-003/004, APPT-002, PAY-003, AUDIT-001, SEC-101/102/103, OPS-001 done; AUDIT-003 partly. CLR-05 default and branch-access option B applied |
