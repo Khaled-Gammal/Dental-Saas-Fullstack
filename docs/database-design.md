@@ -230,6 +230,13 @@ owner, serialized by an advisory lock) and the audit triggers of AUDIT-003 on cl
 (`audit_row_change()` now also handles tables keyed by something other than `id`, and stays silent during a tenant
 hard delete). D-03 onwards are still proposals.
 
+**D2 applied 2026-10-17 (migration 0018):** D-09 (`holidays_one_per_scope_date`, `holidays.created_by` FK, name length
+CHECK); D-10 (`doctor_time_off.created_by` FK and a 366-day maximum length); `tenant_settings_reminder_offsets`
+(at most four reminders, 15 minutes to 7 days); `doctor_busy_intervals()` gained an optional `p_exclude` (the
+appointment being moved) and replaced the 3-argument form; `rooms_tenant_branch` index. Reschedules write an
+`appointment.rescheduled` outbox event: the worker cancels the queued reminders of the old time and queues new
+ones keyed by the new start (`reminder:<id>:<offset>:<epoch>`), plus a "your appointment moved" email.
+
 | ID | Change | Requirement | Risk |
 | --- | --- | --- | --- |
 | D-01 | `invitations` + `job_title text`, `doctor_id uuid` (composite FK to `doctors`), index on `(tenant_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL` | ACCESS-001 | low |

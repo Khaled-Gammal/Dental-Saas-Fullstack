@@ -194,6 +194,7 @@ export interface DoctorServices {
 }
 
 export interface DoctorTimeOff {
+  created_by: string | null;
   doctor_id: string;
   ends_at: Timestamp;
   id: Generated<string>;
@@ -288,6 +289,7 @@ export interface GalleryItems {
 
 export interface Holidays {
   branch_id: string | null;
+  created_by: string | null;
   date: Timestamp;
   id: Generated<string>;
   name: string;

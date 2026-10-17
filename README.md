@@ -168,4 +168,5 @@ Reports and what was fixed or deferred are in `docs/reviews/`. A phase is done w
 - ✅ Week 6 part 1 — patients (search, profile, guardian, medical history), audit trail of record access, dashboard "new appointment" form, automatic no-show; Phase 3 review fixes (`docs/reviews/2026-10-16-week-6-patients.md`)
 - ✅ v4 Phase A–C — audit, SRS v4, security and data integrity (`docs/reviews/2026-10-17-phase-c-security.md`)
 - ✅ v4 Phase D1 — staff invitations (email link), team screen, access changes on the next request, password reset (`docs/reviews/2026-10-17-phase-d1-staff.md`)
-- Next: v4 Phase D2 onwards — `docs/roadmap.md` (consent signing is deferred, CLR-14)
+- ✅ v4 Phase D2 — reschedule, waiting list, my day, holidays, doctor time off, chairs, booking rules (`docs/reviews/2026-10-17-phase-d2-scheduling.md`)
+- Next: v4 Phase D3 onwards — `docs/roadmap.md` (consent signing is deferred, CLR-14)

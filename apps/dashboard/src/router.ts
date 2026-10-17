@@ -2,8 +2,8 @@
  * Hash routes, one per screen: `#/doctors`, `#/doctors/new`, `#/doctors/<id>/edit`, `#/doctors/<id>/schedule`.
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
-export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff';
-export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view';
+export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking';
+export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms';
 
 /** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
 export type Route = (
@@ -17,13 +17,15 @@ export type Route = (
 const ACTIONS: Record<Page, readonly Action[]> = {
   overview: [],
   profile: [],
-  branches: ['new', 'edit', 'hours'],
-  appointments: ['new'],
+  branches: ['new', 'edit', 'hours', 'rooms'],
+  appointments: ['new', 'edit'], // `edit` = move to another time/doctor and/or give it a room
   patients: ['new', 'edit', 'view'],
   gallery: ['new', 'edit'],
-  doctors: ['new', 'edit', 'schedule'],
+  doctors: ['new', 'edit', 'schedule', 'timeoff'],
   services: ['new', 'edit'],
   staff: ['new', 'edit'], // `new` = invite someone; `edit` = a member's role, branches and status
+  holidays: [], // closed days (whole clinic or one branch)
+  booking: [], // the website booking rules and reminders
 };
 
 /**
@@ -67,4 +69,6 @@ export const to = {
   view: (page: Page, id: string): Route => ({ page, id, action: 'view' }),
   hours: (id: string): Route => ({ page: 'branches', id, action: 'hours' }),
   schedule: (id: string): Route => ({ page: 'doctors', id, action: 'schedule' }),
+  timeOff: (id: string): Route => ({ page: 'doctors', id, action: 'timeoff' }),
+  rooms: (id: string): Route => ({ page: 'branches', id, action: 'rooms' }),
 };

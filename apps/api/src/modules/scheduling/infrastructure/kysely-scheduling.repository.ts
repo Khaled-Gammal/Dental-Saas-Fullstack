@@ -3,7 +3,7 @@ import { sql } from '@dental/db';
 import { Err } from '../../../shared/errors/app-error';
 import type { BookingPolicy } from '../domain/booking-policy';
 import type {
-  AppointmentView, BookingOptions, BookingService, CheckInResult, DayContext, DayQuery, DoctorsQuery, FinalizeInput, HoldInput, HoldRow,
+  AppointmentView, BookingOptions, BookingService, CheckInResult, DayContext, DayQuery, DoctorsQuery, FinalizeInput, HoldInput, HoldRow, MovePatch, MoveRow,
   SchedulingRepository, Session, StaffAppointmentInput, StatusPatch, TransitionRow,
 } from '../application/ports';
 
@@ -17,6 +17,7 @@ const VIEW_COLUMNS = [
 const hasCode = sql<boolean>`(a.check_in_code_hash is not null and a.check_in_code_used_at is null)`;
 const patientJson = sql<AppointmentView['patient']>`case when p.id is null then null else json_build_object('id', p.id, 'full_name', p.full_name, 'phone', p.phone, 'file_no', p.file_no) end`;
 const doctorJson = sql<AppointmentView['doctor']>`json_build_object('name_ar', d.name_ar, 'name_en', d.name_en)`;
+const roomJson = sql<AppointmentView['room']>`case when r.id is null then null else json_build_object('id', r.id, 'name', r.name) end`;
 const serviceJson = sql<AppointmentView['service']>`case when s.id is null then null else json_build_object('name_ar', s.name_ar, 'name_en', s.name_en, 'duration_minutes', s.duration_minutes) end`;
 
 /** Kysely adapter for the scheduling port. Every query runs under the clinic's RLS context (`tx`). */
@@ -101,7 +102,8 @@ export class KyselySchedulingRepository implements SchedulingRepository {
     // but the doctor is still busy there. The function returns times only, for this clinic, the same statuses as
     // BLOCKING_STATUSES.
     const { rows: appointments } = await sql<{ doctor_id: string; starts_at: Date; ends_at: Date }>`
-      select doctor_id, starts_at, ends_at from doctor_busy_intervals(${sql.val(q.doctorIds)}::uuid[], ${q.from}, ${q.to})`.execute(tx);
+      select doctor_id, starts_at, ends_at
+      from doctor_busy_intervals(${sql.val(q.doctorIds)}::uuid[], ${q.from}, ${q.to}, ${q.excludeAppointmentId ?? null}::uuid)`.execute(tx);
     const timeOff = await tx.selectFrom('doctor_time_off').select(['doctor_id', 'starts_at', 'ends_at'])
       .where('doctor_id', 'in', q.doctorIds).where('starts_at', '<', q.to).where('ends_at', '>', q.from).execute();
     return { closed: !!holiday, branchHours, shifts, blocked: [...appointments, ...timeOff] };
@@ -140,17 +142,47 @@ export class KyselySchedulingRepository implements SchedulingRepository {
       .leftJoin('patients as p', 'p.id', 'a.patient_id')
       .innerJoin('doctors as d', 'd.id', 'a.doctor_id')
       .leftJoin('services as s', 's.id', 'a.service_id')
-      .select([...VIEW_COLUMNS, patientJson.as('patient'), doctorJson.as('doctor'), serviceJson.as('service'), hasCode.as('has_code')]);
+      .leftJoin('rooms as r', 'r.id', 'a.room_id')
+      .select([...VIEW_COLUMNS, patientJson.as('patient'), doctorJson.as('doctor'), serviceJson.as('service'), roomJson.as('room'), hasCode.as('has_code')]);
   }
 
   private static toView(r: Awaited<ReturnType<ReturnType<KyselySchedulingRepository['view']>['execute']>>[number]): AppointmentView {
     return { ...r, status: r.status as AppointmentView['status'], quoted_price_minor: r.quoted_price_minor === null ? null : Number(r.quoted_price_minor) };
   }
 
-  async listBetween(tx: Session, q: { from: Date; to: Date; branchId?: string }): Promise<AppointmentView[]> {
+  async listBetween(tx: Session, q: { from: Date; to: Date; branchId?: string; doctorId?: string }): Promise<AppointmentView[]> {
     let query = this.view(tx).where('a.starts_at', '>=', q.from).where('a.starts_at', '<', q.to).where('a.status', '<>', 'expired');
     if (q.branchId) query = query.where('a.branch_id', '=', q.branchId);
+    if (q.doctorId) query = query.where('a.doctor_id', '=', q.doctorId);
     return (await query.orderBy('a.starts_at').execute()).map(KyselySchedulingRepository.toView);
+  }
+
+  async doctorOfMember(tx: Session, memberId: string): Promise<string | null> {
+    return (await tx.selectFrom('doctors').select('id').where('member_id', '=', memberId).executeTakeFirst())?.id ?? null;
+  }
+
+  async lockForMove(tx: Session, id: string): Promise<MoveRow | undefined> {
+    const r = await tx.selectFrom('appointments as a').leftJoin('patients as p', 'p.id', 'a.patient_id')
+      .select(['a.id', 'a.status', 'a.branch_id', 'a.doctor_id', 'a.service_id', 'a.room_id', 'a.starts_at', 'a.ends_at', 'a.source', hasCode.as('has_code'),
+        sql<string | null>`p.email::text`.as('patient_email')])
+      .where('a.id', '=', id).forUpdate('a').executeTakeFirst();
+    return r && { ...r, status: r.status as MoveRow['status'] };
+  }
+
+  async move(tx: Session, id: string, p: MovePatch): Promise<void> {
+    await tx.updateTable('appointments').set({
+      starts_at: p.startsAt, ends_at: p.endsAt, doctor_id: p.doctorId, branch_id: p.branchId, room_id: p.roomId, override_reason: p.overrideReason,
+      ...(p.code === null && { check_in_code_hash: null, check_in_code_expires_at: null }),
+      ...(p.code && { check_in_code_hash: p.code.hash, check_in_code_expires_at: p.code.expiresAt }),
+    }).where('id', '=', id).execute();
+  }
+
+  async setRoom(tx: Session, id: string, roomId: string | null): Promise<void> {
+    await tx.updateTable('appointments').set({ room_id: roomId }).where('id', '=', id).execute();
+  }
+
+  async roomInBranch(tx: Session, roomId: string, branchId: string): Promise<boolean> {
+    return !!(await tx.selectFrom('rooms').select('id').where('id', '=', roomId).where('branch_id', '=', branchId).where('is_active', '=', true).executeTakeFirst());
   }
 
   async get(tx: Session, id: string): Promise<AppointmentView | undefined> {

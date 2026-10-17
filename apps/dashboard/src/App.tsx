@@ -16,6 +16,11 @@ import { DoctorsList } from './screens/doctors/list';
 import { DoctorSchedule } from './screens/doctors/schedule';
 import { Appointments } from './screens/appointments/list';
 import { NewAppointment } from './screens/appointments/new';
+import { MoveAppointment } from './screens/appointments/move';
+import { BookingRules } from './screens/calendar/booking-settings';
+import { Holidays } from './screens/calendar/holidays';
+import { BranchRooms } from './screens/calendar/rooms';
+import { DoctorTimeOff } from './screens/calendar/time-off';
 import { PatientForm } from './screens/patients/form';
 import { PatientsList } from './screens/patients/list';
 import { PatientProfile } from './screens/patients/profile';
@@ -106,13 +111,16 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
       if (action === 'new' && w) return <BranchForm lang={lang} clinicId={clinicId} />;
       if (action === 'edit' && w) return <BranchForm lang={lang} clinicId={clinicId} id={id} />;
       if (action === 'hours' && w) return <BranchHours lang={lang} clinicId={clinicId} id={id} />;
+      if (action === 'rooms') return <BranchRooms lang={lang} clinicId={clinicId} id={id} canWrite={settings} />;
       if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('branches')} backLabel={t('branches', lang)} />;
       return <BranchesList lang={lang} clinicId={clinicId} canWrite={w} />;
     }
     case 'appointments':
       if (action === 'new' && can(session, 'appointments:write')) return <NewAppointment lang={lang} clinicId={clinicId} patientId={route.query?.patient} canOverride={can(session, 'appointments:override')} />;
+      if (action === 'edit' && can(session, 'appointments:write')) return <MoveAppointment lang={lang} clinicId={clinicId} id={id} canOverride={can(session, 'appointments:override')} />;
       if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('appointments')} backLabel={t('navAppointments', lang)} />;
-      return <Appointments lang={lang} clinicId={clinicId} canWrite={can(session, 'appointments:write')} canOwn={can(session, 'appointments:write:own')} query={route.query} />;
+      return <Appointments lang={lang} clinicId={clinicId} canWrite={can(session, 'appointments:write')} canOwn={can(session, 'appointments:write:own')} query={route.query}
+        defaultView={session.clinic.role === 'doctor' ? 'mine' : 'all'} />; // a doctor opens on their own day (APPT-004)
     case 'gallery': {
       // website content is the owner's (SRS 2.2: Website & content)
       if (!can(session, 'website:write')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
@@ -133,6 +141,7 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
       if (action === 'new' && settings) return <DoctorForm lang={lang} clinicId={clinicId} />;
       if (action === 'edit' && settings) return <DoctorForm lang={lang} clinicId={clinicId} id={id} />;
       if (action === 'schedule' && settings) return <DoctorSchedule lang={lang} clinicId={clinicId} id={id} />;
+      if (action === 'timeoff') return <DoctorTimeOff lang={lang} clinicId={clinicId} id={id} canWrite={settings} />;
       if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('doctors')} backLabel={t('navDoctors', lang)} />;
       return <DoctorsList lang={lang} clinicId={clinicId} canWrite={settings} />;
     case 'services':
@@ -140,6 +149,8 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
       if (action === 'edit' && settings) return <ServiceFormPage lang={lang} clinicId={clinicId} id={id} />;
       if (action) return <NotFound text={t('noPermissionPage', lang)} back={to.list('services')} backLabel={t('navServices', lang)} />;
       return <ServicesList lang={lang} clinicId={clinicId} canWrite={settings} />;
+    case 'holidays': return <Holidays lang={lang} clinicId={clinicId} canWrite={settings} />;
+    case 'booking': return <BookingRules lang={lang} clinicId={clinicId} canWrite={settings} />;
     case 'staff':
       // staff & roles are the owner's (SRS 2.2)
       if (!can(session, 'staff:manage')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;

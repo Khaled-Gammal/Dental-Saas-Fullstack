@@ -45,6 +45,10 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   invitations_one_open_per_email: { status: 409, code: 'invitation_pending', title: 'This email already has an open invitation; resend it instead' },
   tenant_members_tenant_id_user_id_key: { status: 409, code: 'already_member', title: 'This person is already a member of the clinic' },
   doctors_member_unique: { status: 409, code: 'doctor_already_linked', title: 'This doctor already has a login' },
+  holidays_one_per_scope_date: { status: 409, code: 'holiday_exists', title: 'This day is already closed for this branch' },
+  rooms_branch_id_name_key: { status: 409, code: 'room_name_taken', title: 'This branch already has a room with this name' },
+  doctor_time_off_max_length: { status: 400, code: 'time_off_too_long', title: 'Time off can last at most a year' },
+  tenant_settings_reminder_offsets: { status: 400, code: 'invalid_reminders', title: 'Up to four reminders, between 15 minutes and 7 days before' },
 };
 
 const RESERVED = new Set(['message', 'code', 'errors', 'statusCode', 'error', 'type', 'title', 'status', 'detail', 'instance']);

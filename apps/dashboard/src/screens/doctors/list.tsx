@@ -69,6 +69,7 @@ function DoctorCard({ lang, doctor: d, branches, canWrite }: { lang: Lang; docto
           {where.length > 0 && (
             <RouteLink route={to.schedule(d.id)} className={`btn btn-${days ? 'secondary' : 'primary'}`}><CalendarIcon size={16} />{t('schedule', lang)}</RouteLink>
           )}
+          <RouteLink route={to.timeOff(d.id)}>{t('timeOffLink', lang)}</RouteLink>
           <RouteLink route={to.edit('doctors', d.id)}><EditIcon size={16} />{t('edit', lang)}</RouteLink>
         </div>
       )}

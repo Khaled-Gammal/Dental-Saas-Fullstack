@@ -1119,7 +1119,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.3 Scheduling and reception
 
-**APPT-001 — Reschedule** · NOT_IMPLEMENTED · Phase D
+**APPT-001 — Reschedule** · IMPLEMENTED (2026-10-17) · Phase D2
 - *Description:* Reception moves a `pending` or `confirmed` appointment to another time, doctor or branch.
 - *Role:* receptionist, owner (`appointments:write`).
 - *Behaviour:* the same appointment record changes (it keeps its id). The same rules as a staff booking apply
@@ -1141,7 +1141,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   deactivated doctor.
 - *Entities:* `appointments`, `doctors`, `doctor_branches`.
 
-**APPT-003 — Waiting list** · PARTIALLY_IMPLEMENTED · Phase D
+**APPT-003 — Waiting list** · IMPLEMENTED (2026-10-17) · Phase D2
 - *Description:* Per branch, today's checked-in patients in order of arrival, with waiting time, doctor and service.
 - *Behaviour:* a doctor calls the next patient in (status `checked_in → in_progress`, which opens the visit,
   VISIT-001). The list updates without a page reload (polling is enough).
@@ -1149,12 +1149,12 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   they leave the list and appear "with the doctor".
 - *Entities:* `appointments.checked_in_at`, status.
 
-**APPT-004 — Doctor's day** · PARTIALLY_IMPLEMENTED · Phase D
+**APPT-004 — Doctor's day** · IMPLEMENTED (2026-10-17; CLR-10 default: the whole schedule stays readable) · Phase D2
 - *Description:* A member linked to a doctor record opens on "my appointments today", including who is waiting
   for them. Whether doctors may also read the whole clinic schedule is pending CLR-10 (today: they can).
 - *Entities:* `appointments`, `doctors.member_id`.
 
-**APPT-005 — Holidays and doctor time off** · NOT_IMPLEMENTED (read only) · Phase D
+**APPT-005 — Holidays and doctor time off** · IMPLEMENTED (2026-10-17) · Phase D2
 - *Description:* The owner adds closed dates (one branch or all branches) and a doctor's time off (date-time range
   with a reason). Availability already honours both.
 - *Behaviour:* adding a holiday or time off over existing appointments is allowed, but those appointments are not
@@ -1164,18 +1164,18 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   appointments are listed, not changed.
 - *Entities:* `holidays`, `doctor_time_off`.
 
-**APPT-006 — Rooms and chairs** · NOT_IMPLEMENTED (DB only) · Phase D
+**APPT-006 — Rooms and chairs** · IMPLEMENTED (2026-10-17) · Phase D2
 - *Description:* The owner defines rooms/chairs per branch. Reception may assign a room when booking or later. The
   database refuses two overlapping bookings in one room and a room of another branch (existing constraints).
 - *Errors:* `slot_taken` (room), `room_not_in_branch`.
 - *Entities:* `rooms`, `appointments.room_id`.
 
-**APPT-007 — Follow-up booking from a visit** · NOT_IMPLEMENTED · Phase D
+**APPT-007 — Follow-up booking from a visit** · NOT_IMPLEMENTED · Phase D4 (needs visits)
 - *Description:* From a visit, staff book the next appointment pre-filled with patient, doctor, branch and the
   next planned treatment item. Booking a planned item links it (`treatment_plan_items.appointment_id`, status `scheduled`).
 - *Entities:* `appointments`, `treatment_plan_items`, `visits.next_visit_note`.
 
-**APPT-009 — Booking settings screen** · NOT_IMPLEMENTED · Phase D (refines DSH-12)
+**APPT-009 — Booking settings screen** · IMPLEMENTED (2026-10-17; the cancel window waits for BOOK-08) · Phase D2 (refines DSH-12)
 - *Description:* The owner edits auto-confirm, website verification code on/off, minimum notice, booking horizon,
   slot step and reminder times. The values and limits are those already enforced by `tenant_settings` CHECKs.
 - *Permissions:* `settings:write`.

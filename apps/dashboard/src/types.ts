@@ -101,11 +101,16 @@ export interface Appointment {
   branch_id: string;
   doctor_id: string;
   service_id: string | null;
+  room_id: string | null;
+  room: { id: string; name: string } | null;
   payment_mode: string;
   quoted_price_minor: number | null;
   patient_notes: string | null;
   internal_notes: string | null;
   cancel_reason: string | null;
+  confirmed_at: string | null;
+  checked_in_at: string | null;
+  completed_at: string | null;
   /** a website booking whose reception code is still open (checking in without it needs a reason) */
   has_code: boolean;
   patient: { id: string; full_name: string; phone: string; file_no: number } | null;
@@ -220,4 +225,18 @@ export interface StaffInvitation {
 export interface InvitationPreview {
   clinic: { slug: string; nameAr: string | null; nameEn: string | null }; role: { key: string; nameAr: string };
   email: string; jobTitle: string | null; expiresAt: string; allBranches: boolean; accountExists: boolean;
+}
+
+/** Closed day: one branch, or the whole clinic when `branch_id` is null. */
+export interface Holiday { id: string; branch_id: string | null; date: string; name: string }
+export interface TimeOff { id: string; starts_at: string; ends_at: string; reason: string | null }
+export interface Room { id: string; branch_id: string; name: string; is_active: boolean }
+/** A booking a new holiday or time off falls on (listed, never changed automatically). */
+export interface CalendarConflict {
+  id: string; starts_at: string; status: AppointmentStatus; branch_id: string;
+  patient: { id: string; full_name: string; phone: string } | null; doctor: { name_ar: string | null; name_en: string | null };
+}
+export interface BookingSettings {
+  autoConfirm: boolean; otpRequired: boolean; minNoticeMinutes: number; maxDaysAhead: number; slotStepMinutes: number;
+  cancelWindowHours: number; reminderOffsetsMinutes: number[];
 }

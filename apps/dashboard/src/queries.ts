@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CatalogEntry, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  PatientDetail, PatientPage, Service, StaffInvitation, StaffMember, StaffRole, StaffSlots, WebsiteStatus,
+  BookingSettings, Holiday, PatientDetail, PatientPage, Room, Service, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, WebsiteStatus,
 } from './types';
 
 /**
@@ -70,10 +70,11 @@ export function useInvalidate(clinicId: string) {
 }
 
 /** One day of appointments; the key extends the clinic key so one invalidation refreshes every day and branch. */
-export const useAppointments = (clinicId: string, date: string, branchId?: string) =>
+/** `mine`: only the signed-in doctor's own appointments (SRS APPT-004). */
+export const useAppointments = (clinicId: string, date: string, branchId?: string, mine = false) =>
   useQuery({
-    queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all'] as const,
-    queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }) })}`),
+    queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all', mine ? 'mine' : 'clinic'] as const,
+    queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }), ...(mine && { mine: 'true' }) })}`),
     refetchInterval: 30_000, // reception keeps the day open; website bookings appear without a reload
   });
 
@@ -141,12 +142,44 @@ export function useSaveMedicalHistory(clinicId: string, id: string) {
 }
 
 /** Free times for a staff booking (doctor + day). */
-export const useStaffSlots = (clinicId: string, q: { branchId: string; doctorId: string; serviceId?: string; date: string }) =>
+/** Free times for a staff booking or a move (`excludeAppointmentId`: the moved booking's own time counts as free). */
+export const useStaffSlots = (clinicId: string, q: { branchId: string; doctorId: string; serviceId?: string; date: string; durationMinutes?: number; excludeAppointmentId?: string }) =>
   useQuery({
     queryKey: [...keys.appointments(clinicId), 'slots', q] as const,
-    queryFn: () => api<StaffSlots>(`/appointments/availability?${new URLSearchParams({ branchId: q.branchId, doctorId: q.doctorId, date: q.date, ...(q.serviceId && { serviceId: q.serviceId }) })}`),
+    queryFn: () => api<StaffSlots>(`/appointments/availability?${new URLSearchParams({
+      branchId: q.branchId, doctorId: q.doctorId, date: q.date, ...(q.serviceId && { serviceId: q.serviceId }),
+      ...(q.durationMinutes && { durationMinutes: String(q.durationMinutes) }), ...(q.excludeAppointmentId && { excludeAppointmentId: q.excludeAppointmentId }),
+    })}`),
     enabled: !!(q.branchId && q.doctorId && q.date),
   });
+
+export const useAppointment = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: [...keys.appointments(clinicId), 'one', id] as const, queryFn: () => api<Appointment>(`/appointments/${id}`), enabled: !!id });
+
+/** Reschedule and/or set the room (POST /appointments/:id/move); only changed fields are sent. */
+export function useMoveAppointment(clinicId: string) {
+  const invalidate = useInvalidate(clinicId);
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api<Appointment>(`/appointments/${id}/move`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void invalidate('appointments'),
+  });
+}
+
+// ---------- calendar: holidays, time off, rooms, booking rules ----------
+export const calendarKeys = {
+  holidays: (clinicId: string) => ['holidays', clinicId] as const,
+  timeOff: (clinicId: string, doctorId: string) => ['time-off', clinicId, doctorId] as const,
+  rooms: (clinicId: string, branchId: string) => ['rooms', clinicId, branchId] as const,
+  booking: (clinicId: string) => ['booking-settings', clinicId] as const,
+};
+export const useHolidays = (clinicId: string) =>
+  useQuery({ queryKey: calendarKeys.holidays(clinicId), queryFn: () => api<Holiday[]>('/holidays') });
+export const useTimeOff = (clinicId: string, doctorId: string | undefined) =>
+  useQuery({ queryKey: calendarKeys.timeOff(clinicId, doctorId ?? ''), queryFn: () => api<TimeOff[]>(`/doctors/${doctorId}/time-off`), enabled: !!doctorId });
+export const useRooms = (clinicId: string, branchId: string | undefined) =>
+  useQuery({ queryKey: calendarKeys.rooms(clinicId, branchId ?? ''), queryFn: () => api<Room[]>(`/branches/${branchId}/rooms`), enabled: !!branchId });
+export const useBookingSettings = (clinicId: string) =>
+  useQuery({ queryKey: calendarKeys.booking(clinicId), queryFn: () => api<BookingSettings>('/clinic/booking-settings') });
 
 export function useBookAppointment(clinicId: string) {
   const invalidate = useInvalidate(clinicId);

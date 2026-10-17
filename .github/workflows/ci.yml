@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'v4/**'] # the v4 phase branches run CI on every push, before a pull request exists
   pull_request:
 
 jobs:

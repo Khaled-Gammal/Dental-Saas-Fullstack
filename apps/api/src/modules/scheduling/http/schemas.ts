@@ -25,7 +25,17 @@ export const HostQuery = z.object({ host: Host }).strict();
 export const HostOnlyBody = z.object({ host: Host }).passthrough();
 export const ArriveBody = z.object({ note: z.string().trim().min(3).max(300).optional() }).strict();
 
-export const DayQuery = z.object({ date: IsoDate, branchId: Uuid.optional() }).strict();
+export const DayQuery = z.object({
+  date: IsoDate, branchId: Uuid.optional(),
+  /** only the signed-in doctor's own appointments (SRS APPT-004) */
+  mine: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
+}).strict();
+export const MoveBody = z.object({
+  startsAt: Instant.optional(), doctorId: Uuid.optional(), branchId: Uuid.optional(),
+  durationMinutes: z.number().int().min(5).max(480).optional(),
+  roomId: Uuid.nullable().optional(),
+  overrideReason: z.string().trim().min(3).max(200).optional(),
+}).strict();
 export const StaffBookingBody = z.object({
   patientId: Uuid, branchId: Uuid, doctorId: Uuid, serviceId: Uuid.nullable().optional(), startsAt: Instant,
   durationMinutes: z.number().int().min(5).max(480).optional(),
@@ -34,6 +44,8 @@ export const StaffBookingBody = z.object({
 }).strict();
 export const StaffSlotsQuery = z.object({
   branchId: Uuid, doctorId: Uuid, serviceId: Uuid.optional(), date: IsoDate, durationMinutes: z.coerce.number().int().min(5).max(480).optional(),
+  /** the appointment being moved: its own time counts as free */
+  excludeAppointmentId: Uuid.optional(),
 }).strict();
 export const CheckInBody = z.object({ code: OtpCode, branchId: Uuid, method: z.enum(['code', 'qr']).optional() }).strict();
 export const CancelBody = z.object({ reason: z.string().trim().max(200).optional() }).strict();

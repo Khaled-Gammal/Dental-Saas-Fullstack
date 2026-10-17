@@ -47,6 +47,18 @@ describe('staff and invitation links', () => {
   });
 });
 
+describe('calendar routes (Phase D2)', () => {
+  it('has move, time-off, rooms, holidays and booking pages', () => {
+    expect(parseRoute('#/appointments/a1/edit')).toEqual({ page: 'appointments', id: 'a1', action: 'edit' });
+    expect(parseRoute('#/doctors/d1/timeoff')).toEqual({ page: 'doctors', id: 'd1', action: 'timeoff' });
+    expect(parseRoute('#/branches/b1/rooms')).toEqual({ page: 'branches', id: 'b1', action: 'rooms' });
+    expect(parseRoute('#/holidays')).toEqual({ page: 'holidays' });
+    expect(parseRoute('#/booking')).toEqual({ page: 'booking' });
+    expect(parseRoute('#/holidays/new')).toEqual({ page: 'not-found' });
+    for (const r of [to.timeOff('d1'), to.rooms('b1'), to.edit('appointments', 'a1')]) expect(parseRoute(href(r))).toEqual(r);
+  });
+});
+
 describe('href', () => {
   it('round-trips every route shape', () => {
     for (const r of [to.list('overview'), to.list('doctors'), to.create('doctors'), to.edit('services', 'x'), to.hours('b'), to.schedule('d'), to.create('services', { catalog: 'rct' }), to.view('patients', 'p'), to.edit('patients', 'p'), to.create('appointments', { patient: 'p' })]) {

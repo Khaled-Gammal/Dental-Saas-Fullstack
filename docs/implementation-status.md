@@ -3,21 +3,21 @@
 The tracker for every requirement in `docs/SRS.md`. **Where this file and the SRS disagree, this file wins.**
 It is updated at the end of every phase. A status changes only with evidence: code, plus a test that ran and passed.
 
-Last updated: 2026-10-17, end of Phase D1 (reviews: `docs/reviews/2026-10-17-phase-c-security.md`, `docs/reviews/2026-10-17-phase-d1-staff.md`).
+Last updated: 2026-10-17, end of Phase D2 (reviews in `docs/reviews/`: phase C, D1 and D2 of 2026-10-17).
 
-## Last verification run (2026-10-17, end of Phase D1)
+## Last verification run (2026-10-17, end of Phase D2)
 
 | Check | Result |
 | --- | --- |
-| Database tests (`pnpm db:test`) | 18 files, **233 checks passed** |
-| API e2e + unit (`pnpm --filter @dental/api test`) | 15 suites, **169 tests passed** |
-| Dashboard unit (vitest) | 44 passed |
+| Database tests (`pnpm db:test`) | 19 files, **248 checks passed** |
+| API e2e + unit (`pnpm --filter @dental/api test`) | 16 suites, **182 tests passed** |
+| Dashboard unit (vitest) | 51 passed |
 | Website unit (vitest) | 20 passed |
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
 | CI on GitHub | workflow in place; first run not yet observed (not pushed) |
-| Browser check of the D1 screens | **not done**: the connected Chrome could not open `localhost:5173` (see the D1 review) |
+| Browser check of the D1 and D2 screens | **not done**: the connected Chrome could not open `localhost:5173` (see the D1 review) |
 
 ## Clinic workflow (SRS §3)
 
@@ -25,11 +25,11 @@ Last updated: 2026-10-17, end of Phase D1 (reviews: `docs/reviews/2026-10-17-pha
 | --- | --- | --- | --- |
 | 1 | Sign up | IMPLEMENTED | terms acceptance (AUTH-01) |
 | 2 | Clinic setup | IMPLEMENTED | currency display setting (L10N-005) |
-| 3 | Branch setup | PARTIALLY | holidays, rooms (APPT-005/006) |
-| 4 | Staff and doctor setup | IMPLEMENTED | doctor time off (APPT-005) |
+| 3 | Branch setup | IMPLEMENTED | — |
+| 4 | Staff and doctor setup | IMPLEMENTED | — |
 | 5 | Services and pricing | IMPLEMENTED | — |
-| 6 | Booking | PARTIALLY | reschedule (APPT-001) |
-| 7 | Check-in | PARTIALLY | waiting list (APPT-003) |
+| 6 | Booking | IMPLEMENTED | patient self-service links (BOOK-08, deferred) |
+| 7 | Check-in | IMPLEMENTED | — |
 | 8 | Clinical visit | NOT_IMPLEMENTED | VISIT-001/002 |
 | 9 | Chart and treatment plan | NOT_IMPLEMENTED | CHART-001, TPLAN-* |
 | 10 | Procedures | NOT_IMPLEMENTED | VISIT-003 |
@@ -51,15 +51,15 @@ Last updated: 2026-10-17, end of Phase D1 (reviews: `docs/reviews/2026-10-17-pha
 | ACCESS-003 | Branch-scoped access | IMPLEMENTED | C | Restrictive RLS (migration 0015) + `branch_forbidden` in scheduling; `15_branch_access.sql`, `access.e2e-spec.ts`. Cash sessions get the policy when they exist (E) |
 | ACCESS-004 | Permission catalogue + separation | IMPLEMENTED | C | Migration 0014; `16_permissions_and_users.sql`. New permissions are enforced as their features arrive (`patients:block` now) |
 | ACCESS-005 | Access changes on the next request | IMPLEMENTED | D1 | `access_version` + `member_access_state()` checked in `JwtAuthGuard`; `staff.e2e-spec.ts` |
-| APPT-001 | Reschedule | NOT_IMPLEMENTED | D2 | — |
+| APPT-001 | Reschedule | IMPLEMENTED | D2 | `POST /appointments/:id/move`, `appointment.rescheduled` worker handler; dashboard `#/appointments/<id>/edit`; `calendar.e2e-spec.ts` |
 | APPT-002 | Staff booking validation | IMPLEMENTED | C | API (`doctor_inactive`, `doctor_not_at_branch`) + trigger (0012); `access.e2e-spec.ts`, `13_money_integrity.sql` |
-| APPT-003 | Waiting list | PARTIALLY | D2 | Day list shows `checked_in` |
-| APPT-004 | Doctor's day | PARTIALLY | D2 | No "my appointments" filter |
-| APPT-005 | Holidays, doctor time off | NOT_IMPLEMENTED (read only) | D2 | Honoured by availability (`dayContext()`), no CRUD |
-| APPT-006 | Rooms and chairs | NOT_IMPLEMENTED (DB only) | D2 | Room exclusion constraint exists |
+| APPT-003 | Waiting list | IMPLEMENTED | D2 | Appointments "قائمة الانتظار" view (`calendar-model.ts` `waitingList`, unit-tested) |
+| APPT-004 | Doctor's day | IMPLEMENTED | D2 | `GET /appointments?mine=true`; doctors open on "مواعيدي" |
+| APPT-005 | Holidays, doctor time off | IMPLEMENTED | D2 | `/holidays`, `/doctors/:id/time-off` (conflicts listed, nothing cancelled); dashboard `#/holidays`, `#/doctors/<id>/timeoff` |
+| APPT-006 | Rooms and chairs | IMPLEMENTED | D2 | `/branches/:id/rooms`, room via the move endpoint; dashboard `#/branches/<id>/rooms` |
 | APPT-007 | Follow-up booking from a visit | NOT_IMPLEMENTED | D4 | — |
 | APPT-008 | — | WITHDRAWN | — | Covered by AUDIT-003 |
-| APPT-009 | Booking settings screen | NOT_IMPLEMENTED | D2 | `tenant_settings` defaults only |
+| APPT-009 | Booking settings screen | IMPLEMENTED | D2 | `/clinic/booking-settings`; dashboard `#/booking` |
 | PATIENT-001 | Arabic-normalised search | NOT_IMPLEMENTED | D3 | Trigram + ILIKE only |
 | PATIENT-002 | Possible-duplicate warning | NOT_IMPLEMENTED | D3 | — |
 | PATIENT-003 | Merge duplicates | NOT_IMPLEMENTED (DB only) | D5 | `merged_into_id` honoured by reads |
@@ -131,5 +131,6 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-17 | D2 | Migration 0018; APPT-001, 003, 004, 005, 006, 009 done; CI also runs on `v4/**` pushes |
 | 2026-10-17 | D1 | Migration 0017; ACCESS-001/002/005, AUTH-102, AUDIT-003 done. Defaults accepted for CLR-06, 10, 11, 13, 14, 15, 16 |
 | 2026-10-17 | C | Migrations 0012–0016; AUTH-101, ACCESS-003/004, APPT-002, PAY-003, AUDIT-001, SEC-101/102/103, OPS-001 done; AUDIT-003 partly. CLR-05 default and branch-access option B applied |

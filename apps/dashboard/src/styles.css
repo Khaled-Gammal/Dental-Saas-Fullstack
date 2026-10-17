@@ -531,3 +531,9 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 /* Team screen (Phase D1): headings between the members and invitations lists */
 .section-title { font-size: var(--fs-lg); font-weight: 700; margin: 0 0 12px; }
 .section-title.mt { margin-top: 28px; }
+
+/* Appointments views (Phase D2): all / waiting list / my day */
+.seg { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--card); flex-wrap: wrap; }
+.seg-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 0; border-radius: var(--r-sm, 8px); background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.seg-btn:hover { background: var(--primary-50); }
+.seg-btn.is-on { background: var(--primary-500); color: #fff; }
