@@ -22,6 +22,8 @@ import { Holidays } from './screens/calendar/holidays';
 import { BranchRooms } from './screens/calendar/rooms';
 import { DoctorTimeOff } from './screens/calendar/time-off';
 import { Discounts } from './screens/billing/discounts';
+import { CashBox } from './screens/finance/cash';
+import { Expenses } from './screens/finance/expenses';
 import { InvoicePage } from './screens/billing/invoice';
 import { InvoicesList } from './screens/billing/list';
 import { NewInvoice } from './screens/billing/new';
@@ -177,6 +179,14 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
     case 'discounts':
       if (!can(session, 'discounts:approve')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
       return <Discounts lang={lang} clinicId={clinicId} canSetLimits={can(session, 'staff:manage')} />;
+    case 'expenses': {
+      const rights = { all: can(session, 'expenses:write'), cash: can(session, 'expenses:write:cash'), read: can(session, 'expenses:read'), approve: can(session, 'expenses:approve') };
+      if (!rights.read && !rights.all && !rights.cash) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
+      return <Expenses lang={lang} clinicId={clinicId} rights={rights} />;
+    }
+    case 'cash':
+      if (!can(session, 'cash:operate')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
+      return <CashBox lang={lang} clinicId={clinicId} />;
     case 'payments':
       return <ReceiptPrint lang={lang} clinicId={clinicId} id={id} />;
     case 'holidays': return <Holidays lang={lang} clinicId={clinicId} canWrite={settings} />;

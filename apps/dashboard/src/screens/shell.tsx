@@ -3,14 +3,14 @@ import { pickName } from '@dental/ui/text';
 import { can, logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
 import { Badge, LinkButton, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, WalletIcon, ToothIcon, UsersIcon } from '../ui/icons';
 import { useProfile } from '../queries';
 import { useMediaQuery } from '../hooks';
 import { to, type Page } from '../router';
 import { RouteLink } from '../ui/page';
 
-/** `perm`: shown only to members who hold it (the page refuses others anyway). */
-type NavItem = { key: Key; icon: ReactNode; page?: Page; perm?: string };
+/** `perm`: shown only to members who hold it, or one of them (the page refuses others anyway). */
+type NavItem = { key: Key; icon: ReactNode; page?: Page; perm?: string | string[] };
 const NAV: NavItem[] = [
   { key: 'navOverview', icon: <HomeIcon />, page: 'overview' },
   { key: 'navProfile', icon: <ToothIcon />, page: 'profile' },
@@ -23,6 +23,8 @@ const NAV: NavItem[] = [
   { key: 'navStaff', icon: <ShieldIcon />, page: 'staff', perm: 'staff:manage' },
   { key: 'navBilling', icon: <ReceiptIcon />, page: 'invoices', perm: 'invoices:read' },
   { key: 'navDiscounts', icon: <TagIcon />, page: 'discounts', perm: 'discounts:approve' },
+  { key: 'navCash', icon: <CashIcon />, page: 'cash', perm: 'cash:operate' },
+  { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses', perm: ['expenses:read', 'expenses:write', 'expenses:write:cash'] },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
   { key: 'navWebsite', icon: <GlobeIcon /> },
 ];
@@ -76,7 +78,7 @@ export function AppShell({ lang, onLang, session, page, children }: {
         </div>
         <nav aria-label={t('mainNav', lang)}>
           <ul className="nav">
-            {NAV.filter((n) => !n.perm || can(session, n.perm)).map((n) => (
+            {NAV.filter((n) => !n.perm || [n.perm].flat().some((p) => can(session, p))).map((n) => (
               <li key={n.key}>
                 {n.page ? (
                   <RouteLink route={to.list(n.page)} className={`nav-item${page === n.page ? ' active' : ''}`} aria-current={page === n.page ? 'page' : undefined}

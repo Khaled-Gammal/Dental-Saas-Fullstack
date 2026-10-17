@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type {
-  Appointment, AuditEntry, Branch, CatalogEntry, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
+  Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, CatalogEntry, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
   BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
   StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
@@ -313,7 +313,8 @@ export function useBillingMutation<V, R = unknown>(clinicId: string, fn: (v: V) 
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: billingKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) })]),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: billingKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) }),
+      qc.invalidateQueries({ queryKey: financeKeys.all(clinicId) })]),
   });
 }
 
@@ -323,3 +324,31 @@ export const useDiscountLimits = (clinicId: string) =>
   useQuery({ queryKey: [...billingKeys.all(clinicId), 'discounts', 'limits'] as const, queryFn: () => api<RoleLimit[]>('/discounts/limits') });
 export const useOverdueInstallments = (clinicId: string, enabled = true) =>
   useQuery({ queryKey: [...billingKeys.all(clinicId), 'overdue'] as const, queryFn: () => api<{ today: string; items: OverdueInstallment[] }>('/installments/overdue'), enabled });
+
+// ---------- expenses and the daily cash box (Phase E3) ----------
+export const financeKeys = { all: (clinicId: string) => ['finance', clinicId] as const };
+const qs = (q: Record<string, string | undefined>) => {
+  const p = new URLSearchParams(Object.entries(q).filter((e): e is [string, string] => !!e[1]));
+  return p.size ? `?${p}` : '';
+};
+/** Every expense or cash write refreshes expenses and the cash day (an expense paid in cash moves expected cash). */
+export function useFinanceMutation<V, R = unknown>(clinicId: string, fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: financeKeys.all(clinicId) }) });
+}
+export const useExpenses = (clinicId: string, q: { status?: string; from?: string; to?: string; branchId?: string; categoryId?: string }) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', q] as const, queryFn: () => api<ExpensesPage>(`/expenses${qs(q)}`) });
+export const usePendingExpenses = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', 'pending'] as const, queryFn: () => api<Expense[]>('/expenses/pending'), enabled });
+export const useExpenseCategories = (clinicId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'categories'] as const, queryFn: () => api<ExpenseCategory[]>('/expenses/categories') });
+export const useExpenseSettings = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'settings'] as const, queryFn: () => api<{ receptionLimitMinor: number }>('/expenses/settings'), enabled });
+export const useCashBranches = (clinicId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-branches'] as const, queryFn: () => api<CashBranch[]>('/cash/branches') });
+export const useCashDay = (clinicId: string, branchId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-day', branchId] as const, queryFn: () => api<CashDay>(`/cash/today?branchId=${branchId}`), enabled: !!branchId });
+export const useCashHistory = (clinicId: string, branchId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-history', branchId] as const, queryFn: () => api<CashSession[]>(`/cash/sessions?branchId=${branchId}`), enabled: !!branchId });
+export const useCashSession = (clinicId: string, id: string | null) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-session', id] as const, queryFn: () => api<CashSession>(`/cash/sessions/${id}`), enabled: !!id });

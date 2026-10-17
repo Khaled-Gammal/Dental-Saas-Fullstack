@@ -376,3 +376,31 @@ export interface OverdueInstallment {
   id: string; seq: number; due_date: string; amount_minor: number; paid_minor: number; status: string; invoice_id: string; number: string | null; currency: string;
   patient: { id: string; full_name: string; file_no: number; phone: string };
 }
+
+// ---------- expenses and the daily cash box (Phase E3) ----------
+export type ExpenseStatus = 'pending' | 'approved' | 'rejected' | 'void';
+export interface ExpenseCategory { id: string; key: string | null; name: string; is_active: boolean; uses: number }
+export interface Expense {
+  id: string; branch_id: string; category_id: string; category_name: string; amount_minor: number; currency: string; spent_on: string;
+  payment_method: PaymentMethod | null; reference: string | null; supplier_name: string | null; description: string | null; status: ExpenseStatus;
+  created_by: string | null; created_at: string; created_by_name: string | null; approved_at: string | null; approved_by_name: string | null; decision_note: string | null;
+  void_reason: string | null; voided_at: string | null; voided_by_name: string | null; branch: { name_ar: string | null; name_en: string | null };
+  can?: { decide: boolean; void: boolean };
+}
+export interface ExpensesPage { items: Expense[]; byCategory: { id: string; name: string; amount: number }[] | null }
+export interface DayTotals {
+  payments: Record<string, number>; refunds: Record<string, number>; expenses: Record<string, number>;
+  cash_in: number; cash_refunds: number; cash_expenses: number;
+}
+export interface CashReopening {
+  id: string; reason: string; previous_counted: number; previous_expected: number; previous_note: string | null; previous_closed_at: string;
+  previous_closed_by_name: string | null; reopened_at: string; reopened_by_name: string | null;
+}
+export interface CashSession {
+  id: string; branch_id: string; business_date: string; currency: string; status: 'open' | 'closed'; opening_minor: number; opened_at: string; opened_by_name: string | null;
+  counted_minor: number | null; expected_minor: number | null; difference_minor: number | null; note: string | null; closed_at: string | null; closed_by_name: string | null;
+  reopen_count: number; branch: { name_ar: string | null; name_en: string | null };
+  totals?: DayTotals; reopenings?: CashReopening[]; can?: { close: boolean; reopen: boolean };
+}
+export interface CashDay { business_date: string; session: CashSession | null; earlier_open: CashSession | null; suggested_opening: number | null; totals?: DayTotals }
+export interface CashBranch { id: string; name_ar: string | null; name_en: string | null; is_main: boolean }

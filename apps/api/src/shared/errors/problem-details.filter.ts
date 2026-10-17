@@ -92,6 +92,18 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   balance_adjustments_installment: { status: 409, code: 'installment_closed', title: 'Only an unpaid installment is waived' },
   patients_merge_self: { status: 400, code: 'merge_self', title: 'Choose another record to merge into this one' },
   patients_already_merged: { status: 409, code: 'already_merged', title: 'One of the records is already merged' },
+  // expenses and the cash day (Phase E3)
+  expenses_future: { status: 400, code: 'date_in_future', title: 'An expense is not dated in the future' },
+  payments_future: { status: 400, code: 'date_in_future', title: 'A payment is not dated in the future' },
+  expenses_locked: { status: 409, code: 'expense_locked', title: 'A recorded expense is not edited; void it and record it again' },
+  expenses_self_approval: { status: 403, code: 'self_approval', title: 'An expense is approved by someone else' },
+  expenses_void_complete: { status: 400, code: 'void_reason_required', title: 'Give the reason for voiding' },
+  expenses_reference_required: { status: 400, code: 'reference_required', title: 'Enter the transfer, wallet or InstaPay reference' },
+  expense_categories_tenant_id_name_key: { status: 409, code: 'category_name_taken', title: 'A category with this name exists' },
+  cash_session_closed: { status: 409, code: 'session_closed', title: 'The cash day is closed; the owner can reopen it' },
+  cash_sessions_one_per_day: { status: 409, code: 'session_already_open', title: 'Today’s cash session already exists' },
+  cash_sessions_one_open_per_branch: { status: 409, code: 'another_session_open', title: 'Another cash session of this branch is open; close it first' },
+  cash_sessions_difference_note: { status: 400, code: 'difference_note_required', title: 'Explain the difference between the counted and the expected cash' },
   prescriptions_replaced_once: { status: 409, code: 'prescription_already_corrected', title: 'This prescription was already corrected' },
 };
 

@@ -654,3 +654,11 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 /* discounts, installments (Phase E2) */
 .input-sm { min-height: 34px; padding: 4px 8px; width: auto; max-width: 140px; font-size: var(--fs-sm); }
 .line-discount { flex-basis: 100%; }
+
+/* expenses and the cash box (Phase E3) */
+.row-start { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.period { display: flex; gap: 8px; flex-wrap: wrap; }
+.period > * { min-width: 150px; }
+.block { display: block; }
+.struck { text-decoration: line-through; color: var(--muted); }
+.cash-figures li { padding-block: 6px; }

@@ -166,7 +166,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | DSH-05 | V1 | PARTIALLY_IMPLEMENTED | Brought into v4: TPLAN-001…004 (D4); converting steps to invoice items comes with billing (Phase E) |
 | DSH-06 | M | IMPLEMENTED (2026-10-17, D4) | Refined by VISIT-001…005 |
 | DSH-07 | M | NOT_IMPLEMENTED (DB only) | Refined by BILLING-*, PAY-*, DISC-* |
-| DSH-08 | V1 | NOT_IMPLEMENTED (minimal table) | Brought into v4: EXP-001…004 |
+| DSH-08 | V1 | IMPLEMENTED (2026-10-17, E3) | Brought into v4: EXP-001…004 |
 | DSH-09 | V2 | DEFERRED | — |
 | DSH-10 | M | PARTIALLY_IMPLEMENTED | Doctor schedules done; invite, roles, branch access, time off missing; commission % deferred. Refined by ACCESS-001…005, APPT-005 |
 | DSH-11 | V1 | NOT_IMPLEMENTED | Brought into v4 for the approved reports: REPORT-001…006. Excel export deferred |
@@ -1413,7 +1413,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   installment the day after its due date.
 - *Entities:* `payment_plans`, `installments`, `payments`.
 
-**PAY-005 — Refunds** · IMPLEMENTED (2026-10-17, E1; CLR-05; the cash-day effect comes with CASH-002 in E3) · Phase E
+**PAY-005 — Refunds** · IMPLEMENTED (2026-10-17, E1; CLR-05; cash refunds reduce expected cash since E3) · Phase E
 - *Description:* Money returned to a patient against a succeeded payment.
 - *Behaviour:* the refund records amount, reason, refund method, date, branch and the staff member. Total refunds
   never exceed the payment, and concurrent refunds are serialized (existing trigger). The invoice balance reopens.
@@ -1455,7 +1455,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.10 Expenses (feature F3)
 
-**EXP-001 — Record an expense** · NOT_IMPLEMENTED (minimal table) · Phase E (refines DSH-08)
+**EXP-001 — Record an expense** · PARTIAL (2026-10-17, E3: everything but the supporting document, which comes with private expense files) · Phase E (refines DSH-08)
 - *Description:* An expense with branch, category, description, amount, date, payment method (cash, bank transfer,
   card, wallet, InstaPay), reference, optional supplier and optional supporting document.
 - *Behaviour:* the responsible staff member is the signed-in member who records it. The supporting document is
@@ -1465,47 +1465,50 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Permissions:* `expenses:write`.
 - *Entities:* `expenses` (+ method, reference, status, approver, responsible-staff FK), `files`.
 
-**EXP-002 — Expense categories** · NOT_IMPLEMENTED · Phase E
+**EXP-002 — Expense categories** · IMPLEMENTED (2026-10-17, E3) · Phase E
 - *Description:* Each clinic starts with categories in Arabic: rent (إيجار), salaries (رواتب), supplies (مستلزمات),
   equipment (أجهزة ومعدات), laboratory (معامل), utilities (كهرباء ومياه وإنترنت), maintenance (صيانة), other (أخرى).
   The owner adds or renames categories. A category in use is deactivated, not deleted.
 - *Entities:* `expense_categories` (+ `is_active`).
 
-**EXP-003 — Expense approval** · NOT_IMPLEMENTED · Phase E — rules pending CLR-03
+**EXP-003 — Expense approval** · IMPLEMENTED (2026-10-17, E3; CLR-03) · Phase E
 - *Description:* An expense that needs approval is pending until a member with `expenses:approve` approves or rejects
-  it. Which expenses need approval is decided in CLR-03. Approving one's own expense is not allowed.
+  it. Which expenses need approval is decided in CLR-03: the owner's and the accountant's are approved on entry;
+  reception records cash expenses only, up to the clinic's limit (500.00 to start), and they wait for the owner.
+  Approving one's own expense is not allowed. A pending or rejected cash expense still counts on its cash day: the
+  cash left the drawer either way; only voiding (recorded in error) changes the day.
 - *Errors:* `self_approval`.
 
-**EXP-004 — Expense corrections** · NOT_IMPLEMENTED · Phase E
+**EXP-004 — Expense corrections** · IMPLEMENTED (2026-10-17, E3) · Phase E
 - *Description:* An approved expense is not edited. A wrong one is voided with a reason and recorded again. Voided
   expenses stay visible.
 - *Errors:* `expense_locked`, `void_reason_required`.
 
 ### B.11 Daily cash reconciliation (feature F5)
 
-The unit of reconciliation (per branch per day, or per staff shift/drawer) is pending **CLR-04**. The requirements
-below are written for "cash session" and hold for either answer.
+The unit of reconciliation is one session per branch per business day (**CLR-04**, answered 2026-10-17): a movement
+belongs to the session of its branch and its business date in the clinic's time zone.
 
-**CASH-001 — Open a cash session** · NOT_IMPLEMENTED · Phase E
+**CASH-001 — Open a cash session** · IMPLEMENTED (2026-10-17, E3) · Phase E
 - *Description:* A member with `cash:operate` opens the session with the counted opening cash. The previous
   session's counted closing cash is proposed.
 - *Errors:* `session_already_open`.
 - *Entities:* new `cash_sessions`.
 
-**CASH-002 — Expected cash** · NOT_IMPLEMENTED · Phase E
+**CASH-002 — Expected cash** · IMPLEMENTED (2026-10-17, E3) · Phase E
 - *Description:* Expected cash = opening cash + **cash** payments received − **cash** refunds paid − expenses paid
   **in cash**, all within the session. It is computed from recorded transactions, never typed. Non-cash payments
   (card, bank transfer, wallet, InstaPay) are listed per method beside it and are not part of expected cash.
 - *Acceptance:* a 500 cash payment, a 200 card payment and a 100 cash expense on an opening of 1 000 give expected
   cash 1 400, with card 200 shown separately.
 
-**CASH-003 — Close a cash session** · NOT_IMPLEMENTED · Phase E
+**CASH-003 — Close a cash session** · IMPLEMENTED (2026-10-17, E3) · Phase E
 - *Description:* The member counts the cash and enters the actual amount. The system shows difference = actual −
   expected. A note is required when the difference is not zero. The session records who closed it and when, and is
   then locked: its transactions can no longer change.
 - *Errors:* `difference_note_required`, `session_closed`.
 
-**CASH-004 — Reopen a closed session** · NOT_IMPLEMENTED · Phase E — rules pending CLR-04
+**CASH-004 — Reopen a closed session** · IMPLEMENTED (2026-10-17, E3; CLR-04) · Phase E
 - *Description:* Reopening, if allowed, needs `cash:reopen` and a reason. It is audited, and the earlier closing
   figures stay in the history.
 

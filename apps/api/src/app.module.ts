@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { ClinicSetupModule } from './modules/clinic-setup/clinic-setup.module';
 import { BillingModule } from './modules/billing';
+import { FinanceModule } from './modules/finance';
 import { ClinicalModule } from './modules/clinical';
 import { IdentityModule } from './modules/identity/identity.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
@@ -64,6 +65,7 @@ class ConfigModule {}
     PatientsModule,
     ClinicalModule,
     BillingModule,
+    FinanceModule,
     MediaModule,
     GalleryModule,
     StaffModule,

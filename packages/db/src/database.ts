@@ -132,6 +132,39 @@ export interface BranchHours {
   weekday: number;
 }
 
+export interface CashSessionReopenings {
+  id: Generated<string>;
+  previous_closed_at: Timestamp;
+  previous_closed_by: string | null;
+  previous_counted: Int8;
+  previous_expected: Int8;
+  previous_note: string | null;
+  reason: string;
+  reopened_at: Generated<Timestamp>;
+  reopened_by: string;
+  session_id: string;
+  tenant_id: string;
+}
+
+export interface CashSessions {
+  branch_id: string;
+  business_date: Timestamp;
+  closed_at: Timestamp | null;
+  closed_by: string | null;
+  closing_totals: Json | null;
+  counted_minor: Int8 | null;
+  currency: string;
+  difference_minor: Generated<Int8 | null>;
+  expected_minor: Int8 | null;
+  id: Generated<string>;
+  note: string | null;
+  opened_at: Generated<Timestamp>;
+  opened_by: string;
+  opening_minor: Int8;
+  status: Generated<string>;
+  tenant_id: string;
+}
+
 export interface ConsentTemplates {
   body_ar: string | null;
   body_en: string | null;
@@ -231,23 +264,36 @@ export interface Domains {
 
 export interface ExpenseCategories {
   id: Generated<string>;
+  is_active: Generated<boolean>;
+  key: string | null;
   name: string;
   tenant_id: string;
 }
 
 export interface Expenses {
   amount_minor: Int8;
+  approved_at: Timestamp | null;
+  approved_by: string | null;
   branch_id: string;
   category_id: string;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   currency: string;
+  decision_note: string | null;
   description: string | null;
   file_id: string | null;
   id: Generated<string>;
+  payment_method: string | null;
+  reference: string | null;
   spent_on: Timestamp;
+  status: Generated<string>;
   supplier_id: string | null;
+  supplier_name: string | null;
   tenant_id: string;
+  updated_at: Generated<Timestamp>;
+  void_reason: string | null;
+  voided_at: Timestamp | null;
+  voided_by: string | null;
 }
 
 export interface Faqs {
@@ -1034,6 +1080,7 @@ export interface TenantSettings {
   booking_payment_mode: Generated<string>;
   booking_slot_step_minutes: Generated<number>;
   invoice_prefix: Generated<string>;
+  reception_expense_limit_minor: Generated<Int8>;
   reminder_offsets_minutes: Generated<number[]>;
   tax_rate_bp: Generated<number>;
   tax_registration_no: string | null;
@@ -1192,6 +1239,8 @@ export interface DB {
   balance_adjustments: BalanceAdjustments;
   branch_hours: BranchHours;
   branches: Branches;
+  cash_session_reopenings: CashSessionReopenings;
+  cash_sessions: CashSessions;
   consent_templates: ConsentTemplates;
   doctor_branches: DoctorBranches;
   doctor_payouts: DoctorPayouts;

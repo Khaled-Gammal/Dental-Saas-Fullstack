@@ -7,7 +7,7 @@
 --   Nour Ali     — invoice paid in full (card + bank transfer); another invoice issued by mistake and voided
 --   منى عبد الله  — a cash payment entered by mistake and reversed, then paid by e-wallet
 --   كريم حسن     — paid by card, then 200 EGP refunded in cash (part of the treatment was not done)
--- Visits and recorded payments can never be deleted (by design); reset the dev database to remove them.
+-- Visits, recorded payments, expenses and cash days can never be deleted (by design); reset the dev database to remove them.
 DO $demo$
 DECLARE
   t   constant uuid := '11111111-1111-1111-1111-111111111111';
@@ -149,3 +149,61 @@ BEGIN
 
   RAISE NOTICE 'E2 demo data created';
 END $demo2$;
+
+-- Phase E3: expenses and the cash box. Yesterday's cash day at Nasr City was opened with 1,000, paid 150 in cash
+-- for supplies and was closed 20 short (with a note); today is left unopened, so opening it proposes 830.
+-- Today: the rent by bank transfer and a voided entry (owner), two small cash expenses by Sara — one approved by
+-- the owner, one still waiting. Expenses and cash days are never deleted (by design); voiding is the correction.
+DO $demo3$
+DECLARE
+  t     constant uuid := '11111111-1111-1111-1111-111111111111';
+  nasr  constant uuid := 'd0000000-0000-0000-0000-0000000000a1';
+  sara  constant uuid := 'c0000000-0000-0000-0000-0000000000a2';
+  owner constant uuid := 'c0000000-0000-0000-0000-0000000000a1';
+  today date := business_date(now(), '11111111-1111-1111-1111-111111111111');
+  supplies uuid; rent uuid; maint uuid; s uuid; e uuid; totals jsonb; expected bigint;
+BEGIN
+  IF EXISTS (SELECT 1 FROM expenses WHERE tenant_id = t AND supplier_name = 'بيانات تجريبية ٣') THEN
+    RAISE NOTICE 'E3 demo data already exists; nothing to do';
+    RETURN;
+  END IF;
+  SELECT id INTO supplies FROM expense_categories WHERE tenant_id = t AND key = 'supplies';
+  SELECT id INTO rent FROM expense_categories WHERE tenant_id = t AND key = 'rent';
+  SELECT id INTO maint FROM expense_categories WHERE tenant_id = t AND key = 'maintenance';
+  PERFORM set_config('app.tenant_id', t::text, true), set_config('app.member_id', sara::text, true),
+          set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a2', true), set_config('app.actor_type', 'member', true);
+
+  -- yesterday: open, one cash expense, close 20 short with a note — only when Nasr City has no cash day yet
+  -- (one open session per branch: a day someone already opened is left alone)
+  IF NOT EXISTS (SELECT 1 FROM cash_sessions WHERE branch_id = nasr AND (status = 'open' OR business_date = today - 1)) THEN
+  INSERT INTO cash_sessions (tenant_id, branch_id, business_date, currency, opening_minor, opened_by, opened_at)
+  VALUES (t, nasr, today - 1, 'EGP', 100000, sara, now() - interval '1 day') RETURNING id INTO s;
+  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, description, supplier_name, status, approved_by, approved_at, created_by)
+  VALUES (t, nasr, supplies, 15000, 'EGP', today - 1, 'cash', 'قفازات وكمامات', 'بيانات تجريبية ٣', 'approved', owner, now(), sara);
+  totals := cash_day_totals(nasr, today - 1);
+  expected := 100000 + (totals->>'cash_in')::bigint - (totals->>'cash_refunds')::bigint - (totals->>'cash_expenses')::bigint;
+  UPDATE cash_sessions SET status = 'closed', counted_minor = expected - 2000, expected_minor = expected, closing_totals = totals,
+    note = 'نقص ٢٠ جنيه — فكة أُعطيت لمريض', closed_by = sara, closed_at = now() - interval '12 hours' WHERE id = s;
+  END IF;
+
+  -- today's expenses only while today's cash day is not closed (nothing is dated into a closed day)
+  IF EXISTS (SELECT 1 FROM cash_sessions WHERE branch_id = nasr AND business_date = today AND status = 'closed') THEN
+    RAISE NOTICE 'today''s cash day at Nasr City is closed; only yesterday''s demo was added';
+    RETURN;
+  END IF;
+  -- today: Sara's small cash expenses (one approved by the owner, one waiting)
+  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, description, supplier_name, status, approved_by, approved_at, decision_note, created_by)
+  VALUES (t, nasr, supplies, 8000, 'EGP', today, 'cash', 'مياه وأكواب للعيادة', 'بيانات تجريبية ٣', 'approved', owner, now(), 'تمام', sara);
+  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, description, supplier_name, status, created_by)
+  VALUES (t, nasr, maint, 12000, 'EGP', today, 'cash', 'تصليح حنفية الحوض', 'بيانات تجريبية ٣', 'pending', sara);
+
+  -- today: the owner's rent (approved on entry) and an entry voided for a wrong amount
+  PERFORM set_config('app.member_id', owner::text, true), set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a1', true);
+  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, reference, description, supplier_name, created_by)
+  VALUES (t, nasr, rent, 800000, 'EGP', today, 'bank_transfer', 'TRX-DEMO-1001', 'إيجار شهر أكتوبر', 'بيانات تجريبية ٣', owner);
+  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, reference, description, supplier_name, created_by)
+  VALUES (t, nasr, rent, 80000, 'EGP', today, 'bank_transfer', 'TRX-DEMO-1002', 'إيجار (مبلغ خطأ)', 'بيانات تجريبية ٣', owner) RETURNING id INTO e;
+  UPDATE expenses SET status = 'void', void_reason = 'المبلغ الصحيح 8000 وسُجل مرة أخرى', voided_by = owner, voided_at = now() WHERE id = e;
+
+  RAISE NOTICE 'E3 demo data created';
+END $demo3$;
