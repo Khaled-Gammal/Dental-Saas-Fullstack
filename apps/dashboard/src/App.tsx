@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { can, refreshSession, subscribeSession, type Session } from './api';
-import { savedLang, t, type Lang } from './i18n';
+import { t, type Lang } from './i18n';
 import { LangContext } from './lang';
 import { AuthLayout, Forgot, Login, ResetPassword, Signup, Verify, type AuthScreen } from './screens/auth';
 import { AcceptInvite } from './screens/accept-invite';
@@ -50,7 +50,7 @@ import { NotFound } from './ui/page';
 import { invitationToken, to, type Route } from './router';
 
 export function App() {
-  const [lang, setLang] = useState<Lang>(savedLang);
+  const lang: Lang = 'ar'; // the product is Arabic only (L10N-001); the `lang` plumbing goes in a later pass
   const [session, setSessionState] = useState<Session | null>(null);
   const [booting, setBooting] = useState(true);
   const [screen, setScreen] = useState<AuthScreen>({ name: 'login' });
@@ -66,13 +66,10 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    // index.html already says lang="ar" dir="rtl"; no language is stored or offered (L10N-001/002)
     document.title = `${t('title', lang)} · ${t('brand', lang)}`;
-    try { localStorage.setItem('lang', lang); } catch { /* storage blocked: keep it for this visit only */ }
+    try { localStorage.removeItem('lang'); } catch { /* storage blocked: nothing was saved either */ }
   }, [lang]);
-
-  const toggleLang = () => setLang(lang === 'ar' ? 'en' : 'ar');
 
   // an invitation link opens with or without a session: accepting it signs in as the invitee
   const invite = invitationToken(window.location.hash);
@@ -87,13 +84,13 @@ export function App() {
     );
   } else if (invite) {
     view = (
-      <AuthLayout lang={lang} onLang={toggleLang}>
+      <AuthLayout lang={lang}>
         <AcceptInvite lang={lang} token={invite} done={() => navigate(to.list('overview'))} />
       </AuthLayout>
     );
   } else if (!session) {
     view = (
-      <AuthLayout lang={lang} onLang={toggleLang}>
+      <AuthLayout lang={lang}>
         {screen.name === 'signup' ? <Signup lang={lang} go={setScreen} />
           : screen.name === 'verify' ? <Verify lang={lang} email={screen.email} masked={screen.maskedEmail} justSent={screen.justSent} back={() => setScreen({ name: 'login' })} />
           : screen.name === 'forgot' ? <Forgot lang={lang} go={setScreen} />
@@ -103,7 +100,7 @@ export function App() {
     );
   } else {
     view = (
-      <AppShell lang={lang} onLang={toggleLang} session={session} page={route.page}>
+      <AppShell lang={lang} session={session} page={route.page}>
         <Screen route={route} lang={lang} session={session} />
       </AppShell>
     );

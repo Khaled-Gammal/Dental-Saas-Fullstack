@@ -25,7 +25,8 @@ const dict = {
   fullName: { ar: 'اسمك', en: 'Your name' },
   email: { ar: 'البريد الإلكتروني', en: 'Email' },
   phone: { ar: 'رقم الموبايل', en: 'Mobile number' },
-  clinicNameAr: { ar: 'اسم العيادة بالعربية', en: 'Clinic name (Arabic)' },
+  brandNameHint: { ar: 'بالعربية، أو بالإنجليزية إن كان اسم علامتك التجارية مكتوبًا بها.', en: 'In Arabic, or in English if your brand is written that way.' },
+  clinicNameAr: { ar: 'اسم العيادة', en: 'Clinic name (Arabic)' },
   slug: { ar: 'عنوان موقع العيادة', en: 'Clinic website address' },
   slugFree: { ar: 'متاح', en: 'available' },
   slugTaken: { ar: 'هذا العنوان غير متاح، جرّب عنوانًا آخر', en: 'This address is taken — try another' },
@@ -45,7 +46,7 @@ const dict = {
   branches: { ar: 'الفروع', en: 'Branches' },
   main: { ar: 'رئيسي', en: 'Main' },
   addBranch: { ar: 'إضافة فرع', en: 'Add branch' },
-  nameAr: { ar: 'الاسم بالعربية', en: 'Arabic name' },
+  nameAr: { ar: 'الاسم', en: 'Arabic name' },
   branchSlug: { ar: 'المعرّف (بالإنجليزية)', en: 'Slug' },
   save: { ar: 'حفظ', en: 'Save' },
   loading: { ar: 'جارٍ التحميل…', en: 'Loading…' },
@@ -143,7 +144,6 @@ const dict = {
   noBranchesText: { ar: 'أضف أول فرع ليظهر على موقعك ويبدأ استقبال الحجوزات', en: 'Add your first branch so it shows on your site and can take bookings' },
   branchSlugHint: { ar: 'حروف إنجليزية صغيرة وأرقام وشرطة، مثل nasr-city', en: 'Lowercase letters, numbers and dashes, e.g. nasr-city' },
   cancel: { ar: 'إلغاء', en: 'Cancel' },
-  switchLang: { ar: 'English', en: 'العربية' },
   skipToContent: { ar: 'انتقل للمحتوى', en: 'Skip to content' },
   retry: { ar: 'إعادة المحاولة', en: 'Try again' },
   copiedAnnounce: { ar: 'تم نسخ رابط الموقع', en: 'Website link copied' },
@@ -168,7 +168,7 @@ const dict = {
   secAbout: { ar: 'نبذة عن العيادة', en: 'About the clinic' },
   secContact: { ar: 'التواصل', en: 'Contact' },
   secBrand: { ar: 'لون العلامة', en: 'Brand colour' },
-  aboutAr: { ar: 'النبذة بالعربية', en: 'About (Arabic)' },
+  aboutAr: { ar: 'النبذة', en: 'About (Arabic)' },
   aboutEn: { ar: 'النبذة بالإنجليزية', en: 'About (English)' },
   aboutHint: { ar: 'جملتان أو ثلاث عن خبرتكم وما يميز عيادتكم', en: 'Two or three sentences about your experience and what makes you different' },
   primaryPhone: { ar: 'رقم الحجز', en: 'Booking phone' },
@@ -243,9 +243,9 @@ const dict = {
   noDoctorsText: { ar: 'أضف الأطباء ليظهروا على موقعك ويمكن حجز مواعيد معهم', en: 'Add your doctors so patients can see them and book with them' },
   doctorSaved: { ar: 'تم حفظ بيانات الطبيب', en: 'Doctor saved' },
   scheduleSaved: { ar: 'تم حفظ جدول المواعيد', en: 'Schedule saved' },
-  doctorNameAr: { ar: 'اسم الطبيب بالعربية', en: 'Doctor name (Arabic)' },
+  doctorNameAr: { ar: 'اسم الطبيب', en: 'Doctor name (Arabic)' },
   doctorNameEn: { ar: 'اسم الطبيب بالإنجليزية', en: 'Doctor name (English)' },
-  titleAr: { ar: 'اللقب بالعربية', en: 'Title (Arabic)' },
+  titleAr: { ar: 'اللقب', en: 'Title (Arabic)' },
   titleEn: { ar: 'اللقب بالإنجليزية', en: 'Title (English)' },
   titleHint: { ar: 'مثل: استشاري تقويم الأسنان', en: 'e.g. Consultant orthodontist' },
   bioAr: { ar: 'نبذة بالعربية', en: 'Bio (Arabic)' },
@@ -284,7 +284,7 @@ const dict = {
   serviceSaved: { ar: 'تم حفظ الخدمة', en: 'Service saved' },
   fromCatalog: { ar: 'من القائمة الجاهزة', en: 'From the catalogue' },
   pickService: { ar: 'اختر خدمة', en: 'Pick a service' },
-  serviceNameAr: { ar: 'اسم الخدمة بالعربية', en: 'Service name (Arabic)' },
+  serviceNameAr: { ar: 'اسم الخدمة', en: 'Service name (Arabic)' },
   serviceNameEn: { ar: 'اسم الخدمة بالإنجليزية', en: 'Service name (English)' },
   descriptionAr: { ar: 'وصف قصير بالعربية', en: 'Short description (Arabic)' },
   price: { ar: 'السعر', en: 'Price' },
@@ -331,7 +331,7 @@ const dict = {
   slugLocked: { ar: 'المعرّف جزء من روابط موقعك ولا يتغير', en: 'The slug is part of your website links and cannot change' },
   city: { ar: 'المدينة', en: 'City' },
   secAddress: { ar: 'العنوان', en: 'Address' },
-  addressAr: { ar: 'العنوان بالعربية', en: 'Address (Arabic)' },
+  addressAr: { ar: 'العنوان', en: 'Address (Arabic)' },
   addressEn: { ar: 'العنوان بالإنجليزية', en: 'Address (English)' },
   branchPhone: { ar: 'هاتف الفرع', en: 'Branch phone' },
   branchInactiveHint: { ar: 'الفرع الموقوف يختفي من الموقع ولا يستقبل حجوزات', en: 'An inactive branch is hidden from the website and takes no bookings' },
@@ -1214,10 +1214,10 @@ const dict = {
   editPhoto: { ar: 'تعديل الصورة', en: 'Edit photo' },
   photoSaved: { ar: 'تم حفظ الصورة', en: 'Photo saved' },
   photoText: { ar: 'الوصف', en: 'Description' },
-  altAr: { ar: 'وصف الصورة لقارئ الشاشة (عربي)', en: 'Alt text (Arabic)' },
+  altAr: { ar: 'وصف الصورة لقارئ الشاشة', en: 'Alt text (Arabic)' },
   altEn: { ar: 'وصف الصورة (إنجليزي)', en: 'Alt text (English)' },
   altHint: { ar: 'ماذا تُظهر الصورة؟ مثال: غرفة الكشف بكرسي أسنان حديث. مطلوب للنشر.', en: 'What the photo shows, e.g. "Treatment room with a modern dental chair". Required to publish.' },
-  captionAr: { ar: 'تعليق ظاهر (عربي)', en: 'Caption (Arabic)' },
+  captionAr: { ar: 'تعليق ظاهر', en: 'Caption (Arabic)' },
   captionEn: { ar: 'تعليق ظاهر (إنجليزي)', en: 'Caption (English)' },
   captionHint: { ar: 'يظهر تحت الصورة على الموقع.', en: 'Shown under the photo on the website.' },
   dropImages: { ar: 'اسحب الصور إلى هنا', en: 'Drop images here' },
@@ -1255,6 +1255,8 @@ const dict = {
 } as const;
 
 export type Key = keyof typeof dict;
+/** Every text key, for the Arabic-only check (L10N-001). */
+export const KEYS = Object.keys(dict) as Key[];
 export const t = (key: Key, lang: Lang) => dict[key][lang];
 /** For keys built from data (audit actions, field names): the translation if one exists, else `fallback`. */
 export const tOr = (key: string, lang: Lang, fallback: string) => (key in dict ? dict[key as Key][lang] : fallback);
@@ -1268,12 +1270,3 @@ export const roleLabel = (role: string, lang: Lang) => (`role_${role}` in dict ?
 export const minutesLabel = (n: number, lang: Lang) => t(lang === 'ar' && n >= 3 && n <= 10 ? 'minutesFew' : 'minutes', lang);
 /** Catalogue category label; an unknown category shows its code rather than breaking the picker. */
 export const categoryLabel = (c: string, lang: Lang) => (`cat_${c}` in dict ? t(`cat_${c}` as Key, lang) : c);
-/** Reads a saved language safely (storage can be blocked or hold junk). */
-export function savedLang(): Lang {
-  try {
-    const v = localStorage.getItem('lang');
-    return v === 'en' ? 'en' : 'ar';
-  } catch {
-    return 'ar';
-  }
-}

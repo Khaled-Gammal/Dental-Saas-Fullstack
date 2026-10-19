@@ -88,10 +88,8 @@ function DoctorFormBody({ lang, clinicId, branches, doctor }: { lang: Lang; clin
             placeholder={initials(form.nameAr || form.nameEn) || undefined} />
         </div>
         <div className="grid-2 mt">
-          <Field label={t('doctorNameAr', lang)}>{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="rtl" maxLength={120} autoFocus={!doctor} />}</Field>
-          <Field label={t('doctorNameEn', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={form.nameEn} onChange={text('nameEn')} dir="ltr" maxLength={120} />}</Field>
+          <Field label={t('doctorNameAr', lang)}>{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!doctor} />}</Field>
           <Field label={t('titleAr', lang)} optional={t('optional', lang)} hint={t('titleHint', lang)}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.titleAr} onChange={text('titleAr')} dir="rtl" maxLength={120} />}</Field>
-          <Field label={t('titleEn', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={form.titleEn} onChange={text('titleEn')} dir="ltr" maxLength={120} />}</Field>
         </div>
         <div className="stack mt">
           <Field label={t('specialties', lang)} optional={t('optional', lang)} hint={t('specialtiesHint', lang)}>

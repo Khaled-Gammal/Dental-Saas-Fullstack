@@ -54,6 +54,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-17 | CLR-05 default accepted (refunds: owner + accountant; reception reverses its own same-day entry; refund method recorded, may differ) | B.1, PAY-003, PAY-005 |
 | 2026-10-17 | Proposed defaults accepted for CLR-02, CLR-03, CLR-04, CLR-09, CLR-12, CLR-17 ("implement what you recommend") (Part C) | DISC-002/003, EXP-003, CASH-*, L10N-005, PAY-006, BILLING-004 |
 | 2026-10-17 | Proposed defaults accepted for CLR-06, CLR-10, CLR-11, CLR-13, CLR-14, CLR-15, CLR-16 (Part C) | VISIT-002, APPT-004, TPLAN-002, roadmap, Part D, PATIENT-003, VISIT-003 |
+| 2026-10-19 | Proposed defaults accepted for CLR-07 and CLR-08. Added by the owner: the product is Arabic in production, but **brand and clinic names may be written in English (Latin letters)**; Latin digits are fine | L10N-001 (names are on the allow-list), L10N-006, L10N-007, L10N-008 |
 
 ---
 
@@ -1562,7 +1563,7 @@ fixed data); a branch-limited member never sees another branch's figures.
   integer minor units; display formatting never changes them. Whether a clinic may change its currency after
   invoices exist is CLR-09.
 
-**L10N-006 — Dates and times** · PARTIALLY_IMPLEMENTED · Phase F — digits and clock format pending CLR-08
+**L10N-006 — Dates and times** · PARTIALLY_IMPLEMENTED · Phase F — CLR-08: Latin digits, 12-hour clock with ص/م
 - *Description:* Dates use one Arabic format throughout (Gregorian calendar, Arabic month names), and times show in
   the branch's timezone (falling back to the clinic's, default Africa/Cairo). Timestamps are stored as `timestamptz`
   (UTC). Date-only values (birth date, expense date, due date) are never shifted by timezone.
@@ -1624,8 +1625,8 @@ Nothing listed here is implemented until it is answered. Each item has the defau
 corresponds to `D-n` in `docs/implementation-audit.md`.
 
 **Answered 2026-10-17:** CLR-01 (email), and the proposed defaults below for **CLR-02, CLR-03, CLR-04, CLR-05, CLR-06, CLR-09,
-CLR-10, CLR-11, CLR-12, CLR-13, CLR-14, CLR-15, CLR-16 and CLR-17**. These defaults are now the requirement. Still open:
-CLR-07 and CLR-08 (Arabic-only cleanup, Phase F).
+CLR-10, CLR-11, CLR-12, CLR-13, CLR-14, CLR-15, CLR-16 and CLR-17**. These defaults are now the requirement.
+**Answered 2026-10-19:** CLR-07 and CLR-08 (defaults; brand names may be in Latin letters). Nothing is open.
 
 | ID | Question | Blocks | Proposed default |
 | --- | --- | --- | --- |

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 're
 import { pickName } from '@dental/ui/text';
 import { can, logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
-import { Badge, LinkButton, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, ChartIcon, WalletIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { Badge, Logo, initials } from '../ui/components';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, ChartIcon, WalletIcon, ToothIcon, UsersIcon } from '../ui/icons';
 import { useProfile } from '../queries';
 import { useMediaQuery } from '../hooks';
 import { to, type Page } from '../router';
@@ -32,8 +32,8 @@ const NAV: NavItem[] = [
 
 export const clinicName = (session: Session, lang: Lang) => pickName(lang, session.clinic.nameAr, session.clinic.nameEn, session.clinic.slug);
 
-export function AppShell({ lang, onLang, session, page, children }: {
-  lang: Lang; onLang: () => void; session: Session; page: Page | 'not-found'; children: ReactNode;
+export function AppShell({ lang, session, page, children }: {
+  lang: Lang; session: Session; page: Page | 'not-found'; children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const isDrawer = useMediaQuery('(max-width: 960px)'); // must match the drawer breakpoint in styles.css
@@ -107,7 +107,6 @@ export function AppShell({ lang, onLang, session, page, children }: {
           <span className="topbar-title"><bdi>{name}</bdi></span>
           {session.clinic.status === 'trialing' && <Badge tone="warning">{t('trial', lang)}</Badge>}
           <span className="spacer" />
-          <LinkButton onClick={onLang} lang={lang === 'ar' ? 'en' : 'ar'}><LangIcon size={18} /><span className="hide-sm">{t('switchLang', lang)}</span></LinkButton>
           <div className="user">
             <span className="avatar">{initials(session.user.name)}</span>
             <span className="user-text hide-sm">

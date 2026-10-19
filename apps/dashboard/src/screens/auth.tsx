@@ -4,7 +4,7 @@ import { api, type ApiError, setSession, type Session } from '../api';
 import { DEMO_PASSWORD, DEMO_USERS, ROOT_DOMAIN } from '../config';
 import { t, type Lang } from '../i18n';
 import { Alert, Button, ErrorText, Field, Input, LinkButton, Logo, OtpInput, PasswordInput } from '../ui/components';
-import { CalendarIcon, CheckIcon, GlobeIcon, LangIcon, PhoneIcon, ShieldIcon } from '../ui/icons';
+import { CalendarIcon, CheckIcon, GlobeIcon, PhoneIcon, ShieldIcon } from '../ui/icons';
 import { DentalArch, SmileCanvas } from '../ui/illustrations';
 import { useDebounced } from '../hooks';
 import { passwordChecks, toAsciiDigits } from '../util';
@@ -16,7 +16,7 @@ export type AuthScreen = { name: 'login'; notice?: string } | { name: 'signup' }
 const RESEND_COOLDOWN_S = 30;
 
 /** Split screen: brand story on one side, the form on the other. Collapses to the form alone on phones. */
-export function AuthLayout({ lang, onLang, children }: { lang: Lang; onLang: () => void; children: ReactNode }) {
+export function AuthLayout({ lang, children }: { lang: Lang; children: ReactNode }) {
   return (
     <div className="auth">
       <aside className="auth-brand">
@@ -35,7 +35,6 @@ export function AuthLayout({ lang, onLang, children }: { lang: Lang; onLang: () 
       <div className="auth-main">
         <div className="auth-top">
           <span className="auth-mobile-logo"><Logo name={t('brand', lang)} /></span>
-          <LinkButton onClick={onLang} lang={lang === 'ar' ? 'en' : 'ar'}><LangIcon size={18} />{t('switchLang', lang)}</LinkButton>
         </div>
         <div className="auth-form">{children}</div>
       </div>
@@ -105,7 +104,7 @@ function DevQuickLogin({ lang }: { lang: Lang }) {
 }
 
 export function Signup({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void }) {
-  const [f, setF] = useState({ fullName: '', email: '', phone: '', password: '', clinicNameAr: '', clinicNameEn: '', slug: '' });
+  const [f, setF] = useState({ fullName: '', email: '', phone: '', password: '', clinicNameAr: '', slug: '' });
   type Form = typeof f;
   // functional update: never reads a stale `f`; `clean` lets a field normalise its value (e.g. the slug)
   const set = (k: keyof Form, clean: (v: string) => string = (v) => v) =>
@@ -125,7 +124,7 @@ export function Signup({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void }
   const signup = useMutation({
     mutationFn: () => api<{ email: string; website: string }>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ ...f, phone: toAsciiDigits(f.phone), clinicNameEn: f.clinicNameEn || undefined, slug: typedSlug, locale: lang }),
+      body: JSON.stringify({ ...f, phone: toAsciiDigits(f.phone), slug: typedSlug, locale: lang }),
     }),
     onSuccess: (r) => go({ name: 'verify', email: f.email.trim().toLowerCase(), maskedEmail: r.email, justSent: true }),
   });
@@ -168,9 +167,8 @@ export function Signup({ lang, go }: { lang: Lang; go: (s: AuthScreen) => void }
         <fieldset className="group">
           <legend>{t('aboutClinic', lang)}</legend>
           <div className="grid-2">
-            <Field label={t('clinicNameAr', lang)}>{(a) => <Input id={a.id} value={f.clinicNameAr} onChange={set('clinicNameAr')} required dir="rtl" />}</Field>
-            <Field label={t('clinicNameEn', lang)} optional={t('optional', lang)}>
-              {(a) => <Input id={a.id} value={f.clinicNameEn} onChange={set('clinicNameEn')} dir="ltr" />}
+            <Field label={t('clinicNameAr', lang)} hint={t('brandNameHint', lang)}>
+              {(a) => <Input id={a.id} describedBy={a.describedBy} value={f.clinicNameAr} onChange={set('clinicNameAr')} required dir="auto" />}
             </Field>
           </div>
           <Field label={t('slug', lang)}

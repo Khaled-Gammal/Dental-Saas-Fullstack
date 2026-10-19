@@ -71,8 +71,7 @@ function BranchFormBody({ lang, clinicId, branch }: { lang: Lang; clinicId: stri
       <Card>
         <h2>{t('secBasics', lang)}</h2>
         <div className="grid-2 mt">
-          <Field label={t('nameAr', lang)}>{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="rtl" maxLength={120} autoFocus={!branch} />}</Field>
-          <Field label={t('branchNameEn', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={form.nameEn} onChange={text('nameEn')} dir="ltr" maxLength={120} />}</Field>
+          <Field label={t('nameAr', lang)}>{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!branch} />}</Field>
           {branch ? (
             <Field label={t('branchSlug', lang)} hint={t('slugLocked', lang)}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.slug} readOnly dir="ltr" />}</Field>
           ) : (
@@ -97,7 +96,6 @@ function BranchFormBody({ lang, clinicId, branch }: { lang: Lang; clinicId: stri
           <h2>{t('secAddress', lang)}</h2>
           <div className="grid-2 mt">
             <Field label={t('addressAr', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={form.addressAr} onChange={text('addressAr')} dir="rtl" maxLength={300} />}</Field>
-            <Field label={t('addressEn', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={form.addressEn} onChange={text('addressEn')} dir="ltr" maxLength={300} />}</Field>
           </div>
         </Card>
       )}

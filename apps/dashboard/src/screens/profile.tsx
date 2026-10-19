@@ -85,8 +85,7 @@ export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: str
           <Card>
             <h2>{t('secNames', lang)}</h2>
             <div className="grid-2 mt">
-              <Field label={t('clinicNameAr', lang)}>{(a) => <Input id={a.id} value={form.nameAr} onChange={set('nameAr')} dir="rtl" maxLength={120} />}</Field>
-              <Field label={t('clinicNameEn', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={form.nameEn} onChange={set('nameEn')} dir="ltr" maxLength={120} />}</Field>
+              <Field label={t('clinicNameAr', lang)} hint={t('brandNameHint', lang)}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.nameAr} onChange={set('nameAr')} dir="auto" maxLength={120} />}</Field>
             </div>
           </Card>
 
@@ -95,7 +94,6 @@ export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: str
             <p className="muted small">{t('aboutHint', lang)}</p>
             <div className="stack mt">
               <Field label={t('aboutAr', lang)}>{(a) => <TextArea id={a.id} value={form.aboutAr} onChange={set('aboutAr')} dir="rtl" maxLength={1000} />}</Field>
-              <Field label={t('aboutEn', lang)} optional={t('optional', lang)}>{(a) => <TextArea id={a.id} value={form.aboutEn} onChange={set('aboutEn')} dir="ltr" maxLength={1000} />}</Field>
             </div>
           </Card>
 
