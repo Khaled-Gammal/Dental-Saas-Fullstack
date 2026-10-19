@@ -9,6 +9,7 @@ import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { DisplayName, OtpCode, PhoneText, TenantSlug } from '../../shared/validation/common';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { LoginService } from './login.service';
+import { PasswordResetService } from './password-reset.service';
 import { SessionCookie, requestMeta } from './session-cookie';
 import { SessionService } from './session.service';
 import { SignupService } from './signup.service';
@@ -24,8 +25,11 @@ const Signup = z.object({
   locale: z.enum(['ar', 'en']).optional(),
 });
 const SlugQuery = z.string().trim().toLowerCase().max(63).catch('');
-const Phone = z.object({ phone: PhoneText });
-const Verify = z.object({ phone: PhoneText, code: OtpCode });
+const Email = z.string().trim().toLowerCase().email().max(200);
+const Resend = z.object({ email: Email });
+const Verify = z.object({ email: Email, code: OtpCode });
+const ForgotPassword = z.object({ email: Email });
+const ResetPassword = z.object({ email: Email, code: OtpCode, password: z.string().min(8).max(128) });
 const Login = z.object({
   identifier: z.string().trim().min(3).max(200), // email or phone
   password: z.string().min(1).max(128),
@@ -41,12 +45,13 @@ export class IdentityController {
   constructor(
     private readonly signups: SignupService,
     private readonly logins: LoginService,
+    private readonly passwords: PasswordResetService,
     private readonly sessions: SessionService,
     private readonly cookie: SessionCookie,
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
   ) {}
 
-  /** Per-IP abuse limits on the public auth endpoints (SMS cost, scrypt CPU, scraping). */
+  /** Per-IP abuse limits on the public auth endpoints (email codes, scrypt CPU, scraping). */
   private throttle(req: Request, action: keyof typeof T) {
     const [limit, windowSeconds] = T[action];
     return this.limiter.throttle(`ip:${action}:${req.ip ?? '-'}`, limit, windowSeconds);
@@ -70,17 +75,36 @@ export class IdentityController {
   @Public()
   @Post('otp/resend')
   @HttpCode(202)
-  async resend(@Body(new ZodBody(Phone)) body: z.infer<typeof Phone>, @Req() req: Request) {
+  async resend(@Body(new ZodBody(Resend)) body: z.infer<typeof Resend>, @Req() req: Request) {
     await this.throttle(req, 'otpResend');
-    return this.signups.resendOtp(body.phone, requestMeta(req));
+    return this.signups.resendOtp(body.email, requestMeta(req));
   }
 
+  /** The owner confirms the sign-up email with the 6-digit code and is signed in (SRS AUTH-101). */
   @Public()
-  @Post('verify-phone')
+  @Post('verify-email')
   @HttpCode(200)
-  async verifyPhone(@Body(new ZodBody(Verify)) body: z.infer<typeof Verify>, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async verifyEmail(@Body(new ZodBody(Verify)) body: z.infer<typeof Verify>, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.throttle(req, 'otpVerify');
-    return this.cookie.issue(res, await this.signups.verifyPhone(body.phone, body.code, requestMeta(req)));
+    return this.cookie.issue(res, await this.signups.verifyEmail(body.email, body.code, requestMeta(req)));
+  }
+
+  /** Forgot password: always 202, whether or not the email has an account (SRS AUTH-102). */
+  @Public()
+  @Post('password/forgot')
+  @HttpCode(202)
+  async forgotPassword(@Body(new ZodBody(ForgotPassword)) body: z.infer<typeof ForgotPassword>, @Req() req: Request) {
+    await this.throttle(req, 'otpResend');
+    return this.passwords.request(body.email, requestMeta(req));
+  }
+
+  /** The emailed code + a new password. Ends every session of the account; the user then signs in again. */
+  @Public()
+  @Post('password/reset')
+  @HttpCode(204)
+  async resetPassword(@Body(new ZodBody(ResetPassword)) body: z.infer<typeof ResetPassword>, @Req() req: Request) {
+    await this.throttle(req, 'otpVerify');
+    await this.passwords.reset(body.email, body.code, body.password, requestMeta(req));
   }
 
   @Public()

@@ -17,6 +17,8 @@ export interface AvailabilityQuery {
   online: boolean;
   /** staff may book without a service; then the visit length comes from here */
   durationMinutes?: number;
+  /** a move: the appointment's own current time does not block its new time */
+  excludeAppointmentId?: string;
 }
 
 export interface Slot { startsAt: Date; doctorIds: string[] }
@@ -53,7 +55,10 @@ export class GetAvailability {
     if (!doctorIds.length) return empty;
 
     const window = dayWindow(q.date, timezone);
-    const ctx = await this.repo.dayContext(tx, { branchId: q.branchId, doctorIds, weekday: weekdayOf(q.date), date: q.date, from: new Date(window.start), to: new Date(window.end) });
+    const ctx = await this.repo.dayContext(tx, {
+      branchId: q.branchId, doctorIds, weekday: weekdayOf(q.date), date: q.date, from: new Date(window.start), to: new Date(window.end),
+      excludeAppointmentId: q.excludeAppointmentId,
+    });
     if (ctx.closed) return empty;
 
     const toIv = (s: string, e: string): Interval => ({ start: zonedToUtc(q.date, s, timezone), end: zonedToUtc(q.date, e, timezone) });

@@ -8,7 +8,7 @@ const img = (col: string) => sql`(select json_build_object('id', f.id, 'width', 
 
 export interface SitePayload {
   clinic: { id: string; slug: string; name_en: string | null; name_ar: string | null; about_en: string | null; about_ar: string | null;
-    primary_phone: string | null; whatsapp: string | null; specialties: string[]; default_locale: string; timezone: string;
+    primary_phone: string | null; whatsapp: string | null; specialties: string[]; default_locale: string; timezone: string; currency: string;
     logo: { id: string; width: number; height: number; widths: number[] } | null } | null;
   [key: string]: unknown;
 }
@@ -30,7 +30,7 @@ export class PublicSiteRepository {
         select json_build_object(
           'clinic', (select json_build_object('id', t.id, 'slug', t.slug, 'name_en', t.name_en, 'name_ar', t.name_ar,
                        'about_en', t.about_en, 'about_ar', t.about_ar, 'primary_phone', t.primary_phone, 'whatsapp', t.whatsapp,
-                       'specialties', t.specialties, 'default_locale', t.default_locale, 'timezone', t.timezone,
+                       'specialties', t.specialties, 'default_locale', t.default_locale, 'timezone', t.timezone, 'currency', t.currency,
                        'logo', ${img('t.logo_file_id')}) from tenants t),
           'theme', coalesce((select case when s.status = 'published' then s.published_theme else s.draft_theme end from sites s), '{}'::jsonb),
           'showPoweredBy', coalesce((select s.show_powered_by from sites s), true),

@@ -1,5 +1,6 @@
 import { Chat, Clock, Icon, Phone, Tooth } from '../icons';
-import { arNoun, DAYS_AR, DEFAULT_TZ, egp, NOUNS, specialtyLabel, type SiteData } from '../../lib/site';
+import { clock12 } from '@dental/ui/text';
+import { arNoun, DAYS_AR, DEFAULT_TZ, NOUNS, price, specialtyLabel, type SiteData } from '../../lib/site';
 import { openStatus } from '../../lib/hours';
 import type { Contact } from './contact';
 import { ToothArt } from './decor';
@@ -9,10 +10,10 @@ function heroFacts(site: SiteData) {
   const main = site.branches[0];
   const status = main ? openStatus(main.hours, site.holidays, main.id, main.timezone ?? site.clinic.timezone ?? DEFAULT_TZ) : null;
   let statusText: string | null = null;
-  if (status?.kind === 'open') statusText = `مفتوح الآن حتى ${status.closesAt}`;
-  else if (status?.kind === 'closed' && status.opensAt) statusText = `يفتح ${DAYS_AR[status.opensWeekday!]} ${status.opensAt}`;
+  if (status?.kind === 'open') statusText = `مفتوح الآن حتى ${clock12(status.closesAt)}`;
+  else if (status?.kind === 'closed' && status.opensAt) statusText = `يفتح ${DAYS_AR[status.opensWeekday!]} ${clock12(status.opensAt)}`;
   const prices = site.services.map((s) => s.price_minor).filter((p) => p > 0);
-  const fromPrice = prices.length ? `خدمات تبدأ من ${egp(Math.min(...prices))}` : null;
+  const fromPrice = prices.length ? `خدمات تبدأ من ${price(Math.min(...prices), site.clinic.currency)}` : null;
   return { statusText, fromPrice };
 }
 

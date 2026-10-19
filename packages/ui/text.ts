@@ -13,6 +13,28 @@ export function pickName(lang: 'ar' | 'en', ar: string | null | undefined, en: s
   return (lang === 'ar' ? ar || en : en || ar) || fallback;
 }
 
+/** Known specialty codes (seeded clinics use codes; clinics may also type free text, which is shown as is). */
+const SPECIALTY_AR: Record<string, string> = {
+  general: 'طب أسنان عام', cosmetic: 'تجميل الأسنان', orthodontics: 'تقويم الأسنان', orthodontic: 'تقويم الأسنان', implants: 'زراعة الأسنان',
+  implant: 'زراعة الأسنان', pediatric: 'أسنان الأطفال', endodontic: 'علاج الجذور', endodontics: 'علاج الجذور', periodontal: 'أمراض اللثة',
+  prosthodontic: 'التركيبات', prosthodontics: 'التركيبات', surgery: 'جراحة الفم', preventive: 'الوقاية', restorative: 'الحشوات والترميم',
+};
+/** A doctor's specialty in Arabic: the label of a known code, otherwise the clinic's own text. */
+export const specialtyLabel = (code: string) => SPECIALTY_AR[code.trim().toLowerCase()] ?? code.trim();
+
+/** "5:00 م" from "17:00" or "17:00:00": 12-hour clock with ص/م and Latin digits (CLR-08). */
+export function clock12(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'ص' : 'م'}`;
+}
+
+/** Minor units in the clinic currency with Latin digits: "1,250 ج.م", "99.50 SAR" (L10N-005, CLR-08). */
+export function formatMoney(minor: number, currency = 'EGP'): string {
+  const major = minor / 100;
+  const n = major.toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: Number.isInteger(major) ? 0 : 2, maximumFractionDigits: 2 });
+  return `${n} ${currency === 'EGP' ? 'ج.م' : currency}`;
+}
+
 /** ٠١٢٣٤٥٦٧٨٩ and ۰۱۲۳۴۵۶۷۸۹ -> 0123456789 (Arabic-Indic and Persian digits). */
 export function toAsciiDigits(v: string): string {
   return v.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));

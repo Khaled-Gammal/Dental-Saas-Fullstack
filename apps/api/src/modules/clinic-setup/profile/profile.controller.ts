@@ -20,6 +20,7 @@ const UpdateProfile = z.object({
   email: z.string().trim().toLowerCase().email().max(200).nullable().optional(),
   specialties: z.array(z.string().trim().min(2).max(60)).max(12).optional(),
   defaultLocale: z.enum(['ar', 'en']).optional(),
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, 'an ISO currency code such as EGP').optional(),
   brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #1d6fd8').optional(),
   logoFileId: z.string().uuid().nullable().optional(), // an image uploaded with ?purpose=logo; null removes it
 }).strict();

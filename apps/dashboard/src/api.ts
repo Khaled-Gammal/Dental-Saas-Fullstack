@@ -1,13 +1,14 @@
 import { API_URL } from './config';
 import { queryClient } from './queryClient';
+import type { FieldIssue } from './validation-text';
 
-/** RFC 9457 error from the API. `code` is stable; `message` is shown to the user. */
+/** RFC 9457 error from the API. `code` is stable; `message` is the English detail for developers (screens show Arabic, L10N-003). */
 export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
     detail: string,
-    public errors?: { path: string; message: string }[],
+    public errors?: FieldIssue[],
     public body: Record<string, unknown> = {},
   ) {
     super(detail);
@@ -99,10 +100,11 @@ export async function logout() {
 export const can = (s: Session, perm: string) => s.clinic.permissions?.includes('*') || s.clinic.permissions?.includes(perm) || false;
 
 /**
- * Multipart upload with progress (fetch cannot report upload progress, XMLHttpRequest can). Sends the file as `file`,
+ * Multipart upload with progress (fetch cannot report upload progress, XMLHttpRequest can). Sends the file as `file`
+ * (after any `fields`, e.g. a clinical file's kind and caption),
  * refreshes the session once on 401 like `api()`, and turns failures into the same ApiError.
  */
-export function uploadFile<T>(path: string, file: File, onProgress: (fraction: number) => void, signal?: AbortSignal): Promise<T> {
+export function uploadFile<T>(path: string, file: File, onProgress: (fraction: number) => void, signal?: AbortSignal, fields: Record<string, string> = {}): Promise<T> {
   const send = (token: string | null) => new Promise<{ status: number; body: unknown }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_URL}${path}`);
@@ -114,13 +116,14 @@ export function uploadFile<T>(path: string, file: File, onProgress: (fraction: n
     xhr.onabort = () => reject(new ApiError(0, 'aborted', 'Upload cancelled'));
     signal?.addEventListener('abort', () => xhr.abort());
     const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
     form.append('file', file);
     xhr.send(form);
   });
   return (async () => {
     let res = await send(accessToken);
     if (res.status === 401 && (await refreshSession())) res = await send(accessToken);
-    const p = res.body as { code?: string; detail?: string; title?: string; errors?: { path: string; message: string }[] };
+    const p = res.body as { code?: string; detail?: string; title?: string; errors?: FieldIssue[] };
     if (res.status < 200 || res.status >= 300) throw new ApiError(res.status, p.code ?? 'error', p.detail ?? p.title ?? 'Upload failed', p.errors, p as Record<string, unknown>);
     onProgress(1);
     return res.body as T;

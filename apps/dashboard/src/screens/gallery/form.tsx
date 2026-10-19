@@ -65,9 +65,7 @@ function GalleryFormBody({ lang, clinicId, item, branches }: { lang: Lang; clini
           <Field label={t('altAr', lang)} hint={t('altHint', lang)} error={touched && problems.includes('alt_required') ? t('err_alt_required', lang) : undefined}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.altAr} onChange={text('altAr')} dir="rtl" maxLength={200} />}
           </Field>
-          <Field label={t('altEn', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={form.altEn} onChange={text('altEn')} dir="ltr" maxLength={200} />}</Field>
           <Field label={t('captionAr', lang)} optional={t('optional', lang)} hint={t('captionHint', lang)}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.captionAr} onChange={text('captionAr')} dir="rtl" maxLength={300} />}</Field>
-          <Field label={t('captionEn', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={form.captionEn} onChange={text('captionEn')} dir="ltr" maxLength={300} />}</Field>
         </div>
       </Card>
     </FormPage>

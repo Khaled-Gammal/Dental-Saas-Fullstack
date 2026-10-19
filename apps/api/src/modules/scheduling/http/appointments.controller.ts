@@ -9,7 +9,7 @@ import { Err } from '../../../shared/errors/app-error';
 import { ZodBody } from '../../../shared/validation/zod-body.pipe';
 import { ManageAppointments, type Actor } from '../application/manage-appointments.usecase';
 import type { StaffAction } from '../domain/appointment-status';
-import { ArriveBody, CancelBody, CheckInBody, DayQuery, StaffBookingBody, StaffSlotsQuery } from './schemas';
+import { ArriveBody, CancelBody, CheckInBody, DayQuery, MoveBody, StaffBookingBody, StaffSlotsQuery } from './schemas';
 import { sessionScope } from './scopes';
 
 const id = new ParseUUIDPipe();
@@ -36,7 +36,7 @@ export class AppointmentsController {
   @Get()
   @RequirePermission('appointments:read')
   list(@Query(new ZodBody(DayQuery)) q: z.infer<typeof DayQuery>) {
-    return this.appointments.listDay(this.scope(), q);
+    return this.appointments.listDay(this.scope(), q, this.actor());
   }
 
   /** Free times for one doctor on one day (the dashboard's booking form). Declared before ':id'. */
@@ -69,6 +69,13 @@ export class AppointmentsController {
   @Post(':id/arrive') @HttpCode(200)
   arrive(@Param('id', id) a: string, @Body(new ZodBody(ArriveBody)) b: z.infer<typeof ArriveBody>) {
     return this.appointments.arrive(this.scope(), a, this.actor(), b.note);
+  }
+
+  /** Reschedule (time, doctor, branch, length) and/or set the room (SRS APPT-001, APPT-006). */
+  @Post(':id/move') @HttpCode(200)
+  @RequirePermission('appointments:write')
+  reschedule(@Param('id', id) a: string, @Body(new ZodBody(MoveBody)) b: z.infer<typeof MoveBody>) {
+    return this.appointments.move(this.scope(), a, b, this.actor());
   }
 
   // status moves: the use case decides (doctors may only start/complete their own visits)

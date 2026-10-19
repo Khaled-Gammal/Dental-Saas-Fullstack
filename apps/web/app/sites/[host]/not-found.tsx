@@ -11,7 +11,6 @@ export default function ClinicNotFound() {
         <span className="s-state-icon" aria-hidden><Tooth size={32} /></span>
         <h1>لا توجد عيادة على هذا العنوان</h1>
         <p>تأكد من كتابة العنوان بشكل صحيح، أو تواصل مع العيادة للحصول على رابط موقعها.</p>
-        <p className="s-muted" lang="en" dir="ltr">There is no clinic website at this address.</p>
       </main>
     </div>
   );

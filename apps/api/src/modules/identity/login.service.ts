@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AUTH_POLICY } from '../../config';
 import { Err } from '../../shared/errors/app-error';
-import { maskPhone, normalizePhone } from '../../shared/phone';
+import { maskEmail } from '../../shared/mask';
+import { normalizePhone } from '../../shared/phone';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { AuthEventsRepository } from './auth-events.repository';
 import { DUMMY_HASH, verifyPassword } from './crypto';
@@ -9,6 +10,7 @@ import { IdentityRepository } from './identity.repository';
 import type { RequestMeta, Session } from './identity.types';
 import { OtpService } from './otp.service';
 import { SessionService } from './session.service';
+import { VERIFY_EMAIL_SUBJECT } from './signup.service';
 
 const { login: L } = AUTH_POLICY;
 const LOCKED = `Too many attempts. Try again in ${Math.ceil(L.windowSeconds / 60)} minutes.`;
@@ -41,11 +43,12 @@ export class LoginService {
       await this.events.record('login_failed', meta, user?.id, id);
       throw Err.unauthorized('invalid_credentials', 'Email/phone or password is not correct');
     }
-    if (!user.phone_verified_at) {
-      if (user.phone) await this.otp.send(user.phone, 'verify_phone', meta, user.id).catch(() => undefined);
-      // the password was correct, so it is safe to tell the client which phone to verify
-      throw Err.forbidden('phone_not_verified', 'Verify your phone first. We sent you a new code.', {
-        phone: user.phone, maskedPhone: user.phone ? maskPhone(user.phone) : null,
+    // verified by email (AUTH-101), or by phone under the earlier sign-up flow
+    if (!user.email_verified_at && !user.phone_verified_at) {
+      if (user.email) await this.otp.sendByEmail(user.email, 'verify_email', meta, VERIFY_EMAIL_SUBJECT, user.id).catch(() => undefined);
+      // the password was correct, so it is safe to tell the client which email to verify
+      throw Err.forbidden('email_not_verified', 'Verify your email first. We sent you a new code.', {
+        email: user.email, maskedEmail: user.email ? maskEmail(user.email) : null,
       });
     }
     await this.limiter.reset(deviceKey); // a correct password clears this device's counter

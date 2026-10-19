@@ -1,32 +1,40 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { pickName } from '@dental/ui/text';
-import { logout, type Session } from '../api';
+import { can, logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
-import { Badge, LinkButton, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, LangIcon, ListIcon, LogoutIcon, MenuIcon, PinIcon, ReceiptIcon, StethoscopeIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { Badge, Logo, initials } from '../ui/components';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, ChartIcon, WalletIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { setClinicCurrency } from '../money';
 import { useProfile } from '../queries';
 import { useMediaQuery } from '../hooks';
 import { to, type Page } from '../router';
 import { RouteLink } from '../ui/page';
 
-type NavItem = { key: Key; icon: ReactNode; page?: Page };
+/** `perm`: shown only to members who hold it, or one of them (the page refuses others anyway). */
+type NavItem = { key: Key; icon: ReactNode; page?: Page; perm?: string | string[] };
 const NAV: NavItem[] = [
   { key: 'navOverview', icon: <HomeIcon />, page: 'overview' },
   { key: 'navProfile', icon: <ToothIcon />, page: 'profile' },
   { key: 'navBranches', icon: <PinIcon />, page: 'branches' },
   { key: 'navAppointments', icon: <CalendarIcon />, page: 'appointments' },
   { key: 'navPatients', icon: <UsersIcon />, page: 'patients' },
+  { key: 'navFollowUps', icon: <PhoneIcon />, page: 'followups', perm: 'patients:read' },
   { key: 'navDoctors', icon: <StethoscopeIcon />, page: 'doctors' },
   { key: 'navServices', icon: <ListIcon />, page: 'services' },
-  { key: 'navBilling', icon: <ReceiptIcon /> },
+  { key: 'navStaff', icon: <ShieldIcon />, page: 'staff', perm: 'staff:manage' },
+  { key: 'navBilling', icon: <ReceiptIcon />, page: 'invoices', perm: 'invoices:read' },
+  { key: 'navDiscounts', icon: <TagIcon />, page: 'discounts', perm: 'discounts:approve' },
+  { key: 'navCash', icon: <CashIcon />, page: 'cash', perm: 'cash:operate' },
+  { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses', perm: ['expenses:read', 'expenses:write', 'expenses:write:cash'] },
+  { key: 'navReports', icon: <ChartIcon />, page: 'reports', perm: ['reports:read', 'reports:read:daily', 'reports:read:own'] },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
   { key: 'navWebsite', icon: <GlobeIcon /> },
 ];
 
 export const clinicName = (session: Session, lang: Lang) => pickName(lang, session.clinic.nameAr, session.clinic.nameEn, session.clinic.slug);
 
-export function AppShell({ lang, onLang, session, page, children }: {
-  lang: Lang; onLang: () => void; session: Session; page: Page | 'not-found'; children: ReactNode;
+export function AppShell({ lang, session, page, children }: {
+  lang: Lang; session: Session; page: Page | 'not-found'; children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const isDrawer = useMediaQuery('(max-width: 960px)'); // must match the drawer breakpoint in styles.css
@@ -52,6 +60,7 @@ export function AppShell({ lang, onLang, session, page, children }: {
 
   // the profile query is updated on save, so a renamed clinic shows everywhere at once
   const profile = useProfile(session.clinic.id).data;
+  setClinicCurrency(profile?.currency); // before the screens below render their amounts (idempotent)
   const name = profile ? pickName(lang, profile.nameAr, profile.nameEn, session.clinic.slug) : clinicName(session, lang);
   return (
     <div className={`app${open ? ' nav-open' : ''}`}>
@@ -72,7 +81,7 @@ export function AppShell({ lang, onLang, session, page, children }: {
         </div>
         <nav aria-label={t('mainNav', lang)}>
           <ul className="nav">
-            {NAV.map((n) => (
+            {NAV.filter((n) => !n.perm || [n.perm].flat().some((p) => can(session, p))).map((n) => (
               <li key={n.key}>
                 {n.page ? (
                   <RouteLink route={to.list(n.page)} className={`nav-item${page === n.page ? ' active' : ''}`} aria-current={page === n.page ? 'page' : undefined}
@@ -100,7 +109,6 @@ export function AppShell({ lang, onLang, session, page, children }: {
           <span className="topbar-title"><bdi>{name}</bdi></span>
           {session.clinic.status === 'trialing' && <Badge tone="warning">{t('trial', lang)}</Badge>}
           <span className="spacer" />
-          <LinkButton onClick={onLang} lang={lang === 'ar' ? 'en' : 'ar'}><LangIcon size={18} /><span className="hide-sm">{t('switchLang', lang)}</span></LinkButton>
           <div className="user">
             <span className="avatar">{initials(session.user.name)}</span>
             <span className="user-text hide-sm">

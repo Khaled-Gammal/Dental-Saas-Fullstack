@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { telHref } from '@dental/ui/text';
+import { formatMoney, telHref } from '@dental/ui/text';
 import type { Holiday, HourSlot } from './hours';
 import type { SiteImage } from './media';
 
@@ -7,6 +7,8 @@ import type { SiteImage } from './media';
 export interface SiteData {
   clinic: { slug: string; name_en: string | null; name_ar: string | null; about_ar: string | null; about_en: string | null;
     primary_phone: string | null; whatsapp: string | null; specialties: string[]; default_locale: 'ar' | 'en'; timezone: string;
+    /** ISO code (CLR-09); prices show in it */
+    currency?: string;
     logo?: SiteImage | null };
   theme: { primary?: string };
   showPoweredBy: boolean;
@@ -58,14 +60,14 @@ export const DEFAULT_PRIMARY = '#4f46e5'; // indigo: the site's default when a c
 /** The Arabic text when present, else the English one (the site is served in Arabic); null when both are empty. */
 export const ar = (a: string | null | undefined, e: string | null | undefined): string | null => a?.trim() || e?.trim() || null;
 
-const egpFormat = new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP', minimumFractionDigits: 0, maximumFractionDigits: 2 });
-export const egp = (minor: number) => egpFormat.format(minor / 100);
+/** A price in the clinic currency with Latin digits (L10N-005, CLR-08). */
+export const price = (minor: number, currency?: string) => formatMoney(minor, currency);
 
 /** 0 -> "on consultation", range -> "from – to", otherwise one price. */
-export function priceText(min: number, max: number | null): string {
+export function priceText(min: number, max: number | null, currency?: string): string {
   if (!min && !max) return 'السعر عند الكشف';
-  if (max && max > min) return `${egp(min)} – ${egp(max)}`;
-  return egp(min);
+  if (max && max > min) return `${price(min, currency)} – ${price(max, currency)}`;
+  return price(min, currency);
 }
 
 /** The public origin of a clinic site. Local demo hosts are plain http; every real clinic domain is served over https. */
@@ -97,13 +99,8 @@ export const NOUNS = {
   minute: { one: 'دقيقة', two: 'دقيقتان', few: 'دقائق', many: 'دقيقة', other: 'دقيقة' },
 } satisfies Record<string, Forms>;
 
-/** Known specialty codes (seeded clinics use codes; clinics may also type free text, which is shown as is). */
-const SPECIALTY_AR: Record<string, string> = {
-  general: 'طب أسنان عام', cosmetic: 'تجميل الأسنان', orthodontics: 'تقويم الأسنان', orthodontic: 'تقويم الأسنان', implants: 'زراعة الأسنان',
-  implant: 'زراعة الأسنان', pediatric: 'أسنان الأطفال', endodontic: 'علاج الجذور', endodontics: 'علاج الجذور', periodontal: 'أمراض اللثة',
-  prosthodontic: 'التركيبات', prosthodontics: 'التركيبات', surgery: 'جراحة الفم', preventive: 'الوقاية', restorative: 'الحشوات والترميم',
-};
-export const specialtyLabel = (code: string) => SPECIALTY_AR[code.trim().toLowerCase()] ?? code.trim();
+/** Specialty codes in Arabic; shared with the dashboard. */
+export { specialtyLabel } from '@dental/ui/text';
 
 /** Service-catalog category -> icon in @dental/ui ICON_PATHS; services added by hand (no category) get the tooth. */
 export const CATEGORY_ICON: Record<string, string> = {

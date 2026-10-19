@@ -293,7 +293,7 @@ select.input { appearance: auto; }
 /* ---------- clinic profile ---------- */
 .profile-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
 .profile-side { position: sticky; top: 84px; }
-@media (max-width: 1100px) { .profile-grid { grid-template-columns: 1fr; } .profile-side { position: static; } }
+@media (max-width: 1100px) { .profile-grid { grid-template-columns: minmax(0, 1fr); } .profile-side { position: static; } }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
 .swatch { width: 40px; height: 40px; border-radius: 12px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line-strong); display: grid; place-items: center; cursor: pointer; padding: 0; }
 .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
@@ -442,7 +442,7 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 .dup-box { padding: 12px 14px; border-radius: var(--r-md); background: var(--warning-bg); color: var(--warning-ink); }
 .dup-box ul { margin: 6px 0; padding-inline-start: 18px; }
 .profile-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
-@media (max-width: 960px) { .profile-grid { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .profile-grid { grid-template-columns: minmax(0, 1fr); } }
 .detail-list { display: grid; gap: 0; margin: 0; }
 .detail-list > div { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .detail-list > div:last-child { border-bottom: 0; }
@@ -451,6 +451,14 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 .link-plain { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
 .history-row { display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: start; }
 .history-notes { white-space: pre-wrap; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); }
+.history-version { display: flex; flex-direction: column; gap: 6px; padding-block: 10px; border-top: 1px solid var(--line); }
+.file-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.file-tile { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.file-thumb { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); }
+.file-thumb:focus-visible { outline: none; box-shadow: var(--ring); }
+.file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.file-pdf { font-weight: 700; color: var(--primary-600); }
+.file-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .tag-input { display: flex; flex-direction: column; gap: 8px; }
 .chip-x { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-inline-start: 2px; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
 .chip-x:hover { background: rgb(0 0 0 / 0.08); }
@@ -527,3 +535,160 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 @media (max-width: 480px) {
   .image-field.is-wide .image-field-preview { width: 100%; }
 }
+
+/* Team screen (Phase D1): headings between the members and invitations lists */
+.section-title { font-size: var(--fs-lg); font-weight: 700; margin: 0 0 12px; }
+.section-title.mt { margin-top: 28px; }
+
+/* Appointments views (Phase D2): all / waiting list / my day */
+.seg { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--card); flex-wrap: wrap; }
+.seg-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 0; border-radius: var(--r-sm, 8px); background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.seg-btn:hover { background: var(--primary-50); }
+.seg-btn.is-on { background: var(--primary-500); color: #fff; }
+
+/* ---------- clinical (Phase D4) ---------- */
+.stack-sm { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.chip-toggle { min-width: 36px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--card); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.chip-toggle:hover { background: var(--primary-50); }
+.chip-toggle.is-on { background: var(--primary-500); border-color: var(--primary-500); color: #fff; }
+.chip-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
+.surface-picker { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tooth-panel { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.tooth-panel h3, .card h3 { margin: 0; font-size: var(--fs-md); }
+
+/* the dental chart is drawn left to right in every language (CHART-001) */
+.dental-chart { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
+.chart-sides { display: flex; justify-content: space-between; min-width: 400px; }
+.chart-row { display: flex; justify-content: center; gap: 3px; min-width: 400px; }
+.chart-row + .chart-row { padding-top: 4px; }
+.chart-row:nth-child(2) { border-bottom: 2px solid var(--line-strong); padding-bottom: 8px; }
+.tooth { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1 1 0; min-width: 20px; max-width: 34px; height: 40px; padding: 0;
+  border: 1px solid var(--line-strong); border-radius: 8px 8px 12px 12px; background: var(--card); color: var(--ink); font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
+.tooth.mid { margin-inline-start: 8px; }
+.tooth:hover { border-color: var(--primary-300); }
+.tooth:focus-visible { outline: none; box-shadow: var(--ring); }
+.tooth.is-on { outline: 2px solid var(--primary-500); outline-offset: 1px; }
+.tooth-surf { font-size: 9px; font-weight: 600; opacity: .85; }
+.tone-problem { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+.tone-treated { background: var(--primary-50); border-color: var(--primary-300); color: var(--primary-700); }
+.tone-missing { background: repeating-linear-gradient(45deg, var(--surface), var(--surface) 4px, var(--line) 4px, var(--line) 8px); color: var(--muted); border-style: dashed; }
+.tone-healthy { background: var(--success-bg); border-color: var(--success); color: var(--success); }
+.tone-other { background: var(--warning-bg); color: var(--warning-ink); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; margin: 10px 0 0; padding: 0; }
+.chart-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line-strong); }
+
+/* priced lines (procedures, plan items) */
+.line-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.line-list > li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.line-list > li:last-child { border-bottom: 0; }
+.line-list > li.is-cancelled > span:first-child { text-decoration: line-through; color: var(--muted); }
+.line-end { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.line-total { font-weight: 700; }
+
+.note-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.amendment { margin-top: 8px; padding: 8px 10px; border-inline-start: 3px solid var(--warning-ink); background: var(--warning-bg); border-radius: var(--r-sm); }
+.call-log { white-space: pre-wrap; font-size: var(--fs-xs); }
+.progress { height: 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--primary-500); }
+
+.rx-item { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.rx-item.is-replaced { opacity: .65; }
+.rx-lines { margin: 8px 0 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; }
+.rx-line-form { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+
+/* the printable prescription (VISIT-004): A5 or A4, Arabic, only the sheet prints */
+.rx-sheet { margin: 16px auto; padding: 20px 24px; background: #fff; color: #111; border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.6; }
+.rx-a5 { width: min(148mm, 100%); min-height: 190mm; }
+.rx-a4 { width: min(210mm, 100%); min-height: 270mm; }
+.rx-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #222; padding-bottom: 10px; }
+.rx-clinic { margin: 0; font-size: 20px; }
+.rx-branch { margin: 4px 0 0; font-size: 12px; color: #444; }
+.rx-logo { max-width: 72px; max-height: 72px; object-fit: contain; }
+.rx-doctor { display: flex; flex-direction: column; }
+.rx-doctor span { font-size: 12px; color: #444; }
+.rx-patient { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; margin: 0; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; }
+.rx-patient div { display: flex; gap: 6px; }
+.rx-patient dt { color: #555; }
+.rx-patient dd { margin: 0; font-weight: 600; }
+.rx-symbol { font-size: 28px; font-weight: 700; line-height: 1; }
+.rx-items { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.rx-drug { font-weight: 700; font-size: 15px; }
+.rx-how { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.rx-note { font-size: 12px; color: #333; }
+.rx-foot { display: flex; justify-content: flex-end; padding-top: 28px; }
+.rx-foot span { border-top: 1px solid #333; padding-top: 4px; min-width: 40%; text-align: center; font-size: 12px; }
+@media print {
+  body * { visibility: hidden; }
+  .rx-sheet, .rx-sheet * { visibility: visible; }
+  .rx-sheet { position: absolute; inset: 0 auto auto 0; width: 100%; min-height: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+  .no-print { display: none !important; }
+}
+
+/* patient merge (Phase D5) */
+.table-wrap { overflow-x: auto; }
+.compare-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.compare-table th, .compare-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: start; vertical-align: top; }
+.compare-table thead th { color: var(--muted); font-weight: 600; }
+.compare-table tbody th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+.compare-table tr.is-diff td { background: var(--warning-bg); }
+.compare-table td .badge { margin-inline-start: 6px; }
+.pick-item.is-on { border-color: var(--primary-500); background: var(--primary-50); }
+
+/* billing (Phase E1) */
+.text-owed { color: var(--danger); }
+.check-row { display: inline-flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.check-row input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--primary-500); }
+.rx-doc-title { margin: 6px 0 0; font-weight: 700; font-size: 16px; }
+.print-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.print-table th, .print-table td { border-bottom: 1px solid #ccc; padding: 6px 8px; text-align: start; }
+.print-table th { background: #f3f3f3; }
+.print-totals { margin: 0; display: flex; flex-direction: column; gap: 4px; align-self: flex-end; min-width: 50%; }
+.print-totals div { display: flex; justify-content: space-between; gap: 16px; }
+.print-totals dd { margin: 0; }
+.print-totals .is-total { font-weight: 700; border-top: 1px solid #333; padding-top: 4px; }
+.receipt-amount { font-size: 28px; font-weight: 800; text-align: center; margin: 8px 0; }
+ul.stack { list-style: none; padding: 0; margin-block: 0; }
+
+/* discounts, installments (Phase E2) */
+.input-sm { min-height: 34px; padding: 4px 8px; width: auto; max-width: 140px; font-size: var(--fs-sm); }
+.line-discount { flex-basis: 100%; }
+
+/* expenses and the cash box (Phase E3) */
+.row-start { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.period { display: flex; gap: 8px; flex-wrap: wrap; }
+.period > * { min-width: 150px; }
+.block { display: block; }
+.struck { text-decoration: line-through; color: var(--muted); }
+.cash-figures li { padding-block: 6px; }
+
+/* reports (Phase E4): the page is its own printout — on screen the sheet is plain, in print only it shows (A4) */
+.report-filters { display: flex; gap: 12px 16px; align-items: flex-end; flex-wrap: wrap; }
+.report-sheet.rx-sheet { width: 100%; min-height: 0; margin: 0; padding: 0; background: transparent; color: inherit; border: 0; border-radius: 0; box-shadow: none; font-size: inherit; gap: 16px; }
+.report-tile { padding: 14px 16px; }
+.report-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.report-table th, .report-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: start; vertical-align: top; }
+.report-table thead th { color: var(--muted); font-weight: 600; }
+.report-table .num { text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.report-table tfoot td { font-weight: 700; border-top: 2px solid var(--line-strong); border-bottom: 0; }
+.print-only { display: none; }
+@media print {
+  .print-only { display: flex; }
+  .report-sheet .card, .report-sheet .stat { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+  .report-sheet .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .report-sheet a { color: inherit; text-decoration: none; }
+}
+
+/* the home screen per role (Phase F4, REPORT-006) */
+.home-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+.home-grid > .alert { grid-column: 1 / -1; }
+.home-block.is-wide { grid-column: 1 / -1; }
+.home-title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--fs-md, 1rem); }
+.home-title .stat-icon { width: 36px; height: 36px; }
+.home-big { font-size: 1.75rem; font-weight: 800; margin: 10px 0 2px; }
+.home-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 12px 0 6px; }
+.home-figures div { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.home-figures dt { color: var(--muted); font-size: var(--fs-xs); }
+.home-figures dd { margin: 2px 0 0; font-weight: 700; font-size: var(--fs-lg); }
+.home-figures .is-alert { border-color: var(--warning, #d97706); background: var(--warning-bg); }

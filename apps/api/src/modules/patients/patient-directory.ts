@@ -47,6 +47,21 @@ export class PatientDirectory {
     return { id, created: true };
   }
 
+  /**
+   * The patient as the clinical screens show them (visit header, prescription), with the medical history for the
+   * alerts (PATIENT-005). The caller has already checked clinical:read. Null when there is no such (live) record.
+   */
+  async clinicalSummary(tx: Tx, tenantId: string, id: string) {
+    const p = await this.repo.get(tx, tenantId, id);
+    if (!p) return null;
+    const medicalHistory = await this.repo.medicalHistory(tx, id);
+    return { id: p.id, file_no: p.file_no, full_name: p.full_name, phone: p.phone, gender: p.gender, date_of_birth: p.date_of_birth, medicalHistory };
+  }
+
+  exists(tx: Tx, tenantId: string, id: string): Promise<boolean> {
+    return this.repo.exists(tx, tenantId, id);
+  }
+
   /** A staff booking needs a live, unblocked record of this clinic. */
   async assertBookable(tx: Tx, tenantId: string, id: string): Promise<void> {
     const p = await this.repo.bookable(tx, tenantId, id);

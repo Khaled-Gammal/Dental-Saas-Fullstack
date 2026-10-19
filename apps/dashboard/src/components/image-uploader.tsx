@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type DragEvent } from 'react';
 import { ApiError, uploadFile } from '../api';
 import { ACCEPT_ATTR, uploadProblem } from '../gallery-model';
-import { t, type Lang } from '../i18n';
+import { errorText, t, type Lang } from '../i18n';
 import type { MediaImage, MediaPurpose } from '../types';
 import { Button } from '../ui/components';
 import { CloseIcon, PlusIcon } from '../ui/icons';
@@ -18,7 +18,7 @@ const UPLOAD_ERRORS: Record<string, Parameters<typeof t>[0]> = {
 export function uploadErrorText(e: unknown, lang: Lang, purpose: MediaPurpose = 'gallery'): string {
   const code = e instanceof ApiError ? e.code : 'error';
   if (code === 'image_too_small' && purpose === 'logo') return t('err_logo_too_small', lang);
-  return UPLOAD_ERRORS[code] ? t(UPLOAD_ERRORS[code], lang) : e instanceof Error ? e.message : String(e);
+  return UPLOAD_ERRORS[code] ? t(UPLOAD_ERRORS[code], lang) : errorText(code, e instanceof ApiError ? e.status : undefined, lang); // never the English detail (L10N-003)
 }
 
 /**

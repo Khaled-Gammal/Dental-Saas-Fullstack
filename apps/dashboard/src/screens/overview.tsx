@@ -1,23 +1,27 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Session } from '../api';
+import { useEffect, useRef, useState } from 'react';
+import { can, type Session } from '../api';
 import { siteUrl } from '../config';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
 import { navigate } from '../hooks';
-import { useBranches, useOnboarding, usePublish } from '../queries';
+import { useOnboarding, usePublish } from '../queries';
 import { to, type Page } from '../router';
 import { Badge, Button, Card, ErrorText } from '../ui/components';
-import { CheckIcon, CopyIcon, ExternalIcon, PinIcon, ReceiptIcon, ShieldIcon } from '../ui/icons';
+import { CheckIcon, CopyIcon, ExternalIcon } from '../ui/icons';
 import { DentalArch } from '../ui/illustrations';
+import { HomeFigures } from './home-figures';
 
 const ARCH_TEETH = 14;
 const COPIED_MS = 1800;
 
 type Step = { key: Key; done: boolean; action?: { label: Key; go: () => void; busy?: boolean } };
 
+/**
+ * The home screen (SRS REPORT-006): a welcome, the member's own figures (HomeFigures), and — for the owner until it
+ * is complete — the clinic setup checklist.
+ */
 export function Overview({ lang, session }: { lang: Lang; session: Session }) {
   const go = (p: Page) => navigate(to.list(p));
   const clinicId = session.clinic.id;
-  const branches = useBranches(clinicId);
   const status = useOnboarding(clinicId).data; // derived on the server from the clinic's data
   const publish = usePublish(clinicId);
   const site = siteUrl(session.clinic.slug);
@@ -34,29 +38,28 @@ export function Overview({ lang, session }: { lang: Lang; session: Session }) {
   ];
   const done = steps.filter((s) => s.done).length;
   const next = steps.find((s) => !s.done);
+  const setup = can(session, 'settings:write') && done < steps.length; // the checklist is the owner's, until it is done
 
   return (
     <>
       <section className="hero-card">
         <div className="hero-text">
-          <p className="eyebrow">{t('welcome', lang)}{lang === 'ar' ? '، ' : ', '}<bdi>{session.user.name}</bdi></p>
-          <h1>{t('overviewSub', lang)}</h1>
-          <SiteLink url={site} lang={lang} />
+          <p className="eyebrow">{t('welcome', lang)}{lang === 'ar' ? '، ' : ', '}<bdi>{session.user.name}</bdi> · {roleLabel(session.clinic.role, lang)}</p>
+          <h1>{t(setup ? 'overviewSub' : 'homeSub', lang)}</h1>
+          {can(session, 'website:write') && <SiteLink url={site} lang={lang} />}
         </div>
-        <div className="hero-art">
-          <DentalArch filled={(done / steps.length) * ARCH_TEETH} label={`${done}/${steps.length} ${t('stepsDone', lang)}`} />
-          <span className="hero-art-caption">{t('archCaption', lang)}</span>
-        </div>
+        {setup && (
+          <div className="hero-art">
+            <DentalArch filled={(done / steps.length) * ARCH_TEETH} label={`${done}/${steps.length} ${t('stepsDone', lang)}`} />
+            <span className="hero-art-caption">{t('archCaption', lang)}</span>
+          </div>
+        )}
       </section>
 
-      <div className="stats">
-        <Stat label={t('statBranches', lang)} value={branches.isLoading ? '…' : branches.isError ? '—' : String(branches.data?.length ?? 0)} icon={<PinIcon />} />
-        <Stat label={t('statPlan', lang)} value={session.clinic.status === 'trialing' ? t('trial', lang) : t('active', lang)} icon={<ReceiptIcon />} />
-        <Stat label={t('statRole', lang)} value={roleLabel(session.clinic.role, lang)} icon={<ShieldIcon />} />
-      </div>
+      <HomeFigures lang={lang} clinicId={clinicId} />
 
-      <ErrorText error={publish.error} />
-      <Card className="setup">
+      {setup && <ErrorText error={publish.error} />}
+      {setup && <Card className="setup">
         <div className="setup-head">
           <div>
             <h2>{t('setupTitle', lang)}</h2>
@@ -78,17 +81,8 @@ export function Overview({ lang, session }: { lang: Lang; session: Session }) {
             </li>
           ))}
         </ol>
-      </Card>
+      </Card>}
     </>
-  );
-}
-
-function Stat({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
-  return (
-    <div className="stat">
-      <span className="stat-icon">{icon}</span>
-      <span className="stat-text"><small>{label}</small><strong>{value}</strong></span>
-    </div>
   );
 }
 

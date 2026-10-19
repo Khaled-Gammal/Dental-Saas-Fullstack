@@ -46,7 +46,7 @@ export class SessionService {
 
     const member = await this.repo.activeMember(m.tenant_id, userId);
     if (!member) throw Err.forbidden('no_clinic', 'Your account is not linked to an active clinic');
-    const accessToken = await this.tokens.signAccess({ sub: userId, tid: m.tenant_id, mid: member.id, perms: member.permissions });
+    const accessToken = await this.tokens.signAccess({ sub: userId, tid: m.tenant_id, mid: member.id, perms: member.permissions, av: member.access_version });
 
     const refreshToken = newRefreshToken();
     await this.repo.insertRefreshToken({

@@ -2,10 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { pickName } from '@dental/ui/text';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
-import { useLeave, useUnsavedChanges } from '../../hooks';
+import { useDebounced, useLeave, useUnsavedChanges } from '../../hooks';
 import { t, type Lang } from '../../i18n';
 import { EMPTY_PATIENT, isMinor, patientBody, patientProblems, toPatientForm, type PatientForm as Form, type PatientProblem } from '../../patient-model';
-import { useBranches, usePatient, usePatients, useSavePatient } from '../../queries';
+import { useBranches, usePatient, usePossibleDuplicates, useSavePatient } from '../../queries';
 import { to } from '../../router';
 import type { PatientDetail } from '../../types';
 import { Badge, Card, Field, Input, Switch, TextArea } from '../../ui/components';
@@ -37,9 +37,15 @@ function PatientFormBody({ lang, clinicId, patient }: { lang: Lang; clinicId: st
   const canSave = dirty && problems.length === 0;
   useUnsavedChanges(dirty, t('leaveUnsaved', lang));
 
-  // registering someone new: show existing records with the same mobile, so reception does not create a duplicate
-  const samePhone = usePatients(clinicId, !patient && form.phone.replace(/\D/g, '').length >= 10 ? form.phone.trim() : '');
-  const duplicates = !patient && form.phone.replace(/\D/g, '').length >= 10 ? samePhone.data?.pages[0]?.items ?? [] : [];
+  // registering someone new: show records with the same mobile, or the same name (أحمد = احمد) — a warning, never a block
+  // debounced as a string: an object literal is a new value every render and would never settle
+  const dupKey = useDebounced(JSON.stringify({
+    phone: !patient && form.phone.replace(/\D/g, '').length >= 10 ? form.phone.trim() : '',
+    fullName: !patient && form.fullName.trim().length >= 5 ? form.fullName.trim() : '',
+    dateOfBirth: !patient ? form.dateOfBirth : '',
+  }), 400);
+  const dupQuery = JSON.parse(dupKey) as { phone: string; fullName: string; dateOfBirth: string };
+  const duplicates = usePossibleDuplicates(clinicId, dupQuery).data ?? [];
 
   const minor = isMinor(form.dateOfBirth, today());
   const guardianOpen = showGuardian || minor;

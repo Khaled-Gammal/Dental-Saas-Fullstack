@@ -52,11 +52,17 @@ export class PatientsRepository {
         q = q.where((eb) => eb.or([eb('p.file_no', '=', String(s.fileNo)), eb('p.phone', 'like', `${escapeLike(s.prefix)}%`)]))
           .orderBy(sql`p.file_no = ${s.fileNo}`, 'desc').orderBy('p.file_no');
         break;
-      case 'name':
-        // ILIKE catches partial words ("أحم"); the % operator catches spelling variants. Both use the trigram index.
-        q = q.where((eb) => eb.or([eb('p.full_name', 'ilike', `%${escapeLike(s.text)}%`), sql<boolean>`p.full_name % ${s.text}`]))
-          .orderBy(sql`similarity(p.full_name, ${s.text})`, 'desc').orderBy('p.full_name');
+      case 'name': {
+        // On the normalised name (SRS PATIENT-001): "احمد" finds "أحمد", "فاطمه" finds "فاطمة". ILIKE catches partial words
+        // ("أحم"), the % operator spelling variants; both use the trigram index on full_name_norm.
+        const norm = sql<string>`ar_normalize(${s.text})`;
+        q = q.where((eb) => eb.or([
+          // escaped first: ar_normalize never touches \ % _, so the escaping survives it
+          sql<boolean>`p.full_name_norm ilike '%' || ar_normalize(${escapeLike(s.text)}) || '%'`,
+          sql<boolean>`p.full_name_norm % ${norm}`,
+        ])).orderBy(sql`similarity(p.full_name_norm, ${norm})`, 'desc').orderBy('p.full_name');
         break;
+      }
     }
     return (await q.limit(limit).execute()).map(toRow);
   }
@@ -143,6 +149,32 @@ export class PatientsRepository {
       .orderBy('a.starts_at', 'desc').limit(50).execute();
   }
 
+  /**
+   * Possible duplicates before a new record is saved (SRS PATIENT-002): the same phone in any phone field, or the same
+   * normalised name (or a close one with the same birth date). A warning only: families share phones.
+   */
+  async possibleDuplicates(tx: Tx, tenantId: string, q: { phone: string | null; fullName: string | null; dateOfBirth: string | null }): Promise<PatientRow[]> {
+    if (!q.phone && !q.fullName) return [];
+    const norm = q.fullName ? sql<string>`ar_normalize(${q.fullName})` : null;
+    const rows = await this.base(tx, tenantId).select([...LIST, dob.as('date_of_birth')])
+      .where((eb) => eb.or([
+        ...(q.phone ? [eb('p.phone', '=', q.phone), eb('p.phone_alt', '=', q.phone), eb('p.guardian_phone', '=', q.phone)] : []),
+        ...(norm ? [sql<boolean>`p.full_name_norm = ${norm}`] : []),
+        ...(norm && q.dateOfBirth ? [sql<boolean>`(p.date_of_birth = ${q.dateOfBirth}::date and similarity(p.full_name_norm, ${norm}) >= 0.5)`] : []),
+      ]))
+      .orderBy('p.created_at', 'desc').limit(5).execute();
+    return rows.map(toRow);
+  }
+
+  /** Earlier versions of the medical history, newest first, with who saved each (SRS PATIENT-005). */
+  historyVersions(tx: Tx, patientId: string) {
+    return tx.selectFrom('patient_medical_history_versions as v')
+      .leftJoin('tenant_members as m', 'm.id', 'v.saved_by').leftJoin('users as u', 'u.id', 'm.user_id')
+      .select(['v.id', 'v.allergies', 'v.conditions', 'v.medications', 'v.is_pregnant', 'v.is_smoker', 'v.notes', 'v.saved_at', 'u.full_name as saved_by_name'])
+      .where('v.patient_id', '=', patientId).orderBy('v.saved_at', 'desc').orderBy('v.id', 'desc').limit(50).execute()
+      .then((rows) => rows.map((r) => ({ ...r, id: Number(r.id) })));
+  }
+
   /** Who viewed or changed the record (DSH-15), newest first. */
   activity(tx: Tx, tenantId: string, patientId: string, limit: number) {
     return tx.selectFrom('audit_log as l').leftJoin('users as u', 'u.id', 'l.actor_user_id')
@@ -154,10 +186,10 @@ export class PatientsRepository {
 
   // ---------- for other modules (PatientDirectory) ----------
 
-  /** BOOK-11: same phone and the same name (case-insensitive) is the same person; families share phones. */
+  /** BOOK-11: same phone and the same name (normalised: case, hamza, ة/ه, ى/ي, diacritics) is the same person; families share phones. */
   /** Blocked records are included on purpose: a blocked patient must be refused, not given a fresh duplicate record. */
   findByPhoneAndName(tx: Tx, tenantId: string, phone: string, fullName: string) {
-    return this.base(tx, tenantId).select(['p.id', 'p.is_blocked', 'p.email']).where('p.phone', '=', phone).where(sql<boolean>`lower(p.full_name) = lower(${fullName})`)
+    return this.base(tx, tenantId).select(['p.id', 'p.is_blocked', 'p.email']).where('p.phone', '=', phone).where(sql<boolean>`p.full_name_norm = ar_normalize(${fullName})`)
       .orderBy('p.is_blocked', 'desc').orderBy('p.created_at', 'desc').executeTakeFirst();
   }
 
@@ -166,6 +198,24 @@ export class PatientsRepository {
       tenant_id: tenantId, file_no: sql<string>`next_tenant_counter('patient_file')`, full_name: p.fullName, phone: p.phone, email: p.email,
       preferred_branch_id: p.preferredBranchId, referral_source: 'website', tags: [NEEDS_REVIEW],
     }).returning('id').executeTakeFirstOrThrow();
+  }
+
+  /** A record that was merged: where it went (its URL keeps working). */
+  mergedInto(tx: Tx, tenantId: string, id: string) {
+    return tx.selectFrom('patients').select(['merged_into_id']).where('tenant_id', '=', tenantId).where('id', '=', id)
+      .where('merged_into_id', 'is not', null).executeTakeFirst().then((r) => r?.merged_into_id ?? null);
+  }
+
+  /** What a merge would move from this record, per table (database function: every table, every branch). */
+  async mergeCounts(tx: Tx, id: string): Promise<Record<string, number>> {
+    const r = await sql<{ c: Record<string, number> }>`select patient_merge_counts(${id}) as c`.execute(tx);
+    return r.rows[0]?.c ?? {};
+  }
+
+  /** SRS PATIENT-003: one database function moves everything in one transaction (see migration 0022). */
+  async merge(tx: Tx, survivorId: string, mergedId: string): Promise<Record<string, number>> {
+    const r = await sql<{ m: Record<string, number> }>`select merge_patients(${survivorId}, ${mergedId}) as m`.execute(tx);
+    return r.rows[0]?.m ?? {};
   }
 
   bookable(tx: Tx, tenantId: string, id: string) {

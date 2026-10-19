@@ -2,18 +2,22 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { Reflector } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import type { Request } from 'express';
+import { sql } from '@dental/db';
 import type { RequestContext } from '../shared/context/request-context';
+import { TenantDb } from '../shared/database/tenant-db.service';
+import { Err } from '../shared/errors/app-error';
 import { clipUserAgent } from '../shared/request-meta';
 import { IS_PUBLIC } from './decorators';
 import { TokenService, type AccessTokenPayload } from './token.service';
 
-/** Global guard: every endpoint needs a valid access token unless marked @Public(). */
+/** Global guard: every endpoint needs a valid access token of a still-active member unless marked @Public(). */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly tokens: TokenService,
     private readonly cls: ClsService<RequestContext>,
+    private readonly db: TenantDb,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -35,6 +39,15 @@ export class JwtAuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }
+    // SRS ACCESS-005: a disabled member, or a role/branch change, takes effect on the next request, not at token expiry.
+    // One primary-key lookup; on `access_changed` the dashboard refreshes and gets a token with the new rights.
+    const { rows } = await sql<{ tenant_id: string; status: string; access_version: number }>`
+      select * from member_access_state(${payload.mid}::uuid)`.execute(this.db.platform());
+    const state = rows[0];
+    if (!state || state.tenant_id !== payload.tid || state.status !== 'active') {
+      throw Err.unauthorized('access_revoked', 'Your access to this clinic has ended');
+    }
+    if (state.access_version !== payload.av) throw Err.unauthorized('access_changed', 'Your access changed; sign in again');
     this.cls.set('userId', payload.sub);
     this.cls.set('tenantId', payload.tid);
     this.cls.set('memberId', payload.mid);

@@ -1,4 +1,4 @@
-import { pickName } from '@dental/ui/text';
+import { pickName, specialtyLabel } from '@dental/ui/text';
 import { navigate, useFlash } from '../../hooks';
 import { t, type Lang } from '../../i18n';
 import { useBranches, useDoctors } from '../../queries';
@@ -55,7 +55,7 @@ function DoctorCard({ lang, doctor: d, branches, canWrite }: { lang: Lang; docto
         </div>
         {!d.is_active ? <Badge>{t('inactive', lang)}</Badge> : !d.show_on_website ? <Badge tone="warning">{t('hidden', lang)}</Badge> : null}
       </div>
-      {d.specialties.length > 0 && <div className="chips">{d.specialties.map((s) => <span key={s} className="chip"><bdi>{s}</bdi></span>)}</div>}
+      {d.specialties.length > 0 && <div className="chips">{d.specialties.map((s) => <span key={s} className="chip"><bdi>{specialtyLabel(s)}</bdi></span>)}</div>}
       <div className="branch-hours">
         <PinIcon size={16} />
         {where.length ? <span><bdi>{where.join(lang === 'ar' ? '، ' : ', ')}</bdi></span> : <span className="warn-text">{t('needBranch', lang)}</span>}
@@ -69,6 +69,7 @@ function DoctorCard({ lang, doctor: d, branches, canWrite }: { lang: Lang; docto
           {where.length > 0 && (
             <RouteLink route={to.schedule(d.id)} className={`btn btn-${days ? 'secondary' : 'primary'}`}><CalendarIcon size={16} />{t('schedule', lang)}</RouteLink>
           )}
+          <RouteLink route={to.timeOff(d.id)}>{t('timeOffLink', lang)}</RouteLink>
           <RouteLink route={to.edit('doctors', d.id)}><EditIcon size={16} />{t('edit', lang)}</RouteLink>
         </div>
       )}

@@ -7,12 +7,17 @@ import { APP_CONFIG, loadConfig } from './config';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { ClinicSetupModule } from './modules/clinic-setup/clinic-setup.module';
+import { BillingModule } from './modules/billing';
+import { FinanceModule } from './modules/finance';
+import { ReportsModule } from './modules/reports';
+import { ClinicalModule } from './modules/clinical';
 import { IdentityModule } from './modules/identity/identity.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
 import { MediaModule } from './modules/media';
 import { PatientsModule } from './modules/patients';
 import { PublicSiteModule } from './modules/public-site/public-site.module';
 import { SchedulingModule } from './modules/scheduling';
+import { StaffModule } from './modules/staff/staff.module';
 import { WebsiteModule } from './modules/website/website.module';
 import { AuditModule } from './shared/audit/audit.module';
 import { DatabaseModule } from './shared/database/database.module';
@@ -59,8 +64,13 @@ class ConfigModule {}
     WebsiteModule,
     SchedulingModule,
     PatientsModule,
+    ClinicalModule,
+    BillingModule,
+    FinanceModule,
+    ReportsModule,
     MediaModule,
     GalleryModule,
+    StaffModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemDetailsFilter }],
 })

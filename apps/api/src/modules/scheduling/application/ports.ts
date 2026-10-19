@@ -32,7 +32,22 @@ export interface DayContext {
   blocked: { doctor_id: string; starts_at: Date; ends_at: Date }[];
 }
 
-export interface DayQuery { branchId: string; doctorIds: string[]; weekday: number; date: string; from: Date; to: Date }
+export interface DayQuery {
+  branchId: string; doctorIds: string[]; weekday: number; date: string; from: Date; to: Date;
+  /** the appointment being moved: its own time is not busy for its new time */
+  excludeAppointmentId?: string;
+}
+
+/** What a move needs to know about the appointment, read under a row lock. */
+export interface MoveRow {
+  id: string; status: AppointmentStatus; branch_id: string; doctor_id: string; service_id: string | null; room_id: string | null;
+  starts_at: Date; ends_at: Date; source: string; has_code: boolean; patient_email: string | null;
+}
+export interface MovePatch {
+  startsAt: Date; endsAt: Date; doctorId: string; branchId: string; roomId: string | null; overrideReason: string | null;
+  /** a new reception code when the day changed (null = clear the old one; undefined = keep it) */
+  code?: { hash: string; expiresAt: Date } | null;
+}
 export interface DoctorsQuery { branchId: string; serviceId: string | null; doctorId?: string; online: boolean }
 
 export interface HoldInput {
@@ -62,8 +77,11 @@ export interface AppointmentView {
   patient: { id: string; full_name: string; phone: string; file_no: number } | null;
   doctor: { name_ar: string | null; name_en: string | null };
   service: { name_ar: string | null; name_en: string | null; duration_minutes: number } | null;
+  room: { id: string; name: string } | null;
   /** a website booking whose reception code is still open */
   has_code: boolean;
+  /** the clinical visit opened on it, if any */
+  visit_id: string | null;
 }
 
 export interface TransitionRow { id: string; status: AppointmentStatus; doctor_id: string; doctor_member_id: string | null; has_code: boolean }
@@ -88,6 +106,10 @@ export interface SchedulingRepository {
   branchTimezone(tx: Session, branchId: string): Promise<string | null | undefined>;
   /** Doctors who work at the branch, perform the service and (for the website) accept online booking. */
   doctorsFor(tx: Session, q: DoctorsQuery): Promise<string[]>;
+  /** Whether the signed-in member may work in this branch (branch-scoped access; true for all-branch members). */
+  branchAllowed(tx: Session, branchId: string): Promise<boolean>;
+  /** Whether a staff booking may name this doctor at this branch: the doctor exists, is active and works there. */
+  doctorAtBranch(tx: Session, doctorId: string, branchId: string): Promise<'ok' | 'not_found' | 'inactive' | 'not_at_branch'>;
   dayContext(tx: Session, q: DayQuery): Promise<DayContext>;
   releaseExpiredHolds(tx: Session, doctorId: string): Promise<void>;
   insertHold(tx: Session, h: HoldInput): Promise<{ id: string }>;
@@ -95,7 +117,14 @@ export interface SchedulingRepository {
   lockLiveHold(tx: Session, id: string): Promise<HoldRow | undefined>;
   finalizeHold(tx: Session, id: string, f: FinalizeInput): Promise<void>;
   addOutboxEvent(tx: Session, tenantId: string, type: string, payload: Record<string, unknown>): Promise<void>;
-  listBetween(tx: Session, q: { from: Date; to: Date; branchId?: string }): Promise<AppointmentView[]>;
+  listBetween(tx: Session, q: { from: Date; to: Date; branchId?: string; doctorId?: string }): Promise<AppointmentView[]>;
+  /** The doctor record a member signs in as (doctors.member_id), if any. */
+  doctorOfMember(tx: Session, memberId: string): Promise<string | null>;
+  lockForMove(tx: Session, id: string): Promise<MoveRow | undefined>;
+  move(tx: Session, id: string, p: MovePatch): Promise<void>;
+  setRoom(tx: Session, id: string, roomId: string | null): Promise<void>;
+  /** An active room of this branch. */
+  roomInBranch(tx: Session, roomId: string, branchId: string): Promise<boolean>;
   get(tx: Session, id: string): Promise<AppointmentView | undefined>;
   lockForTransition(tx: Session, id: string): Promise<TransitionRow | undefined>;
   setStatus(tx: Session, id: string, patch: StatusPatch): Promise<void>;

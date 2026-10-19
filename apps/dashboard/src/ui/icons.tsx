@@ -40,5 +40,8 @@ export const LangIcon = (p: P) => (<Svg {...p}><path d="M4 5h9M8.5 3v2M6 5c.6 3.
 export const ListIcon = (p: P) => (<Svg {...p}><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6h.01M4 12h.01M4 18h.01" strokeWidth={2.6} /></Svg>);
 export const EditIcon = (p: P) => (<Svg {...p}><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4Z" /><path d="m13 7 4 4" /></Svg>);
 export const TagIcon = (p: P) => (<Svg {...p}><path d="M3 12V4h8l9 9-8 8-9-9Z" /><path d="M7.5 7.5h.01" strokeWidth={2.6} /></Svg>);
+export const WalletIcon = (p: P) => (<Svg {...p}><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v4" /><rect x="4" y="7.5" width="16" height="12" rx="2.5" /><path d="M16 13.5h.01" strokeWidth={2.6} /></Svg>);
+export const CashIcon = (p: P) => (<Svg {...p}><rect x="2.5" y="6" width="19" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 9.5v5M18 9.5v5" /></Svg>);
+export const ChartIcon = (p: P) => (<Svg {...p}><path d="M4 20h16" /><path d="M7 16v-5M12 16V7M17 16v-8" /></Svg>);
 /** Points forward in reading direction (flipped by CSS in RTL). */
 export const ChevronIcon = (p: P) => (<Svg {...p}><path d="m9 6 6 6-6 6" /></Svg>);

@@ -4,12 +4,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { t, type Key, type Lang } from '../../i18n';
-import { useAppointmentAction, useAppointments, useBranches, useCheckIn, type AppointmentAction } from '../../queries';
+import { waitingList } from '../../calendar-model';
+import { send, useAppointmentAction, useAppointments, useBranches, useCheckIn, useClinicalMutation, type AppointmentAction } from '../../queries';
+import { to } from '../../router';
+import { RouteLink } from '../../ui/page';
 import type { Appointment, AppointmentStatus, Branch } from '../../types';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, OtpInput, PageHeader, Skeleton } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { CalendarIcon, CheckIcon } from '../../ui/icons';
+import { CalendarIcon, CheckIcon, EditIcon } from '../../ui/icons';
 import { fmtNumber, toAsciiDigits } from '../../util';
+import { money } from '../../money';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const ALL = 'all'; // Radix Select cannot carry an empty value
@@ -42,17 +46,42 @@ function BranchSelect({ lang, branches, value, onChange, allLabel, className }: 
  * One day of appointments with reception check-in. The day and branch live in the URL (`#/appointments?date=…&branch=…`)
  * so the screen can be reloaded or shared. `canWrite` = appointments:write, `canOwn` = appointments:write:own.
  */
-export function Appointments({ lang, clinicId, canWrite, canOwn, query }: { lang: Lang; clinicId: string; canWrite: boolean; canOwn: boolean; query?: Record<string, string> }) {
+type View = 'all' | 'waiting' | 'mine';
+const VIEWS: { v: View; key: Key }[] = [{ v: 'all', key: 'viewAll' }, { v: 'waiting', key: 'viewWaiting' }, { v: 'mine', key: 'viewMine' }];
+/** What "Change" can do per status: move while pending/confirmed, set the chair until the visit ends. */
+const CHANGEABLE: AppointmentStatus[] = ['pending', 'confirmed', 'checked_in', 'in_progress'];
+/** A visit is opened once the patient has arrived (VISIT-001). */
+const VISITABLE: AppointmentStatus[] = ['checked_in', 'in_progress'];
+
+/** Opens the visit of an arrived patient (or the one already open) and goes to it; another doctor's is refused by the API. */
+function OpenVisitButton({ lang, clinicId, appointmentId }: { lang: Lang; clinicId: string; appointmentId: string }) {
+  const open = useClinicalMutation(clinicId, () => send<{ id: string }>('/visits', 'POST', { appointmentId }));
+  return (
+    <>
+      <Button variant="secondary" loading={open.isPending} onClick={() => open.mutate(undefined, { onSuccess: (v) => navigate(to.visit(v.id)) })}>{t('openVisit', lang)}</Button>
+      <ErrorText error={open.error} />
+    </>
+  );
+}
+
+export function Appointments({ lang, clinicId, canWrite, canOwn, query, defaultView = 'all', canVisit = false, canReadVisit = false }: {
+  lang: Lang; clinicId: string; canWrite: boolean; canOwn: boolean; query?: Record<string, string>; defaultView?: View;
+  /** clinical:write: open the visit of an arrived patient (the API checks it is the doctor's own); clinical:read: open an existing one */
+  canVisit?: boolean; canReadVisit?: boolean;
+}) {
   const date = query?.date && ISO.test(query.date) ? query.date : isoDate(new Date());
   const branchId = query?.branch || undefined;
-  const go = (next: { date?: string; branch?: string | null }) => {
+  const view: View = query?.view === 'waiting' || query?.view === 'mine' || query?.view === 'all' ? query.view : defaultView;
+  const go = (next: { date?: string; branch?: string | null; view?: View }) => {
     const branch = next.branch === undefined ? branchId : next.branch || undefined;
-    navigate({ page: 'appointments', query: { date: next.date ?? date, ...(branch && { branch }) } });
+    const v = next.view ?? view;
+    navigate({ page: 'appointments', query: { date: next.date ?? date, ...(branch && { branch }), ...(v !== defaultView && { view: v }) } });
   };
   const branches = useBranches(clinicId);
-  const day = useAppointments(clinicId, date, branchId);
+  const day = useAppointments(clinicId, date, branchId, view === 'mine');
+  const queue = waitingList(day.data?.appointments ?? [], Date.now());
   const tz = day.data?.timezone ?? 'Africa/Cairo';
-  const time = (iso: string) => new Intl.DateTimeFormat(locale(lang), { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+  const time = (iso: string) => new Intl.DateTimeFormat(locale(lang), { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
 
   const act = useAppointmentAction(clinicId);
   const [cancelling, setCancelling] = useState<Appointment | null>(null);
@@ -85,7 +114,15 @@ export function Appointments({ lang, clinicId, canWrite, canOwn, query }: { lang
         <BranchSelect lang={lang} branches={branches.data ?? []} value={branchId ?? ALL} onChange={(v) => go({ branch: v === ALL ? null : v })} allLabel={t('allBranches', lang)} />
       </div>
 
-      {canWrite && <CheckInPanel lang={lang} clinicId={clinicId} branches={branches.data ?? []} defaultBranch={branchId} />}
+      <div className="seg mt" role="tablist" aria-label={t('navAppointments', lang)}>
+        {VIEWS.filter((x) => x.v !== 'mine' || canOwn).map((x) => (
+          <button key={x.v} type="button" role="tab" aria-selected={view === x.v} className={`seg-btn${view === x.v ? ' is-on' : ''}`} onClick={() => go({ view: x.v })}>
+            {t(x.key, lang)}{x.v === 'waiting' && queue.waiting.length > 0 && <Badge tone="warning">{fmtNumber(queue.waiting.length, lang)}</Badge>}
+          </button>
+        ))}
+      </div>
+
+      {canWrite && view !== 'mine' && <CheckInPanel lang={lang} clinicId={clinicId} branches={branches.data ?? []} defaultBranch={branchId} />}
       {actionError != null && <ErrorText error={actionError} />}
 
       <h2 className="day-title"><CalendarIcon size={18} />{new Intl.DateTimeFormat(locale(lang), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`))}</h2>
@@ -93,6 +130,8 @@ export function Appointments({ lang, clinicId, canWrite, canOwn, query }: { lang
         <ErrorText error={day.error} onRetry={() => void day.refetch()} />
       ) : day.isLoading ? (
         <ul className="appts"><Skeleton h={84} count={4} /></ul>
+      ) : view === 'waiting' ? (
+        <WaitingView lang={lang} queue={queue} time={time} canStart={canWrite || canOwn} onStart={(a) => run(a, 'start')} />
       ) : !day.data?.appointments.length ? (
         <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noAppointments', lang)} text={t('noAppointmentsText', lang)} /></Card>
       ) : (
@@ -115,12 +154,18 @@ export function Appointments({ lang, clinicId, canWrite, canOwn, query }: { lang
                     <span><bdi>{pickName(lang, a.doctor.name_ar, a.doctor.name_en)}</bdi></span>
                     {a.service && <span><bdi>{pickName(lang, a.service.name_ar, a.service.name_en)}</bdi></span>}
                     <span className="muted">{t(`source_${a.source}` as Key, lang)}</span>
+                    {a.room && <span>{t('roomLabel', lang)}: <bdi>{a.room.name}</bdi></span>}
                   </div>
                   {a.patient_notes && <p className="appt-notes">{a.patient_notes}</p>}
                   {a.cancel_reason && <p className="appt-notes muted">{a.cancel_reason}</p>}
                 </div>
-                {actions.length > 0 && (
+                {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status)) || (a.visit_id && canReadVisit) || (canVisit && VISITABLE.includes(a.status))) && (
                   <div className="appt-actions">
+                    {a.visit_id && canReadVisit ? <RouteLink route={to.visit(a.visit_id)} className="btn btn-secondary">{t('openVisit', lang)}</RouteLink>
+                      : canVisit && VISITABLE.includes(a.status) && <OpenVisitButton lang={lang} clinicId={clinicId} appointmentId={a.id} />}
+                    {canWrite && CHANGEABLE.includes(a.status) && (
+                      <RouteLink route={to.edit('appointments', a.id)} className="btn btn-ghost"><EditIcon size={16} />{t('editAppointment', lang)}</RouteLink>
+                    )}
                     {actions.map((x) => (
                       <Button key={x} variant={x === 'cancel' || x === 'noShow' ? 'ghost' : x === 'confirm' || x === 'complete' ? 'primary' : 'secondary'}
                         onClick={() => run(a, x)} loading={act.isPending && act.variables?.id === a.id && act.variables.action === x}>
@@ -177,10 +222,47 @@ function CheckInPanel({ lang, clinicId, branches, defaultBranch }: { lang: Lang;
         {checkIn.isSuccess && (
           <Alert tone="success">
             {t('checkedInOk', lang)}: <strong><bdi>{checkIn.data.appointment.patient?.full_name}</bdi></strong>
-            {' · '}{t('amountDue', lang)}: <strong>{fmtNumber(checkIn.data.result.amount_due_minor / 100, lang)} {t('egp', lang)}</strong>
+            {' · '}{t('amountDue', lang)}: <strong>{money(checkIn.data.result.amount_due_minor, lang)}</strong>
           </Alert>
         )}
       </form>
     </Card>
+  );
+}
+
+/** Reception's waiting list (SRS APPT-003): arrival order, minutes waited, who is with the doctor. Refreshes with the day. */
+function WaitingView({ lang, queue, time, canStart, onStart }: {
+  lang: Lang; queue: ReturnType<typeof waitingList>; time: (iso: string) => string; canStart: boolean; onStart: (a: Appointment) => void;
+}) {
+  if (!queue.waiting.length && !queue.withDoctor.length) {
+    return <Card><EmptyState icon={<CheckIcon size={28} />} title={t('noWaiting', lang)} text={t('noWaitingText', lang)} /></Card>;
+  }
+  return (
+    <ul className="appts">
+      {queue.waiting.map(({ appointment: a, waitedMinutes }, i) => (
+        <Card as="li" key={a.id} className="appt is-checked_in">
+          <div className="appt-time"><strong>{fmtNumber(i + 1, lang)}</strong><span className="muted"><bdi dir="ltr">{time(a.starts_at)}</bdi></span></div>
+          <div className="appt-main">
+            <div className="appt-head"><strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong>
+              <Badge tone={waitedMinutes >= 20 ? 'warning' : 'neutral'}>{t('waitingFor', lang)} {fmtNumber(waitedMinutes, lang)} {t('minutesShort', lang)}</Badge></div>
+            <div className="appt-meta">
+              <span><bdi>{pickName(lang, a.doctor.name_ar, a.doctor.name_en)}</bdi></span>
+              {a.service && <span><bdi>{pickName(lang, a.service.name_ar, a.service.name_en)}</bdi></span>}
+              {a.room && <span>{t('roomLabel', lang)}: <bdi>{a.room.name}</bdi></span>}
+            </div>
+          </div>
+          {canStart && <div className="appt-actions"><Button onClick={() => onStart(a)}>{t('callIn', lang)}</Button></div>}
+        </Card>
+      ))}
+      {queue.withDoctor.map((a) => (
+        <Card as="li" key={a.id} className="appt is-in_progress">
+          <div className="appt-time"><strong><bdi dir="ltr">{time(a.starts_at)}</bdi></strong></div>
+          <div className="appt-main">
+            <div className="appt-head"><strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong><Badge tone="success">{t('withDoctor', lang)}</Badge></div>
+            <div className="appt-meta"><span><bdi>{pickName(lang, a.doctor.name_ar, a.doctor.name_en)}</bdi></span></div>
+          </div>
+        </Card>
+      ))}
+    </ul>
   );
 }

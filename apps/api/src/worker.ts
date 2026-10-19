@@ -8,7 +8,7 @@ import { DevEmailSender } from './shared/notifications/dev-email.sender';
 import type { EmailSender } from './shared/notifications/ports';
 import { SmtpEmailSender } from './shared/notifications/smtp-email.sender';
 import { createObjectStorage } from './shared/storage/create-storage';
-import { appointmentCreated } from './worker/appointment-notifications';
+import { appointmentCreated, appointmentRescheduled } from './worker/appointment-notifications';
 import { sendDueNotifications } from './worker/notification-sender';
 import { relayOutbox } from './worker/outbox-relay';
 import { purgeOrphanImages } from './worker/purge-orphan-images';
@@ -26,7 +26,7 @@ async function main() {
   // the same adapter the API uses; the worker has no Nest container, so it is built by hand
   // email is the only channel; outside production the same dev adapter as the API (works without Mailpit, keeps a copy)
   const email: EmailSender = cfg.NODE_ENV === 'production' ? new SmtpEmailSender(cfg) : new DevEmailSender(new SmtpEmailSender(cfg));
-  const handlers = { 'appointment.created': appointmentCreated };
+  const handlers = { 'appointment.created': appointmentCreated, 'appointment.rescheduled': appointmentRescheduled };
   const storage = await createObjectStorage(cfg);
 
   const queue = new Queue('maintenance', { connection });

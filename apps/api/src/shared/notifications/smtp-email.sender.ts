@@ -1,9 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { createTransport, type Transporter } from 'nodemailer';
 import { APP_CONFIG, type AppConfig } from '../../config';
+import { rtlHtml } from './arabic-mail';
 import type { EmailSender } from './ports';
 
-/** SMTP adapter (Mailpit in development). */
+/** SMTP adapter (Mailpit in development). Every email goes as plain text plus its right-to-left HTML (L10N-004). */
 @Injectable()
 export class SmtpEmailSender implements EmailSender {
   private readonly transport: Transporter;
@@ -12,6 +13,6 @@ export class SmtpEmailSender implements EmailSender {
   }
 
   async send(to: string, subject: string, text: string): Promise<void> {
-    await this.transport.sendMail({ from: this.cfg.MAIL_FROM, to, subject, text });
+    await this.transport.sendMail({ from: this.cfg.MAIL_FROM, to, subject, text, html: rtlHtml(text) });
   }
 }

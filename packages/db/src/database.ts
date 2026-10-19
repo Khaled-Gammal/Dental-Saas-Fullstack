@@ -87,6 +87,18 @@ export interface AuthEvents {
   user_id: string | null;
 }
 
+export interface BalanceAdjustments {
+  amount_minor: Int8;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  id: Generated<string>;
+  installment_id: string | null;
+  invoice_id: string;
+  kind: string;
+  reason: string;
+  tenant_id: string;
+}
+
 export interface Branches {
   address_ar: string | null;
   address_en: string | null;
@@ -118,6 +130,39 @@ export interface BranchHours {
   opens_at: string;
   tenant_id: string;
   weekday: number;
+}
+
+export interface CashSessionReopenings {
+  id: Generated<string>;
+  previous_closed_at: Timestamp;
+  previous_closed_by: string | null;
+  previous_counted: Int8;
+  previous_expected: Int8;
+  previous_note: string | null;
+  reason: string;
+  reopened_at: Generated<Timestamp>;
+  reopened_by: string;
+  session_id: string;
+  tenant_id: string;
+}
+
+export interface CashSessions {
+  branch_id: string;
+  business_date: Timestamp;
+  closed_at: Timestamp | null;
+  closed_by: string | null;
+  closing_totals: Json | null;
+  counted_minor: Int8 | null;
+  currency: string;
+  difference_minor: Generated<Int8 | null>;
+  expected_minor: Int8 | null;
+  id: Generated<string>;
+  note: string | null;
+  opened_at: Generated<Timestamp>;
+  opened_by: string;
+  opening_minor: Int8;
+  status: Generated<string>;
+  tenant_id: string;
 }
 
 export interface ConsentTemplates {
@@ -194,6 +239,7 @@ export interface DoctorServices {
 }
 
 export interface DoctorTimeOff {
+  created_by: string | null;
   doctor_id: string;
   ends_at: Timestamp;
   id: Generated<string>;
@@ -218,23 +264,36 @@ export interface Domains {
 
 export interface ExpenseCategories {
   id: Generated<string>;
+  is_active: Generated<boolean>;
+  key: string | null;
   name: string;
   tenant_id: string;
 }
 
 export interface Expenses {
   amount_minor: Int8;
+  approved_at: Timestamp | null;
+  approved_by: string | null;
   branch_id: string;
   category_id: string;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   currency: string;
+  decision_note: string | null;
   description: string | null;
   file_id: string | null;
   id: Generated<string>;
+  payment_method: string | null;
+  reference: string | null;
   spent_on: Timestamp;
+  status: Generated<string>;
   supplier_id: string | null;
+  supplier_name: string | null;
   tenant_id: string;
+  updated_at: Generated<Timestamp>;
+  void_reason: string | null;
+  voided_at: Timestamp | null;
+  voided_by: string | null;
 }
 
 export interface Faqs {
@@ -288,6 +347,7 @@ export interface GalleryItems {
 
 export interface Holidays {
   branch_id: string | null;
+  created_by: string | null;
   date: Timestamp;
   id: Generated<string>;
   name: string;
@@ -315,6 +375,9 @@ export interface Installments {
   seq: number;
   status: Generated<string>;
   tenant_id: string;
+  waived_at: Timestamp | null;
+  waived_by: string | null;
+  waived_reason: string | null;
 }
 
 export interface InventoryItems {
@@ -358,10 +421,12 @@ export interface Invitations {
   accepted_at: Timestamp | null;
   branch_ids: Generated<string[]>;
   created_at: Generated<Timestamp>;
+  doctor_id: string | null;
   email: string | null;
   expires_at: Timestamp;
   id: Generated<string>;
   invited_by: string;
+  job_title: string | null;
   phone: string | null;
   revoked_at: Timestamp | null;
   role_id: string;
@@ -371,7 +436,10 @@ export interface Invitations {
 
 export interface InvoiceItems {
   description: string;
+  discount_bp: number | null;
   discount_minor: Generated<Int8>;
+  discount_reason: string | null;
+  discount_type: string | null;
   doctor_id: string | null;
   id: Generated<string>;
   invoice_id: string;
@@ -386,12 +454,21 @@ export interface InvoiceItems {
 }
 
 export interface Invoices {
+  adjusted_minor: Generated<Int8>;
   balance_minor: Generated<Int8 | null>;
   branch_id: string;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   currency: string;
+  discount_bp: number | null;
+  discount_decided_at: Timestamp | null;
+  discount_decided_by: string | null;
   discount_minor: Generated<Int8>;
+  discount_note: string | null;
+  discount_reason: string | null;
+  discount_requested_by: string | null;
+  discount_status: Generated<string>;
+  discount_type: string | null;
   due_date: Timestamp | null;
   id: Generated<string>;
   issue_date: Timestamp | null;
@@ -406,6 +483,8 @@ export interface Invoices {
   total_minor: Generated<Int8>;
   updated_at: Generated<Timestamp>;
   void_reason: string | null;
+  voided_at: Timestamp | null;
+  voided_by: string | null;
 }
 
 export interface LabOrders {
@@ -541,6 +620,9 @@ export interface PatientConsents {
 }
 
 export interface PatientFiles {
+  archive_reason: string | null;
+  archived_at: Timestamp | null;
+  archived_by: string | null;
   caption: string | null;
   file_id: string;
   patient_id: string;
@@ -562,6 +644,20 @@ export interface PatientMedicalHistory {
   updated_by: string | null;
 }
 
+export interface PatientMedicalHistoryVersions {
+  allergies: string[];
+  conditions: string[];
+  id: Generated<Int8>;
+  is_pregnant: boolean | null;
+  is_smoker: boolean | null;
+  medications: string[];
+  notes: string | null;
+  patient_id: string;
+  saved_at: Generated<Timestamp>;
+  saved_by: string | null;
+  tenant_id: string;
+}
+
 export interface Patients {
   address: string | null;
   city: string | null;
@@ -572,6 +668,7 @@ export interface Patients {
   email: string | null;
   file_no: Int8;
   full_name: string;
+  full_name_norm: Generated<string | null>;
   gender: string | null;
   guardian_name: string | null;
   guardian_patient_id: string | null;
@@ -641,7 +738,11 @@ export interface Payments {
   provider: string | null;
   provider_ref: string | null;
   received_by: string | null;
+  reference: string | null;
   refunded_minor: Generated<Int8>;
+  reversal_reason: string | null;
+  reversed_at: Timestamp | null;
+  reversed_by: string | null;
   status: Generated<string>;
   tenant_id: string;
 }
@@ -724,8 +825,10 @@ export interface Prescriptions {
   doctor_id: string;
   id: Generated<string>;
   issued_at: Generated<Timestamp>;
+  issued_by: string | null;
   notes: string | null;
   patient_id: string;
+  replaces_id: string | null;
   tenant_id: string;
   visit_id: string;
 }
@@ -734,6 +837,7 @@ export interface Recalls {
   appointment_id: string | null;
   contact_attempts: Generated<number>;
   created_at: Generated<Timestamp>;
+  created_by: string | null;
   doctor_id: string | null;
   due_date: Timestamp;
   id: Generated<string>;
@@ -762,12 +866,16 @@ export interface RefreshTokens {
 
 export interface Refunds {
   amount_minor: Int8;
+  branch_id: string;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   id: Generated<string>;
+  method: string;
   payment_id: string;
   provider_ref: string | null;
   reason: string;
+  reference: string | null;
+  refunded_at: Generated<Timestamp>;
   tenant_id: string;
 }
 
@@ -790,6 +898,8 @@ export interface Roles {
   id: Generated<string>;
   is_system: Generated<boolean>;
   key: string;
+  max_discount_bp: Generated<number>;
+  max_discount_minor: Int8 | null;
   name_ar: string;
   name_en: string;
   permissions: Generated<string[]>;
@@ -923,6 +1033,7 @@ export interface TenantCounters {
 }
 
 export interface TenantMembers {
+  access_version: Generated<number>;
   all_branches: Generated<boolean>;
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -969,6 +1080,7 @@ export interface TenantSettings {
   booking_payment_mode: Generated<string>;
   booking_slot_step_minutes: Generated<number>;
   invoice_prefix: Generated<string>;
+  reception_expense_limit_minor: Generated<Int8>;
   reminder_offsets_minutes: Generated<number[]>;
   tax_rate_bp: Generated<number>;
   tax_registration_no: string | null;
@@ -1005,6 +1117,7 @@ export interface TreatmentPlanItems {
 
 export interface TreatmentPlans {
   accepted_at: Timestamp | null;
+  accepted_by: string | null;
   created_at: Generated<Timestamp>;
   doctor_id: string;
   id: Generated<string>;
@@ -1043,10 +1156,22 @@ export interface Users {
   updated_at: Generated<Timestamp>;
 }
 
+export interface VisitAmendments {
+  author_id: string;
+  created_at: Generated<Timestamp>;
+  field: string;
+  id: Generated<string>;
+  new_text: string;
+  reason: string;
+  tenant_id: string;
+  visit_id: string;
+}
+
 export interface VisitProcedures {
   commission_bp: Generated<number>;
   commission_minor: Generated<Int8 | null>;
   created_at: Generated<Timestamp>;
+  created_by: string | null;
   doctor_id: string;
   id: Generated<string>;
   notes: string | null;
@@ -1069,9 +1194,12 @@ export interface Visits {
   created_by: string | null;
   diagnosis: string | null;
   doctor_id: string;
+  finalized_at: Timestamp | null;
+  finalized_by: string | null;
   id: Generated<string>;
   next_visit_note: string | null;
   patient_id: string;
+  status: Generated<string>;
   tenant_id: string;
   updated_at: Generated<Timestamp>;
   visit_at: Generated<Timestamp>;
@@ -1108,8 +1236,11 @@ export interface DB {
   appointments: Appointments;
   audit_log: AuditLog;
   auth_events: AuthEvents;
+  balance_adjustments: BalanceAdjustments;
   branch_hours: BranchHours;
   branches: Branches;
+  cash_session_reopenings: CashSessionReopenings;
+  cash_sessions: CashSessions;
   consent_templates: ConsentTemplates;
   doctor_branches: DoctorBranches;
   doctor_payouts: DoctorPayouts;
@@ -1143,6 +1274,7 @@ export interface DB {
   patient_consents: PatientConsents;
   patient_files: PatientFiles;
   patient_medical_history: PatientMedicalHistory;
+  patient_medical_history_versions: PatientMedicalHistoryVersions;
   patients: Patients;
   payment_gateways: PaymentGateways;
   payment_plans: PaymentPlans;
@@ -1176,6 +1308,7 @@ export interface DB {
   treatment_plans: TreatmentPlans;
   usage_counters: UsageCounters;
   users: Users;
+  visit_amendments: VisitAmendments;
   visit_procedures: VisitProcedures;
   visits: Visits;
   waitlist_entries: WaitlistEntries;

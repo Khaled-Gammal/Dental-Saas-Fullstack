@@ -22,7 +22,8 @@ const schema = z.object({
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().default(1025),
   MAIL_FROM: z.string().default('Dental SaaS <no-reply@lvh.me>'),
-  // 'dev' writes texts to the log/Mailpit only. Production refuses to start with it.
+  // 'dev' writes texts to the log/Mailpit only. Nothing sends SMS today (decision D-01: email codes); a real provider
+  // is a deferred, paid integration (docs/roadmap.md).
   SMS_PROVIDER: z.enum(['dev']).default('dev'),
   RATE_LIMIT_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   REFRESH_RACE_GRACE_MS: z.coerce.number().int().min(0).default(10_000),
@@ -64,7 +65,6 @@ export function loadConfig(overrides: Partial<Record<keyof AppConfig, string>> =
     const problems = [
       c.DEV_LOGIN_ENABLED && 'DEV_LOGIN_ENABLED must be false',
       !c.RATE_LIMIT_ENABLED && 'RATE_LIMIT_ENABLED must be true',
-      c.SMS_PROVIDER === 'dev' && 'SMS_PROVIDER=dev cannot send real texts; configure a real provider',
       c.STORAGE_DRIVER === 'local' && 'STORAGE_DRIVER=local keeps uploads on one machine; use s3 (R2, S3 or another S3-compatible service)',
       c.STORAGE_DRIVER === 's3' && !(c.S3_ENDPOINT && c.S3_ACCESS_KEY && c.S3_SECRET_KEY) && 'S3_ENDPOINT, S3_ACCESS_KEY and S3_SECRET_KEY are required for STORAGE_DRIVER=s3',
       ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET', 'MEDIA_URL_SECRET'] as const)
@@ -102,6 +102,8 @@ export const AUTH_POLICY = {
     otpVerify: [30, 10 * 60],
     login: [30, 60],
   },
+  /** Staff invitation links (SRS AUTH-08 / ACCESS-001). */
+  invitationTtlDays: 7,
   signupPlan: 'pro',
   userAgentMaxLength: 300,
 } as const;
@@ -123,6 +125,17 @@ export const MEDIA_POLICY = {
     logo: { kind: 'logo', minSide: 48, widths: [128, 256, 512] },
   },
 } as const;
+
+/**
+ * Clinical documents and images of a patient (SRS PATIENT-004, NFR-03). Stored exactly as uploaded (an X-ray must not
+ * be re-compressed), always private, opened only through links valid for 5 minutes and bound to the member.
+ */
+export const CLINICAL_FILE_POLICY = {
+  maxUploadBytes: 20 * 1024 * 1024,
+  linkSeconds: 5 * 60,
+  kinds: ['xray', 'clinical_photo', 'document'] as const,
+} as const;
+export type ClinicalFileKind = (typeof CLINICAL_FILE_POLICY.kinds)[number];
 
 export type MediaPurpose = keyof typeof MEDIA_POLICY.purposes;
 export type MediaKind = (typeof MEDIA_POLICY.purposes)[MediaPurpose]['kind'];

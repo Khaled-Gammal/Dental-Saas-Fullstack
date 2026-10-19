@@ -30,16 +30,20 @@ export class IdentityRepository {
     return this.db.platform().selectFrom('users').select('id').where('email', '=', email).executeTakeFirst();
   }
 
-  findUserByPhone(phone: string) {
-    return this.db.platform().selectFrom('users').select(['id', 'phone_verified_at']).where('phone', '=', phone).executeTakeFirst();
+  findUserByEmailForVerification(email: string) {
+    return this.db.platform().selectFrom('users').select(['id', 'email_verified_at', 'phone_verified_at']).where('email', '=', email).executeTakeFirst();
   }
 
-  /** Login lookup: by email, or by email/phone when the identifier is a phone number. */
-  findUserForLogin(emailOrId: string, phone: string | null) {
-    return this.db.platform().selectFrom('users')
-      .select(['id', 'password_hash', 'is_active', 'phone_verified_at', 'phone'])
-      .where((eb) => (phone ? eb.or([eb('email', '=', emailOrId), eb('phone', '=', phone)]) : eb('email', '=', emailOrId)))
-      .executeTakeFirst();
+  /**
+   * Login lookup: by email, or by email/phone when the identifier is a phone number. The API role cannot read password
+   * hashes (migration 0016); login_candidate() returns the one account being signed in to.
+   */
+  async findUserForLogin(emailOrId: string, phone: string | null) {
+    const { rows } = await sql<{
+      id: string; password_hash: string | null; is_active: boolean; email: string | null; phone: string | null;
+      email_verified_at: Date | null; phone_verified_at: Date | null;
+    }>`select * from login_candidate(${emailOrId}, ${phone})`.execute(this.db.platform());
+    return rows[0];
   }
 
   getUser(userId: string) {
@@ -47,10 +51,10 @@ export class IdentityRepository {
       .where('id', '=', userId).executeTakeFirst();
   }
 
-  /** Sets phone_verified_at once (keeps the first time) and returns the user id, if any user has this phone. */
-  markPhoneVerified(phone: string, tx: Tx) {
-    return tx.updateTable('users').set({ phone_verified_at: sql<Date>`coalesce(phone_verified_at, now())` })
-      .where('phone', '=', phone).returning('id').executeTakeFirst();
+  /** Sets email_verified_at once (keeps the first time) and returns the user id, if any user has this email. */
+  markEmailVerified(email: string, tx: Tx) {
+    return tx.updateTable('users').set({ email_verified_at: sql<Date>`coalesce(email_verified_at, now())` })
+      .where('email', '=', email).returning('id').executeTakeFirst();
   }
 
   async touchLastLogin(userId: string): Promise<void> {
@@ -85,7 +89,7 @@ export class IdentityRepository {
   activeMember(tenantId: string, userId: string) {
     return this.db.runAs(tenantId, (tx) =>
       tx.selectFrom('tenant_members as tm').innerJoin('roles as r', 'r.id', 'tm.role_id')
-        .select(['tm.id', 'r.permissions'])
+        .select(['tm.id', 'r.permissions', 'tm.access_version'])
         .where('tm.user_id', '=', userId).where('tm.status', '=', 'active')
         .executeTakeFirst(),
     );
@@ -130,6 +134,12 @@ export class IdentityRepository {
     return this.db.platform().updateTable('refresh_tokens').set({ revoked_at: sql<Date>`now()` })
       .where('token_hash', '=', tokenHash).where('revoked_at', 'is', null)
       .returning(['user_id', 'family_id']).executeTakeFirst();
+  }
+
+  /** Ends every session of a user (after a password reset). */
+  async revokeAllSessions(userId: string): Promise<void> {
+    await this.db.platform().updateTable('refresh_tokens').set({ revoked_at: sql<Date>`now()` })
+      .where('user_id', '=', userId).where('revoked_at', 'is', null).execute();
   }
 
   async revokeFamily(familyId: string): Promise<void> {

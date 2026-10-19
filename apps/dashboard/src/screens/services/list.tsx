@@ -9,10 +9,11 @@ import { Alert, Badge, Button, Card, EmptyState, ErrorText, PageHeader, Skeleton
 import { CheckIcon, EditIcon, PlusIcon, TagIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
+import { currencyLabel } from '../../money';
 
 export const priceLabel = (s: Pick<Service, 'price_minor' | 'price_max_minor'>, lang: Lang) => {
   const p = priceParts(s, (n) => fmtNumber(n, lang));
-  return p ? `${p} ${t('egp', lang)}` : t('onConsultation', lang);
+  return p ? `${p} ${currencyLabel(lang)}` : t('onConsultation', lang);
 };
 
 /** `#/services` — the price list plus the catalogue to add from. */

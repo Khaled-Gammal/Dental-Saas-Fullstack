@@ -4,9 +4,9 @@ import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { useDebounced, useLeave, useUnsavedChanges } from '../../hooks';
 import { t, type Lang } from '../../i18n';
-import { useBookAppointment, useBranches, useDoctors, usePatient, usePatients, useServices, useStaffSlots } from '../../queries';
+import { send, useBookAppointment, useBranches, useDoctors, usePatient, usePatients, useServices, useStaffSlots } from '../../queries';
 import { to } from '../../router';
-import type { PatientRow } from '../../types';
+import type { Appointment, PatientRow } from '../../types';
 import { Alert, Button, Card, Field, Input, Switch, TextArea } from '../../ui/components';
 import { AlertIcon } from '../../ui/icons';
 import { FormPage } from '../../ui/page';
@@ -20,8 +20,10 @@ const loc = (lang: Lang) => (lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB');
  * `#/appointments/new?patient=<id>`: reception books a patient into a doctor's free time. Free slots come from the
  * same engine as the website (hours, schedule, bookings, time off, holidays). With `appointments:override` a time
  * outside the schedule can be booked with a reason. The database still refuses a double booking.
+ * From a visit or plan (APPT-007) `?doctor=&branch=&service=&plan=&item=` pre-fill it and the booking is linked to the
+ * planned item; from the follow-up list `?recall=` links it to the follow-up.
  */
-export function NewAppointment({ lang, clinicId, patientId, canOverride }: { lang: Lang; clinicId: string; patientId?: string; canOverride: boolean }) {
+export function NewAppointment({ lang, clinicId, patientId, canOverride, prefill }: { lang: Lang; clinicId: string; patientId?: string; canOverride: boolean; prefill?: Record<string, string> }) {
   const [patient, setPatient] = useState<{ id: string; name: string } | null>(null);
   const preset = usePatient(clinicId, patient ? undefined : patientId);
   const chosen = patient ?? (preset.data ? { id: preset.data.id, name: preset.data.full_name } : null);
@@ -31,12 +33,12 @@ export function NewAppointment({ lang, clinicId, patientId, canOverride }: { lan
   const doctors = useDoctors(clinicId);
   const services = useServices(clinicId);
   const activeBranches = (branches.data ?? []).filter((b) => b.is_active);
-  const [branchId, setBranchId] = useState('');
+  const [branchId, setBranchId] = useState(prefill?.branch ?? '');
   const branch = branchId || (activeBranches.length === 1 ? activeBranches[0].id : '');
   const doctorsHere = (doctors.data ?? []).filter((d) => d.is_active && d.branch_ids.includes(branch));
-  const [doctorId, setDoctorId] = useState('');
+  const [doctorId, setDoctorId] = useState(prefill?.doctor ?? '');
   const doctor = doctorsHere.some((d) => d.id === doctorId) ? doctorId : '';
-  const [serviceId, setServiceId] = useState('');
+  const [serviceId, setServiceId] = useState(prefill?.service ?? '');
   const service = (services.data ?? []).find((s) => s.id === serviceId && s.is_active);
   const [date, setDate] = useState(todayIso());
   const [slot, setSlot] = useState('');
@@ -49,7 +51,7 @@ export function NewAppointment({ lang, clinicId, patientId, canOverride }: { lan
 
   const slots = useStaffSlots(clinicId, { branchId: branch, doctorId: doctor, serviceId: service?.id, date });
   const tz = slots.data?.timezone ?? 'Africa/Cairo';
-  const fmtTime = (iso: string) => new Intl.DateTimeFormat(loc(lang), { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+  const fmtTime = (iso: string) => new Intl.DateTimeFormat(loc(lang), { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
 
   const startsAt = override ? (time && /^\d{2}:\d{2}$/.test(time) ? new Date(zonedToUtc(date, time, tz)).toISOString() : '') : slot;
   const minutes = Number(duration);
@@ -66,7 +68,15 @@ export function NewAppointment({ lang, clinicId, patientId, canOverride }: { lan
       patientId: chosen.id, branchId: branch, doctorId: doctor, serviceId: service?.id ?? null, startsAt, source,
       ...(!service && { durationMinutes: override ? minutes : slots.data?.durationMinutes }),
       ...(notes.trim() && { notes: notes.trim() }), ...(override && { overrideReason: reason.trim() }),
-    }, { onSuccess: () => leave(t('appointmentBooked', lang)) });
+    }, {
+      onSuccess: async (appt) => {
+        // the link is a second call: if it fails the booking still stands, and the item or follow-up stays open
+        const id = (appt as Appointment).id;
+        if (prefill?.plan && prefill.item) await send(`/plans/${prefill.plan}/items/${prefill.item}/schedule`, 'POST', { appointmentId: id }).catch(() => null);
+        if (prefill?.recall) await send(`/recalls/${prefill.recall}/book`, 'POST', { appointmentId: id }).catch(() => null);
+        leave(t('appointmentBooked', lang));
+      },
+    });
   };
 
   const crumbs = [{ label: t('navAppointments', lang), route: to.list('appointments') }, { label: t('newAppointment', lang) }];
@@ -90,7 +100,7 @@ export function NewAppointment({ lang, clinicId, patientId, canOverride }: { lan
         <h2>{t('whenAndWho', lang)}</h2>
         <div className="grid-2 mt">
           <Field label={t('branch', lang)}>
-            {(a) => <Choice id={a.id} lang={lang} value={branch} onChange={(v) => { setBranchId(v); setDoctorId(''); reset(); }} placeholder={t('pickBranch', lang)}
+            {(a) => <Choice id={a.id} lang={lang} value={branch} onChange={(v) => { setBranchId(v); setDoctorId((d) => ((doctors.data ?? []).some((x) => x.id === d && x.branch_ids.includes(v)) ? d : '')); reset(); }} placeholder={t('pickBranch', lang)}
               options={activeBranches.map((b) => ({ value: b.id, label: pickName(lang, b.name_ar, b.name_en, b.slug) }))} />}
           </Field>
           <Field label={t('doctor', lang)}>

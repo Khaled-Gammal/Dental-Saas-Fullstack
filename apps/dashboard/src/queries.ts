@@ -1,8 +1,9 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type {
-  Appointment, AuditEntry, Branch, CatalogEntry, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  PatientDetail, PatientPage, Service, StaffSlots, WebsiteStatus,
+  Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, CatalogEntry, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
+  BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
+  HomeData, ReportBranch, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
 
 /**
@@ -17,7 +18,16 @@ export const keys = {
   services: (clinicId: string) => ['services', clinicId] as const,
   catalog: (clinicId: string) => ['catalog', clinicId] as const,
   appointments: (clinicId: string) => ['appointments', clinicId] as const,
+  staff: (clinicId: string) => ['staff', clinicId] as const,
 };
+
+/** Members, open invitations and roles (owner only: `staff:manage`). One key, so one invalidation refreshes all three. */
+export const useMembers = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.staff(clinicId), 'members'] as const, queryFn: () => api<StaffMember[]>('/staff/members') });
+export const useInvitations = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.staff(clinicId), 'invitations'] as const, queryFn: () => api<StaffInvitation[]>('/staff/invitations') });
+export const useRoles = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.staff(clinicId), 'roles'] as const, queryFn: () => api<StaffRole[]>('/staff/roles'), staleTime: 5 * 60_000 });
 
 /** Publishes the draft website; refreshes the checklist (pendingChanges) afterwards. */
 export function usePublish(clinicId: string) {
@@ -61,10 +71,11 @@ export function useInvalidate(clinicId: string) {
 }
 
 /** One day of appointments; the key extends the clinic key so one invalidation refreshes every day and branch. */
-export const useAppointments = (clinicId: string, date: string, branchId?: string) =>
+/** `mine`: only the signed-in doctor's own appointments (SRS APPT-004). */
+export const useAppointments = (clinicId: string, date: string, branchId?: string, mine = false) =>
   useQuery({
-    queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all'] as const,
-    queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }) })}`),
+    queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all', mine ? 'mine' : 'clinic'] as const,
+    queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }), ...(mine && { mine: 'true' }) })}`),
     refetchInterval: 30_000, // reception keeps the day open; website bookings appear without a reload
   });
 
@@ -110,6 +121,28 @@ export const usePatients = (clinicId: string, q: string) =>
 export const usePatient = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: patientKeys.one(clinicId, id ?? ''), queryFn: () => api<PatientDetail>(`/patients/${id}`), enabled: !!id });
 
+/** Possible duplicates while registering someone new (SRS PATIENT-002): same phone, same or close name + birth date. */
+export const usePossibleDuplicates = (clinicId: string, q: { phone: string; fullName: string; dateOfBirth: string }) =>
+  useQuery({
+    queryKey: [...patientKeys.all(clinicId), 'duplicates', q] as const,
+    queryFn: () => api<PatientRow[]>(`/patients/duplicates?${new URLSearchParams({
+      ...(q.phone && { phone: q.phone }), ...(q.fullName && { fullName: q.fullName }), ...(q.dateOfBirth && { dateOfBirth: q.dateOfBirth }),
+    })}`),
+    enabled: !!(q.phone || q.fullName),
+  });
+
+/** Earlier versions of the medical history (SRS PATIENT-005); loaded when the user opens them. */
+export const useHistoryVersions = (clinicId: string, id: string, enabled: boolean) =>
+  useQuery({ queryKey: [...patientKeys.one(clinicId, id), 'history-versions'] as const, queryFn: () => api<HistoryVersion[]>(`/patients/${id}/medical-history/versions`), enabled });
+
+/** X-rays, clinical photos and documents (SRS PATIENT-004). Links inside expire after 5 minutes, so the list refreshes. */
+export const usePatientFiles = (clinicId: string, id: string, archived: boolean, enabled: boolean) =>
+  useQuery({
+    queryKey: [...patientKeys.one(clinicId, id), 'files', archived] as const,
+    queryFn: () => api<PatientFile[]>(`/patients/${id}/files${archived ? '?archived=true' : ''}`),
+    enabled, staleTime: 4 * 60_000, refetchInterval: 4 * 60_000,
+  });
+
 export const usePatientActivity = (clinicId: string, id: string, enabled: boolean) =>
   useQuery({ queryKey: patientKeys.activity(clinicId, id), queryFn: () => api<AuditEntry[]>(`/patients/${id}/activity`), enabled });
 
@@ -132,12 +165,44 @@ export function useSaveMedicalHistory(clinicId: string, id: string) {
 }
 
 /** Free times for a staff booking (doctor + day). */
-export const useStaffSlots = (clinicId: string, q: { branchId: string; doctorId: string; serviceId?: string; date: string }) =>
+/** Free times for a staff booking or a move (`excludeAppointmentId`: the moved booking's own time counts as free). */
+export const useStaffSlots = (clinicId: string, q: { branchId: string; doctorId: string; serviceId?: string; date: string; durationMinutes?: number; excludeAppointmentId?: string }) =>
   useQuery({
     queryKey: [...keys.appointments(clinicId), 'slots', q] as const,
-    queryFn: () => api<StaffSlots>(`/appointments/availability?${new URLSearchParams({ branchId: q.branchId, doctorId: q.doctorId, date: q.date, ...(q.serviceId && { serviceId: q.serviceId }) })}`),
+    queryFn: () => api<StaffSlots>(`/appointments/availability?${new URLSearchParams({
+      branchId: q.branchId, doctorId: q.doctorId, date: q.date, ...(q.serviceId && { serviceId: q.serviceId }),
+      ...(q.durationMinutes && { durationMinutes: String(q.durationMinutes) }), ...(q.excludeAppointmentId && { excludeAppointmentId: q.excludeAppointmentId }),
+    })}`),
     enabled: !!(q.branchId && q.doctorId && q.date),
   });
+
+export const useAppointment = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: [...keys.appointments(clinicId), 'one', id] as const, queryFn: () => api<Appointment>(`/appointments/${id}`), enabled: !!id });
+
+/** Reschedule and/or set the room (POST /appointments/:id/move); only changed fields are sent. */
+export function useMoveAppointment(clinicId: string) {
+  const invalidate = useInvalidate(clinicId);
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api<Appointment>(`/appointments/${id}/move`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void invalidate('appointments'),
+  });
+}
+
+// ---------- calendar: holidays, time off, rooms, booking rules ----------
+export const calendarKeys = {
+  holidays: (clinicId: string) => ['holidays', clinicId] as const,
+  timeOff: (clinicId: string, doctorId: string) => ['time-off', clinicId, doctorId] as const,
+  rooms: (clinicId: string, branchId: string) => ['rooms', clinicId, branchId] as const,
+  booking: (clinicId: string) => ['booking-settings', clinicId] as const,
+};
+export const useHolidays = (clinicId: string) =>
+  useQuery({ queryKey: calendarKeys.holidays(clinicId), queryFn: () => api<Holiday[]>('/holidays') });
+export const useTimeOff = (clinicId: string, doctorId: string | undefined) =>
+  useQuery({ queryKey: calendarKeys.timeOff(clinicId, doctorId ?? ''), queryFn: () => api<TimeOff[]>(`/doctors/${doctorId}/time-off`), enabled: !!doctorId });
+export const useRooms = (clinicId: string, branchId: string | undefined) =>
+  useQuery({ queryKey: calendarKeys.rooms(clinicId, branchId ?? ''), queryFn: () => api<Room[]>(`/branches/${branchId}/rooms`), enabled: !!branchId });
+export const useBookingSettings = (clinicId: string) =>
+  useQuery({ queryKey: calendarKeys.booking(clinicId), queryFn: () => api<BookingSettings>('/clinic/booking-settings') });
 
 export function useBookAppointment(clinicId: string) {
   const invalidate = useInvalidate(clinicId);
@@ -183,3 +248,117 @@ export const galleryApi = {
   remove: (id: string) => api<void>(`/gallery/${id}`, { method: 'DELETE' }),
   reorder: (branchId: string | null, ids: string[]) => api<{ ok: true }>('/gallery/order', { method: 'PUT', body: JSON.stringify({ branchId, ids }) }),
 };
+
+// ---------- clinical (Phase D4: visits, chart, plans, prescriptions, follow-ups) ----------
+export const clinicalKeys = {
+  all: (clinicId: string) => ['clinical', clinicId] as const,
+  visit: (clinicId: string, id: string) => ['clinical', clinicId, 'visit', id] as const,
+  patient: (clinicId: string, patientId: string) => ['clinical', clinicId, 'patient', patientId] as const,
+  plan: (clinicId: string, id: string) => ['clinical', clinicId, 'plan', id] as const,
+  prescription: (clinicId: string, id: string) => ['clinical', clinicId, 'prescription', id] as const,
+  recalls: (clinicId: string, view: string) => ['clinical', clinicId, 'recalls', view] as const,
+};
+export const useVisit = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: clinicalKeys.visit(clinicId, id ?? ''), queryFn: () => api<Visit>(`/visits/${id}`), enabled: !!id });
+export const usePatientVisits = (clinicId: string, patientId: string, enabled: boolean) =>
+  useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'visits'] as const, queryFn: () => api<VisitSummary[]>(`/patients/${patientId}/visits`), enabled });
+export const usePatientChart = (clinicId: string, patientId: string, enabled: boolean) =>
+  useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'chart'] as const, queryFn: () => api<PatientChart>(`/patients/${patientId}/chart`), enabled });
+export const usePatientPlans = (clinicId: string, patientId: string) =>
+  useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'plans'] as const, queryFn: () => api<PlanRow[]>(`/patients/${patientId}/plans`) });
+export const usePatientRecalls = (clinicId: string, patientId: string) =>
+  useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'recalls'] as const, queryFn: () => api<Recall[]>(`/patients/${patientId}/recalls`) });
+export const usePlan = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: clinicalKeys.plan(clinicId, id ?? ''), queryFn: () => api<PlanDetail>(`/plans/${id}`), enabled: !!id });
+export const usePrescription = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: clinicalKeys.prescription(clinicId, id ?? ''), queryFn: () => api<PrescriptionPrint>(`/prescriptions/${id}`), enabled: !!id });
+export const useRecalls = (clinicId: string, view: 'due' | 'upcoming' | 'closed') =>
+  useQuery({ queryKey: clinicalKeys.recalls(clinicId, view), queryFn: () => api<{ today: string; items: Recall[] }>(`/recalls?view=${view}`) });
+
+/** JSON write to the API. */
+export const send = <R>(path: string, method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', body?: unknown) =>
+  api<R>(path, { method, ...(body !== undefined && { body: JSON.stringify(body) }) });
+
+/**
+ * Every clinical write refreshes the clinical cache, and the appointments too: opening a visit starts the appointment,
+ * and a cancelled booking puts its plan item or follow-up back on the list (database triggers).
+ */
+export function useClinicalMutation<V, R = unknown>(clinicId: string, fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: keys.appointments(clinicId) })]),
+  });
+}
+
+// ---------- billing (Phase E1) ----------
+export const billingKeys = {
+  all: (clinicId: string) => ['billing', clinicId] as const,
+  list: (clinicId: string, status: string) => ['billing', clinicId, 'list', status] as const,
+  invoice: (clinicId: string, id: string) => ['billing', clinicId, 'invoice', id] as const,
+  patient: (clinicId: string, patientId: string) => ['billing', clinicId, 'patient', patientId] as const,
+  payment: (clinicId: string, id: string) => ['billing', clinicId, 'payment', id] as const,
+};
+export const useInvoices = (clinicId: string, status: string) =>
+  useQuery({ queryKey: billingKeys.list(clinicId, status), queryFn: () => api<InvoiceRow[]>(`/invoices${status === 'all' ? '' : `?status=${status}`}`) });
+export const useInvoice = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: billingKeys.invoice(clinicId, id ?? ''), queryFn: () => api<InvoiceDetail>(`/invoices/${id}`), enabled: !!id });
+export const usePatientBilling = (clinicId: string, patientId: string | undefined, enabled = true) =>
+  useQuery({ queryKey: billingKeys.patient(clinicId, patientId ?? ''), queryFn: () => api<PatientBilling>(`/patients/${patientId}/billing`), enabled: enabled && !!patientId });
+export const usePaymentReceipt = (clinicId: string, id: string | undefined) =>
+  useQuery({ queryKey: billingKeys.payment(clinicId, id ?? ''), queryFn: () => api<PaymentReceipt>(`/payments/${id}`), enabled: !!id });
+
+/** Every billing write refreshes invoices, balances and the clinical cache (unbilled procedures). */
+export function useBillingMutation<V, R = unknown>(clinicId: string, fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: billingKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) }),
+      qc.invalidateQueries({ queryKey: financeKeys.all(clinicId) })]),
+  });
+}
+
+export const usePendingDiscounts = (clinicId: string) =>
+  useQuery({ queryKey: [...billingKeys.all(clinicId), 'discounts', 'pending'] as const, queryFn: () => api<InvoiceRow[]>('/discounts/pending') });
+export const useDiscountLimits = (clinicId: string) =>
+  useQuery({ queryKey: [...billingKeys.all(clinicId), 'discounts', 'limits'] as const, queryFn: () => api<RoleLimit[]>('/discounts/limits') });
+export const useOverdueInstallments = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: [...billingKeys.all(clinicId), 'overdue'] as const, queryFn: () => api<{ today: string; items: OverdueInstallment[] }>('/installments/overdue'), enabled });
+
+// ---------- expenses and the daily cash box (Phase E3) ----------
+export const financeKeys = { all: (clinicId: string) => ['finance', clinicId] as const };
+const qs = (q: Record<string, string | undefined>) => {
+  const p = new URLSearchParams(Object.entries(q).filter((e): e is [string, string] => !!e[1]));
+  return p.size ? `?${p}` : '';
+};
+/** Every expense or cash write refreshes expenses and the cash day (an expense paid in cash moves expected cash). */
+export function useFinanceMutation<V, R = unknown>(clinicId: string, fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: financeKeys.all(clinicId) }) });
+}
+export const useExpenses = (clinicId: string, q: { status?: string; from?: string; to?: string; branchId?: string; categoryId?: string }) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', q] as const, queryFn: () => api<ExpensesPage>(`/expenses${qs(q)}`) });
+export const usePendingExpenses = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', 'pending'] as const, queryFn: () => api<Expense[]>('/expenses/pending'), enabled });
+export const useExpenseCategories = (clinicId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'categories'] as const, queryFn: () => api<ExpenseCategory[]>('/expenses/categories') });
+export const useExpenseSettings = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'settings'] as const, queryFn: () => api<{ receptionLimitMinor: number }>('/expenses/settings'), enabled });
+export const useCashBranches = (clinicId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-branches'] as const, queryFn: () => api<CashBranch[]>('/cash/branches') });
+export const useCashDay = (clinicId: string, branchId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-day', branchId] as const, queryFn: () => api<CashDay>(`/cash/today?branchId=${branchId}`), enabled: !!branchId });
+export const useCashHistory = (clinicId: string, branchId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-history', branchId] as const, queryFn: () => api<CashSession[]>(`/cash/sessions?branchId=${branchId}`), enabled: !!branchId });
+export const useCashSession = (clinicId: string, id: string | null) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-session', id] as const, queryFn: () => api<CashSession>(`/cash/sessions/${id}`), enabled: !!id });
+
+// ---------- reports (Phase E4) ----------
+/** Reports are read-only; they refresh when opened again and after any money or expense change (shared prefix). */
+export const useReport = <T,>(clinicId: string, kind: string, q: { from?: string; to?: string; branchId?: string }, enabled = true) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'report', kind, q] as const, queryFn: () => api<T>(`/reports/${kind}${qs(q)}`), enabled });
+export const useReportBranches = (clinicId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'report-branches'] as const, queryFn: () => api<ReportBranch[]>('/reports/branches') });
+/** REPORT-006: the member's home figures; refreshed with money changes (shared prefix) and every minute while open. */
+export const useHome = (clinicId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'home'] as const, queryFn: () => api<HomeData>('/reports/home'), refetchInterval: 60_000 });

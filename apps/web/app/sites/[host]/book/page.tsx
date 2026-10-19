@@ -39,7 +39,7 @@ export default async function BookPage({ params, searchParams }: Props) {
           <h1>احجز موعدك</h1>
           <p>اختر الخدمة والوقت المناسب، وسيصلك رمز حضور تُظهره في الاستقبال.</p>
         </header>
-        <BookingWizard options={options} clinicName={name} preset={{ service: one(sp.service), doctor: one(sp.doctor) }} />
+        <BookingWizard options={options} clinicName={name} currency={site.clinic.currency} preset={{ service: one(sp.service), doctor: one(sp.doctor) }} />
       </main>
     </div>
   );

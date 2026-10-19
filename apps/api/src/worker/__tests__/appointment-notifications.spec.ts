@@ -1,4 +1,4 @@
-import { appointmentMessages, type AppointmentRow } from '../appointment-notifications';
+import { appointmentMessages, rescheduleMessages, type AppointmentRow } from '../appointment-notifications';
 
 const base: AppointmentRow = {
   id: 'a1', tenant_id: 't1', starts_at: new Date('2026-10-24T14:00:00Z'), status: 'confirmed', source: 'website', has_code: true, patient_notes: null,
@@ -30,6 +30,30 @@ describe('appointmentMessages', () => {
   });
   it('times are shown in the branch zone', () => {
     const riyadh = appointmentMessages({ ...base, branch_tz: 'Asia/Riyadh' }, now)[0].body;
-    expect(riyadh).toContain('17:00'); // 14:00Z is 17:00 in Riyadh, 16:00 in Cairo
+    expect(riyadh).toMatch(/5:00 م/); // 14:00Z is 5 pm in Riyadh, 4 pm in Cairo (12-hour clock, CLR-08)
+  });
+  it('emails are Arabic only, with Latin digits (L10N-004, CLR-08)', () => {
+    for (const x of [...appointmentMessages(base, now), ...rescheduleMessages(base, now)]) {
+      // names are data and may be Latin (brand names, CLR-07 note); everything else is Arabic
+      expect(`${x.subject}\n${x.body}`.replaceAll(base.patient_name!, '')).not.toMatch(/[A-Za-z]{2,}/);
+      expect(x.body).not.toMatch(/[٠-٩]/);
+    }
+  });
+});
+
+describe('rescheduleMessages', () => {
+  const stamp = Math.floor(base.starts_at.getTime() / 1000);
+  it('tells the patient the new time and re-plans the reminders under keys of the new start', () => {
+    const m = rescheduleMessages(base, now);
+    expect(m.map((x) => x.dedupe)).toEqual([`moved:a1:${stamp}`, `reminder:a1:1440:${stamp}`, `reminder:a1:120:${stamp}`]);
+    expect(m[0].subject).toContain('تغيّر موعدك');
+    expect(m.some((x) => x.event === 'booking.created')).toBe(false); // no second confirmation, no clinic notice
+  });
+  it('a later move gets its own keys, so its reminders are not swallowed as duplicates', () => {
+    const later = rescheduleMessages({ ...base, starts_at: new Date('2026-10-25T14:00:00Z') }, now).map((x) => x.dedupe);
+    expect(later).not.toContain(`reminder:a1:1440:${stamp}`);
+  });
+  it('without an email there is nothing to send', () => {
+    expect(rescheduleMessages({ ...base, patient_email: null }, now)).toEqual([]);
   });
 });

@@ -3,8 +3,9 @@ import { sql, type Tx } from '@dental/db';
 import { Err } from '../errors/app-error';
 
 /** What a clinic may add under its plan. Keys are `plans.limits` JSON keys; a missing key means unlimited. */
-export type LimitedResource = 'branches' | 'doctors' | 'patients';
-const LIMIT_KEY: Record<LimitedResource, string> = { branches: 'branches', doctors: 'doctors', patients: 'patients' }; // `staff` (members) is a separate, future check
+export type LimitedResource = 'branches' | 'doctors' | 'patients' | 'staff';
+/** `staff` counts active members plus open invitations, so a clinic cannot invite past its plan. */
+const LIMIT_KEY: Record<LimitedResource, string> = { branches: 'branches', doctors: 'doctors', patients: 'patients', staff: 'staff' };
 
 /**
  * The one place plan limits are enforced (SRS 7.2). Read from `plans.limits` through the clinic's live

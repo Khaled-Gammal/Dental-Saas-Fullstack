@@ -2,7 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { Err } from '../../shared/errors/app-error';
-import { maskPhone, normalizePhone } from '../../shared/phone';
+import { maskEmail } from '../../shared/mask';
+import { normalizePhone } from '../../shared/phone';
 import { hashPassword, passwordProblem } from './crypto';
 import { IdentityRepository } from './identity.repository';
 import type { RequestMeta, Session, SignupInput } from './identity.types';
@@ -10,8 +11,13 @@ import { OtpService } from './otp.service';
 import { SessionService } from './session.service';
 
 const invalidPhone = () => Err.badRequest('invalid_phone', 'Phone number is not valid');
+/** Subject of the sign-up code email. */
+export const VERIFY_EMAIL_SUBJECT = 'رمز تأكيد البريد الإلكتروني';
 
-/** Sign-up and phone verification (SRS AUTH-01..03): account + clinic in one step, then the phone is confirmed by SMS. */
+/**
+ * Sign-up and email verification (SRS AUTH-01, AUTH-03, AUTH-101): account + clinic in one step, then the owner's
+ * email is confirmed with a 6-digit code. No SMS is sent (decision D-01); the phone is stored, not verified.
+ */
 @Injectable()
 export class SignupService {
   constructor(
@@ -47,26 +53,24 @@ export class SignupService {
       { slug, nameAr: input.clinicNameAr, nameEn: input.clinicNameEn ?? null, rootDomain: this.cfg.ROOT_DOMAIN },
     );
 
-    await this.otp.send(phone, 'verify_phone', meta, userId);
-    return { userId, phone: maskPhone(phone), website: `http://${hostname}`, next: 'verify_phone' as const };
+    await this.otp.sendByEmail(email, 'verify_email', meta, VERIFY_EMAIL_SUBJECT, userId);
+    return { userId, email: maskEmail(email), website: `http://${hostname}`, next: 'verify_email' as const };
   }
 
-  /** Same answer whether or not the phone exists, so this endpoint cannot be used to discover accounts. */
-  async resendOtp(rawPhone: string, meta: RequestMeta) {
-    const phone = normalizePhone(rawPhone);
-    if (!phone) return { sent: true };
-    const user = await this.repo.findUserByPhone(phone);
-    if (user && !user.phone_verified_at) await this.otp.send(phone, 'verify_phone', meta, user.id);
+  /** Same answer whether or not the email exists, so this endpoint cannot be used to discover accounts. */
+  async resendOtp(rawEmail: string, meta: RequestMeta) {
+    const email = rawEmail.trim().toLowerCase();
+    const user = await this.repo.findUserByEmailForVerification(email);
+    if (user && !user.email_verified_at && !user.phone_verified_at) await this.otp.sendByEmail(email, 'verify_email', meta, VERIFY_EMAIL_SUBJECT, user.id);
     return { sent: true };
   }
 
-  async verifyPhone(rawPhone: string, code: string, meta: RequestMeta): Promise<Session> {
-    const phone = normalizePhone(rawPhone);
-    if (!phone) throw invalidPhone();
-    // consuming the code and marking the phone verified commit together
-    const user = await this.otp.verify(phone, 'verify_phone', code, meta, async (tx) => {
-      const u = await this.repo.markPhoneVerified(phone, tx);
-      if (!u) throw Err.badRequest('otp_invalid', 'No account for this phone'); // rolls back: the code stays usable
+  async verifyEmail(rawEmail: string, code: string, meta: RequestMeta): Promise<Session> {
+    const email = rawEmail.trim().toLowerCase();
+    // consuming the code and marking the email verified commit together
+    const user = await this.otp.verify(email, 'verify_email', code, meta, async (tx) => {
+      const u = await this.repo.markEmailVerified(email, tx);
+      if (!u) throw Err.badRequest('otp_invalid', 'No account for this email'); // rolls back: the code stays usable
       return u;
     });
     return this.sessions.start(user.id, undefined, meta);

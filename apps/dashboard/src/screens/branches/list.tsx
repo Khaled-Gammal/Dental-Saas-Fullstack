@@ -15,10 +15,18 @@ export function BranchesList({ lang, clinicId, canWrite }: { lang: Lang; clinicI
   const branches = useBranches(clinicId);
   const count = branches.data?.length ?? 0;
   const addBtn = canWrite && <Button onClick={() => navigate(to.create('branches'))}><PlusIcon size={18} />{t('addBranch', lang)}</Button>;
+  // the clinic calendar: closed days and the website booking rules apply across branches
+  const calendarLinks = (
+    <span className="row-end">
+      <RouteLink route={to.list('holidays')} className="btn btn-secondary">{t('holidaysLink', lang)}</RouteLink>
+      <RouteLink route={to.list('booking')} className="btn btn-secondary">{t('bookingLink', lang)}</RouteLink>
+      {count > 0 && addBtn}
+    </span>
+  );
 
   return (
     <>
-      <PageHeader title={t('branches', lang)} sub={t('branchesSub', lang)} action={count > 0 ? addBtn : undefined} />
+      <PageHeader title={t('branches', lang)} sub={t('branchesSub', lang)} action={calendarLinks} />
       {flash && <Alert tone="success">{flash}</Alert>}
       {branches.isError ? (
         <ErrorText error={branches.error} onRetry={() => void branches.refetch()} />
@@ -49,6 +57,7 @@ export function BranchesList({ lang, clinicId, canWrite }: { lang: Lang; clinicI
                   <RouteLink route={to.hours(b.id)} className={`btn btn-${b.hours.length ? 'secondary' : 'primary'}`}>
                     <CalendarIcon size={16} />{t('workingHours', lang)}
                   </RouteLink>
+                  <RouteLink route={to.rooms(b.id)}>{t('roomsLink', lang)}</RouteLink>
                   <RouteLink route={to.edit('branches', b.id)}><EditIcon size={16} />{t('edit', lang)}</RouteLink>
                 </div>
               )}

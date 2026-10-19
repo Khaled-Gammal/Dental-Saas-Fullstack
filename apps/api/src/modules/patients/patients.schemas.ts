@@ -30,7 +30,7 @@ const fields = {
   guardianPatientId: Uuid.nullable(),
   marketingOptIn: z.boolean(),
 };
-/** Only reception and owners change this, after repeated no-shows or fake bookings. */
+/** Only members with `patients:block` (reception, owners) change this, after repeated no-shows or fake bookings. */
 const IsBlocked = z.boolean();
 
 export const CreatePatient = z.object(fields).partial().required({ fullName: true, phone: true }).strict();
@@ -49,4 +49,15 @@ export const ListQuery = z.object({
   q: z.string().max(120).optional(),
   cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(25),
+}).strict();
+
+/** Merge another record into this one (SRS PATIENT-003). */
+export const MergeBody = z.object({ mergedId: Uuid }).strict();
+export const MergePreviewQuery = z.object({ other: Uuid }).strict();
+
+/** "Is this person already registered?" — any of phone, name and birth date, as typed in the new-patient form. */
+export const DuplicatesQuery = z.object({
+  phone: z.string().trim().max(30).optional(),
+  fullName: z.string().trim().max(120).optional(),
+  dateOfBirth: z.string().regex(ISO_DATE, 'YYYY-MM-DD').optional(),
 }).strict();
