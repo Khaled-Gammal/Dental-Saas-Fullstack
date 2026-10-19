@@ -33,7 +33,7 @@ export function ClinicFooter({ site, name, about, links, contact }: { site: Site
       </div>
       <div className="s-wrap s-foot-bottom">
         <span>© {new Date().getFullYear()} <bdi>{name}</bdi>. جميع الحقوق محفوظة.</span>
-        {site.showPoweredBy && <span className="s-muted">Powered by Dental SaaS</span>}
+        {site.showPoweredBy && <span className="s-muted">بواسطة منصة الأسنان</span>}
       </div>
     </footer>
   );

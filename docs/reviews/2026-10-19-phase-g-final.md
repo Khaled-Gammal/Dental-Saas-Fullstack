@@ -21,7 +21,7 @@ follow-up → expenses and cash → reports.
 
 ## 2. Requirements
 
-Of the 59 approved new requirements (SRS Part B), 55 are **IMPLEMENTED** and 1 is withdrawn (APPT-008, covered by
+Of the 59 approved new requirements (SRS Part B), 56 are **IMPLEMENTED** and 1 is withdrawn (APPT-008, covered by
 AUDIT-003). The rest are not complete:
 
 | Requirement | What is missing |
@@ -29,7 +29,6 @@ AUDIT-003). The rest are not complete:
 | EXP-001 Record an expense | The supporting document (photo or PDF of the receipt). It needs private file upload for expenses |
 | BILLING-005 Patient balance | Shown on the patient profile and payment screen, **not yet at check-in** |
 | TPLAN-004 Plan summary | Estimate, done, remaining and next visit are shown; **invoiced, paid and balance per plan are not** |
-| L10N-002 RTL everywhere | All dashboard screens are now checked at phone and desktop width (§4). The website still needs this check after your dev server restart |
 | L10N-007 Arabic data | Arabic is stored, searched and printed; **export (CSV) does not exist yet** |
 | L10N-008 Remove multilingual code | Done for everything a user sees. **By your choice**, the unused English half of the dashboard texts and the internal `lang` parameters are still in the code |
 
@@ -78,12 +77,13 @@ What the sweep found, and what was done:
    Ahmed Salah…), the invoice number prefix "SMA", and a demo room named "Chair". Brand and clinic names may be
    English (your 2026-10-19 note).
 4. Desktop: no overflow, no errors.
+5. **Website, after your restart**, at 390 px: home, booking page and an unknown address are right to left with no overflow; times read «10:00 م», prices «300 ج.م». **Fixed:** the footer badge said "Powered by Dental SaaS" (now «بواسطة منصة الأسنان»), and an unknown address showed the framework's English 404 (now an Arabic page, `app/not-found.tsx`).
 
 ## 5. Open items for you
 
-1. **Restart your dev servers:** in the VS Code terminal, press Ctrl+C, delete `apps/web/.next`, then run `pnpm dev`
-   again. My earlier production builds of the website collided with its dev server and left it answering "Internal
-   Server Error" (details in the F3 review). After the restart, the website needs one look at phone width.
+1. **The website dev task stopped after your restart:** it started at 21:07 and ended about 30 seconds later, while the
+   API and dashboard kept running. Started on its own it works (used for the check above), so restart `pnpm dev` once
+   more, and if it stops again, the reason is in that terminal.
 2. **Merging:** the work is on stacked branches, C → G, each one on top of the previous. Merging `v4/phase-g-verification`
    into `main` brings all of it. I have not opened a pull request; tell me if you want one.
 3. **Confirm the open defaults** listed in the F4 review ("my day" rule; no-shows shown for the month only).
