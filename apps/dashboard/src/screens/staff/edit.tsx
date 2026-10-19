@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import { Choice } from '../../components/choice';
 import { useLeave, useUnsavedChanges } from '../../hooks';
-import { roleLabel, t, type Lang } from '../../i18n';
+import { roleLabel, t } from '../../i18n';
 import { keys, useBranches, useMembers, useOne, useRoles } from '../../queries';
 import { to } from '../../router';
 import { memberForm, toMemberPatch, type MemberForm } from '../../staff-model';
@@ -14,19 +14,19 @@ import { FormPage, ResourceState } from '../../ui/page';
 import { BranchAccess } from './invite';
 
 /** `#/staff/<id>/edit`: role, branches, job title, and whether the member can sign in (SRS ACCESS-002). */
-export function StaffEdit({ lang, clinicId, id }: { lang: Lang; clinicId: string; id?: string }) {
+export function StaffEdit({ clinicId, id }: { clinicId: string; id?: string }) {
   const one = useOne(useMembers(clinicId), id);
   const roles = useRoles(clinicId);
   const branches = useBranches(clinicId);
-  if (!one.data) return <ResourceState {...one} back={to.list('staff')} backLabel={t('navStaff', lang)} />;
+  if (!one.data) return <ResourceState {...one} back={to.list('staff')} backLabel={t('navStaff')} />;
   if (!roles.data || !branches.data) {
     const q = roles.isError ? roles : branches;
-    return <ResourceState isLoading={!q.isError} isError={q.isError} error={q.error} notFound={false} refetch={() => void q.refetch()} back={to.list('staff')} backLabel={t('navStaff', lang)} />;
+    return <ResourceState isLoading={!q.isError} isError={q.isError} error={q.error} notFound={false} refetch={() => void q.refetch()} back={to.list('staff')} backLabel={t('navStaff')} />;
   }
-  return <EditBody key={one.data.id} lang={lang} clinicId={clinicId} member={one.data} roles={roles.data} branches={branches.data.filter((b) => b.is_active)} />;
+  return <EditBody key={one.data.id} clinicId={clinicId} member={one.data} roles={roles.data} branches={branches.data.filter((b) => b.is_active)} />;
 }
 
-function EditBody({ lang, clinicId, member, roles, branches }: { lang: Lang; clinicId: string; member: StaffMember; roles: StaffRole[]; branches: Branch[] }) {
+function EditBody({ clinicId, member, roles, branches }: { clinicId: string; member: StaffMember; roles: StaffRole[]; branches: Branch[] }) {
   const [orig] = useState(() => memberForm(member)); // frozen baseline: a refetch cannot make the form dirty
   const [form, setForm] = useState<MemberForm>(orig);
   const [confirmOff, setConfirmOff] = useState(false);
@@ -35,7 +35,7 @@ function EditBody({ lang, clinicId, member, roles, branches }: { lang: Lang; cli
   const body = toMemberPatch(form, orig);
   const dirty = Object.keys(body).length > 0;
   const canSave = dirty && (form.allBranches || form.branchIds.length > 0);
-  useUnsavedChanges(dirty, t('leaveUnsaved', lang));
+  useUnsavedChanges(dirty, t('leaveUnsaved'));
   const set = <K extends keyof MemberForm>(k: K) => (v: MemberForm[K]) => setForm((f) => ({ ...f, [k]: v }));
   const toggleBranch = (bid: string, on: boolean) => set('branchIds')(on ? [...form.branchIds, bid] : form.branchIds.filter((x) => x !== bid));
 
@@ -43,31 +43,31 @@ function EditBody({ lang, clinicId, member, roles, branches }: { lang: Lang; cli
     mutationFn: () => api<StaffMember>(`/staff/members/${member.id}`, { method: 'PATCH', body: JSON.stringify(body) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.staff(clinicId) }),
   });
-  const submit = (e: FormEvent) => { e.preventDefault(); if (canSave) save.mutate(undefined, { onSuccess: () => leave(t('memberSaved', lang)) }); };
-  const crumbs = [{ label: t('navOverview', lang), route: to.list('overview') }, { label: t('navStaff', lang), route: to.list('staff') }, { label: member.user.full_name }];
+  const submit = (e: FormEvent) => { e.preventDefault(); if (canSave) save.mutate(undefined, { onSuccess: () => leave(t('memberSaved')) }); };
+  const crumbs = [{ label: t('navOverview'), route: to.list('overview') }, { label: t('navStaff'), route: to.list('staff') }, { label: member.user.full_name }];
 
   return (
-    <FormPage title={t('editMember', lang)} sub={member.user.email ?? undefined} crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
+    <FormPage title={t('editMember')} sub={member.user.email ?? undefined} crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
       saving={save.isPending} canSave={canSave} error={save.error}>
       <Card>
         <h2><bdi>{member.user.full_name}</bdi></h2>
         <div className="grid-2 mt">
-          <Field label={t('staffRole', lang)}>
-            {(a) => <Choice id={a.id} lang={lang} value={form.roleId} onChange={set('roleId')} options={roles.map((r) => ({ value: r.id, label: roleLabel(r.key, lang) }))} />}
+          <Field label={t('staffRole')}>
+            {(a) => <Choice id={a.id} value={form.roleId} onChange={set('roleId')} options={roles.map((r) => ({ value: r.id, label: roleLabel(r.key) }))} />}
           </Field>
-          <Field label={t('jobTitleLabel', lang)} optional={t('optional', lang)}>
+          <Field label={t('jobTitleLabel')} optional={t('optional')}>
             {(a) => <Input id={a.id} value={form.jobTitle} onChange={(e) => set('jobTitle')(e.target.value)} maxLength={80} />}
           </Field>
         </div>
         <div className="switch-row mt">
-          <Switch checked={form.active} onChange={(on) => (on ? set('active')(true) : setConfirmOff(true))} label={t('memberActiveSwitch', lang)} />
+          <Switch checked={form.active} onChange={(on) => (on ? set('active')(true) : setConfirmOff(true))} label={t('memberActiveSwitch')} />
         </div>
       </Card>
-      <BranchAccess lang={lang} branches={branches} allBranches={form.allBranches} branchIds={form.branchIds}
+      <BranchAccess branches={branches} allBranches={form.allBranches} branchIds={form.branchIds}
         onAll={set('allBranches')} onToggle={toggleBranch} missing={false} />
-      <ConfirmDialog open={confirmOff} title={t('disableMemberTitle', lang)} confirmLabel={t('disable', lang)} danger
+      <ConfirmDialog open={confirmOff} title={t('disableMemberTitle')} confirmLabel={t('disable')} danger
         onConfirm={() => { set('active')(false); setConfirmOff(false); }} onCancel={() => setConfirmOff(false)}>
-        {t('disableMemberText', lang)}
+        {t('disableMemberText')}
       </ConfirmDialog>
     </FormPage>
   );

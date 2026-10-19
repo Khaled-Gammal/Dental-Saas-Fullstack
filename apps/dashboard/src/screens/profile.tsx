@@ -1,10 +1,10 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { onColor, pickName, readableOnWhite } from '@dental/ui/text';
+import { onColor, arName, readableOnWhite } from '@dental/ui/text';
 import { api } from '../api';
 import { ImageField } from '../components/image-field';
 import { imageFieldValue } from '../media-model';
-import { t, type Lang } from '../i18n';
+import { t } from '../i18n';
 import { keys, useInvalidate, useOnboarding, useProfile, usePublish } from '../queries';
 import type { ClinicProfile, MediaImage } from '../types';
 import { Alert, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../ui/components';
@@ -27,7 +27,7 @@ const toForm = (p: ClinicProfile): Form => ({
 const FIELDS = ['nameAr', 'nameEn', 'aboutAr', 'aboutEn', 'primaryPhone', 'whatsapp', 'email', 'brandColor'] as const;
 type Changes = Partial<Record<(typeof FIELDS)[number] | 'logoFileId', string | null>>;
 
-export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: string; canEdit: boolean }) {
+export function Profile({ clinicId, canEdit }: { clinicId: string; canEdit: boolean }) {
   const profile = useProfile(clinicId);
   const onboarding = useOnboarding(clinicId).data;
   const publish = usePublish(clinicId);
@@ -65,78 +65,78 @@ export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: str
   };
 
   if (profile.isError) return <ErrorText error={profile.error} onRetry={() => void profile.refetch()} />;
-  if (!form) return <><PageHeader title={t('navProfile', lang)} sub={t('profileSub', lang)} /><Skeleton h={120} count={3} /></>;
+  if (!form) return <><PageHeader title={t('navProfile')} sub={t('profileSub')} /><Skeleton h={120} count={3} /></>;
 
   return (
     <>
-      <PageHeader title={t('navProfile', lang)} sub={t('profileSub', lang)} />
+      <PageHeader title={t('navProfile')} sub={t('profileSub')} />
       {canEdit && onboarding?.pendingChanges && !dirty && (
         <div className="publish-banner" role="status">
           <GlobeIcon />
-          <div className="publish-text"><strong>{t('publishBanner', lang)}</strong><span className="muted small">{t('publishHint', lang)}</span></div>
-          <Button onClick={() => publish.mutate()} loading={publish.isPending}>{t('publish', lang)}</Button>
+          <div className="publish-text"><strong>{t('publishBanner')}</strong><span className="muted small">{t('publishHint')}</span></div>
+          <Button onClick={() => publish.mutate()} loading={publish.isPending}>{t('publish')}</Button>
         </div>
       )}
-      {publish.isSuccess && !onboarding?.pendingChanges && <Alert tone="success">{t('published', lang)}</Alert>}
+      {publish.isSuccess && !onboarding?.pendingChanges && <Alert tone="success">{t('published')}</Alert>}
       <ErrorText error={publish.error} />
       <form onSubmit={submit} className="profile-grid">
         <fieldset disabled={!canEdit} className="contents">
         <div className="stack">
           <Card>
-            <h2>{t('secNames', lang)}</h2>
+            <h2>{t('secNames')}</h2>
             <div className="grid-2 mt">
-              <Field label={t('clinicNameAr', lang)} hint={t('brandNameHint', lang)}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.nameAr} onChange={set('nameAr')} dir="auto" maxLength={120} />}</Field>
+              <Field label={t('clinicNameAr')} hint={t('brandNameHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.nameAr} onChange={set('nameAr')} dir="auto" maxLength={120} />}</Field>
             </div>
           </Card>
 
           <Card>
-            <h2>{t('secAbout', lang)}</h2>
-            <p className="muted small">{t('aboutHint', lang)}</p>
+            <h2>{t('secAbout')}</h2>
+            <p className="muted small">{t('aboutHint')}</p>
             <div className="stack mt">
-              <Field label={t('aboutAr', lang)}>{(a) => <TextArea id={a.id} value={form.aboutAr} onChange={set('aboutAr')} dir="rtl" maxLength={1000} />}</Field>
+              <Field label={t('aboutAr')}>{(a) => <TextArea id={a.id} value={form.aboutAr} onChange={set('aboutAr')} dir="rtl" maxLength={1000} />}</Field>
             </div>
           </Card>
 
           <Card>
-            <h2>{t('secContact', lang)}</h2>
+            <h2>{t('secContact')}</h2>
             <div className="grid-2 mt">
-              <Field label={t('primaryPhone', lang)}>{(a) => <Input id={a.id} type="tel" value={form.primaryPhone} onChange={set('primaryPhone')} dir="ltr" placeholder="01012345678" />}</Field>
-              <Field label={t('whatsapp', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} type="tel" value={form.whatsapp} onChange={set('whatsapp')} dir="ltr" placeholder="01012345678" />}</Field>
-              <Field label={t('clinicEmail', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} type="email" value={form.email} onChange={set('email')} dir="ltr" />}</Field>
+              <Field label={t('primaryPhone')}>{(a) => <Input id={a.id} type="tel" value={form.primaryPhone} onChange={set('primaryPhone')} dir="ltr" placeholder="01012345678" />}</Field>
+              <Field label={t('whatsapp')} optional={t('optional')}>{(a) => <Input id={a.id} type="tel" value={form.whatsapp} onChange={set('whatsapp')} dir="ltr" placeholder="01012345678" />}</Field>
+              <Field label={t('clinicEmail')} optional={t('optional')}>{(a) => <Input id={a.id} type="email" value={form.email} onChange={set('email')} dir="ltr" />}</Field>
             </div>
           </Card>
         </div>
 
         <aside className="stack profile-side">
           <Card>
-            <ImageField lang={lang} purpose="logo" shape="logo" value={form.logo} label={t('clinicLogo', lang)} disabled={!canEdit}
+            <ImageField purpose="logo" shape="logo" value={form.logo} label={t('clinicLogo')} disabled={!canEdit}
               onChange={(logo) => { setForm((f) => (f ? { ...f, logo } : f)); if (save.isSuccess || save.isError) save.reset(); }} />
           </Card>
           <Card>
-            <h2>{t('secBrand', lang)}</h2>
-            <p className="muted small">{t('brandHint', lang)}</p>
-            <div className="swatches mt" role="group" aria-label={t('secBrand', lang)}>
+            <h2>{t('secBrand')}</h2>
+            <p className="muted small">{t('brandHint')}</p>
+            <div className="swatches mt" role="group" aria-label={t('secBrand')}>
               {PRESETS.map((c) => (
                 <button key={c} type="button" aria-pressed={form.brandColor === c} aria-label={c} className="swatch"
                   style={{ background: c }} onClick={() => set('brandColor')({ target: { value: c } })}>
                   {form.brandColor === c && <CheckIcon size={16} color={onColor(c)} />}
                 </button>
               ))}
-              <label className="swatch swatch-custom" title={t('customColor', lang)}>
-                <input type="color" value={form.brandColor} onChange={set('brandColor')} aria-label={t('customColor', lang)} />
+              <label className="swatch swatch-custom" title={t('customColor')}>
+                <input type="color" value={form.brandColor} onChange={set('brandColor')} aria-label={t('customColor')} />
               </label>
             </div>
-            <BrandPreview lang={lang} form={form} />
+            <BrandPreview form={form} />
           </Card>
 
-          <CurrencyCard lang={lang} clinicId={clinicId} current={profile.data?.currency ?? 'EGP'} canEdit={canEdit} />
+          <CurrencyCard clinicId={clinicId} current={profile.data?.currency ?? 'EGP'} canEdit={canEdit} />
 
           {canEdit && (
             <div className="save-bar">
-              {save.isSuccess && !dirty && <Alert tone="success">{t('saved', lang)}</Alert>}
+              {save.isSuccess && !dirty && <Alert tone="success">{t('saved')}</Alert>}
               <ErrorText error={save.error} />
-              <Button type="submit" block loading={save.isPending} disabled={!dirty}>{dirty ? t('save', lang) : t('saved', lang)}</Button>
-              {dirty && <p className="muted small center">{t('unsaved', lang)}</p>}
+              <Button type="submit" block loading={save.isPending} disabled={!dirty}>{dirty ? t('save') : t('saved')}</Button>
+              {dirty && <p className="muted small center">{t('unsaved')}</p>}
             </div>
           )}
         </aside>
@@ -147,23 +147,23 @@ export function Profile({ lang, clinicId, canEdit }: { lang: Lang; clinicId: str
 }
 
 /** Live preview of the website hero in the chosen colour, using the same contrast rules as the site. */
-function BrandPreview({ lang, form }: { lang: Lang; form: Form }) {
+function BrandPreview({ form }: { form: Form }) {
   const brand = form.brandColor;
   const style = { '--brand': brand, '--on-brand': onColor(brand), '--brand-text': readableOnWhite(brand) } as CSSProperties;
-  const name = pickName(lang, form.nameAr, form.nameEn, '—');
+  const name = arName(form.nameAr, form.nameEn, '—');
   const light = onColor(brand) !== '#ffffff';
   return (
     <div className="mt">
-      <span className="eyebrow-label">{t('preview', lang)}</span>
+      <span className="eyebrow-label">{t('preview')}</span>
       <div className="brand-preview" style={style} aria-hidden>
         <div className="bp-nav">{form.logo ? <img className="bp-logo" src={form.logo.thumbUrl} alt="" /> : <span className="bp-mark"><ToothIcon size={14} /></span>}<bdi>{name}</bdi></div>
         <div className="bp-body">
           <strong><bdi>{name}</bdi></strong>
-          <p>{(lang === 'ar' ? form.aboutAr || form.aboutEn : form.aboutEn || form.aboutAr).slice(0, 90) || '…'}</p>
-          <span className="bp-btn"><PhoneIcon size={14} />{t('previewBook', lang)}</span>
+          <p>{(form.aboutAr || form.aboutEn).slice(0, 90) || '…'}</p>
+          <span className="bp-btn"><PhoneIcon size={14} />{t('previewBook')}</span>
         </div>
       </div>
-      {light && <p className="muted small mt-sm">{t('lightColorNote', lang)}</p>}
+      {light && <p className="muted small mt-sm">{t('lightColorNote')}</p>}
     </div>
   );
 }
@@ -171,7 +171,7 @@ function BrandPreview({ lang, form }: { lang: Lang; form: Form }) {
 const CURRENCIES = ['EGP', 'SAR', 'AED', 'KWD', 'QAR', 'BHD', 'OMR', 'JOD', 'USD', 'EUR'];
 
 /** CLR-09: the clinic's currency (default EGP); the API refuses a change once an invoice is issued. Saved on its own. */
-function CurrencyCard({ lang, clinicId, current, canEdit }: { lang: Lang; clinicId: string; current: string; canEdit: boolean }) {
+function CurrencyCard({ clinicId, current, canEdit }: { clinicId: string; current: string; canEdit: boolean }) {
   const [value, setValue] = useState(current);
   const qc = useQueryClient();
   const save = useMutation({
@@ -180,13 +180,13 @@ function CurrencyCard({ lang, clinicId, current, canEdit }: { lang: Lang; clinic
   });
   return (
     <Card>
-      <h2>{t('currency', lang)}</h2>
-      <p className="muted small">{t('currencyHint', lang)}</p>
+      <h2>{t('currency')}</h2>
+      <p className="muted small">{t('currencyHint')}</p>
       <div className="row-end mt-sm">
-        <select className="select" value={value} onChange={(e) => setValue(e.target.value)} disabled={!canEdit} aria-label={t('currency', lang)}>
-          {(CURRENCIES.includes(current) ? CURRENCIES : [current, ...CURRENCIES]).map((c) => <option key={c} value={c}>{c === 'EGP' ? `${t('egpName', lang)} (EGP)` : c}</option>)}
+        <select className="select" value={value} onChange={(e) => setValue(e.target.value)} disabled={!canEdit} aria-label={t('currency')}>
+          {(CURRENCIES.includes(current) ? CURRENCIES : [current, ...CURRENCIES]).map((c) => <option key={c} value={c}>{c === 'EGP' ? `${t('egpName')} (EGP)` : c}</option>)}
         </select>
-        {canEdit && <Button variant="secondary" loading={save.isPending} disabled={value === current} onClick={() => save.mutate()}>{t('save', lang)}</Button>}
+        {canEdit && <Button variant="secondary" loading={save.isPending} disabled={value === current} onClick={() => save.mutate()}>{t('save')}</Button>}
       </div>
       <ErrorText error={save.error} />
     </Card>

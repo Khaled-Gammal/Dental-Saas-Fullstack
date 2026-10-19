@@ -89,16 +89,17 @@ export class ReportsService {
       const todayMoney = async () => (s.todayMoney ? revenueReport(await this.repo.money(tx, day, null)) : null);
       const finance = async () => {
         if (!s.finance) return null;
-        const [monthMoney, todayExp, monthExp, monthAtt, outstanding, overdue] = await Promise.all([
+        const [monthMoney, todayExp, monthExp, todayAtt, monthAtt, outstanding, overdue] = await Promise.all([
           this.repo.money(tx, month, null), this.repo.expenses(tx, day, null), this.repo.expenses(tx, month, null),
-          this.repo.attendance(tx, month, null, null), this.repo.outstanding(tx, null), this.repo.overdue(tx, null),
+          this.repo.attendance(tx, day, null, null), this.repo.attendance(tx, month, null, null), this.repo.outstanding(tx, null), this.repo.overdue(tx, null),
         ]);
         const m = revenueReport(monthMoney).totals;
         const todayRows = monthMoney.filter((r) => r.day === today);
         const t = revenueReport(todayRows).totals;
         const att = attendanceFigures(monthAtt);
+        const attToday = attendanceFigures(todayAtt); // the owner asked for today too (2026-10-19); the rate counts only what came due so far
         return {
-          today: { invoiced: t.invoiced, collections_net: t.net, expenses: expensesReport(todayExp, t.net).totals.total },
+          today: { invoiced: t.invoiced, collections_net: t.net, expenses: expensesReport(todayExp, t.net).totals.total, no_show: attToday.no_show, no_show_rate: attToday.no_show_rate },
           month: { invoiced: m.invoiced, collections_net: m.net, expenses: expensesReport(monthExp, m.net).totals.total, no_show: att.no_show, no_show_rate: att.no_show_rate },
           outstanding: outstandingReport(outstanding, overdue).totals,
         };

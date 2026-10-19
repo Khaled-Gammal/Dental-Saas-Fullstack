@@ -1,8 +1,7 @@
-import type { Lang } from './i18n';
 export { toAsciiDigits } from '@dental/ui/text';
 
 /** Numbers everywhere in the dashboard use Western digits with Egyptian grouping (6/7, 10:00, 2,500), in both languages. */
-export const fmtNumber = (n: number, lang: Lang) => n.toLocaleString(lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-EG');
+export const fmtNumber = (n: number) => n.toLocaleString('ar-EG-u-nu-latn');
 
 /**
  * Password rules shown live under the field; the API enforces the same ones (identity/crypto.ts).

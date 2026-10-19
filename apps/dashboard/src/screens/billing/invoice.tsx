@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { pickName } from '@dental/ui/text';
+import { arName } from '@dental/ui/text';
 import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { navigate } from '../../hooks';
-import { t, type Key, type Lang } from '../../i18n';
+import { t, type Key } from '../../i18n';
 import { currencyLabel, money } from '../../money';
 import { send, useBillingMutation, useInvoice, useServices } from '../../queries';
 import { to } from '../../router';
@@ -19,113 +19,113 @@ const NEEDS_REF: PaymentMethod[] = ['bank_transfer', 'wallet', 'instapay'];
 export const STATUS_TONE: Record<InvoiceStatus, 'neutral' | 'primary' | 'success' | 'warning'> = {
   draft: 'neutral', issued: 'warning', partially_paid: 'primary', paid: 'success', void: 'neutral',
 };
-const loc = (lang: Lang) => (lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB');
+const loc = () => ('ar-EG-u-nu-latn');
 const newKey = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
 /**
  * `#/invoices/<id>/view` (SRS BILLING-001…004, PAY-001…003, PAY-005): the invoice, its lines and totals (all derived
  * by the database), issue / void, the payments with who received each, reversals and refunds, and printing.
  */
-export function InvoicePage({ lang, clinicId, id }: { lang: Lang; clinicId: string; id?: string }) {
+export function InvoicePage({ clinicId, id }: { clinicId: string; id?: string }) {
   const inv = useInvoice(clinicId, id);
   const [dialog, setDialog] = useState<'issue' | 'void' | 'delete' | null>(null);
   const [reason, setReason] = useState('');
   const act = useBillingMutation(clinicId, (op: 'issue' | 'void' | 'delete') =>
     op === 'delete' ? send(`/invoices/${id}`, 'DELETE') : send(`/invoices/${id}/${op}`, 'POST', op === 'void' ? { reason: reason.trim() } : undefined));
   if (!inv.data) {
-    return <ResourceState isLoading={inv.isLoading} isError={inv.isError} error={inv.error} notFound={false} refetch={() => void inv.refetch()} back={{ page: 'invoices' }} backLabel={t('navBilling', lang)} />;
+    return <ResourceState isLoading={inv.isLoading} isError={inv.isError} error={inv.error} notFound={false} refetch={() => void inv.refetch()} back={{ page: 'invoices' }} backLabel={t('navBilling')} />;
   }
   const v = inv.data;
-  const m = (x: number) => money(x, lang, v.currency);
+  const m = (x: number) => money(x, v.currency);
   return (
     <>
-      <Breadcrumbs items={[{ label: t('navBilling', lang), route: { page: 'invoices' } }, { label: v.patient.full_name, route: to.view('patients', v.patient.id) }, { label: v.number ?? t('draftInvoice', lang) }]} />
+      <Breadcrumbs items={[{ label: t('navBilling'), route: { page: 'invoices' } }, { label: v.patient.full_name, route: to.view('patients', v.patient.id) }, { label: v.number ?? t('draftInvoice') }]} />
       <PageHeader
-        title={v.number ? `${t('invoice', lang)} ${v.number}` : t('draftInvoice', lang)}
-        sub={`${v.patient.full_name} · ${t('fileNo', lang)} ${fmtNumber(v.patient.file_no, lang)} · ${pickName(lang, v.branch.name_ar, v.branch.name_en)}${v.issue_date ? ` · ${v.issue_date}` : ''}`}
+        title={v.number ? `${t('invoice')} ${v.number}` : t('draftInvoice')}
+        sub={`${v.patient.full_name} · ${t('fileNo')} ${fmtNumber(v.patient.file_no)} · ${arName(v.branch.name_ar, v.branch.name_en)}${v.issue_date ? ` · ${v.issue_date}` : ''}`}
         action={<div className="row-end">
-          <Badge tone={STATUS_TONE[v.status]}>{t(`inv_${v.status}` as Key, lang)}</Badge>
-          {v.status !== 'draft' && <RouteLink route={to.printInvoice(v.id)} className="btn btn-secondary">{t('print', lang)}</RouteLink>}
-          {v.can.issue && <Button onClick={() => setDialog('issue')} disabled={!v.lines.length}>{t('issueInvoice', lang)}</Button>}
-          {v.can.edit && <Button variant="ghost" onClick={() => setDialog('delete')}>{t('deleteDraft', lang)}</Button>}
-          {v.can.void && <Button variant="ghost" onClick={() => { setReason(''); setDialog('void'); }}>{t('voidInvoice', lang)}</Button>}
+          <Badge tone={STATUS_TONE[v.status]}>{t(`inv_${v.status}` as Key)}</Badge>
+          {v.status !== 'draft' && <RouteLink route={to.printInvoice(v.id)} className="btn btn-secondary">{t('print')}</RouteLink>}
+          {v.can.issue && <Button onClick={() => setDialog('issue')} disabled={!v.lines.length}>{t('issueInvoice')}</Button>}
+          {v.can.edit && <Button variant="ghost" onClick={() => setDialog('delete')}>{t('deleteDraft')}</Button>}
+          {v.can.void && <Button variant="ghost" onClick={() => { setReason(''); setDialog('void'); }}>{t('voidInvoice')}</Button>}
         </div>}
       />
-      {v.status === 'void' && <Alert tone="info">{t('voidedBecause', lang)}: <bdi>{v.void_reason}</bdi>{v.voided_by_name && <> · <bdi>{v.voided_by_name}</bdi></>}</Alert>}
+      {v.status === 'void' && <Alert tone="info">{t('voidedBecause')}: <bdi>{v.void_reason}</bdi>{v.voided_by_name && <> · <bdi>{v.voided_by_name}</bdi></>}</Alert>}
       <ErrorText error={act.error} />
       <div className="profile-grid">
         <div className="stack">
-          <LinesCard lang={lang} clinicId={clinicId} v={v} />
-          <PaymentsCard lang={lang} clinicId={clinicId} v={v} />
+          <LinesCard clinicId={clinicId} v={v} />
+          <PaymentsCard clinicId={clinicId} v={v} />
         </div>
         <div className="stack">
-          <DiscountCard lang={lang} clinicId={clinicId} v={v} />
+          <DiscountCard clinicId={clinicId} v={v} />
           <Card>
-            <h2>{t('totals', lang)}</h2>
+            <h2>{t('totals')}</h2>
             <dl className="detail-list mt">
-              <div><dt>{t('subtotal', lang)}</dt><dd><bdi>{m(v.subtotal_minor)}</bdi></dd></div>
-              {v.discount_minor > 0 && <div><dt>{t('discount', lang)}</dt><dd><bdi>− {m(v.discount_minor)}</bdi></dd></div>}
+              <div><dt>{t('subtotal')}</dt><dd><bdi>{m(v.subtotal_minor)}</bdi></dd></div>
+              {v.discount_minor > 0 && <div><dt>{t('discount')}</dt><dd><bdi>− {m(v.discount_minor)}</bdi></dd></div>}
               {(v.status === 'draft' ? v.tax_preview_minor : v.tax_minor) > 0 && (
-                <div><dt>{t('tax', lang)} ({fmtNumber(v.tax_rate_bp / 100, lang)}%)</dt><dd><bdi>{m(v.status === 'draft' ? v.tax_preview_minor : v.tax_minor)}</bdi></dd></div>
+                <div><dt>{t('tax')} ({fmtNumber(v.tax_rate_bp / 100)}%)</dt><dd><bdi>{m(v.status === 'draft' ? v.tax_preview_minor : v.tax_minor)}</bdi></dd></div>
               )}
-              <div><dt><strong>{t('total', lang)}</strong></dt><dd><strong><bdi>{m(v.status === 'draft' ? v.subtotal_minor - v.discount_minor + v.tax_preview_minor : v.total_minor)}</bdi></strong></dd></div>
-              {v.status !== 'draft' && <div><dt>{t('paid', lang)}</dt><dd><bdi>{m(v.paid_minor)}</bdi></dd></div>}
-              {v.adjusted_minor > 0 && <div><dt>{t('adjustments', lang)}</dt><dd><bdi>{m(v.adjusted_minor)}</bdi></dd></div>}
-              {v.status !== 'draft' && v.status !== 'void' && <div><dt><strong>{t('balance', lang)}</strong></dt><dd><strong><bdi>{m(v.balance_minor)}</bdi></strong></dd></div>}
+              <div><dt><strong>{t('total')}</strong></dt><dd><strong><bdi>{m(v.status === 'draft' ? v.subtotal_minor - v.discount_minor + v.tax_preview_minor : v.total_minor)}</bdi></strong></dd></div>
+              {v.status !== 'draft' && <div><dt>{t('paid')}</dt><dd><bdi>{m(v.paid_minor)}</bdi></dd></div>}
+              {v.adjusted_minor > 0 && <div><dt>{t('adjustments')}</dt><dd><bdi>{m(v.adjusted_minor)}</bdi></dd></div>}
+              {v.status !== 'draft' && v.status !== 'void' && <div><dt><strong>{t('balance')}</strong></dt><dd><strong><bdi>{m(v.balance_minor)}</bdi></strong></dd></div>}
             </dl>
-            {v.status === 'draft' && <p className="muted small mt-sm">{t('draftNote', lang)}</p>}
+            {v.status === 'draft' && <p className="muted small mt-sm">{t('draftNote')}</p>}
           </Card>
-          <PlanCard lang={lang} clinicId={clinicId} v={v} />
-          <AdjustmentsCard lang={lang} clinicId={clinicId} v={v} />
-          {v.can.pay && <PayForm key={`${v.paid_minor}-${v.adjusted_minor}`} lang={lang} clinicId={clinicId} v={v} />}
+          <PlanCard clinicId={clinicId} v={v} />
+          <AdjustmentsCard clinicId={clinicId} v={v} />
+          {v.can.pay && <PayForm key={`${v.paid_minor}-${v.adjusted_minor}`} clinicId={clinicId} v={v} />}
         </div>
       </div>
-      <ConfirmDialog open={dialog === 'issue'} title={t('issueInvoice', lang)} confirmLabel={t('issueInvoice', lang)}
+      <ConfirmDialog open={dialog === 'issue'} title={t('issueInvoice')} confirmLabel={t('issueInvoice')}
         onConfirm={() => act.mutate('issue', { onSettled: () => setDialog(null) })} onCancel={() => setDialog(null)}>
-        <p>{t('issueText', lang)}</p>
+        <p>{t('issueText')}</p>
       </ConfirmDialog>
-      <ConfirmDialog open={dialog === 'delete'} title={t('deleteDraft', lang)} confirmLabel={t('deleteDraft', lang)} danger
+      <ConfirmDialog open={dialog === 'delete'} title={t('deleteDraft')} confirmLabel={t('deleteDraft')} danger
         onConfirm={() => act.mutate('delete', { onSuccess: () => navigate(to.view('patients', v.patient.id)), onSettled: () => setDialog(null) })} onCancel={() => setDialog(null)}>
-        <p>{t('deleteDraftText', lang)}</p>
+        <p>{t('deleteDraftText')}</p>
       </ConfirmDialog>
-      <ConfirmDialog open={dialog === 'void'} title={t('voidInvoice', lang)} confirmLabel={t('voidInvoice', lang)} danger
+      <ConfirmDialog open={dialog === 'void'} title={t('voidInvoice')} confirmLabel={t('voidInvoice')} danger
         onConfirm={() => { if (reason.trim().length >= 3) act.mutate('void', { onSettled: () => setDialog(null) }); }} onCancel={() => setDialog(null)}>
-        <p>{t('voidText', lang)}</p>
-        <Field label={t('reason', lang)} hint={t('reasonHint', lang)}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
+        <p>{t('voidText')}</p>
+        <Field label={t('reason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
       </ConfirmDialog>
     </>
   );
 }
 
-function LinesCard({ lang, clinicId, v }: { lang: Lang; clinicId: string; v: InvoiceDetail }) {
+function LinesCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   const remove = useBillingMutation(clinicId, (lineId: string) => send(`/invoices/${v.id}/lines/${lineId}`, 'DELETE'));
   const [adding, setAdding] = useState(false);
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('invoiceLines', lang)}</h2>
-        {v.can.edit && !adding && <Button variant="secondary" onClick={() => setAdding(true)}>{t('addLine', lang)}</Button>}
+        <h2>{t('invoiceLines')}</h2>
+        {v.can.edit && !adding && <Button variant="secondary" onClick={() => setAdding(true)}>{t('addLine')}</Button>}
       </div>
       <ul className="line-list mt">
         {v.lines.map((l) => (
           <li key={l.id}>
-            <span><bdi>{l.description}</bdi>{l.quantity > 1 && <span className="muted small"> × {fmtNumber(l.quantity, lang)}</span>}
-              {l.discount_minor > 0 && <span className="muted small"> · {t('discount', lang)} <bdi>{money(l.discount_minor, lang, v.currency)}</bdi> — <bdi>{l.discount_reason}</bdi></span>}</span>
+            <span><bdi>{l.description}</bdi>{l.quantity > 1 && <span className="muted small"> × {fmtNumber(l.quantity)}</span>}
+              {l.discount_minor > 0 && <span className="muted small"> · {t('discount')} <bdi>{money(l.discount_minor, v.currency)}</bdi> — <bdi>{l.discount_reason}</bdi></span>}</span>
             <span className="line-end">
-              <bdi>{money(l.line_total_minor, lang, v.currency)}</bdi>
-              {v.can.discount && <LineDiscount lang={lang} clinicId={clinicId} invoiceId={v.id} currency={v.currency} line={l} />}
-              {v.can.edit && <LinkButton onClick={() => remove.mutate(l.id)}>{t('remove', lang)}</LinkButton>}
+              <bdi>{money(l.line_total_minor, v.currency)}</bdi>
+              {v.can.discount && <LineDiscount clinicId={clinicId} invoiceId={v.id} currency={v.currency} line={l} />}
+              {v.can.edit && <LinkButton onClick={() => remove.mutate(l.id)}>{t('remove')}</LinkButton>}
             </span>
           </li>
         ))}
       </ul>
       <ErrorText error={remove.error} />
-      {adding && <LineForm lang={lang} clinicId={clinicId} invoiceId={v.id} onDone={() => setAdding(false)} />}
+      {adding && <LineForm clinicId={clinicId} invoiceId={v.id} onDone={() => setAdding(false)} />}
     </Card>
   );
 }
 
-function LineForm({ lang, clinicId, invoiceId, onDone }: { lang: Lang; clinicId: string; invoiceId: string; onDone: () => void }) {
+function LineForm({ clinicId, invoiceId, onDone }: { clinicId: string; invoiceId: string; onDone: () => void }) {
   const services = useServices(clinicId);
   const [serviceId, setServiceId] = useState('');
   const [description, setDescription] = useState('');
@@ -139,24 +139,24 @@ function LineForm({ lang, clinicId, invoiceId, onDone }: { lang: Lang; clinicId:
   return (
     <form className="stack mt tooth-panel" onSubmit={(e) => { e.preventDefault(); if (ready) add.mutate(undefined, { onSuccess: onDone }); }}>
       <div className="grid-2">
-        <Field label={t('service', lang)} optional={t('optional', lang)}>
-          {(a) => <Choice id={a.id} lang={lang} value={serviceId} onChange={setServiceId} noneLabel={t('otherLine', lang)}
-            options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: pickName(lang, s.name_ar, s.name_en) }))} />}
+        <Field label={t('service')} optional={t('optional')}>
+          {(a) => <Choice id={a.id} value={serviceId} onChange={setServiceId} noneLabel={t('otherLine')}
+            options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: arName(s.name_ar, s.name_en) }))} />}
         </Field>
-        {!serviceId && <Field label={t('lineDescription', lang)}>{(a) => <Input id={a.id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />}</Field>}
-        <Field label={t('unitPrice', lang)} optional={serviceId ? t('optional', lang) : undefined}>
+        {!serviceId && <Field label={t('lineDescription')}>{(a) => <Input id={a.id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />}</Field>}
+        <Field label={t('unitPrice')} optional={serviceId ? t('optional') : undefined}>
           {(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />}
         </Field>
-        <Field label={t('quantity', lang)}>{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, '').slice(0, 3))} />}</Field>
+        <Field label={t('quantity')}>{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, '').slice(0, 3))} />}</Field>
       </div>
       <ErrorText error={add.error} />
-      <div className="row-end"><Button variant="ghost" onClick={onDone}>{t('cancel', lang)}</Button><Button type="submit" loading={add.isPending} disabled={!ready}>{t('addLine', lang)}</Button></div>
+      <div className="row-end"><Button variant="ghost" onClick={onDone}>{t('cancel')}</Button><Button type="submit" loading={add.isPending} disabled={!ready}>{t('addLine')}</Button></div>
     </form>
   );
 }
 
 /** PAY-001: the receiver is always the signed-in member; one key per form, so a double click records once. */
-function PayForm({ lang, clinicId, v }: { lang: Lang; clinicId: string; v: InvoiceDetail }) {
+function PayForm({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   const open = v.plan?.status === 'active' ? v.plan.installments.filter((i) => i.status === 'due' || i.status === 'partially_paid') : [];
   const [installmentId, setInstallmentId] = useState(open[0]?.id ?? '');
   const installment = open.find((i) => i.id === installmentId);
@@ -173,87 +173,87 @@ function PayForm({ lang, clinicId, v }: { lang: Lang; clinicId: string; v: Invoi
   const ready = !!minor && minor > 0 && minor <= limit && (!NEEDS_REF.includes(method) || reference.trim().length > 0);
   return (
     <Card>
-      <h2>{t('recordPayment', lang)}</h2>
+      <h2>{t('recordPayment')}</h2>
       <form className="stack mt" onSubmit={(e) => { e.preventDefault(); if (ready) pay.mutate(undefined); }}>
         {open.length > 0 && (
-          <Field label={t('installment', lang)}>
-            {(a) => <Choice id={a.id} lang={lang} value={installmentId} onChange={(x) => { setInstallmentId(x); const i = open.find((y) => y.id === x); if (i) setAmount(String((i.amount_minor - i.paid_minor) / 100)); }}
-              options={open.map((i) => ({ value: i.id, label: `${fmtNumber(i.seq, lang)} · ${i.due_date} · ${money(i.amount_minor - i.paid_minor, lang, v.currency)}` }))} />}
+          <Field label={t('installment')}>
+            {(a) => <Choice id={a.id} value={installmentId} onChange={(x) => { setInstallmentId(x); const i = open.find((y) => y.id === x); if (i) setAmount(String((i.amount_minor - i.paid_minor) / 100)); }}
+              options={open.map((i) => ({ value: i.id, label: `${fmtNumber(i.seq)} · ${i.due_date} · ${money(i.amount_minor - i.paid_minor, v.currency)}` }))} />}
           </Field>
         )}
-        <Field label={`${t('amount', lang)} (${currencyLabel(lang, v.currency)})`} hint={`${t(installment ? 'installmentLeft' : 'balance', lang)}: ${money(limit, lang, v.currency)}`}>
+        <Field label={`${t('amount')} (${currencyLabel(v.currency)})`} hint={`${t(installment ? 'installmentLeft' : 'balance')}: ${money(limit, v.currency)}`}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />}
         </Field>
-        <Field label={t('paymentMethod', lang)}>
-          {(a) => <Choice id={a.id} lang={lang} value={method} onChange={(x) => setMethod(x as PaymentMethod)} options={METHODS.map((x) => ({ value: x, label: t(`pm_${x}` as Key, lang) }))} />}
+        <Field label={t('paymentMethod')}>
+          {(a) => <Choice id={a.id} value={method} onChange={(x) => setMethod(x as PaymentMethod)} options={METHODS.map((x) => ({ value: x, label: t(`pm_${x}` as Key) }))} />}
         </Field>
         {method !== 'cash' && (
-          <Field label={t('paymentReference', lang)} optional={NEEDS_REF.includes(method) ? undefined : t('optional', lang)} hint={t(`refHint_${method}` as Key, lang)}>
+          <Field label={t('paymentReference')} optional={NEEDS_REF.includes(method) ? undefined : t('optional')} hint={t(`refHint_${method}` as Key)}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />}
           </Field>
         )}
-        <Field label={t('notes', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
+        <Field label={t('notes')} optional={t('optional')}>{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
         <ErrorText error={pay.error} />
-        <Button type="submit" loading={pay.isPending} disabled={!ready}>{t('recordPayment', lang)}</Button>
+        <Button type="submit" loading={pay.isPending} disabled={!ready}>{t('recordPayment')}</Button>
       </form>
     </Card>
   );
 }
 
-function PaymentsCard({ lang, clinicId, v }: { lang: Lang; clinicId: string; v: InvoiceDetail }) {
+function PaymentsCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   const [reversing, setReversing] = useState<Payment | null>(null);
   const [refunding, setRefunding] = useState<Payment | null>(null);
-  const fmt = new Intl.DateTimeFormat(loc(lang), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
   if (v.status === 'draft') return null;
   return (
     <Card>
-      <h2>{t('payments', lang)}</h2>
-      {v.payments.length === 0 ? <p className="muted small mt-sm">{t('noPayments', lang)}</p> : (
+      <h2>{t('payments')}</h2>
+      {v.payments.length === 0 ? <p className="muted small mt-sm">{t('noPayments')}</p> : (
         <ul className="stack mt">
           {v.payments.map((p) => (
             <li key={p.id} className={`rx-item${p.status === 'reversed' ? ' is-replaced' : ''}`}>
               <div className="row-between">
                 <span>
-                  <strong><bdi>{money(p.amount_minor, lang, p.currency)}</bdi></strong> · {t(`pm_${p.method}` as Key, lang)}
+                  <strong><bdi>{money(p.amount_minor, p.currency)}</bdi></strong> · {t(`pm_${p.method}` as Key)}
                   {p.reference && <> · <bdi dir="ltr">{p.reference}</bdi></>}{' '}
-                  <Badge tone={p.status === 'reversed' ? 'neutral' : p.status === 'succeeded' ? 'success' : 'warning'}>{t(`ps_${p.status}` as Key, lang)}</Badge>
+                  <Badge tone={p.status === 'reversed' ? 'neutral' : p.status === 'succeeded' ? 'success' : 'warning'}>{t(`ps_${p.status}` as Key)}</Badge>
                 </span>
                 <span className="row-end">
-                  {p.status !== 'reversed' && <RouteLink route={to.printReceipt(p.id)} className="btn btn-ghost">{t('receipt', lang)}</RouteLink>}
-                  {p.can.refund && <LinkButton onClick={() => setRefunding(p)}>{t('refund', lang)}</LinkButton>}
-                  {p.can.reverse && <LinkButton onClick={() => setReversing(p)}>{t('reverse', lang)}</LinkButton>}
+                  {p.status !== 'reversed' && <RouteLink route={to.printReceipt(p.id)} className="btn btn-ghost">{t('receipt')}</RouteLink>}
+                  {p.can.refund && <LinkButton onClick={() => setRefunding(p)}>{t('refund')}</LinkButton>}
+                  {p.can.reverse && <LinkButton onClick={() => setReversing(p)}>{t('reverse')}</LinkButton>}
                 </span>
               </div>
-              <span className="muted small">{fmt.format(new Date(p.paid_at))}{p.received_by_name && <> · {t('receivedBy', lang)} <bdi>{p.received_by_name}</bdi></>}</span>
-              {p.status === 'reversed' && <p className="small">{t('reversedBecause', lang)}: <bdi>{p.reversal_reason}</bdi>{p.reversed_by_name && <> · <bdi>{p.reversed_by_name}</bdi></>}</p>}
+              <span className="muted small">{fmt.format(new Date(p.paid_at))}{p.received_by_name && <> · {t('receivedBy')} <bdi>{p.received_by_name}</bdi></>}</span>
+              {p.status === 'reversed' && <p className="small">{t('reversedBecause')}: <bdi>{p.reversal_reason}</bdi>{p.reversed_by_name && <> · <bdi>{p.reversed_by_name}</bdi></>}</p>}
               {p.refunds.map((r) => (
-                <p key={r.id} className="small amendment">{t('refunded', lang)} <bdi>{money(r.amount_minor, lang, p.currency)}</bdi> · {t(`pm_${r.method}` as Key, lang)} · <bdi>{r.reason}</bdi>
+                <p key={r.id} className="small amendment">{t('refunded')} <bdi>{money(r.amount_minor, p.currency)}</bdi> · {t(`pm_${r.method}` as Key)} · <bdi>{r.reason}</bdi>
                   {r.created_by_name && <> · <bdi>{r.created_by_name}</bdi></>} · {fmt.format(new Date(r.refunded_at))}</p>
               ))}
             </li>
           ))}
         </ul>
       )}
-      {reversing && <ReverseDialog lang={lang} clinicId={clinicId} payment={reversing} onClose={() => setReversing(null)} />}
-      {refunding && <RefundDialog lang={lang} clinicId={clinicId} payment={refunding} onClose={() => setRefunding(null)} />}
+      {reversing && <ReverseDialog clinicId={clinicId} payment={reversing} onClose={() => setReversing(null)} />}
+      {refunding && <RefundDialog clinicId={clinicId} payment={refunding} onClose={() => setRefunding(null)} />}
     </Card>
   );
 }
 
-function ReverseDialog({ lang, clinicId, payment, onClose }: { lang: Lang; clinicId: string; payment: Payment; onClose: () => void }) {
+function ReverseDialog({ clinicId, payment, onClose }: { clinicId: string; payment: Payment; onClose: () => void }) {
   const [reason, setReason] = useState('');
   const reverse = useBillingMutation(clinicId, () => send(`/payments/${payment.id}/reverse`, 'POST', { reason: reason.trim() }));
   return (
-    <ConfirmDialog open title={t('reverse', lang)} confirmLabel={t('reverse', lang)} danger
+    <ConfirmDialog open title={t('reverse')} confirmLabel={t('reverse')} danger
       onConfirm={() => { if (reason.trim().length >= 3) reverse.mutate(undefined, { onSuccess: onClose }); }} onCancel={onClose}>
-      <p>{t('reverseText', lang)}</p>
-      <Field label={t('reason', lang)} hint={t('reasonHint', lang)}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
+      <p>{t('reverseText')}</p>
+      <Field label={t('reason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
       <ErrorText error={reverse.error} />
     </ConfirmDialog>
   );
 }
 
-function RefundDialog({ lang, clinicId, payment, onClose }: { lang: Lang; clinicId: string; payment: Payment; onClose: () => void }) {
+function RefundDialog({ clinicId, payment, onClose }: { clinicId: string; payment: Payment; onClose: () => void }) {
   const left = payment.amount_minor - payment.refunded_minor;
   const [amount, setAmount] = useState(String(left / 100));
   const [method, setMethod] = useState<PaymentMethod>(payment.method);
@@ -264,17 +264,17 @@ function RefundDialog({ lang, clinicId, payment, onClose }: { lang: Lang; clinic
     amountMinor: minor, method, reason: reason.trim(), ...(method !== 'cash' && reference.trim() && { reference: reference.trim() }),
   }));
   return (
-    <ConfirmDialog open title={t('refund', lang)} confirmLabel={t('refund', lang)} danger
+    <ConfirmDialog open title={t('refund')} confirmLabel={t('refund')} danger
       onConfirm={() => { if (minor && minor <= left && reason.trim().length >= 3) refund.mutate(undefined, { onSuccess: onClose }); }} onCancel={onClose}>
-      <p>{t('refundText', lang)}</p>
-      <Field label={t('amount', lang)} hint={`${t('refundable', lang)}: ${money(left, lang, payment.currency)}`}>
+      <p>{t('refundText')}</p>
+      <Field label={t('amount')} hint={`${t('refundable')}: ${money(left, payment.currency)}`}>
         {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />}
       </Field>
-      <Field label={t('refundMethod', lang)}>
-        {(a) => <Choice id={a.id} lang={lang} value={method} onChange={(x) => setMethod(x as PaymentMethod)} options={METHODS.map((x) => ({ value: x, label: t(`pm_${x}` as Key, lang) }))} />}
+      <Field label={t('refundMethod')}>
+        {(a) => <Choice id={a.id} value={method} onChange={(x) => setMethod(x as PaymentMethod)} options={METHODS.map((x) => ({ value: x, label: t(`pm_${x}` as Key) }))} />}
       </Field>
-      {method !== 'cash' && <Field label={t('paymentReference', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />}</Field>}
-      <Field label={t('reason', lang)} hint={t('reasonHint', lang)}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
+      {method !== 'cash' && <Field label={t('paymentReference')} optional={t('optional')}>{(a) => <Input id={a.id} dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />}</Field>}
+      <Field label={t('reason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
       <ErrorText error={refund.error} />
     </ConfirmDialog>
   );

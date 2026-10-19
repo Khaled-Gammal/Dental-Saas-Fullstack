@@ -10,12 +10,12 @@ const ALLOWED_LATIN = /\b(QR|PDF|JPE?G|PNG|WEBP|HEIC|SVG|Enter|Mailpit|localhost
 
 describe('Arabic only (L10N-001)', () => {
   it('every text has Arabic, written in Arabic letters', () => {
-    const missing = KEYS.filter((k) => !t(k, 'ar') || !/[\u0600-\u06FF]/.test(t(k, 'ar')));
+    const missing = KEYS.filter((k) => !t(k) || !/[\u0600-\u06FF]/.test(t(k)));
     expect(missing).toEqual([]);
   });
   it('no Arabic text carries English words outside the allow-list', () => {
-    const latin = KEYS.filter((k) => /[A-Za-z]{2,}/.test(t(k, 'ar').replace(ALLOWED_LATIN, '').replace(/\{[a-z]+\}/gi, '').replace(/#[0-9a-f]{6}/gi, '')))
-      .map((k) => `${k}: ${t(k, 'ar')}`);
+    const latin = KEYS.filter((k) => /[A-Za-z]{2,}/.test(t(k).replace(ALLOWED_LATIN, '').replace(/\{[a-z]+\}/gi, '').replace(/#[0-9a-f]{6}/gi, '')))
+      .map((k) => `${k}: ${t(k)}`);
     expect(latin).toEqual([]);
   });
 });

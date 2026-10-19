@@ -456,7 +456,7 @@ export interface HomeData {
   follow_ups: { scope: 'mine' | 'all'; due: number } | null;
   today_money: { invoiced: number; collected: number; refunded: number; net: number; payments: number; by_method: { method: string; collected: number; refunded: number; net: number }[] } | null;
   finance: {
-    today: { invoiced: number; collections_net: number; expenses: number };
+    today: { invoiced: number; collections_net: number; expenses: number; no_show: number; no_show_rate: number | null };
     month: { invoiced: number; collections_net: number; expenses: number; no_show: number; no_show_rate: number | null };
     outstanding: { balance: number; patients: number; invoices: number; overdue: number; overdue_installments: number };
   } | null;

@@ -8,6 +8,9 @@ export function initials(name: string): string {
   return (words.length ? words : [name.trim()]).slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase();
 }
 
+/** The Arabic name, else the English one (CLR-07: kept data, shown only where no Arabic exists), else `fallback`. */
+export const arName = (ar: string | null | undefined, en: string | null | undefined, fallback = ''): string => ar || en || fallback;
+
 /** Picks the name in the viewer's language, falling back to the other language, then to `fallback`. */
 export function pickName(lang: 'ar' | 'en', ar: string | null | undefined, en: string | null | undefined, fallback = ''): string {
   return (lang === 'ar' ? ar || en : en || ar) || fallback;

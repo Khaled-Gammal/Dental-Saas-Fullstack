@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { can, type Session } from '../api';
 import { siteUrl } from '../config';
-import { roleLabel, t, type Key, type Lang } from '../i18n';
+import { roleLabel, t, type Key } from '../i18n';
 import { navigate } from '../hooks';
 import { useOnboarding, usePublish } from '../queries';
 import { to, type Page } from '../router';
@@ -19,7 +19,7 @@ type Step = { key: Key; done: boolean; action?: { label: Key; go: () => void; bu
  * The home screen (SRS REPORT-006): a welcome, the member's own figures (HomeFigures), and — for the owner until it
  * is complete — the clinic setup checklist.
  */
-export function Overview({ lang, session }: { lang: Lang; session: Session }) {
+export function Overview({ session }: { session: Session }) {
   const go = (p: Page) => navigate(to.list(p));
   const clinicId = session.clinic.id;
   const status = useOnboarding(clinicId).data; // derived on the server from the clinic's data
@@ -44,29 +44,29 @@ export function Overview({ lang, session }: { lang: Lang; session: Session }) {
     <>
       <section className="hero-card">
         <div className="hero-text">
-          <p className="eyebrow">{t('welcome', lang)}{lang === 'ar' ? '، ' : ', '}<bdi>{session.user.name}</bdi> · {roleLabel(session.clinic.role, lang)}</p>
-          <h1>{t(setup ? 'overviewSub' : 'homeSub', lang)}</h1>
-          {can(session, 'website:write') && <SiteLink url={site} lang={lang} />}
+          <p className="eyebrow">{t('welcome')}{'، '}<bdi>{session.user.name}</bdi> · {roleLabel(session.clinic.role)}</p>
+          <h1>{t(setup ? 'overviewSub' : 'homeSub')}</h1>
+          {can(session, 'website:write') && <SiteLink url={site} />}
         </div>
         {setup && (
           <div className="hero-art">
-            <DentalArch filled={(done / steps.length) * ARCH_TEETH} label={`${done}/${steps.length} ${t('stepsDone', lang)}`} />
-            <span className="hero-art-caption">{t('archCaption', lang)}</span>
+            <DentalArch filled={(done / steps.length) * ARCH_TEETH} label={`${done}/${steps.length} ${t('stepsDone')}`} />
+            <span className="hero-art-caption">{t('archCaption')}</span>
           </div>
         )}
       </section>
 
-      <HomeFigures lang={lang} clinicId={clinicId} />
+      <HomeFigures clinicId={clinicId} />
 
       {setup && <ErrorText error={publish.error} />}
       {setup && <Card className="setup">
         <div className="setup-head">
           <div>
-            <h2>{t('setupTitle', lang)}</h2>
-            <p className="muted">{t('setupSub', lang)}</p>
+            <h2>{t('setupTitle')}</h2>
+            <p className="muted">{t('setupSub')}</p>
           </div>
           <div className="progress-ring" style={{ ['--p' as string]: `${(done / steps.length) * 100}` }}
-            role="img" aria-label={`${done}/${steps.length} ${t('stepsDone', lang)}`}>
+            role="img" aria-label={`${done}/${steps.length} ${t('stepsDone')}`}>
             <span><bdi>{done}/{steps.length}</bdi></span>
           </div>
         </div>
@@ -74,10 +74,10 @@ export function Overview({ lang, session }: { lang: Lang; session: Session }) {
           {steps.map((s, i) => (
             <li key={s.key} className={`step${s.done ? ' done' : ''}${s === next ? ' current' : ''}`}>
               <span className="step-dot">{s.done ? <CheckIcon size={14} /> : i + 1}</span>
-              <span className="step-label">{t(s.key, lang)}</span>
+              <span className="step-label">{t(s.key)}</span>
               {!s.done && (s.action
-                ? <Button variant={s === next ? 'primary' : 'secondary'} onClick={s.action.go} loading={s.action.busy}>{t(s.action.label, lang)}</Button>
-                : <Badge>{t('soon', lang)}</Badge>)}
+                ? <Button variant={s === next ? 'primary' : 'secondary'} onClick={s.action.go} loading={s.action.busy}>{t(s.action.label)}</Button>
+                : <Badge>{t('soon')}</Badge>)}
             </li>
           ))}
         </ol>
@@ -86,7 +86,7 @@ export function Overview({ lang, session }: { lang: Lang; session: Session }) {
   );
 }
 
-function SiteLink({ url, lang }: { url: string; lang: Lang }) {
+function SiteLink({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -102,10 +102,10 @@ function SiteLink({ url, lang }: { url: string; lang: Lang }) {
     <div className="site-link">
       <span className="site-url" dir="ltr">{url.replace(/^https?:\/\//, '')}</span>
       <button type="button" className="chip-btn" onClick={() => void copy()}>
-        {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}{copied ? t('copied', lang) : t('copy', lang)}
+        {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}{copied ? t('copied') : t('copy')}
       </button>
-      <span role="status" className="sr-only">{copied ? t('copiedAnnounce', lang) : ''}</span>
-      <a className="chip-btn" href={url} target="_blank" rel="noreferrer"><ExternalIcon size={16} />{t('open', lang)}</a>
+      <span role="status" className="sr-only">{copied ? t('copiedAnnounce') : ''}</span>
+      <a className="chip-btn" href={url} target="_blank" rel="noreferrer"><ExternalIcon size={16} />{t('open')}</a>
     </div>
   );
 }

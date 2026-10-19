@@ -1,7 +1,6 @@
 import { useEffect, useRef, type AnchorHTMLAttributes, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { t } from '../i18n';
 import { navigate } from '../hooks';
-import { useLang } from '../lang';
 import { href, type Route } from '../router';
 import { Alert, Button, ErrorText, Skeleton } from './components';
 import { ChevronIcon } from './icons';
@@ -21,9 +20,8 @@ export function RouteLink({ route, className = 'link-btn', children, ...rest }: 
 
 /** "Overview › Doctors › Edit" — every crumb but the last is a link. */
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
-  const lang = useLang();
   return (
-    <nav className="crumbs" aria-label={t('breadcrumbs', lang)}>
+    <nav className="crumbs" aria-label={t('breadcrumbs')}>
       <ol>
         {items.map((c, i) => {
           const last = i === items.length - 1;
@@ -49,7 +47,6 @@ export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, 
   title: string; sub?: string; crumbs: Crumb[]; back: Route; onSubmit: (e: FormEvent) => void;
   saving: boolean; canSave: boolean; error?: unknown; notice?: ReactNode; children: ReactNode; extra?: ReactNode;
 }) {
-  const lang = useLang();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     // a new page: tell screen readers where we are, unless a field already took focus (autoFocus on create pages)
@@ -71,8 +68,8 @@ export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, 
         {notice}
         <ErrorText error={error} />
         <div className="form-footer">
-          <Button variant="ghost" onClick={() => navigate(back)}>{t('cancel', lang)}</Button>
-          <Button type="submit" loading={saving} disabled={!canSave}>{t('save', lang)}</Button>
+          <Button variant="ghost" onClick={() => navigate(back)}>{t('cancel')}</Button>
+          <Button type="submit" loading={saving} disabled={!canSave}>{t('save')}</Button>
         </div>
       </form>
     </>
@@ -83,19 +80,17 @@ export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, 
 export function ResourceState({ isLoading, isError, error, notFound, refetch, back, backLabel }: {
   isLoading: boolean; isError: boolean; error: unknown; notFound: boolean; refetch: () => void; back: Route; backLabel: string;
 }) {
-  const lang = useLang();
   if (isLoading) return <Skeleton h={120} count={3} />;
   if (isError) return <ErrorText error={error} onRetry={refetch} />;
-  if (notFound) return <NotFound text={t('resourceMissing', lang)} back={back} backLabel={backLabel} />;
+  if (notFound) return <NotFound text={t('resourceMissing')} back={back} backLabel={backLabel} />;
   return null;
 }
 
 export function NotFound({ text, back, backLabel }: { text: string; back: Route; backLabel: string }) {
-  const lang = useLang();
   return (
     <div className="not-found">
       <Alert tone="info">{text}</Alert>
-      <Button variant="secondary" onClick={() => navigate(back)}>{backLabel || t('navOverview', lang)}</Button>
+      <Button variant="secondary" onClick={() => navigate(back)}>{backLabel || t('navOverview')}</Button>
     </div>
   );
 }
