@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { pickName } from '@dental/ui/text';
+import { arName } from '@dental/ui/text';
 import { api } from '../../api';
 import { DatePicker } from '../../components/date-picker';
-import { t, type Lang } from '../../i18n';
+import { t } from '../../i18n';
 import { calendarKeys, keys, useDoctors, useOne, useTimeOff } from '../../queries';
 import { to } from '../../router';
 import type { CalendarConflict, TimeOff } from '../../types';
@@ -13,11 +13,11 @@ import { Breadcrumbs, ResourceState } from '../../ui/page';
 import { zonedToUtc } from '../../util';
 import { Conflicts } from './conflicts';
 
-const loc = (lang: Lang) => (lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB');
+const loc = () => ('ar-EG-u-nu-latn');
 const TZ = 'Africa/Cairo'; // the clinic's zone (branches default to it); the API stores instants
 
 /** `#/doctors/<id>/timeoff`: a doctor's leave (SRS APPT-005). No times can be booked with them during it. */
-export function DoctorTimeOff({ lang, clinicId, id, canWrite }: { lang: Lang; clinicId: string; id?: string; canWrite: boolean }) {
+export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id?: string; canWrite: boolean }) {
   const one = useOne(useDoctors(clinicId), id);
   const list = useTimeOff(clinicId, id);
   const qc = useQueryClient();
@@ -35,33 +35,33 @@ export function DoctorTimeOff({ lang, clinicId, id, canWrite }: { lang: Lang; cl
     onSuccess: (r) => { setConflicts(r.conflicts); setReason(''); void refresh(); },
   });
   const remove = useMutation({ mutationFn: (offId: string) => api(`/doctors/${id}/time-off/${offId}`, { method: 'DELETE' }), onSuccess: () => void refresh() });
-  if (!one.data) return <ResourceState {...one} back={to.list('doctors')} backLabel={t('navDoctors', lang)} />;
-  const name = pickName(lang, one.data.name_ar, one.data.name_en, '—');
-  const fmt = (iso: string) => new Intl.DateTimeFormat(loc(lang), { dateStyle: 'medium', timeStyle: 'short', timeZone: TZ }).format(new Date(iso));
+  if (!one.data) return <ResourceState {...one} back={to.list('doctors')} backLabel={t('navDoctors')} />;
+  const name = arName(one.data.name_ar, one.data.name_en, '—');
+  const fmt = (iso: string) => new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: TZ }).format(new Date(iso));
   const submit = (e: FormEvent) => { e.preventDefault(); add.mutate(); };
 
   return (
     <>
-      <Breadcrumbs items={[{ label: t('navOverview', lang), route: to.list('overview') }, { label: t('navDoctors', lang), route: to.list('doctors') }, { label: name }]} />
-      <div className="page-head"><div><h1>{t('timeOffTitle', lang)} · <bdi>{name}</bdi></h1><p>{t('timeOffSub', lang)}</p></div></div>
+      <Breadcrumbs items={[{ label: t('navOverview'), route: to.list('overview') }, { label: t('navDoctors'), route: to.list('doctors') }, { label: name }]} />
+      <div className="page-head"><div><h1>{t('timeOffTitle')} · <bdi>{name}</bdi></h1><p>{t('timeOffSub')}</p></div></div>
       {canWrite && (
         <Card>
-          <h2>{t('addTimeOff', lang)}</h2>
+          <h2>{t('addTimeOff')}</h2>
           <form onSubmit={submit} className="grid-2 mt">
-            <Field label={t('fromLabel', lang)}>{(a) => <DatePicker id={a.id} lang={lang} value={from.date} onChange={(d) => setFrom((f) => ({ ...f, date: d }))} min={today} />}</Field>
-            <Field label={t('time', lang)}>{(a) => <Input id={a.id} type="time" dir="ltr" value={from.time} onChange={(e) => setFrom((f) => ({ ...f, time: e.target.value }))} />}</Field>
-            <Field label={t('toLabel', lang)}>{(a) => <DatePicker id={a.id} lang={lang} value={until.date} onChange={(d) => setUntil((u) => ({ ...u, date: d }))} min={from.date} />}</Field>
-            <Field label={t('time', lang)}>{(a) => <Input id={a.id} type="time" dir="ltr" value={until.time} onChange={(e) => setUntil((u) => ({ ...u, time: e.target.value }))} />}</Field>
-            <Field label={t('reasonLabel', lang)} optional={t('optional', lang)}>{(a) => <Input id={a.id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
-            <div className="row-end"><Button type="submit" loading={add.isPending}>{t('addTimeOff', lang)}</Button></div>
+            <Field label={t('fromLabel')}>{(a) => <DatePicker id={a.id} value={from.date} onChange={(d) => setFrom((f) => ({ ...f, date: d }))} min={today} />}</Field>
+            <Field label={t('time')}>{(a) => <Input id={a.id} type="time" dir="ltr" value={from.time} onChange={(e) => setFrom((f) => ({ ...f, time: e.target.value }))} />}</Field>
+            <Field label={t('toLabel')}>{(a) => <DatePicker id={a.id} value={until.date} onChange={(d) => setUntil((u) => ({ ...u, date: d }))} min={from.date} />}</Field>
+            <Field label={t('time')}>{(a) => <Input id={a.id} type="time" dir="ltr" value={until.time} onChange={(e) => setUntil((u) => ({ ...u, time: e.target.value }))} />}</Field>
+            <Field label={t('reasonLabel')} optional={t('optional')}>{(a) => <Input id={a.id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
+            <div className="row-end"><Button type="submit" loading={add.isPending}>{t('addTimeOff')}</Button></div>
           </form>
           <ErrorText error={add.error} />
-          {conflicts && <Conflicts lang={lang} items={conflicts} />}
+          {conflicts && <Conflicts items={conflicts} />}
         </Card>
       )}
       {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
         : list.isLoading ? <Skeleton h={56} count={2} />
-        : !list.data?.length ? <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noTimeOff', lang)} text={t('timeOffSub', lang)} /></Card>
+        : !list.data?.length ? <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noTimeOff')} text={t('timeOffSub')} /></Card>
         : (
           <ul className="patient-rows mt">
             {list.data.map((o) => (
@@ -70,7 +70,7 @@ export function DoctorTimeOff({ lang, clinicId, id, canWrite }: { lang: Lang; cl
                   <span className="patient-avatar" aria-hidden><CalendarIcon size={18} /></span>
                   <span className="patient-text"><strong><bdi dir="ltr">{fmt(o.starts_at)} – {fmt(o.ends_at)}</bdi></strong>{o.reason && <span className="muted small"><bdi>{o.reason}</bdi></span>}</span>
                 </span>
-                {canWrite && <LinkButton onClick={() => remove.mutate(o.id)} disabled={remove.isPending}>{t('remove', lang)}</LinkButton>}
+                {canWrite && <LinkButton onClick={() => remove.mutate(o.id)} disabled={remove.isPending}>{t('remove')}</LinkButton>}
               </Card>
             ))}
           </ul>

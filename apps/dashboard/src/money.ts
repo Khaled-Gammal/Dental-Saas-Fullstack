@@ -1,4 +1,4 @@
-import { t, type Lang } from './i18n';
+import { t } from './i18n';
 import { fmtNumber } from './util';
 
 let clinicCurrency = 'EGP';
@@ -12,14 +12,14 @@ export function setClinicCurrency(currency: string | null | undefined): void {
 }
 
 /** "ج.م" for the Egyptian pound, otherwise the ISO code (as on invoices). */
-export const currencyLabel = (lang: Lang, currency = clinicCurrency): string => (currency === 'EGP' ? t('egp', lang) : currency);
+export const currencyLabel = (currency = clinicCurrency): string => (currency === 'EGP' ? t('egp') : currency);
 
 /**
  * Minor units as "1,250.50 ج.م" in the clinic currency (whole amounts without decimals). Stored values are never
  * changed by display.
  */
-export function money(minor: number, lang: Lang, currency = clinicCurrency): string {
+export function money(minor: number, currency = clinicCurrency): string {
   const major = minor / 100;
-  const n = Number.isInteger(major) ? fmtNumber(major, lang) : major.toLocaleString(lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${n} ${currencyLabel(lang, currency)}`;
+  const n = Number.isInteger(major) ? fmtNumber(major) : major.toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${n} ${currencyLabel(currency)}`;
 }

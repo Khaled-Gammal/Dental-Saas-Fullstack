@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { pickName } from '@dental/ui/text';
-import { t, type Lang } from '../../i18n';
+import { arName } from '@dental/ui/text';
+import { t } from '../../i18n';
 import { ageOn } from '../../patient-model';
 import { useBranches, usePrescription, useProfile } from '../../queries';
 import { to } from '../../router';
@@ -15,13 +15,13 @@ type Paper = 'A5' | 'A4';
  * address and phone, the doctor, the patient (name, age, file number) and the date. Drug names written in Latin
  * letters keep their own direction inside the Arabic text. Fits A5 or A4; the browser prints only the sheet.
  */
-export function PrescriptionPrint({ lang, clinicId, id }: { lang: Lang; clinicId: string; id?: string }) {
+export function PrescriptionPrint({ clinicId, id }: { clinicId: string; id?: string }) {
   const rx = usePrescription(clinicId, id);
   const profile = useProfile(clinicId);
   const branches = useBranches(clinicId);
   const [paper, setPaper] = useState<Paper>('A5');
   if (!rx.data) {
-    return <ResourceState isLoading={rx.isLoading} isError={rx.isError} error={rx.error} notFound={false} refetch={() => void rx.refetch()} back={to.list('patients')} backLabel={t('navPatients', lang)} />;
+    return <ResourceState isLoading={rx.isLoading} isError={rx.isError} error={rx.error} notFound={false} refetch={() => void rx.refetch()} back={to.list('patients')} backLabel={t('navPatients')} />;
   }
   const r = rx.data;
   const clinic = profile.data;
@@ -32,13 +32,13 @@ export function PrescriptionPrint({ lang, clinicId, id }: { lang: Lang; clinicId
   return (
     <>
       <div className="no-print">
-        <Breadcrumbs items={[{ label: t('visit', lang), route: to.visit(r.visit_id) }, { label: t('prescription', lang) }]} />
-        {r.replaced_by_id && <Alert tone="info">{t('replacedNotice', lang)} <RouteLink route={to.printPrescription(r.replaced_by_id)}>{t('openCorrection', lang)}</RouteLink></Alert>}
+        <Breadcrumbs items={[{ label: t('visit'), route: to.visit(r.visit_id) }, { label: t('prescription') }]} />
+        {r.replaced_by_id && <Alert tone="info">{t('replacedNotice')} <RouteLink route={to.printPrescription(r.replaced_by_id)}>{t('openCorrection')}</RouteLink></Alert>}
         <div className="row-end mt-sm">
-          <div className="seg" role="radiogroup" aria-label={t('paperSize', lang)}>
+          <div className="seg" role="radiogroup" aria-label={t('paperSize')}>
             {(['A5', 'A4'] as Paper[]).map((p) => <button key={p} type="button" role="radio" aria-checked={paper === p} className={`seg-btn${paper === p ? ' is-on' : ''}`} onClick={() => setPaper(p)}>{p}</button>)}
           </div>
-          <Button onClick={() => window.print()}>{t('print', lang)}</Button>
+          <Button onClick={() => window.print()}>{t('print')}</Button>
         </div>
       </div>
       {/* the page size follows the choice; margins stay small so A5 keeps room for the lines */}
@@ -46,20 +46,20 @@ export function PrescriptionPrint({ lang, clinicId, id }: { lang: Lang; clinicId
       <article className={`rx-sheet rx-${paper.toLowerCase()}`} dir="rtl" lang="ar">
         <header className="rx-head">
           <div>
-            <h1 className="rx-clinic">{clinic ? pickName('ar', clinic.nameAr, clinic.nameEn) : ''}</h1>
-            {branch && <p className="rx-branch">{pickName('ar', branch.name_ar, branch.name_en)}{branch.address_ar && ` — ${branch.address_ar}`}{branch.phone && <> · <bdi dir="ltr">{branch.phone}</bdi></>}</p>}
+            <h1 className="rx-clinic">{clinic ? arName(clinic.nameAr, clinic.nameEn) : ''}</h1>
+            {branch && <p className="rx-branch">{arName(branch.name_ar, branch.name_en)}{branch.address_ar && ` — ${branch.address_ar}`}{branch.phone && <> · <bdi dir="ltr">{branch.phone}</bdi></>}</p>}
           </div>
           {clinic?.logo && <img className="rx-logo" src={clinic.logo.thumbUrl} alt="" />}
         </header>
         <div className="rx-doctor">
-          <strong>{pickName('ar', r.doctor.name_ar, r.doctor.name_en)}</strong>
-          {(r.doctor.title_ar || r.doctor.title_en) && <span>{pickName('ar', r.doctor.title_ar, r.doctor.title_en)}</span>}
+          <strong>{arName(r.doctor.name_ar, r.doctor.name_en)}</strong>
+          {(r.doctor.title_ar || r.doctor.title_en) && <span>{arName(r.doctor.title_ar, r.doctor.title_en)}</span>}
         </div>
         <dl className="rx-patient">
-          <div><dt>{t('patient', 'ar')}</dt><dd><bdi>{r.patient?.full_name}</bdi></dd></div>
-          {age !== null && <div><dt>{t('age', 'ar')}</dt><dd>{fmtNumber(age, 'ar')} {t('years', 'ar')}</dd></div>}
-          {r.patient && <div><dt>{t('fileNo', 'ar')}</dt><dd>{fmtNumber(r.patient.file_no, 'ar')}</dd></div>}
-          <div><dt>{t('date', 'ar')}</dt><dd>{date}</dd></div>
+          <div><dt>{t('patient')}</dt><dd><bdi>{r.patient?.full_name}</bdi></dd></div>
+          {age !== null && <div><dt>{t('age')}</dt><dd>{fmtNumber(age)} {t('years')}</dd></div>}
+          {r.patient && <div><dt>{t('fileNo')}</dt><dd>{fmtNumber(r.patient.file_no)}</dd></div>}
+          <div><dt>{t('date')}</dt><dd>{date}</dd></div>
         </dl>
         <div className="rx-symbol" aria-hidden>℞</div>
         <ol className="rx-items">
@@ -72,7 +72,7 @@ export function PrescriptionPrint({ lang, clinicId, id }: { lang: Lang; clinicId
           ))}
         </ol>
         {r.notes && <p className="rx-note">{r.notes}</p>}
-        <footer className="rx-foot"><span>{t('doctorSignature', 'ar')}</span></footer>
+        <footer className="rx-foot"><span>{t('doctorSignature')}</span></footer>
       </article>
     </>
   );

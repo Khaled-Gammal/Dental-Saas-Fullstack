@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type DragEvent } from 'react';
 import { ApiError, uploadFile } from '../api';
 import { ACCEPT_ATTR, uploadProblem } from '../gallery-model';
-import { errorText, t, type Lang } from '../i18n';
+import { errorText, t } from '../i18n';
 import type { MediaImage, MediaPurpose } from '../types';
 import { Button } from '../ui/components';
 import { CloseIcon, PlusIcon } from '../ui/icons';
@@ -15,10 +15,10 @@ const UPLOAD_ERRORS: Record<string, Parameters<typeof t>[0]> = {
 };
 
 /** Dashboard text for a failed upload (a logo's minimum size differs from a photo's). */
-export function uploadErrorText(e: unknown, lang: Lang, purpose: MediaPurpose = 'gallery'): string {
+export function uploadErrorText(e: unknown, purpose: MediaPurpose = 'gallery'): string {
   const code = e instanceof ApiError ? e.code : 'error';
-  if (code === 'image_too_small' && purpose === 'logo') return t('err_logo_too_small', lang);
-  return UPLOAD_ERRORS[code] ? t(UPLOAD_ERRORS[code], lang) : errorText(code, e instanceof ApiError ? e.status : undefined, lang); // never the English detail (L10N-003)
+  if (code === 'image_too_small' && purpose === 'logo') return t('err_logo_too_small');
+  return UPLOAD_ERRORS[code] ? t(UPLOAD_ERRORS[code]) : errorText(code, e instanceof ApiError ? e.status : undefined); // never the English detail (L10N-003)
 }
 
 /**
@@ -26,7 +26,7 @@ export function uploadErrorText(e: unknown, lang: Lang, purpose: MediaPurpose = 
  * per-file progress, retry failures. Files are checked here for type and size, and decoded by the server.
  * `onUploaded` runs once per stored image, in the order they finish.
  */
-export function ImageUploader({ lang, multiple = true, onUploaded, disabled }: { lang: Lang; multiple?: boolean; onUploaded: (img: MediaImage) => Promise<unknown> | void; disabled?: boolean }) {
+export function ImageUploader({ multiple = true, onUploaded, disabled }: { multiple?: boolean; onUploaded: (img: MediaImage) => Promise<unknown> | void; disabled?: boolean }) {
   const [items, setItems] = useState<Item[]>([]);
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -44,7 +44,7 @@ export function ImageUploader({ lang, multiple = true, onUploaded, disabled }: {
       await onUploaded(img);
       patch(item.key, { state: 'done', progress: 1 });
     } catch (e) {
-      patch(item.key, { state: 'error', error: uploadErrorText(e, lang) });
+      patch(item.key, { state: 'error', error: uploadErrorText(e) });
     }
   }
 
@@ -54,7 +54,7 @@ export function ImageUploader({ lang, multiple = true, onUploaded, disabled }: {
       const preview = URL.createObjectURL(file);
       urls.current.add(preview);
       const problem = uploadProblem(file);
-      return { key: `${file.name}-${file.size}-${Math.random()}`, file, preview, progress: 0, state: problem ? 'error' : 'queued', error: problem ? t(problem === 'type' ? 'err_unsupported_image_type' : 'err_payload_too_large', lang) : undefined };
+      return { key: `${file.name}-${file.size}-${Math.random()}`, file, preview, progress: 0, state: problem ? 'error' : 'queued', error: problem ? t(problem === 'type' ? 'err_unsupported_image_type' : 'err_payload_too_large') : undefined };
     });
     setItems((xs) => (multiple ? [...xs, ...fresh] : fresh));
     // one at a time keeps the order predictable and the connection free for the rest of the dashboard
@@ -69,9 +69,9 @@ export function ImageUploader({ lang, multiple = true, onUploaded, disabled }: {
       <div className={`dropzone${dragging ? ' is-over' : ''}${disabled ? ' is-disabled' : ''}`} onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true); }}
         onDragLeave={() => setDragging(false)} onDrop={onDrop}>
         <PlusIcon size={28} />
-        <p><strong>{t('dropImages', lang)}</strong></p>
-        <p className="muted small" id={hintId}>{t('uploadHint', lang)}</p>
-        <Button variant="secondary" disabled={disabled} onClick={() => input.current?.click()} aria-describedby={hintId}>{t('chooseImages', lang)}</Button>
+        <p><strong>{t('dropImages')}</strong></p>
+        <p className="muted small" id={hintId}>{t('uploadHint')}</p>
+        <Button variant="secondary" disabled={disabled} onClick={() => input.current?.click()} aria-describedby={hintId}>{t('chooseImages')}</Button>
         <input ref={input} type="file" accept={ACCEPT_ATTR} multiple={multiple} hidden onChange={(e) => { if (e.target.files?.length) add(e.target.files); e.target.value = ''; }} />
       </div>
       {items.length > 0 && (
@@ -82,11 +82,11 @@ export function ImageUploader({ lang, multiple = true, onUploaded, disabled }: {
               <div className="upload-meta">
                 <span className="upload-name"><bdi>{it.file.name}</bdi></span>
                 {it.state === 'error' ? <span className="field-error">{it.error}</span>
-                  : it.state === 'done' ? <span className="ok-text">{t('uploaded', lang)}</span>
-                    : <progress max={1} value={it.progress} aria-label={`${t('uploading', lang)} ${it.file.name}`} />}
+                  : it.state === 'done' ? <span className="ok-text">{t('uploaded')}</span>
+                    : <progress max={1} value={it.progress} aria-label={`${t('uploading')} ${it.file.name}`} />}
               </div>
-              {it.state === 'error' && !uploadProblem(it.file) && <Button variant="ghost" onClick={() => void run(it)}>{t('retry', lang)}</Button>}
-              {it.state !== 'uploading' && <button type="button" className="icon-btn" onClick={() => remove(it.key)} aria-label={t('remove', lang)}><CloseIcon size={16} /></button>}
+              {it.state === 'error' && !uploadProblem(it.file) && <Button variant="ghost" onClick={() => void run(it)}>{t('retry')}</Button>}
+              {it.state !== 'uploading' && <button type="button" className="icon-btn" onClick={() => remove(it.key)} aria-label={t('remove')}><CloseIcon size={16} /></button>}
             </li>
           ))}
         </ul>

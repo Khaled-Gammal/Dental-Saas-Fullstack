@@ -2,7 +2,6 @@ import { useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttri
 import type { ApiError } from '../api';
 import { errorText, t } from '../i18n';
 import { fieldIssueText } from '../validation-text';
-import { useLang } from '../lang';
 import { AlertIcon, CheckIcon, EyeIcon, EyeOffIcon, ToothIcon } from './icons';
 export { initials } from '@dental/ui/text';
 
@@ -121,15 +120,14 @@ export function Alert({ tone = 'danger', children }: { tone?: 'danger' | 'succes
 
 /** Shows an API error in Arabic: the code's text, else the status's; field problems by rule (L10N-003). */
 export function ErrorText({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
-  const lang = useLang();
   if (!error) return null;
   const e = error as Partial<ApiError>;
   const code = typeof e.code === 'string' ? e.code : 'error';
   return (
     <Alert>
-      {errorText(code, typeof e.status === 'number' ? e.status : undefined, lang)}
-      {e.errors?.length ? <ul>{e.errors.map((x, i) => <li key={`${x.path}-${i}`}>{fieldIssueText(x, lang)}</li>)}</ul> : null}
-      {onRetry && <div><LinkButton onClick={onRetry} className="alert-action">{t('retry', lang)}</LinkButton></div>}
+      {errorText(code, typeof e.status === 'number' ? e.status : undefined)}
+      {e.errors?.length ? <ul>{e.errors.map((x, i) => <li key={`${x.path}-${i}`}>{fieldIssueText(x)}</li>)}</ul> : null}
+      {onRetry && <div><LinkButton onClick={onRetry} className="alert-action">{t('retry')}</LinkButton></div>}
     </Alert>
   );
 }

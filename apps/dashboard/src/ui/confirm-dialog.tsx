@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { t } from '../i18n';
-import { useLang } from '../lang';
 import { Button } from './components';
 
 /**
@@ -10,7 +9,6 @@ import { Button } from './components';
 export function ConfirmDialog({ open, title, children, confirmLabel, danger, onConfirm, onCancel }: {
   open: boolean; title: string; children: ReactNode; confirmLabel: string; danger?: boolean; onConfirm: () => void; onCancel: () => void;
 }) {
-  const lang = useLang();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
@@ -24,7 +22,7 @@ export function ConfirmDialog({ open, title, children, confirmLabel, danger, onC
       <h2 id={titleId}>{title}</h2>
       <div className="dialog-body">{children}</div>
       <div className="row-end">
-        <Button variant="ghost" onClick={onCancel}>{t('cancel', lang)}</Button>
+        <Button variant="ghost" onClick={onCancel}>{t('cancel')}</Button>
         <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>{confirmLabel}</Button>
       </div>
     </dialog>

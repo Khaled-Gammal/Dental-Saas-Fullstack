@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { ar, enGB } from 'date-fns/locale';
+import { ar } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { Lang } from '../i18n';
 
 const toIso = (d: Date) => format(d, 'yyyy-MM-dd');
 const fromIso = (s: string) => new Date(`${s}T12:00:00`); // midday: never shifts to the previous day in any zone
@@ -15,12 +14,12 @@ const fromIso = (s: string) => new Date(`${s}T12:00:00`); // midday: never shift
  * language and direction. `min`/`max` limit the choice; `years` switches the caption to month/year dropdowns
  * (for a birth date, where clicking back decades would be painful).
  */
-export function DatePicker({ value, onChange, lang, label, id, placeholder, min, max, years, invalid }: {
-  value: string; onChange: (iso: string) => void; lang: Lang; label?: string; id?: string; placeholder?: string;
+export function DatePicker({ value, onChange, label, id, placeholder, min, max, years, invalid }: {
+  value: string; onChange: (iso: string) => void; label?: string; id?: string; placeholder?: string;
   min?: string; max?: string; years?: boolean; invalid?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const locale = lang === 'ar' ? ar : enGB;
+  const locale = ar; // Arabic only (L10N-001)
   const selected = value ? fromIso(value) : undefined;
   const disabled = [...(min ? [{ before: fromIso(min) }] : []), ...(max ? [{ after: fromIso(max) }] : [])];
   return (
@@ -39,7 +38,7 @@ export function DatePicker({ value, onChange, lang, label, id, placeholder, min,
           defaultMonth={selected ?? (max ? fromIso(max) : undefined)}
           onSelect={(d) => { if (d) { onChange(toIso(d)); setOpen(false); } }}
           locale={locale}
-          dir={lang === 'ar' ? 'rtl' : 'ltr'}
+          dir={'rtl'}
           weekStartsOn={6}
           disabled={disabled}
           {...(years && { captionLayout: 'dropdown' as const, startMonth: fromIso(min ?? '1920-01-01'), endMonth: fromIso(max ?? toIso(new Date())) })}

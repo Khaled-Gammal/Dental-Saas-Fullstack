@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { ApiError, uploadFile } from '../api';
 import { ACCEPT_ATTR, imageSrcSet, uploadProblem } from '../gallery-model';
-import { t, type Lang } from '../i18n';
+import { t } from '../i18n';
 import type { MediaImage, MediaPurpose } from '../types';
 import { Button } from '../ui/components';
 import { ImageIcon } from '../ui/icons';
@@ -13,8 +13,8 @@ import { uploadErrorText } from './image-uploader';
  * the form is saved, so leaving without saving changes nothing (the unused upload is purged overnight).
  * `shape` only changes the preview: a circle for people, a wide card for places and services, a contained logo.
  */
-export function ImageField({ lang, purpose, value, onChange, label, hint, shape, placeholder, disabled }: {
-  lang: Lang; purpose: Exclude<MediaPurpose, 'gallery'>; value: MediaImage | null; onChange: (img: MediaImage | null) => void;
+export function ImageField({ purpose, value, onChange, label, hint, shape, placeholder, disabled }: {
+  purpose: Exclude<MediaPurpose, 'gallery'>; value: MediaImage | null; onChange: (img: MediaImage | null) => void;
   label: string; hint?: string; shape: 'circle' | 'wide' | 'logo'; placeholder?: ReactNode; disabled?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -30,7 +30,7 @@ export function ImageField({ lang, purpose, value, onChange, label, hint, shape,
   async function pick(file: File) {
     setError(null);
     const problem = uploadProblem(file);
-    if (problem) { setError(t(problem === 'type' ? 'err_unsupported_image_type' : 'err_payload_too_large', lang)); return; }
+    if (problem) { setError(t(problem === 'type' ? 'err_unsupported_image_type' : 'err_payload_too_large')); return; }
     const local = URL.createObjectURL(file);
     setPreview(local);
     setProgress(0);
@@ -39,7 +39,7 @@ export function ImageField({ lang, purpose, value, onChange, label, hint, shape,
       const img = await uploadFile<MediaImage>(`/media?purpose=${purpose}`, file, setProgress, abort.current.signal);
       onChange(img);
     } catch (e) {
-      if (!(e instanceof ApiError && e.code === 'aborted')) setError(uploadErrorText(e, lang, purpose));
+      if (!(e instanceof ApiError && e.code === 'aborted')) setError(uploadErrorText(e, purpose));
     } finally {
       setProgress(null);
       setPreview(null);
@@ -67,13 +67,13 @@ export function ImageField({ lang, purpose, value, onChange, label, hint, shape,
       <div className="image-field-body">
         <div className="row">
           <Button variant="secondary" disabled={busy || disabled} onClick={() => input.current?.click()} aria-describedby={hintId}>
-            {t(value ? 'changeImage' : 'uploadImage', lang)}
+            {t(value ? 'changeImage' : 'uploadImage')}
           </Button>
-          {busy && <Button variant="ghost" onClick={() => abort.current?.abort()}>{t('cancel', lang)}</Button>}
-          {value && !busy && <Button variant="ghost" disabled={disabled} onClick={() => { setError(null); onChange(null); }}>{t('removeImage', lang)}</Button>}
+          {busy && <Button variant="ghost" onClick={() => abort.current?.abort()}>{t('cancel')}</Button>}
+          {value && !busy && <Button variant="ghost" disabled={disabled} onClick={() => { setError(null); onChange(null); }}>{t('removeImage')}</Button>}
         </div>
-        <p className="muted small" id={hintId}>{hint ?? t(purpose === 'logo' ? 'logoHint' : 'photoHint', lang)}</p>
-        {busy && <progress max={1} value={progress} aria-label={t('uploading', lang)} />}
+        <p className="muted small" id={hintId}>{hint ?? t(purpose === 'logo' ? 'logoHint' : 'photoHint')}</p>
+        {busy && <progress max={1} value={progress} aria-label={t('uploading')} />}
         {error && <p className="field-error" role="alert">{error}</p>}
       </div>
       <input ref={input} type="file" accept={ACCEPT_ATTR} hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); e.target.value = ''; }} />

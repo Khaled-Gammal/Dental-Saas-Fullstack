@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { pickName } from '@dental/ui/text';
+import { arName } from '@dental/ui/text';
 import { addMonths } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
-import { t, type Key, type Lang } from '../../i18n';
+import { t, type Key } from '../../i18n';
 import { send, useClinicalMutation, usePatientRecalls, useRecalls } from '../../queries';
 import { to } from '../../router';
 import type { Recall, RecallReason } from '../../types';
@@ -18,36 +18,36 @@ const VIEWS: View[] = ['due', 'upcoming', 'closed'];
 const REASONS: RecallReason[] = ['checkup', 'cleaning', 'ortho_adjustment', 'post_op', 'implant_followup', 'other'];
 const STATUS_TONE: Record<Recall['status'], 'neutral' | 'primary' | 'success' | 'warning'> = { pending: 'warning', contacted: 'primary', booked: 'success', done: 'neutral', dismissed: 'neutral' };
 const todayIso = () => new Date().toLocaleDateString('en-CA');
-const fmtDate = (iso: string, lang: Lang) => new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const fmtDate = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 
 /**
  * `#/followups`: the list reception works (SRS VISIT-005): who is due for a check-up, cleaning or review. Staff call,
  * book (the appointment is linked), or dismiss. Nothing is sent to the patient automatically.
  */
-export function FollowUps({ lang, clinicId, canWrite, canBook, query }: { lang: Lang; clinicId: string; canWrite: boolean; canBook: boolean; query?: Record<string, string> }) {
+export function FollowUps({ clinicId, canWrite, canBook, query }: { clinicId: string; canWrite: boolean; canBook: boolean; query?: Record<string, string> }) {
   const view: View = VIEWS.includes(query?.view as View) ? (query!.view as View) : 'due';
   const list = useRecalls(clinicId, view);
   return (
     <>
-      <PageHeader title={t('navFollowUps', lang)} sub={t('followUpsSub', lang)} />
-      <div className="seg" role="tablist" aria-label={t('navFollowUps', lang)}>
+      <PageHeader title={t('navFollowUps')} sub={t('followUpsSub')} />
+      <div className="seg" role="tablist" aria-label={t('navFollowUps')}>
         {VIEWS.map((v) => (
-          <RouteLink key={v} route={{ page: 'followups', query: { view: v } }} className={`seg-btn${v === view ? ' is-on' : ''}`} role="tab" aria-selected={v === view}>{t(`fu_${v}` as Key, lang)}</RouteLink>
+          <RouteLink key={v} route={{ page: 'followups', query: { view: v } }} className={`seg-btn${v === view ? ' is-on' : ''}`} role="tab" aria-selected={v === view}>{t(`fu_${v}` as Key)}</RouteLink>
         ))}
       </div>
       {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
         : list.isLoading ? <Skeleton h={72} count={3} />
-        : !list.data?.items.length ? <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noFollowUps', lang)} text={t(`noFollowUps_${view}` as Key, lang)} /></Card>
+        : !list.data?.items.length ? <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noFollowUps')} text={t(`noFollowUps_${view}` as Key)} /></Card>
         : (
           <ul className="appts">
-            {list.data.items.map((r) => <RecallRow key={r.id} lang={lang} clinicId={clinicId} r={r} today={list.data.today} canWrite={canWrite} canBook={canBook} />)}
+            {list.data.items.map((r) => <RecallRow key={r.id} clinicId={clinicId} r={r} today={list.data.today} canWrite={canWrite} canBook={canBook} />)}
           </ul>
         )}
     </>
   );
 }
 
-function RecallRow({ lang, clinicId, r, today, canWrite, canBook, compact }: { lang: Lang; clinicId: string; r: Recall; today: string; canWrite: boolean; canBook: boolean; compact?: boolean }) {
+function RecallRow({ clinicId, r, today, canWrite, canBook, compact }: { clinicId: string; r: Recall; today: string; canWrite: boolean; canBook: boolean; compact?: boolean }) {
   const [dialog, setDialog] = useState<'contact' | 'dismiss' | null>(null);
   const [note, setNote] = useState('');
   const act = useClinicalMutation(clinicId, (a: { op: 'contact' | 'dismiss'; text: string }) =>
@@ -58,15 +58,15 @@ function RecallRow({ lang, clinicId, r, today, canWrite, canBook, compact }: { l
     <Card as="li" className="appt">
       <div className="appt-main">
         <div className="appt-head">
-          {compact ? <strong>{t(`recall_${r.reason}` as Key, lang)}</strong> : <RouteLink route={to.view('patients', r.patient.id)}><strong><bdi>{r.patient.full_name}</bdi></strong></RouteLink>}
-          <Badge tone={overdue ? 'warning' : STATUS_TONE[r.status]}>{overdue ? t('overdue', lang) : t(`fus_${r.status}` as Key, lang)}</Badge>
+          {compact ? <strong>{t(`recall_${r.reason}` as Key)}</strong> : <RouteLink route={to.view('patients', r.patient.id)}><strong><bdi>{r.patient.full_name}</bdi></strong></RouteLink>}
+          <Badge tone={overdue ? 'warning' : STATUS_TONE[r.status]}>{overdue ? t('overdue') : t(`fus_${r.status}` as Key)}</Badge>
         </div>
         <div className="appt-meta">
           {!compact && <a href={`tel:${r.patient.phone}`} dir="ltr" className="link-plain"><PhoneIcon size={14} /> {r.patient.phone}</a>}
-          {!compact && <span>{t(`recall_${r.reason}` as Key, lang)}</span>}
-          <span>{t('dueDate', lang)}: {fmtDate(r.due_date, lang)}</span>
-          {r.doctor && <span><bdi>{pickName(lang, r.doctor.name_ar, r.doctor.name_en)}</bdi></span>}
-          {r.contact_attempts > 0 && <span className="muted">{fmtNumber(r.contact_attempts, lang)} {t('callAttempts', lang)}</span>}
+          {!compact && <span>{t(`recall_${r.reason}` as Key)}</span>}
+          <span>{t('dueDate')}: {fmtDate(r.due_date)}</span>
+          {r.doctor && <span><bdi>{arName(r.doctor.name_ar, r.doctor.name_en)}</bdi></span>}
+          {r.contact_attempts > 0 && <span className="muted">{fmtNumber(r.contact_attempts)} {t('callAttempts')}</span>}
         </div>
         {r.notes && <p className="appt-notes call-log">{r.notes}</p>}
       </div>
@@ -74,19 +74,19 @@ function RecallRow({ lang, clinicId, r, today, canWrite, canBook, compact }: { l
         <div className="appt-actions">
           {canBook && (
             <RouteLink route={to.create('appointments', { patient: r.patient.id, recall: r.id, ...(r.doctor_id && { doctor: r.doctor_id }) })} className="btn btn-primary">
-              <CalendarIcon size={16} />{t('book', lang)}
+              <CalendarIcon size={16} />{t('book')}
             </RouteLink>
           )}
-          {canWrite && <Button variant="secondary" onClick={() => { setNote(''); setDialog('contact'); }}><PhoneIcon size={16} />{t('logCall', lang)}</Button>}
-          {canWrite && <LinkButton onClick={() => { setNote(''); setDialog('dismiss'); }}>{t('dismiss', lang)}</LinkButton>}
+          {canWrite && <Button variant="secondary" onClick={() => { setNote(''); setDialog('contact'); }}><PhoneIcon size={16} />{t('logCall')}</Button>}
+          {canWrite && <LinkButton onClick={() => { setNote(''); setDialog('dismiss'); }}>{t('dismiss')}</LinkButton>}
         </div>
       )}
       <ErrorText error={act.error} />
-      <ConfirmDialog open={!!dialog} title={t(dialog === 'dismiss' ? 'dismissFollowUp' : 'logCall', lang)} confirmLabel={t(dialog === 'dismiss' ? 'dismiss' : 'save', lang)} danger={dialog === 'dismiss'}
+      <ConfirmDialog open={!!dialog} title={t(dialog === 'dismiss' ? 'dismissFollowUp' : 'logCall')} confirmLabel={t(dialog === 'dismiss' ? 'dismiss' : 'save')} danger={dialog === 'dismiss'}
         onConfirm={() => { if (dialog && (dialog === 'dismiss' || note.trim())) act.mutate({ op: dialog, text: note.trim() }, { onSettled: () => setDialog(null) }); }}
         onCancel={() => setDialog(null)}>
-        <Field label={t(dialog === 'dismiss' ? 'dismissReason' : 'callNote', lang)} optional={dialog === 'dismiss' ? t('optional', lang) : undefined}>
-          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? t('callNoteExample', lang) : undefined} />}
+        <Field label={t(dialog === 'dismiss' ? 'dismissReason' : 'callNote')} optional={dialog === 'dismiss' ? t('optional') : undefined}>
+          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? t('callNoteExample') : undefined} />}
         </Field>
       </ConfirmDialog>
     </Card>
@@ -94,7 +94,7 @@ function RecallRow({ lang, clinicId, r, today, canWrite, canBook, compact }: { l
 }
 
 /** The follow-ups of one patient on the profile, with a quick "add". */
-export function PatientFollowUpsCard({ lang, clinicId, patientId, canWrite, canBook }: { lang: Lang; clinicId: string; patientId: string; canWrite: boolean; canBook: boolean }) {
+export function PatientFollowUpsCard({ clinicId, patientId, canWrite, canBook }: { clinicId: string; patientId: string; canWrite: boolean; canBook: boolean }) {
   const list = usePatientRecalls(clinicId, patientId);
   const [adding, setAdding] = useState(false);
   const [reason, setReason] = useState<RecallReason>('checkup');
@@ -103,22 +103,22 @@ export function PatientFollowUpsCard({ lang, clinicId, patientId, canWrite, canB
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('followUps', lang)}</h2>
-        {canWrite && !adding && <Button variant="secondary" onClick={() => setAdding(true)}>{t('addFollowUp', lang)}</Button>}
+        <h2>{t('followUps')}</h2>
+        {canWrite && !adding && <Button variant="secondary" onClick={() => setAdding(true)}>{t('addFollowUp')}</Button>}
       </div>
       {adding && (
         <form className="grid-2 mt" onSubmit={(e) => { e.preventDefault(); add.mutate(undefined, { onSuccess: () => setAdding(false) }); }}>
-          <Field label={t('followUpReason', lang)}>
-            {(a) => <Choice id={a.id} lang={lang} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((x) => ({ value: x, label: t(`recall_${x}` as Key, lang) }))} />}
+          <Field label={t('followUpReason')}>
+            {(a) => <Choice id={a.id} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((x) => ({ value: x, label: t(`recall_${x}` as Key) }))} />}
           </Field>
-          <Field label={t('dueDate', lang)}>{(a) => <DatePicker id={a.id} lang={lang} value={due} onChange={setDue} min={todayIso()} />}</Field>
+          <Field label={t('dueDate')}>{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={todayIso()} />}</Field>
           <ErrorText error={add.error} />
-          <div className="row-end"><Button variant="ghost" onClick={() => setAdding(false)}>{t('cancel', lang)}</Button><Button type="submit" loading={add.isPending}>{t('save', lang)}</Button></div>
+          <div className="row-end"><Button variant="ghost" onClick={() => setAdding(false)}>{t('cancel')}</Button><Button type="submit" loading={add.isPending}>{t('save')}</Button></div>
         </form>
       )}
       {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
-        : !list.data?.length ? <p className="muted small mt-sm">{t('noFollowUps', lang)}</p>
-        : <ul className="stack mt">{list.data.map((r) => <RecallRow key={r.id} lang={lang} clinicId={clinicId} r={r} today={todayIso()} canWrite={canWrite} canBook={canBook} compact />)}</ul>}
+        : !list.data?.length ? <p className="muted small mt-sm">{t('noFollowUps')}</p>
+        : <ul className="stack mt">{list.data.map((r) => <RecallRow key={r.id} clinicId={clinicId} r={r} today={todayIso()} canWrite={canWrite} canBook={canBook} compact />)}</ul>}
     </Card>
   );
 }

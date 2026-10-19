@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react';
-import { pickName } from '@dental/ui/text';
+import { arName } from '@dental/ui/text';
 import { can, type Session } from '../../api';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { localToday } from '../../finance-model';
-import { t, type Key, type Lang } from '../../i18n';
+import { t, type Key } from '../../i18n';
 import { money } from '../../money';
 import { useProfile, useReport, useReportBranches } from '../../queries';
 import { dailyOnly, percent, PRESETS, presetOf, presetPeriod, reportTabs, type ReportTab } from '../../reports-model';
@@ -25,7 +25,7 @@ const TAB_TITLE: Record<ReportTab, Key> = {
  * transactions and adds up to the rows under it. The page is its own printout (A4): the controls do not print.
  * Reception sees today's revenue only; a doctor sees their own attendance and performance.
  */
-export function Reports({ lang, clinicId, session, query }: { lang: Lang; clinicId: string; session: Session; query?: Record<string, string> }) {
+export function Reports({ clinicId, session, query }: { clinicId: string; session: Session; query?: Record<string, string> }) {
   const has = (p: string) => can(session, p);
   const tabs = reportTabs(has);
   const daily = dailyOnly(has);
@@ -34,57 +34,57 @@ export function Reports({ lang, clinicId, session, query }: { lang: Lang; clinic
   const [period, setPeriod] = useState(() => presetPeriod(daily ? 'today' : 'thisMonth', today));
   const [branchId, setBranchId] = useState('');
   const branches = useReportBranches(clinicId);
-  if (!tab) return <Card><EmptyState icon={<ChartIcon size={28} />} title={t('noReports', lang)} text={t('noReportsText', lang)} /></Card>;
+  if (!tab) return <Card><EmptyState icon={<ChartIcon size={28} />} title={t('noReports')} text={t('noReportsText')} /></Card>;
   const list = branches.data ?? [];
   const preset = presetOf(period, today);
   const q = { ...(daily || tab === 'outstanding' ? {} : period), branchId: branchId || undefined };
   return (
     <>
       <div className="no-print">
-        <PageHeader title={t('navReports', lang)} sub={t(daily ? 'reportsSubDaily' : 'reportsSub', lang)}
-          action={<Button variant="secondary" onClick={() => window.print()}>{t('print', lang)}</Button>} />
+        <PageHeader title={t('navReports')} sub={t(daily ? 'reportsSubDaily' : 'reportsSub')}
+          action={<Button variant="secondary" onClick={() => window.print()}>{t('print')}</Button>} />
         <Card>
           {tabs.length > 1 && (
-            <div className="seg" role="tablist" aria-label={t('navReports', lang)}>
+            <div className="seg" role="tablist" aria-label={t('navReports')}>
               {tabs.map((x) => (
-                <button key={x} type="button" className={`seg-btn${x === tab ? ' is-on' : ''}`} role="tab" aria-selected={x === tab} onClick={() => setTab(x)}>{t(TAB_TITLE[x], lang)}</button>
+                <button key={x} type="button" className={`seg-btn${x === tab ? ' is-on' : ''}`} role="tab" aria-selected={x === tab} onClick={() => setTab(x)}>{t(TAB_TITLE[x])}</button>
               ))}
             </div>
           )}
           <div className="report-filters mt">
             {!daily && tab !== 'outstanding' && (
               <>
-                <div className="seg" aria-label={t('period', lang)}>
+                <div className="seg" aria-label={t('period')}>
                   {PRESETS.map((p) => (
                     <button key={p} type="button" className={`seg-btn${p === preset ? ' is-on' : ''}`} aria-pressed={p === preset} onClick={() => setPeriod(presetPeriod(p, today))}>
-                      {t(`preset_${p}` as Key, lang)}
+                      {t(`preset_${p}` as Key)}
                     </button>
                   ))}
                 </div>
                 <div className="period">
-                  <DatePicker lang={lang} label={t('fromDate', lang)} value={period.from} onChange={(from) => setPeriod((x) => ({ ...x, from }))} max={period.to} />
-                  <DatePicker lang={lang} label={t('toDate', lang)} value={period.to} onChange={(to) => setPeriod((x) => ({ ...x, to }))} min={period.from} />
+                  <DatePicker label={t('fromDate')} value={period.from} onChange={(from) => setPeriod((x) => ({ ...x, from }))} max={period.to} />
+                  <DatePicker label={t('toDate')} value={period.to} onChange={(to) => setPeriod((x) => ({ ...x, to }))} min={period.from} />
                 </div>
               </>
             )}
             {list.length > 1 && (
-              <Field label={t('branch', lang)}>
-                {(a) => <Choice id={a.id} lang={lang} value={branchId} onChange={setBranchId} noneLabel={t('allBranches', lang)}
-                  options={list.map((b) => ({ value: b.id, label: pickName(lang, b.name_ar, b.name_en) }))} />}
+              <Field label={t('branch')}>
+                {(a) => <Choice id={a.id} value={branchId} onChange={setBranchId} noneLabel={t('allBranches')}
+                  options={list.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en) }))} />}
               </Field>
             )}
           </div>
-          {daily && <p className="muted small mt-sm">{t('reportsDailyNote', lang)}</p>}
+          {daily && <p className="muted small mt-sm">{t('reportsDailyNote')}</p>}
         </Card>
       </div>
-      <ReportBody key={tab} lang={lang} clinicId={clinicId} tab={tab} q={q} branches={list} />
+      <ReportBody key={tab} clinicId={clinicId} tab={tab} q={q} branches={list} />
     </>
   );
 }
 
 type Q = { from?: string; to?: string; branchId?: string };
 
-function ReportBody({ lang, clinicId, tab, q, branches }: { lang: Lang; clinicId: string; tab: ReportTab; q: Q; branches: ReportBranch[] }) {
+function ReportBody({ clinicId, tab, q, branches }: { clinicId: string; tab: ReportTab; q: Q; branches: ReportBranch[] }) {
   const r = useReport<ReportFrame>(clinicId, tab, q);
   if (r.isError) return <Card><ErrorText error={r.error} onRetry={() => void r.refetch()} /></Card>;
   if (!r.data) return <Skeleton h={96} count={3} />;
@@ -92,30 +92,30 @@ function ReportBody({ lang, clinicId, tab, q, branches }: { lang: Lang; clinicId
   return (
     <>
       <style>{'@page { size: A4; margin: 12mm; }'}</style>
-      <article className="rx-sheet report-sheet" dir={lang === 'ar' ? 'rtl' : 'ltr'} lang={lang}>
-        <PrintHead lang={lang} clinicId={clinicId} title={t(TAB_TITLE[tab], lang)} frame={data} branches={branches} />
-        {tab === 'revenue' && <Revenue lang={lang} r={data as RevenueReport} />}
-        {tab === 'expenses' && <Expenses lang={lang} r={data as ExpensesReport} />}
-        {tab === 'attendance' && <Attendance lang={lang} r={data as AttendanceReport} />}
-        {tab === 'performance' && <Performance lang={lang} r={data as PerformanceReport} />}
-        {tab === 'outstanding' && <Outstanding lang={lang} r={data as OutstandingReport} branches={branches} />}
+      <article className="rx-sheet report-sheet" dir={'rtl'}>
+        <PrintHead clinicId={clinicId} title={t(TAB_TITLE[tab])} frame={data} branches={branches} />
+        {tab === 'revenue' && <Revenue r={data as RevenueReport} />}
+        {tab === 'expenses' && <Expenses r={data as ExpensesReport} />}
+        {tab === 'attendance' && <Attendance r={data as AttendanceReport} />}
+        {tab === 'performance' && <Performance r={data as PerformanceReport} />}
+        {tab === 'outstanding' && <Outstanding r={data as OutstandingReport} branches={branches} />}
       </article>
     </>
   );
 }
 
 /** What only the printout carries: the clinic, the report, its period and branch, and when it was printed. */
-function PrintHead({ lang, clinicId, title, frame, branches }: { lang: Lang; clinicId: string; title: string; frame: ReportFrame; branches: ReportBranch[] }) {
+function PrintHead({ clinicId, title, frame, branches }: { clinicId: string; title: string; frame: ReportFrame; branches: ReportBranch[] }) {
   const clinic = useProfile(clinicId).data;
   const branch = branches.find((b) => b.id === frame.branch_id);
   return (
     <header className="rx-head print-only">
       <div>
-        <h1 className="rx-clinic">{clinic ? pickName(lang, clinic.nameAr, clinic.nameEn) : ''}</h1>
+        <h1 className="rx-clinic">{clinic ? arName(clinic.nameAr, clinic.nameEn) : ''}</h1>
         <p className="rx-doc-title">{title}</p>
         <p className="rx-branch">
-          {frame.period ? `${t('fromDate', lang)} ${frame.period.from} ${t('toDate', lang)} ${frame.period.to}` : `${t('asOf', lang)} ${frame.today}`}
-          {' · '}{branch ? pickName(lang, branch.name_ar, branch.name_en) : t('allBranches', lang)}
+          {frame.period ? `${t('fromDate')} ${frame.period.from} ${t('toDate')} ${frame.period.to}` : `${t('asOf')} ${frame.today}`}
+          {' · '}{branch ? arName(branch.name_ar, branch.name_en) : t('allBranches')}
         </p>
       </div>
       {clinic?.logo && <img className="rx-logo" src={clinic.logo.thumbUrl} alt="" />}
@@ -124,7 +124,7 @@ function PrintHead({ lang, clinicId, title, frame, branches }: { lang: Lang; cli
 }
 
 // ---------- building blocks ----------
-const name = (lang: Lang, n: ReportName) => (n ? pickName(lang, n.name_ar, n.name_en) : '—');
+const name = (n: ReportName) => (n ? arName(n.name_ar, n.name_en) : '—');
 
 function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -155,70 +155,70 @@ function Table({ caption, head, rows, foot, text = 1 }: { caption: string; head:
   );
 }
 
-function Nothing({ lang }: { lang: Lang }) {
-  return <Card><EmptyState icon={<ChartIcon size={28} />} title={t('reportEmpty', lang)} text={t('reportEmptyText', lang)} /></Card>;
+function Nothing() {
+  return <Card><EmptyState icon={<ChartIcon size={28} />} title={t('reportEmpty')} text={t('reportEmptyText')} /></Card>;
 }
 
 // ---------- REPORT-001 revenue and collections ----------
-function Revenue({ lang, r }: { lang: Lang; r: RevenueReport }) {
-  const m = (v: number) => <bdi>{money(v, lang, r.currency)}</bdi>;
+function Revenue({ r }: { r: RevenueReport }) {
+  const m = (v: number) => <bdi>{money(v, r.currency)}</bdi>;
   const T = r.totals;
   return (
     <>
       <div className="stats">
-        <Tile label={t('repInvoiced', lang)} value={money(T.invoiced, lang, r.currency)} note={t('repInvoicesCount', lang).replace('{n}', fmtNumber(T.invoices, lang))} />
-        <Tile label={t('repCollected', lang)} value={money(T.collected, lang, r.currency)} note={t('repPaymentsCount', lang).replace('{n}', fmtNumber(T.payments, lang))} />
-        <Tile label={t('repRefunded', lang)} value={money(T.refunded, lang, r.currency)} />
-        <Tile label={t('repNet', lang)} value={money(T.net, lang, r.currency)} />
+        <Tile label={t('repInvoiced')} value={money(T.invoiced, r.currency)} note={t('repInvoicesCount').replace('{n}', fmtNumber(T.invoices))} />
+        <Tile label={t('repCollected')} value={money(T.collected, r.currency)} note={t('repPaymentsCount').replace('{n}', fmtNumber(T.payments))} />
+        <Tile label={t('repRefunded')} value={money(T.refunded, r.currency)} />
+        <Tile label={t('repNet')} value={money(T.net, r.currency)} />
       </div>
-      {!T.invoices && !T.payments && !T.refunds && !T.adjusted ? <Nothing lang={lang} /> : (
+      {!T.invoices && !T.payments && !T.refunds && !T.adjusted ? <Nothing /> : (
         <>
-          <Table caption={t('repByMethod', lang)} head={[t('paymentMethod', lang), t('repCollected', lang), t('repRefunded', lang), t('repNet', lang)]}
-            rows={r.by_method.map((x) => [t(`pm_${x.method}` as Key, lang), m(x.collected), m(x.refunded), m(x.net)])}
-            foot={[t('total', lang), m(T.collected), m(T.refunded), m(T.net)]} />
+          <Table caption={t('repByMethod')} head={[t('paymentMethod'), t('repCollected'), t('repRefunded'), t('repNet')]}
+            rows={r.by_method.map((x) => [t(`pm_${x.method}` as Key), m(x.collected), m(x.refunded), m(x.net)])}
+            foot={[t('total'), m(T.collected), m(T.refunded), m(T.net)]} />
           {r.adjustments.length > 0 && (
-            <Table caption={t('repAdjustments', lang)} head={[t('repKind', lang), t('repCount', lang), t('amount', lang)]}
-              rows={r.adjustments.map((x) => [t(`adj_${x.kind}` as Key, lang), fmtNumber(x.n, lang), m(x.amount)])} />
+            <Table caption={t('repAdjustments')} head={[t('repKind'), t('repCount'), t('amount')]}
+              rows={r.adjustments.map((x) => [t(`adj_${x.kind}` as Key), fmtNumber(x.n), m(x.amount)])} />
           )}
           {r.by_branch.length > 1 && (
-            <Table caption={t('repByBranch', lang)} head={[t('branch', lang), t('repInvoiced', lang), t('repCollected', lang), t('repRefunded', lang), t('repNet', lang)]}
-              rows={r.by_branch.map((x) => [name(lang, x.branch), m(x.invoiced), m(x.collected), m(x.refunded), m(x.net)])}
-              foot={[t('total', lang), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]} />
+            <Table caption={t('repByBranch')} head={[t('branch'), t('repInvoiced'), t('repCollected'), t('repRefunded'), t('repNet')]}
+              rows={r.by_branch.map((x) => [name(x.branch), m(x.invoiced), m(x.collected), m(x.refunded), m(x.net)])}
+              foot={[t('total'), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]} />
           )}
           {r.by_day.length > 1 && (
-            <Table caption={t('repByDay', lang)} head={[t('date', lang), t('repInvoiced', lang), t('repCollected', lang), t('repRefunded', lang), t('repNet', lang)]}
+            <Table caption={t('repByDay')} head={[t('date'), t('repInvoiced'), t('repCollected'), t('repRefunded'), t('repNet')]}
               rows={r.by_day.map((x) => [x.day, m(x.invoiced), m(x.collected), m(x.refunded), m(x.net)])}
-              foot={[t('total', lang), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]} />
+              foot={[t('total'), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]} />
           )}
         </>
       )}
-      <p className="muted small">{t('repRevenueNote', lang)}</p>
+      <p className="muted small">{t('repRevenueNote')}</p>
     </>
   );
 }
 
 // ---------- REPORT-002 expenses ----------
-function Expenses({ lang, r }: { lang: Lang; r: ExpensesReport }) {
-  const m = (v: number) => <bdi>{money(v, lang, r.currency)}</bdi>;
+function Expenses({ r }: { r: ExpensesReport }) {
+  const m = (v: number) => <bdi>{money(v, r.currency)}</bdi>;
   const T = r.totals;
   return (
     <>
       <div className="stats">
-        <Tile label={t('repExpensesTotal', lang)} value={money(T.total, lang, r.currency)}
-          note={T.pending ? t('repPendingPart', lang).replace('{amount}', money(T.pending, lang, r.currency)) : undefined} />
-        <Tile label={t('repNet', lang)} value={money(T.collections_net, lang, r.currency)} />
-        <Tile label={t('repResult', lang)} value={money(T.result, lang, r.currency)} note={t('repResultNote', lang)} />
+        <Tile label={t('repExpensesTotal')} value={money(T.total, r.currency)}
+          note={T.pending ? t('repPendingPart').replace('{amount}', money(T.pending, r.currency)) : undefined} />
+        <Tile label={t('repNet')} value={money(T.collections_net, r.currency)} />
+        <Tile label={t('repResult')} value={money(T.result, r.currency)} note={t('repResultNote')} />
       </div>
-      {T.rejected > 0 && <Alert tone="info">{t('repRejectedNote', lang).replace('{amount}', money(T.rejected, lang, r.currency))}</Alert>}
-      {!T.count ? <Nothing lang={lang} /> : (
+      {T.rejected > 0 && <Alert tone="info">{t('repRejectedNote').replace('{amount}', money(T.rejected, r.currency))}</Alert>}
+      {!T.count ? <Nothing /> : (
         <>
-          <Table caption={t('byCategory', lang)} head={[t('expenseCategory', lang), t('repCount', lang), t('amount', lang)]}
-            rows={r.by_category.map((x) => [x.name ?? '—', fmtNumber(x.n, lang), m(x.amount)])} foot={[t('total', lang), fmtNumber(T.count, lang), m(T.total)]} />
-          <Table caption={t('repByMethod', lang)} head={[t('paymentMethod', lang), t('repCount', lang), t('amount', lang)]}
-            rows={r.by_method.map((x) => [x.method === 'unknown' ? t('repUnknownMethod', lang) : t(`pm_${x.method}` as Key, lang), fmtNumber(x.n, lang), m(x.amount)])} />
+          <Table caption={t('byCategory')} head={[t('expenseCategory'), t('repCount'), t('amount')]}
+            rows={r.by_category.map((x) => [x.name ?? '—', fmtNumber(x.n), m(x.amount)])} foot={[t('total'), fmtNumber(T.count), m(T.total)]} />
+          <Table caption={t('repByMethod')} head={[t('paymentMethod'), t('repCount'), t('amount')]}
+            rows={r.by_method.map((x) => [x.method === 'unknown' ? t('repUnknownMethod') : t(`pm_${x.method}` as Key), fmtNumber(x.n), m(x.amount)])} />
           {r.by_branch.length > 1 && (
-            <Table caption={t('repByBranch', lang)} head={[t('branch', lang), t('repCount', lang), t('amount', lang)]}
-              rows={r.by_branch.map((x) => [name(lang, x.branch), fmtNumber(x.n, lang), m(x.amount)])} />
+            <Table caption={t('repByBranch')} head={[t('branch'), t('repCount'), t('amount')]}
+              rows={r.by_branch.map((x) => [name(x.branch), fmtNumber(x.n), m(x.amount)])} />
           )}
         </>
       )}
@@ -227,95 +227,95 @@ function Expenses({ lang, r }: { lang: Lang; r: ExpensesReport }) {
 }
 
 // ---------- REPORT-003 attendance ----------
-function Attendance({ lang, r }: { lang: Lang; r: AttendanceReport }) {
+function Attendance({ r }: { r: AttendanceReport }) {
   const T = r.totals;
-  const n = (v: number) => fmtNumber(v, lang);
+  const n = (v: number) => fmtNumber(v);
   const cells = (x: AttendanceFigures) => [n(x.booked), n(x.completed), n(x.no_show), n(x.cancelled), percent(x.no_show_rate), percent(x.cancellation_rate)];
-  const head = [t('repBooked', lang), t('status_completed', lang), t('status_no_show', lang), t('status_cancelled', lang), t('repNoShowRate', lang), t('repCancelRate', lang)];
+  const head = [t('repBooked'), t('status_completed'), t('status_no_show'), t('status_cancelled'), t('repNoShowRate'), t('repCancelRate')];
   return (
     <>
       <div className="stats">
-        <Tile label={t('repBooked', lang)} value={n(T.booked)} note={T.upcoming ? t('repUpcoming', lang).replace('{n}', n(T.upcoming)) : undefined} />
-        <Tile label={t('status_completed', lang)} value={n(T.completed)} />
-        <Tile label={t('status_no_show', lang)} value={n(T.no_show)} note={percent(T.no_show_rate)} />
-        <Tile label={t('status_cancelled', lang)} value={n(T.cancelled)} note={percent(T.cancellation_rate)} />
+        <Tile label={t('repBooked')} value={n(T.booked)} note={T.upcoming ? t('repUpcoming').replace('{n}', n(T.upcoming)) : undefined} />
+        <Tile label={t('status_completed')} value={n(T.completed)} />
+        <Tile label={t('status_no_show')} value={n(T.no_show)} note={percent(T.no_show_rate)} />
+        <Tile label={t('status_cancelled')} value={n(T.cancelled)} note={percent(T.cancellation_rate)} />
       </div>
-      {!T.booked ? <Nothing lang={lang} /> : (
+      {!T.booked ? <Nothing /> : (
         <>
-          <Table caption={t('repByDoctor', lang)} head={[t('doctor', lang), ...head]} rows={r.by_doctor.map((x) => [name(lang, x.doctor), ...cells(x)])}
-            foot={r.by_doctor.length > 1 ? [t('total', lang), ...cells(T)] : undefined} />
+          <Table caption={t('repByDoctor')} head={[t('doctor'), ...head]} rows={r.by_doctor.map((x) => [name(x.doctor), ...cells(x)])}
+            foot={r.by_doctor.length > 1 ? [t('total'), ...cells(T)] : undefined} />
           {r.by_branch.length > 1 && (
-            <Table caption={t('repByBranch', lang)} head={[t('branch', lang), ...head]} rows={r.by_branch.map((x) => [name(lang, x.branch), ...cells(x)])} foot={[t('total', lang), ...cells(T)]} />
+            <Table caption={t('repByBranch')} head={[t('branch'), ...head]} rows={r.by_branch.map((x) => [name(x.branch), ...cells(x)])} foot={[t('total'), ...cells(T)]} />
           )}
-          <Table caption={t('repByStatus', lang)} head={[t('status', lang), t('repCount', lang)]} rows={r.by_status.map((x) => [t(`status_${x.status}` as Key, lang), n(x.n)])} />
+          <Table caption={t('repByStatus')} head={[t('status'), t('repCount')]} rows={r.by_status.map((x) => [t(`status_${x.status}` as Key), n(x.n)])} />
         </>
       )}
-      <p className="muted small">{t('repAttendanceNote', lang)}</p>
+      <p className="muted small">{t('repAttendanceNote')}</p>
     </>
   );
 }
 
 // ---------- REPORT-005 branch and doctor performance ----------
-function Performance({ lang, r }: { lang: Lang; r: PerformanceReport }) {
+function Performance({ r }: { r: PerformanceReport }) {
   const T = r.totals;
-  const m = (v: number) => <bdi>{money(v, lang, r.currency)}</bdi>;
-  const n = (v: number) => fmtNumber(v, lang);
+  const m = (v: number) => <bdi>{money(v, r.currency)}</bdi>;
+  const n = (v: number) => fmtNumber(v);
   return (
     <>
       <div className="stats">
-        <Tile label={t('repCompleted', lang)} value={n(T.completed)} />
-        <Tile label={t('repProcedures', lang)} value={n(T.procedures)} />
-        <Tile label={t('repProceduresValue', lang)} value={money(T.procedures_value, lang, r.currency)} />
-        {T.collections_net !== null && <Tile label={t('repNet', lang)} value={money(T.collections_net, lang, r.currency)} />}
+        <Tile label={t('repCompleted')} value={n(T.completed)} />
+        <Tile label={t('repProcedures')} value={n(T.procedures)} />
+        <Tile label={t('repProceduresValue')} value={money(T.procedures_value, r.currency)} />
+        {T.collections_net !== null && <Tile label={t('repNet')} value={money(T.collections_net, r.currency)} />}
       </div>
-      {!T.completed && !T.procedures && !T.collections_net ? <Nothing lang={lang} /> : (
+      {!T.completed && !T.procedures && !T.collections_net ? <Nothing /> : (
         <>
           {r.by_branch && (
-            <Table caption={t('repByBranch', lang)} head={[t('branch', lang), t('repCompleted', lang), t('repProcedures', lang), t('repProceduresValue', lang), t('repNet', lang)]}
-              rows={r.by_branch.map((x) => [name(lang, x.branch), n(x.completed), n(x.procedures), m(x.procedures_value), m(x.collections_net)])}
-              foot={[t('total', lang), n(T.completed), n(T.procedures), m(T.procedures_value), m(T.collections_net ?? 0)]} />
+            <Table caption={t('repByBranch')} head={[t('branch'), t('repCompleted'), t('repProcedures'), t('repProceduresValue'), t('repNet')]}
+              rows={r.by_branch.map((x) => [name(x.branch), n(x.completed), n(x.procedures), m(x.procedures_value), m(x.collections_net)])}
+              foot={[t('total'), n(T.completed), n(T.procedures), m(T.procedures_value), m(T.collections_net ?? 0)]} />
           )}
-          <Table caption={t('repByDoctor', lang)} head={[t('doctor', lang), t('repCompleted', lang), t('repProcedures', lang), t('repProceduresValue', lang)]}
-            rows={r.by_doctor.map((x) => [name(lang, x.doctor), n(x.completed), n(x.procedures), m(x.procedures_value)])}
-            foot={r.by_doctor.length > 1 ? [t('total', lang), n(T.completed), n(T.procedures), m(T.procedures_value)] : undefined} />
+          <Table caption={t('repByDoctor')} head={[t('doctor'), t('repCompleted'), t('repProcedures'), t('repProceduresValue')]}
+            rows={r.by_doctor.map((x) => [name(x.doctor), n(x.completed), n(x.procedures), m(x.procedures_value)])}
+            foot={r.by_doctor.length > 1 ? [t('total'), n(T.completed), n(T.procedures), m(T.procedures_value)] : undefined} />
         </>
       )}
-      <p className="muted small">{t(r.scope === 'own' ? 'repPerformanceOwnNote' : 'repPerformanceNote', lang)}</p>
+      <p className="muted small">{t(r.scope === 'own' ? 'repPerformanceOwnNote' : 'repPerformanceNote')}</p>
     </>
   );
 }
 
 // ---------- REPORT-004 outstanding balances ----------
-function Outstanding({ lang, r, branches }: { lang: Lang; r: OutstandingReport; branches: ReportBranch[] }) {
+function Outstanding({ r, branches }: { r: OutstandingReport; branches: ReportBranch[] }) {
   const T = r.totals;
-  const m = (v: number) => <bdi>{money(v, lang, r.currency)}</bdi>;
-  const n = (v: number) => fmtNumber(v, lang);
-  const branchNames = (ids: string[]) => ids.map((id) => { const b = branches.find((x) => x.id === id); return b ? pickName(lang, b.name_ar, b.name_en) : '—'; }).join('، ');
+  const m = (v: number) => <bdi>{money(v, r.currency)}</bdi>;
+  const n = (v: number) => fmtNumber(v);
+  const branchNames = (ids: string[]) => ids.map((id) => { const b = branches.find((x) => x.id === id); return b ? arName(b.name_ar, b.name_en) : '—'; }).join('، ');
   return (
     <>
       <div className="stats">
-        <Tile label={t('repOwed', lang)} value={money(T.balance, lang, r.currency)} note={t('repPatientsCount', lang).replace('{n}', n(T.patients))} />
-        <Tile label={t('repOverdue', lang)} value={money(T.overdue, lang, r.currency)} note={t('repInstallmentsCount', lang).replace('{n}', n(T.overdue_installments))} />
+        <Tile label={t('repOwed')} value={money(T.balance, r.currency)} note={t('repPatientsCount').replace('{n}', n(T.patients))} />
+        <Tile label={t('repOverdue')} value={money(T.overdue, r.currency)} note={t('repInstallmentsCount').replace('{n}', n(T.overdue_installments))} />
       </div>
-      {r.truncated && <Alert tone="info">{t('repTruncated', lang)}</Alert>}
-      {!T.patients ? <Nothing lang={lang} /> : (
-        <Table caption={t('repPatientsOwing', lang)} text={4}
-          head={[t('patient', lang), t('fileNo', lang), t('phone', lang), t('branch', lang), t('repInvoicesCol', lang), t('repOldest', lang), t('balance', lang)]}
+      {r.truncated && <Alert tone="info">{t('repTruncated')}</Alert>}
+      {!T.patients ? <Nothing /> : (
+        <Table caption={t('repPatientsOwing')} text={4}
+          head={[t('patient'), t('fileNo'), t('phone'), t('branch'), t('repInvoicesCol'), t('repOldest'), t('balance')]}
           rows={r.patients.map((p) => [
             <RouteLink key="p" route={to.view('patients', p.patient_id)}><bdi>{p.full_name}</bdi></RouteLink>, n(p.file_no), p.phone ? <bdi dir="ltr">{p.phone}</bdi> : '—',
             branchNames(p.branch_ids), n(p.invoices), p.oldest ?? '—', m(p.balance),
           ])}
-          foot={[t('total', lang), '', '', '', n(T.invoices), '', m(T.balance)]} />
+          foot={[t('total'), '', '', '', n(T.invoices), '', m(T.balance)]} />
       )}
       {r.overdue.length > 0 && (
-        <Table caption={t('repOverdueInstallments', lang)} text={3}
-          head={[t('patient', lang), t('invoiceNo', lang), t('branch', lang), t('repInstallmentNo', lang), t('dueDate', lang), t('repDaysOverdue', lang), t('repRemaining', lang)]}
+        <Table caption={t('repOverdueInstallments')} text={3}
+          head={[t('patient'), t('invoiceNo'), t('branch'), t('repInstallmentNo'), t('dueDate'), t('repDaysOverdue'), t('repRemaining')]}
           rows={r.overdue.map((o) => [
             <RouteLink key="p" route={to.view('patients', o.patient_id)}><bdi>{o.full_name}</bdi></RouteLink>,
-            <RouteLink key="i" route={to.invoice(o.invoice_id)}><bdi dir="ltr">{o.number ?? '—'}</bdi></RouteLink>, name(lang, o.branch),
+            <RouteLink key="i" route={to.invoice(o.invoice_id)}><bdi dir="ltr">{o.number ?? '—'}</bdi></RouteLink>, name(o.branch),
             n(o.seq), o.due_date, n(o.days_overdue), m(o.remaining),
           ])}
-          foot={[t('total', lang), '', '', '', '', '', m(T.overdue)]} />
+          foot={[t('total'), '', '', '', '', '', m(T.overdue)]} />
       )}
     </>
   );

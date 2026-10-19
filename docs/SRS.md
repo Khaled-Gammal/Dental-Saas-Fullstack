@@ -1540,7 +1540,7 @@ fixed data); a branch-limited member never sees another branch's figures.
 - *Acceptance:* (1) no screen offers a language choice; (2) a scan of the built dashboard and website finds no
   English user-facing strings (an allow-list covers brand names, units and technical tokens such as "QR").
 
-**L10N-002 — Right-to-left everywhere** · PARTIALLY_IMPLEMENTED · Phase F
+**L10N-002 — Right-to-left everywhere** · IMPLEMENTED (2026-10-19, checked in G at phone and desktop width) · Phase F
 - *Description:* `<html lang="ar" dir="rtl">` on every page; layouts use logical CSS properties; tables, forms,
   calendars, dialogs and dashboards follow RTL. Phone numbers, emails, codes, invoice numbers and Latin drug names
   are isolated (`bdi` / `dir="ltr"`) so they display in the right order. The dental chart keeps its clinical
@@ -1574,7 +1574,7 @@ fixed data); a branch-limited member never sees another branch's figures.
   Exports are UTF-8 (CSV with a byte-order mark so Excel shows Arabic). Printouts render Arabic shaping correctly.
 - *Acceptance:* Arabic patient names can be created, searched, edited, printed and exported unchanged.
 
-**L10N-008 — Remove the multilingual infrastructure** · NOT_IMPLEMENTED · Phase F
+**L10N-008 — Remove the multilingual infrastructure** · IMPLEMENTED (2026-10-19, F1/F3/F5) · Phase F
 - *Description:* Remove the dashboard language toggle and stored preference, the English half of the dictionary,
   the `lang` plumbing, English inputs in forms (doctor, service and branch names, titles, addresses), and language
   choices (patient preferred language, clinic default locale) from forms. **Keep** the `_en` and locale columns and
