@@ -13,7 +13,7 @@ requirement is in `docs/implementation-status.md`, which is the source of truth.
 | D1–D5 | Staff invitations and roles; scheduling (moves, waiting list, holidays, time off, rooms, booking rules); Arabic patient search, duplicate warning, history versions, clinical files; clinical visits, notes, procedures, prescriptions, dental chart, treatment plans, follow-ups; patient merge | `v4/phase-d1-staff` … `v4/phase-d5-merge` | green |
 | E1–E4 | Invoices and payments (methods, partial, reversal, refund, receipts); discounts with limits and approval, installments, waivers; expenses with approval and the daily cash box; reports (revenue, expenses, attendance, performance, balances) | `v4/phase-e1-billing` … `v4/phase-e4-reports` (d113a5d) | green |
 | F1–F4 | Arabic only: dashboard without a language switch; Arabic errors, validation and emails; clinic currency and a 12-hour clock everywhere; website Arabic only; home screen per role | `v4/phase-f1-arabic` … `v4/phase-f4-home` (976427b) | green (F4: 39295231986) |
-| G | Full test run, browser sweep at phone and desktop widths, two fixes, this report | `v4/phase-g-verification` | see §4 |
+| G | Full test run, browser sweep at phone and desktop widths, four fixes, a flaky test fixed, this report | `v4/phase-g-verification` (266aa0d) | green (39307625328) |
 
 The 16 steps of the clinic workflow (SRS §3) all work end to end: sign up → clinic and branch setup → staff and
 doctors → services → booking → check-in → visit → chart and plan → procedures → prescription → invoice → payments →
@@ -78,6 +78,12 @@ What the sweep found, and what was done:
    English (your 2026-10-19 note).
 4. Desktop: no overflow, no errors.
 5. **Website, after your restart**, at 390 px: home, booking page and an unknown address are right to left with no overflow; times read «10:00 م», prices «300 ج.م». **Fixed:** the footer badge said "Powered by Dental SaaS" (now «بواسطة منصة الأسنان»), and an unknown address showed the framework's English 404 (now an Arabic page, `app/not-found.tsx`).
+
+**CI:** the first two runs of this branch failed in `calendar.e2e-spec.ts` (400 and 409 on bookings), although no API code
+had changed. The cause was in the test: several suites book the same seeded doctors on random far Saturdays, and when
+one of them runs first on the same day (jest orders files differently on CI), the calendar tests found too few free
+slots. The suite now picks a Saturday that both doctors have mostly free, and its "my day" check no longer assumes
+the day is empty. It passed three runs in a row locally on the same database, and CI is green (39307625328).
 
 ## 5. Open items for you
 
