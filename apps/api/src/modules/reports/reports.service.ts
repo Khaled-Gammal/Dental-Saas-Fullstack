@@ -7,7 +7,7 @@ import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
 import { dateInZone, safeTimeZone } from '../../shared/time/clinic-time';
 import {
-  attendanceReport, expensesReport, netCollections, outstandingReport, performanceReport, reportAccess, resolvePeriod, revenueReport,
+  attendanceFigures, attendanceReport, expensesReport, homeSections, netCollections, outstandingReport, performanceReport, reportAccess, resolvePeriod, revenueReport,
   type Period, type ReportKind, type Scope,
 } from './reports-rules';
 import type { ReportQueryInput } from './reports.schemas';
@@ -59,6 +59,55 @@ export class ReportsService {
         scope === 'own' ? null : this.repo.money(tx, p, branchId), // a doctor's own view has no collections
       ]);
       return performanceReport(att, procs, money);
+    });
+  }
+
+  /**
+   * REPORT-006: the home screen. Each block is built only when the member's rights cover it (homeSections), within
+   * their branches (row-level security). Reception: today's appointments, waiting list, collections, cash box. Doctor:
+   * their day, who waits for them, their follow-ups due. Owner and accountant: today and the month in money.
+   */
+  home() {
+    return this.db.run(async (tx, tenantId) => {
+      const s = homeSections(this.cls.get('permissions'));
+      const clinic = await this.repo.clinic(tx, tenantId);
+      const today = dateInZone(Date.now(), safeTimeZone(clinic.timezone));
+      const day: Period = { from: today, to: today };
+      const month: Period = { from: `${today.slice(0, 8)}01`, to: today };
+      const memberId = this.cls.get('memberId');
+      const mine = s.appointments === 'mine' || s.followUps === 'mine';
+      const doctorId = mine && memberId ? await this.repo.doctorOf(tx, memberId) : null;
+
+      const appointments = async () => {
+        if (!s.appointments || (s.appointments === 'mine' && !doctorId)) return null; // a doctor login not linked to a doctor sees no day
+        const rows = await this.repo.attendance(tx, day, null, s.appointments === 'mine' ? doctorId : null);
+        const n = (status: string) => rows.filter((r) => r.status === status).reduce((a, r) => a + r.n, 0);
+        return { scope: s.appointments, ...attendanceFigures(rows), waiting: n('checked_in'), in_progress: n('in_progress') };
+      };
+      const followUps = async () => (s.followUps && !(s.followUps === 'mine' && !doctorId)
+        ? { scope: s.followUps, due: await this.repo.followUpsDue(tx, today, s.followUps === 'mine' ? doctorId : null) } : null);
+      const todayMoney = async () => (s.todayMoney ? revenueReport(await this.repo.money(tx, day, null)) : null);
+      const finance = async () => {
+        if (!s.finance) return null;
+        const [monthMoney, todayExp, monthExp, monthAtt, outstanding, overdue] = await Promise.all([
+          this.repo.money(tx, month, null), this.repo.expenses(tx, day, null), this.repo.expenses(tx, month, null),
+          this.repo.attendance(tx, month, null, null), this.repo.outstanding(tx, null), this.repo.overdue(tx, null),
+        ]);
+        const m = revenueReport(monthMoney).totals;
+        const todayRows = monthMoney.filter((r) => r.day === today);
+        const t = revenueReport(todayRows).totals;
+        const att = attendanceFigures(monthAtt);
+        return {
+          today: { invoiced: t.invoiced, collections_net: t.net, expenses: expensesReport(todayExp, t.net).totals.total },
+          month: { invoiced: m.invoiced, collections_net: m.net, expenses: expensesReport(monthExp, m.net).totals.total, no_show: att.no_show, no_show_rate: att.no_show_rate },
+          outstanding: outstandingReport(outstanding, overdue).totals,
+        };
+      };
+      const [a, f, money, fin, cash] = await Promise.all([appointments(), followUps(), todayMoney(), finance(), s.cash ? this.repo.cashToday(tx, today) : null]);
+      return {
+        today, month, currency: clinic.currency, sections: s, linked_doctor: mine ? !!doctorId : null,
+        appointments: a, follow_ups: f, today_money: money && { ...money.totals, by_method: money.by_method }, finance: fin, cash,
+      };
     });
   }
 

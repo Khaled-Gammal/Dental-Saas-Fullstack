@@ -186,3 +186,31 @@ export function outstandingReport(rows: readonly OutstandingRow[], overdue: read
     truncated: patients.length > OUTSTANDING_LIST_LIMIT || overdue.length > OUTSTANDING_LIST_LIMIT,
   };
 }
+
+// ---------- REPORT-006 the home screen per role ----------
+export interface HomeSections {
+  /** today's appointments: the member's own (a doctor) or every one at their branches */
+  appointments: 'mine' | 'all' | null;
+  followUps: 'mine' | 'all' | null;
+  cash: boolean;
+  /** today's collections (reception and up) */
+  todayMoney: boolean;
+  /** today and month: revenue, collections, expenses, outstanding, no-shows (owner, accountant) */
+  finance: boolean;
+}
+
+/**
+ * Which blocks a member's home shows: each is shown exactly when the API would serve its data (B.1). A doctor
+ * (writes only their own appointments) sees their own day and their own follow-ups.
+ */
+export function homeSections(perms: readonly string[] | undefined): HomeSections {
+  const has = (p: string) => hasPermission(perms, p);
+  const own = !has('appointments:write') && has('appointments:write:own');
+  return {
+    appointments: has('appointments:read') ? (own ? 'mine' : 'all') : null,
+    followUps: has('patients:read') ? (own ? 'mine' : 'all') : null,
+    cash: has('cash:operate'),
+    todayMoney: has('reports:read') || has('reports:read:daily'),
+    finance: has('reports:read'),
+  };
+}

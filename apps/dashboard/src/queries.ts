@@ -3,7 +3,7 @@ import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, CatalogEntry, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
   BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
-  ReportBranch, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
+  HomeData, ReportBranch, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
 
 /**
@@ -359,3 +359,6 @@ export const useReport = <T,>(clinicId: string, kind: string, q: { from?: string
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'report', kind, q] as const, queryFn: () => api<T>(`/reports/${kind}${qs(q)}`), enabled });
 export const useReportBranches = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'report-branches'] as const, queryFn: () => api<ReportBranch[]>('/reports/branches') });
+/** REPORT-006: the member's home figures; refreshed with money changes (shared prefix) and every minute while open. */
+export const useHome = (clinicId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'home'] as const, queryFn: () => api<HomeData>('/reports/home'), refetchInterval: 60_000 });

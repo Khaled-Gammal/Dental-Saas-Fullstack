@@ -18,6 +18,12 @@ type Q = z.infer<typeof ReportQuery>;
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 
+  /** REPORT-006: the signed-in member's home figures (every member; blocks follow their rights) */
+  @Get('home')
+  home() {
+    return this.reports.home();
+  }
+
   @Get('branches')
   branches() {
     return this.reports.branches();

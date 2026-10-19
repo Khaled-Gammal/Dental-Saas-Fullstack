@@ -1,5 +1,5 @@
 import {
-  attendanceFigures, expensesReport, outstandingReport, performanceReport, reportAccess, resolvePeriod, revenueReport,
+  attendanceFigures, expensesReport, homeSections, outstandingReport, performanceReport, reportAccess, resolvePeriod, revenueReport,
   type AttendanceRow, type MoneyRow, type OutstandingRow,
 } from '../reports-rules';
 
@@ -130,5 +130,28 @@ describe('outstanding balances (REPORT-004)', () => {
     expect(r.patients.map((p) => [p.patient_id, p.balance, p.oldest, p.branch_ids])).toEqual([['p2', 5_000, '2026-10-01', ['A']], ['p1', 1_500, '2026-08-01', ['A', 'B']]]);
     expect(r.overdue.map((x) => x.days_overdue)).toEqual([18, 9]);
     expect(r.truncated).toBe(false);
+  });
+});
+
+describe('home screen per role (REPORT-006)', () => {
+  const roles = {
+    owner: ['*'],
+    reception: ['branches:read', 'patients:read', 'appointments:read', 'appointments:write', 'invoices:read', 'payments:write', 'reports:read:daily', 'cash:operate'],
+    doctor: ['patients:read', 'clinical:read', 'appointments:read', 'appointments:write:own', 'reports:read:own'],
+    accountant: ['patients:read', 'appointments:read', 'invoices:read', 'reports:read', 'cash:operate'],
+    assistant: ['patients:read', 'appointments:read', 'appointments:write'],
+  };
+  it('reception: today’s appointments and waiting list, today’s collections, the cash box', () => {
+    expect(homeSections(roles.reception)).toEqual({ appointments: 'all', followUps: 'all', cash: true, todayMoney: true, finance: false });
+  });
+  it('doctor: my day, waiting for me, my follow-ups — no money', () => {
+    expect(homeSections(roles.doctor)).toEqual({ appointments: 'mine', followUps: 'mine', cash: false, todayMoney: false, finance: false });
+  });
+  it('owner and accountant: the money of today and the month', () => {
+    expect(homeSections(roles.owner)).toEqual({ appointments: 'all', followUps: 'all', cash: true, todayMoney: true, finance: true });
+    expect(homeSections(roles.accountant)).toMatchObject({ todayMoney: true, finance: true, cash: true });
+  });
+  it('an assistant sees the day, nothing financial', () => {
+    expect(homeSections(roles.assistant)).toEqual({ appointments: 'all', followUps: 'all', cash: false, todayMoney: false, finance: false });
   });
 });

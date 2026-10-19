@@ -448,3 +448,17 @@ export interface OutstandingReport extends ReportFrame {
   truncated: boolean;
 }
 export interface ReportBranch { id: string; name_ar: string | null; name_en: string | null; is_active: boolean; is_main: boolean }
+
+// ---------- home screen per role (Phase F4, REPORT-006) ----------
+export interface HomeData {
+  today: string; month: { from: string; to: string }; currency: string; linked_doctor: boolean | null;
+  appointments: (AttendanceFigures & { scope: 'mine' | 'all'; waiting: number; in_progress: number }) | null;
+  follow_ups: { scope: 'mine' | 'all'; due: number } | null;
+  today_money: { invoiced: number; collected: number; refunded: number; net: number; payments: number; by_method: { method: string; collected: number; refunded: number; net: number }[] } | null;
+  finance: {
+    today: { invoiced: number; collections_net: number; expenses: number };
+    month: { invoiced: number; collections_net: number; expenses: number; no_show: number; no_show_rate: number | null };
+    outstanding: { balance: number; patients: number; invoices: number; overdue: number; overdue_installments: number };
+  } | null;
+  cash: { branch_id: string; name_ar: string | null; name_en: string | null; status: 'none' | 'open' | 'closed' }[] | null;
+}

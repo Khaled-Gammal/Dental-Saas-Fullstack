@@ -137,6 +137,48 @@ describe('Reports (e2e, Phase E4)', () => {
     });
   });
 
+  describe('home screen per role (REPORT-006)', () => {
+    it('reception: today’s appointments and waiting list, collections, the cash box of its branches — no month figures', async () => {
+      const h = (await http().get('/reports/home').set(as('receptionA')).expect(200)).body;
+      expect(h).toMatchObject({ today, appointments: { scope: 'all' }, follow_ups: { scope: 'all' }, finance: null });
+      expect(h.appointments).toEqual(expect.objectContaining({ booked: expect.any(Number), waiting: expect.any(Number) }));
+      expect(h.today_money).toEqual(expect.objectContaining({ collected: expect.any(Number), net: expect.any(Number) }));
+      expect(h.cash.map((c: { branch_id: string }) => c.branch_id)).toEqual(expect.arrayContaining([NASR, MAADI]));
+      // the same figure as the daily report
+      const daily = (await http().get('/reports/revenue').set(as('receptionA')).expect(200)).body;
+      expect(h.today_money.net).toBe(daily.totals.net);
+    });
+
+    it('a branch-limited member’s home holds only their branch', async () => {
+      const h = (await http().get('/reports/home').set(as('maadi')).expect(200)).body;
+      expect(h.cash.map((c: { branch_id: string }) => c.branch_id)).toEqual([MAADI]);
+      const own = (await http().get(`/reports/revenue?branchId=${MAADI}&from=${today}&to=${today}`).set(as('ownerA')).expect(200)).body;
+      expect(h.today_money.net).toBe(own.totals.net);
+    });
+
+    it('doctor: their own day and follow-ups, nothing about money or the cash box', async () => {
+      const h = (await http().get('/reports/home').set(as('doctorMona')).expect(200)).body;
+      expect(h).toMatchObject({ linked_doctor: true, appointments: { scope: 'mine' }, follow_ups: { scope: 'mine' }, today_money: null, finance: null, cash: null });
+      const own = (await http().get(`/reports/attendance?from=${today}&to=${today}`).set(as('doctorMona')).expect(200)).body;
+      expect(h.appointments.booked).toBe(own.totals.booked);
+    });
+
+    it('owner and accountant: today and the month in money, outstanding, no-shows', async () => {
+      for (const who of ['ownerA', 'accountantA']) {
+        const h = (await http().get('/reports/home').set(as(who)).expect(200)).body;
+        expect(h.finance).toEqual({
+          today: expect.objectContaining({ invoiced: expect.any(Number), collections_net: expect.any(Number), expenses: expect.any(Number) }),
+          month: expect.objectContaining({ collections_net: expect.any(Number), no_show: expect.any(Number) }),
+          outstanding: expect.objectContaining({ balance: expect.any(Number), overdue: expect.any(Number) }),
+        });
+      }
+      const h = (await http().get('/reports/home').set(as('ownerA')).expect(200)).body;
+      const month = (await http().get('/reports/revenue').set(as('ownerA')).expect(200)).body; // the month so far
+      expect(h.finance.month.collections_net).toBe(month.totals.net);
+      expect(h.finance.outstanding.balance).toBe((await http().get('/reports/outstanding').set(as('ownerA')).expect(200)).body.totals.balance);
+    });
+  });
+
   it('the period ends after it starts and covers at most a year', async () => {
     expect((await http().get('/reports/revenue?from=2026-05-02&to=2026-05-01').set(as('ownerA')).expect(400)).body.code).toBe('invalid_period');
     expect((await http().get('/reports/revenue?from=2025-01-01&to=2026-05-01').set(as('ownerA')).expect(400)).body.code).toBe('period_too_long');

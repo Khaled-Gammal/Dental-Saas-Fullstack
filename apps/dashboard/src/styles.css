@@ -679,3 +679,16 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
   .report-sheet .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .report-sheet a { color: inherit; text-decoration: none; }
 }
+
+/* the home screen per role (Phase F4, REPORT-006) */
+.home-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+.home-grid > .alert { grid-column: 1 / -1; }
+.home-block.is-wide { grid-column: 1 / -1; }
+.home-title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--fs-md, 1rem); }
+.home-title .stat-icon { width: 36px; height: 36px; }
+.home-big { font-size: 1.75rem; font-weight: 800; margin: 10px 0 2px; }
+.home-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 12px 0 6px; }
+.home-figures div { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.home-figures dt { color: var(--muted); font-size: var(--fs-xs); }
+.home-figures dd { margin: 2px 0 0; font-weight: 700; font-size: var(--fs-lg); }
+.home-figures .is-alert { border-color: var(--warning, #d97706); background: var(--warning-bg); }

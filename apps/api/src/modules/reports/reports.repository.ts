@@ -65,6 +65,22 @@ export class ReportsRepository {
     return r.rows.map((x) => ({ ...x, balance: Number(x.balance), invoices: Number(x.invoices) }));
   }
 
+  /** REPORT-006: follow-ups open and due by today (VISIT-005's due list), all or one doctor's */
+  async followUpsDue(tx: Tx, today: string, doctorId: string | null): Promise<number> {
+    let q = tx.selectFrom('recalls as r').innerJoin('patients as p', 'p.id', 'r.patient_id').select(sql<string>`count(*)`.as('n'))
+      .where('p.merged_into_id', 'is', null).where('r.status', 'in', ['pending', 'contacted']).where(sql<boolean>`r.due_date <= ${today}::date`);
+    if (doctorId) q = q.where('r.doctor_id', '=', doctorId);
+    return Number((await q.executeTakeFirstOrThrow()).n);
+  }
+
+  /** REPORT-006: today's cash day of each active branch the member works at (none, open or closed) */
+  cashToday(tx: Tx, today: string) {
+    return tx.selectFrom('branches as b')
+      .leftJoin('cash_sessions as s', (j) => j.onRef('s.branch_id', '=', 'b.id').on(sql<boolean>`s.business_date = ${today}::date`))
+      .select(['b.id as branch_id', 'b.name_ar', 'b.name_en', sql<'none' | 'open' | 'closed'>`coalesce(s.status, 'none')`.as('status')])
+      .where('b.is_active', '=', true).where(visible).orderBy('b.is_main', 'desc').orderBy('b.name_ar').execute();
+  }
+
   async overdue(tx: Tx, branchId: string | null): Promise<OverdueRow[]> {
     const r = await sql<Omit<OverdueRow, 'remaining'> & { remaining: string }>`
       select o.installment_id, o.invoice_id, i.number, o.branch_id, o.patient_id, p.full_name, o.seq, to_char(o.due_date, 'YYYY-MM-DD') as due_date, o.remaining, o.days_overdue
