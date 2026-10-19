@@ -2,13 +2,14 @@ import { telHref } from '@dental/ui/text';
 import { Chat, Clock, Icon, Phone, Pin } from '../icons';
 import { imageProps } from '../../lib/media';
 import { ar, DAYS_AR, DEFAULT_TZ, mapsHref, WEEK_ORDER, whatsappHref, type SiteBranch } from '../../lib/site';
-import { groupWeek, hhmm, localNow, openStatus, type Holiday, type HourSlot } from '../../lib/hours';
+import { clock12 } from '@dental/ui/text';
+import { groupWeek, localNow, openStatus, type Holiday, type HourSlot } from '../../lib/hours';
 import type { Contact } from './contact';
 import { Section } from './decor';
 
 const Slots = ({ slots }: { slots: HourSlot[] }) =>
   slots.length
-    ? <span className="s-slots">{slots.map((h) => <bdi key={h.opens_at} dir="ltr">{hhmm(h.opens_at)}–{hhmm(h.closes_at)}</bdi>)}</span>
+    ? <span className="s-slots">{slots.map((h) => <bdi key={h.opens_at}>{clock12(h.opens_at)}–{clock12(h.closes_at)}</bdi>)}</span>
     : <span className="s-closed">مغلق</span>;
 
 const dayRange = (days: number[]) => (days.length === 1 ? DAYS_AR[days[0]] : `${DAYS_AR[days[0]]} – ${DAYS_AR[days[days.length - 1]]}`);
@@ -16,13 +17,13 @@ const dayRange = (days: number[]) => (days.length === 1 ? DAYS_AR[days[0]] : `${
 function StatusPill({ branch, holidays, tz }: { branch: SiteBranch; holidays: Holiday[]; tz: string }) {
   const s = openStatus(branch.hours, holidays, branch.id, tz);
   if (s.kind === 'unknown') return null;
-  if (s.kind === 'open') return <span className="s-status is-open"><span className="s-dot" />مفتوح الآن · يغلق <bdi dir="ltr">{s.closesAt}</bdi></span>;
+  if (s.kind === 'open') return <span className="s-status is-open"><span className="s-dot" />مفتوح الآن · يغلق <bdi>{clock12(s.closesAt)}</bdi></span>;
   const today = localNow(tz).weekday;
   const when = s.opensWeekday === today ? 'اليوم' : s.opensWeekday === (today + 1) % 7 ? 'غدًا' : s.opensWeekday != null ? DAYS_AR[s.opensWeekday] : null;
   return (
     <span className="s-status is-closed"><span className="s-dot" />
       {s.holiday ? <>مغلق اليوم ({s.holiday})</> : 'مغلق الآن'}
-      {when && s.opensAt && <> · يفتح {when} <bdi dir="ltr">{s.opensAt}</bdi></>}
+      {when && s.opensAt && <> · يفتح {when} <bdi>{clock12(s.opensAt)}</bdi></>}
     </span>
   );
 }

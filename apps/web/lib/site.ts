@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { telHref } from '@dental/ui/text';
+import { formatMoney, telHref } from '@dental/ui/text';
 import type { Holiday, HourSlot } from './hours';
 import type { SiteImage } from './media';
 
@@ -7,6 +7,8 @@ import type { SiteImage } from './media';
 export interface SiteData {
   clinic: { slug: string; name_en: string | null; name_ar: string | null; about_ar: string | null; about_en: string | null;
     primary_phone: string | null; whatsapp: string | null; specialties: string[]; default_locale: 'ar' | 'en'; timezone: string;
+    /** ISO code (CLR-09); prices show in it */
+    currency?: string;
     logo?: SiteImage | null };
   theme: { primary?: string };
   showPoweredBy: boolean;
@@ -58,14 +60,14 @@ export const DEFAULT_PRIMARY = '#4f46e5'; // indigo: the site's default when a c
 /** The Arabic text when present, else the English one (the site is served in Arabic); null when both are empty. */
 export const ar = (a: string | null | undefined, e: string | null | undefined): string | null => a?.trim() || e?.trim() || null;
 
-const egpFormat = new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP', minimumFractionDigits: 0, maximumFractionDigits: 2 });
-export const egp = (minor: number) => egpFormat.format(minor / 100);
+/** A price in the clinic currency with Latin digits (L10N-005, CLR-08). */
+export const price = (minor: number, currency?: string) => formatMoney(minor, currency);
 
 /** 0 -> "on consultation", range -> "from – to", otherwise one price. */
-export function priceText(min: number, max: number | null): string {
+export function priceText(min: number, max: number | null, currency?: string): string {
   if (!min && !max) return 'السعر عند الكشف';
-  if (max && max > min) return `${egp(min)} – ${egp(max)}`;
-  return egp(min);
+  if (max && max > min) return `${price(min, currency)} – ${price(max, currency)}`;
+  return price(min, currency);
 }
 
 /** The public origin of a clinic site. Local demo hosts are plain http; every real clinic domain is served over https. */

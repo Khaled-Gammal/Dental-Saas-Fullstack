@@ -314,7 +314,7 @@ repointed. New grants to `app_definer`: SELECT/UPDATE on the moved tables and `i
 
 | ID | Change | Requirement | Risk |
 | --- | --- | --- | --- |
-| F-01 | `sites.locales` default `{ar}` and existing rows set to `{ar}` **(CLR-07)**. No column is dropped or renamed; `_en` columns and locale columns stay | L10N-008 | low (reversible in `migrate:down`) |
+| F-01 | **Applied (0027, 2026-10-19).** `sites.locales` default `{ar}` and existing rows set to `{ar}` **(CLR-07)**. No column is dropped or renamed; `_en` columns and locale columns stay | L10N-008 | low (reversible in `migrate:down`) |
 | F-02 | `tenants.currency` exposed in the clinic profile; trigger refuses a change once an issued invoice exists **(CLR-09)** | L10N-005 | low |
 
 ## 7. Checklist for every new migration

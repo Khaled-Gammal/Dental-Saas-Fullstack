@@ -23,21 +23,23 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const p = (await res.json().catch(() => ({}))) as { code?: string; detail?: string; title?: string };
     const code = p.code ?? 'error';
-    throw new BookingError(code, BOOKING_ERRORS[code] ?? p.detail ?? p.title ?? 'حدث خطأ، حاول مرة أخرى.');
+    // never the server's English detail (L10N-003): our words for the code, else a plain Arabic message
+    throw new BookingError(code, BOOKING_ERRORS[code] ?? (res.status === 429 ? 'محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.' : 'حدث خطأ، حاول مرة أخرى.'));
   }
   return res.json();
 }
 
-const fmtTime = (iso: string, tz: string) => new Intl.DateTimeFormat('ar-EG', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-const fmtLong = (iso: string, tz: string) => new Intl.DateTimeFormat('ar-EG', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-const dayLabel = (date: string) => { const d = new Date(`${date}T00:00:00Z`); return { weekday: DAYS_AR[d.getUTCDay()], day: d.getUTCDate(), month: new Intl.DateTimeFormat('ar-EG', { month: 'short', timeZone: 'UTC' }).format(d) }; };
+// Arabic with Latin digits and a 12-hour clock (CLR-08)
+const fmtTime = (iso: string, tz: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
+const fmtLong = (iso: string, tz: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
+const dayLabel = (date: string) => { const d = new Date(`${date}T00:00:00Z`); return { weekday: DAYS_AR[d.getUTCDay()], day: d.getUTCDate(), month: new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'short', timeZone: 'UTC' }).format(d) }; };
 const addDays = (date: string, n: number) => new Date(new Date(`${date}T00:00:00Z`).getTime() + n * 86_400_000).toISOString().slice(0, 10);
 
 const STEPS: { key: Step; label: string }[] = [{ key: 'choose', label: 'الخدمة' }, { key: 'time', label: 'الموعد' }, { key: 'details', label: 'بياناتك' }, { key: 'done', label: 'التأكيد' }];
 const stepIndex = (s: Step) => (s === 'otp' ? 2 : STEPS.findIndex((x) => x.key === s));
 
 /** `preset` comes from the page URL (?service= / ?doctor=): a card on the home page opens the wizard with that choice made. */
-export function BookingWizard({ options, clinicName, preset = {} }: { options: BookingOptions; clinicName: string; preset?: { service?: string; doctor?: string } }) {
+export function BookingWizard({ options, clinicName, currency, preset = {} }: { options: BookingOptions; clinicName: string; currency?: string; preset?: { service?: string; doctor?: string } }) {
   const presetDoctor = options.doctors.find((d) => d.id === preset.doctor);
   const presetService = options.services.find((s) => s.id === preset.service);
   const [step, setStep] = useState<Step>('choose');
@@ -169,7 +171,7 @@ export function BookingWizard({ options, clinicName, preset = {} }: { options: B
           )}
           <fieldset className="bk-group"><legend>الخدمة</legend>
             <div className="bk-options">
-              {options.services.map((s) => <button key={s.id} type="button" className="bk-opt" aria-pressed={serviceId === s.id} onClick={() => { setServiceId(s.id); setDoctorId(ANY); }}><strong><bdi>{ar(s.name_ar, s.name_en)}</bdi></strong><span>{priceText(s.price_minor, s.price_max_minor)} · {s.duration_minutes} {arNoun(s.duration_minutes, NOUNS.minute)}</span></button>)}
+              {options.services.map((s) => <button key={s.id} type="button" className="bk-opt" aria-pressed={serviceId === s.id} onClick={() => { setServiceId(s.id); setDoctorId(ANY); }}><strong><bdi>{ar(s.name_ar, s.name_en)}</bdi></strong><span>{priceText(s.price_minor, s.price_max_minor, currency)} · {s.duration_minutes} {arNoun(s.duration_minutes, NOUNS.minute)}</span></button>)}
             </div>
           </fieldset>
           {serviceId && (

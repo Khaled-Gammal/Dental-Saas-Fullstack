@@ -7,7 +7,7 @@ import { Section } from './decor';
 
 const iconFor = (category: string | null): IconName => ((category && CATEGORY_ICON[category]) ?? 'tooth') as IconName;
 
-export function ServiceCard({ service, contact, clinicName }: { service: SiteService; contact: Contact; clinicName: string }) {
+export function ServiceCard({ service, contact, clinicName, currency }: { service: SiteService; contact: Contact; clinicName: string; currency?: string }) {
   const name = ar(service.name_ar, service.name_en) ?? '';
   const desc = ar(service.description_ar, service.description_en);
   // the message names the service, so the clinic knows what the visitor wants before replying
@@ -21,7 +21,7 @@ export function ServiceCard({ service, contact, clinicName }: { service: SiteSer
       <h3><bdi>{name}</bdi></h3>
       {desc && <p className="s-service-desc">{desc}</p>}
       <div className="s-meta">
-        <span className="s-price">{priceText(service.price_minor, service.price_max_minor)}</span>
+        <span className="s-price">{priceText(service.price_minor, service.price_max_minor, currency)}</span>
         <span className="s-duration"><Clock size={14} />{service.duration_minutes} {arNoun(service.duration_minutes, NOUNS.minute)}</span>
       </div>
       {book && <a className="s-btn s-btn-soft s-card-cta" href={book.href} aria-label={`احجز ${name}`}>{book.via === 'online' ? <Icon name="calendar" size={16} /> : book.via === 'whatsapp' ? <Chat size={16} /> : <Phone size={16} />}احجز هذه الخدمة</a>}
@@ -29,12 +29,12 @@ export function ServiceCard({ service, contact, clinicName }: { service: SiteSer
   );
 }
 
-export function ServicesSection({ services, contact, clinicName }: { services: SiteService[]; contact: Contact; clinicName: string }) {
+export function ServicesSection({ services, contact, clinicName, currency }: { services: SiteService[]; contact: Contact; clinicName: string; currency?: string }) {
   if (!services.length) return null;
   return (
     <Section id="services" kicker="خدماتنا" title="خدمات أسنان بأسعار واضحة" sub="تعرّف على الخدمة ومدتها المتوقعة وسعرها قبل الزيارة">
       <div className="s-grid">
-        {services.map((s) => <ServiceCard key={s.id} service={s} contact={contact} clinicName={clinicName} />)}
+        {services.map((s) => <ServiceCard key={s.id} service={s} contact={contact} clinicName={clinicName} currency={currency} />)}
       </div>
     </Section>
   );

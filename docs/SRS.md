@@ -1532,7 +1532,7 @@ fixed data); a branch-limited member never sees another branch's figures.
 
 ### B.13 Arabic-only experience (feature F7 + Arabic-only requirement)
 
-**L10N-001 — Arabic is the only language** · PARTIALLY_IMPLEMENTED · Phase F
+**L10N-001 — Arabic is the only language** · IMPLEMENTED (2026-10-19, F1 dashboard, F3 website; brand names may be Latin) · Phase F
 - *Description:* Every user-facing surface is Arabic: dashboard, website, booking, emails, printouts, validation
   and error messages, empty states. There is **no English interface, no language switcher and no language setting**,
   and English localization is not planned. English remains in code identifiers, database names, API routes, logs
@@ -1557,13 +1557,13 @@ fixed data); a branch-limited member never sees another branch's figures.
 - *Description:* Subjects and bodies of every email (verification codes, booking confirmations, reminders,
   invitations, password reset) are Arabic only, RTL in HTML mail, with a plain-text alternative.
 
-**L10N-005 — Currency** · PARTIALLY_IMPLEMENTED (E1: clinic setting, locked after the first invoice per CLR-09; one formatter used by billing and clinical screens; the price list and website still show ج.م) · Phase F
+**L10N-005 — Currency** · IMPLEMENTED (2026-10-19, F2/F3; E1: clinic setting, locked after the first invoice per CLR-09; one formatter used by billing and clinical screens; the price list and website still show ج.م) · Phase F
 - *Description:* Amounts display in the clinic currency (`tenants.currency`, default `EGP`, shown as "ج.م" /
   "جنيه مصري") through one shared formatter. No screen, email or printout hard-codes a currency. Stored values are
   integer minor units; display formatting never changes them. Whether a clinic may change its currency after
   invoices exist is CLR-09.
 
-**L10N-006 — Dates and times** · PARTIALLY_IMPLEMENTED · Phase F — CLR-08: Latin digits, 12-hour clock with ص/م
+**L10N-006 — Dates and times** · IMPLEMENTED (2026-10-19, F2/F3) · Phase F — CLR-08: Latin digits, 12-hour clock with ص/م
 - *Description:* Dates use one Arabic format throughout (Gregorian calendar, Arabic month names), and times show in
   the branch's timezone (falling back to the clinic's, default Africa/Cairo). Timestamps are stored as `timestamptz`
   (UTC). Date-only values (birth date, expense date, due date) are never shifted by timezone.

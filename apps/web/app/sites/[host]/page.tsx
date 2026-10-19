@@ -89,7 +89,7 @@ export default async function ClinicSite({ params }: Props) {
       <main id="main">
         <HeroSection site={site} name={name} about={about} contact={contact} />
         <TrustIndicators site={site} contact={contact} />
-        <ServicesSection services={services} contact={contact} clinicName={name} />
+        <ServicesSection services={services} contact={contact} clinicName={name} currency={site.clinic.currency} />
         <DoctorsSection doctors={doctors} contact={contact} clinicName={name} />
         <BranchesSection branches={branches} holidays={holidays} clinicTz={clinic.timezone ?? DEFAULT_TZ} contact={contact} clinicName={name} />
         <AppointmentCTA contact={contact} />
