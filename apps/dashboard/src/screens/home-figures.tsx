@@ -83,7 +83,8 @@ export function HomeFigures({ lang, clinicId }: { lang: Lang; clinicId: string }
                 <tr><th scope="row">{t('repInvoiced', lang)}</th><td className="num">{m(h.finance.today.invoiced)}</td><td className="num">{m(h.finance.month.invoiced)}</td></tr>
                 <tr><th scope="row">{t('repNet', lang)}</th><td className="num">{m(h.finance.today.collections_net)}</td><td className="num">{m(h.finance.month.collections_net)}</td></tr>
                 <tr><th scope="row">{t('repExpensesTotal', lang)}</th><td className="num">{m(h.finance.today.expenses)}</td><td className="num">{m(h.finance.month.expenses)}</td></tr>
-                <tr><th scope="row">{t('status_no_show', lang)}</th><td className="num">—</td>
+                <tr><th scope="row">{t('status_no_show', lang)}</th>
+                  <td className="num">{n(h.finance.today.no_show)} <span className="muted small">({percent(h.finance.today.no_show_rate)})</span></td>
                   <td className="num">{n(h.finance.month.no_show)} <span className="muted small">({percent(h.finance.month.no_show_rate)})</span></td></tr>
               </tbody>
             </table>

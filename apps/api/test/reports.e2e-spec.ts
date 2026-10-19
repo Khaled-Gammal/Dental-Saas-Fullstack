@@ -167,7 +167,7 @@ describe('Reports (e2e, Phase E4)', () => {
       for (const who of ['ownerA', 'accountantA']) {
         const h = (await http().get('/reports/home').set(as(who)).expect(200)).body;
         expect(h.finance).toEqual({
-          today: expect.objectContaining({ invoiced: expect.any(Number), collections_net: expect.any(Number), expenses: expect.any(Number) }),
+          today: expect.objectContaining({ invoiced: expect.any(Number), collections_net: expect.any(Number), expenses: expect.any(Number), no_show: expect.any(Number) }),
           month: expect.objectContaining({ collections_net: expect.any(Number), no_show: expect.any(Number) }),
           outstanding: expect.objectContaining({ balance: expect.any(Number), overdue: expect.any(Number) }),
         });
