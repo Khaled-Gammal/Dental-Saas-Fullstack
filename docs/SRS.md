@@ -1519,11 +1519,11 @@ only their branches (ACCESS-003). Every report screen has a print layout (Arabic
 
 | ID | Report | Content | Permission | Status |
 | --- | --- | --- | --- | --- |
-| REPORT-001 | Revenue and collections | Invoiced (issued) amount; collections by method; refunds; net collections; per branch and day | `reports:read`; `reports:read:daily` for today at own branch | NOT_IMPLEMENTED |
-| REPORT-002 | Expenses | By category, branch, period, method; collections − expenses (cash basis) | `reports:read` | NOT_IMPLEMENTED |
-| REPORT-003 | Attendance | Appointments by status; no-show and cancellation rates; by doctor and branch | `reports:read`; doctors `reports:read:own` | NOT_IMPLEMENTED |
-| REPORT-004 | Outstanding balances | Patients with balances; overdue installments with days overdue | `reports:read` | NOT_IMPLEMENTED |
-| REPORT-005 | Branch and doctor performance | Completed appointments, procedures (count, value), collections per branch; per doctor procedures and value (no commissions) | `reports:read`; doctors own figures | NOT_IMPLEMENTED |
+| REPORT-001 | Revenue and collections | Invoiced (issued) amount; collections by method; refunds; net collections; per branch and day | `reports:read`; `reports:read:daily` for today at own branch | IMPLEMENTED (2026-10-19, E4) |
+| REPORT-002 | Expenses | By category, branch, period, method; collections − expenses (cash basis) | `reports:read` | IMPLEMENTED (2026-10-19, E4) |
+| REPORT-003 | Attendance | Appointments by status; no-show and cancellation rates; by doctor and branch | `reports:read`; doctors `reports:read:own` | IMPLEMENTED (2026-10-19, E4) |
+| REPORT-004 | Outstanding balances | Patients with balances; overdue installments with days overdue | `reports:read` | IMPLEMENTED (2026-10-19, E4) |
+| REPORT-005 | Branch and doctor performance | Completed appointments, procedures (count, value), collections per branch; per doctor procedures and value (no commissions) | `reports:read`; doctors own figures | IMPLEMENTED (2026-10-19, E4) |
 | REPORT-006 | Home screen per role | Receptionist: today's appointments, waiting list, today's collections, cash session state. Doctor: my day, waiting for me, follow-ups due. Owner/accountant: today and month revenue, collections, expenses, outstanding, no-shows | role-based | PARTIALLY_IMPLEMENTED (setup checklist only) |
 
 *Acceptance (all reports):* the totals equal the sum of the underlying records for the same filters (tested with

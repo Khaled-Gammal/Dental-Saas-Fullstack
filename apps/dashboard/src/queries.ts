@@ -3,7 +3,7 @@ import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, CatalogEntry, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
   BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
-  StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
+  ReportBranch, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
 
 /**
@@ -352,3 +352,10 @@ export const useCashHistory = (clinicId: string, branchId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-history', branchId] as const, queryFn: () => api<CashSession[]>(`/cash/sessions?branchId=${branchId}`), enabled: !!branchId });
 export const useCashSession = (clinicId: string, id: string | null) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-session', id] as const, queryFn: () => api<CashSession>(`/cash/sessions/${id}`), enabled: !!id });
+
+// ---------- reports (Phase E4) ----------
+/** Reports are read-only; they refresh when opened again and after any money or expense change (shared prefix). */
+export const useReport = <T,>(clinicId: string, kind: string, q: { from?: string; to?: string; branchId?: string }, enabled = true) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'report', kind, q] as const, queryFn: () => api<T>(`/reports/${kind}${qs(q)}`), enabled });
+export const useReportBranches = (clinicId: string) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'report-branches'] as const, queryFn: () => api<ReportBranch[]>('/reports/branches') });

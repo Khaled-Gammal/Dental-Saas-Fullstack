@@ -404,3 +404,47 @@ export interface CashSession {
 }
 export interface CashDay { business_date: string; session: CashSession | null; earlier_open: CashSession | null; suggested_opening: number | null; totals?: DayTotals }
 export interface CashBranch { id: string; name_ar: string | null; name_en: string | null; is_main: boolean }
+
+// ---------- reports (Phase E4, SRS REPORT-001…005) ----------
+export type ReportName = { name_ar: string | null; name_en: string | null } | null;
+export interface ReportFrame {
+  kind: string; scope: 'all' | 'own' | 'today'; period: { from: string; to: string } | null; today: string; branch_id: string | null; currency: string;
+}
+interface MoneyFigures { invoiced: number; collected: number; refunded: number; net: number; adjusted: number }
+export interface RevenueReport extends ReportFrame {
+  totals: MoneyFigures & { invoices: number; payments: number; refunds: number };
+  by_method: { method: string; collected: number; refunded: number; net: number }[];
+  adjustments: { kind: string; amount: number; n: number }[];
+  by_branch: (MoneyFigures & { branch_id: string; branch: ReportName })[];
+  by_day: (MoneyFigures & { day: string })[];
+}
+interface Amount { amount: number; n: number }
+export interface ExpensesReport extends ReportFrame {
+  totals: { total: number; count: number; approved: number; pending: number; rejected: number; collections_net: number; result: number };
+  by_category: (Amount & { category_id: string; name: string | null })[];
+  by_branch: (Amount & { branch_id: string; branch: ReportName })[];
+  by_method: (Amount & { method: string })[];
+  by_day: (Amount & { day: string })[];
+}
+export interface AttendanceFigures {
+  booked: number; completed: number; attended: number; upcoming: number; cancelled: number; no_show: number; cancellation_rate: number | null; no_show_rate: number | null;
+}
+export interface AttendanceReport extends ReportFrame {
+  totals: AttendanceFigures;
+  by_status: { status: string; n: number }[];
+  by_doctor: (AttendanceFigures & { doctor_id: string; doctor: ReportName })[];
+  by_branch: (AttendanceFigures & { branch_id: string; branch: ReportName })[];
+}
+interface Work { completed: number; procedures: number; procedures_value: number }
+export interface PerformanceReport extends ReportFrame {
+  totals: Work & { collections_net: number | null };
+  by_branch: (Work & { branch_id: string; branch: ReportName; collections_net: number })[] | null;
+  by_doctor: (Work & { doctor_id: string; doctor: ReportName })[];
+}
+export interface OutstandingReport extends ReportFrame {
+  totals: { balance: number; patients: number; invoices: number; overdue: number; overdue_installments: number };
+  patients: { patient_id: string; full_name: string; file_no: number; phone: string | null; balance: number; invoices: number; oldest: string | null; branch_ids: string[] }[];
+  overdue: { installment_id: string; invoice_id: string; number: string | null; branch_id: string; branch: ReportName; patient_id: string; full_name: string; seq: number; due_date: string; remaining: number; days_overdue: number }[];
+  truncated: boolean;
+}
+export interface ReportBranch { id: string; name_ar: string | null; name_en: string | null; is_active: boolean; is_main: boolean }

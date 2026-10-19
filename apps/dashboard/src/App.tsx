@@ -24,6 +24,7 @@ import { DoctorTimeOff } from './screens/calendar/time-off';
 import { Discounts } from './screens/billing/discounts';
 import { CashBox } from './screens/finance/cash';
 import { Expenses } from './screens/finance/expenses';
+import { Reports } from './screens/reports/reports';
 import { InvoicePage } from './screens/billing/invoice';
 import { InvoicesList } from './screens/billing/list';
 import { NewInvoice } from './screens/billing/new';
@@ -187,6 +188,8 @@ function Screen({ route, lang, session }: { route: Route; lang: Lang; session: S
     case 'cash':
       if (!can(session, 'cash:operate')) return <NotFound text={t('noPermissionPage', lang)} back={to.list('overview')} backLabel={t('navOverview', lang)} />;
       return <CashBox lang={lang} clinicId={clinicId} />;
+    case 'reports':
+      return <Reports lang={lang} clinicId={clinicId} session={session} query={route.query} />;
     case 'payments':
       return <ReceiptPrint lang={lang} clinicId={clinicId} id={id} />;
     case 'holidays': return <Holidays lang={lang} clinicId={clinicId} canWrite={settings} />;

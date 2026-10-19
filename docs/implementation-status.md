@@ -3,21 +3,21 @@
 The tracker for every requirement in `docs/SRS.md`. **Where this file and the SRS disagree, this file wins.**
 It is updated at the end of every phase. A status changes only with evidence: code, plus a test that ran and passed.
 
-Last updated: 2026-10-17, end of Phase E3 (reviews in `docs/reviews/`: phase C, D1–D5, E1, E2 and E3 of 2026-10-17).
+Last updated: 2026-10-19, end of Phase E4 (reviews in `docs/reviews/`: phase C, D1–D5, E1, E2, E3 of 2026-10-17 and E4 of 2026-10-19).
 
-## Last verification run (2026-10-17, end of Phase E3)
+## Last verification run (2026-10-19, end of Phase E4)
 
 | Check | Result |
 | --- | --- |
-| Database tests (`pnpm db:test`) | 25 files, **404 checks passed** |
-| API e2e + unit (`pnpm --filter @dental/api test`) | 26 suites, **259 tests passed** |
-| Dashboard unit (vitest) | 67 passed |
+| Database tests (`pnpm db:test`) | 26 files, **428 checks passed** |
+| API e2e + unit (`pnpm --filter @dental/api test`) | 28 suites, **283 tests passed** |
+| Dashboard unit (vitest) | 70 passed |
 | Website unit (vitest) | 20 passed |
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
-| CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4), 39061929809 (`v4/phase-d5-merge`, c687e15), 39064242614 (`v4/phase-e1-billing`, fb47040; the first E1 run failed on an order-dependent test, fixed), 39066575882 (`v4/phase-e2-discounts`, c817d40), 39069462390 (`v4/phase-e3-cash`, ccc0942) |
-| Browser check | **partial** (D4; D5 merge page; E1 and E2 on the demo billing data (`seed:demo-billing`): invoice list, invoice page, A4 printout, discounts queue and role limits, overdue tab, installment invoice): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through. E3: two Chrome browsers were connected, so no browser was driven; the owner used `#/cash` and `#/expenses` on the dev data themselves (opened, recorded a cash expense, closed with a count that matched), and the same data was read back through the API |
+| CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4), 39061929809 (`v4/phase-d5-merge`, c687e15), 39064242614 (`v4/phase-e1-billing`, fb47040; the first E1 run failed on an order-dependent test, fixed), 39066575882 (`v4/phase-e2-discounts`, c817d40), 39069462390 (`v4/phase-e3-cash`, ccc0942). E4 not pushed yet |
+| Browser check | **partial** (D4; D5 merge page; E1 and E2 on the demo billing data (`seed:demo-billing`): invoice list, invoice page, A4 printout, discounts queue and role limits, overdue tab, installment invoice): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through. E3: two Chrome browsers were connected, so no browser was driven; the owner used `#/cash` and `#/expenses` on the dev data themselves (opened, recorded a cash expense, closed with a count that matched), and the same data was read back through the API. E4: `#/reports` driven as the owner on the dev data (all five tabs; read only); phone width not checked |
 
 ## Clinic workflow (SRS §3)
 
@@ -37,8 +37,8 @@ Last updated: 2026-10-17, end of Phase E3 (reviews in `docs/reviews/`: phase C, 
 | 12 | Invoice | IMPLEMENTED (E1, E2) | — |
 | 13 | Payments | IMPLEMENTED (E1, E2, E3) | back-dating a payment (not offered; payments are dated now) |
 | 14 | Follow-up | IMPLEMENTED | — |
-| 15 | Expenses and cash | NOT_IMPLEMENTED | EXP-*, CASH-* |
-| 16 | Reporting | NOT_IMPLEMENTED | REPORT-* |
+| 15 | Expenses and cash | IMPLEMENTED (E3) | expense supporting documents (EXP-001) |
+| 16 | Reporting | IMPLEMENTED (E4) | home screen per role (REPORT-006, Phase F); Excel export (deferred) |
 
 ## Part B — approved new requirements
 
@@ -94,7 +94,7 @@ Last updated: 2026-10-17, end of Phase E3 (reviews in `docs/reviews/`: phase C, 
 | EXP-003 | Expense approval | IMPLEMENTED | E3 | CLR-03: owner/accountant approved on entry; reception cash only ≤ clinic limit (500.00), pending; owner approves/rejects with a note; no self-approval (DB) |
 | EXP-004 | Expense corrections | IMPLEMENTED | E3 | money fields immutable (DB); void with reason, stays listed; status only moves forward |
 | CASH-001…004 | Cash sessions, expected cash, close, reopen | IMPLEMENTED | E3 | CLR-04: one session per branch per business day (`cash:operate`: reception, accountant); expected = opening + cash in − cash refunds − cash expenses, other methods listed apart; a difference needs a note; nothing dated into a closed day (DB, race-safe); owner reopens with a reason, earlier figures kept; `#/cash` |
-| REPORT-001…005 | Reports | NOT_IMPLEMENTED | E | — |
+| REPORT-001…005 | Reports | IMPLEMENTED | E4 | migration 0026 `report_money/expenses/attendance/procedures/outstanding/overdue_installments()` (caller's rights, so RLS and branch access apply); `modules/reports` `GET /reports/{revenue,expenses,attendance,performance,outstanding,branches}`; reception today's revenue only, doctors their own attendance/performance; `#/reports` with A4 print; `25_reports.sql` (fixed data, sums = records, Maadi-only member), `reports.e2e-spec.ts`, `reports-rules.spec.ts` |
 | REPORT-006 | Home per role | PARTIALLY | F | Setup checklist only (`screens/overview.tsx`) |
 | L10N-001 | Arabic only | PARTIALLY | F | Website Arabic-only; dashboard has AR/EN switch (`App.tsx`) |
 | L10N-002 | RTL everywhere | PARTIALLY | F | Website `dir="rtl"`; dashboard follows the switch |
@@ -131,6 +131,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-19 | E4 | Migration 0026 (report functions; system roles get their missing default `reports:*` rights); REPORT-001…005 done. Seed: receptionist reports:read:daily, doctor reports:read:own |
 | 2026-10-17 | E3 | Migration 0025; EXP-002…004, CASH-001…004 done; EXP-001 partial (no supporting document). Seed: receptionist expenses:write:cash + cash:operate, accountant cash:operate. Demo script: E3 block |
 | 2026-10-17 | E2 | Migration 0024; DISC-001…003, PAY-004 (invoices), PAY-006 done. Seed: receptionist discounts:apply. Demo data script `seed:demo-billing` |
 | 2026-10-17 | E1 | Migration 0023; BILLING-001…004, PAY-001/002/003/005 done; BILLING-005 partly. CLR-02, 03, 04, 09, 12, 17 defaults accepted. Seed: receptionist payments:reverse, doctor invoices:read:own |
