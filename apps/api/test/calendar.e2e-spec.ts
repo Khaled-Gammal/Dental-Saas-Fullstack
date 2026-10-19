@@ -39,7 +39,7 @@ describe('Calendar: moves, rooms, holidays, time off, booking rules, my day (e2e
   const token: Record<string, string> = {};
   const http = () => request(app.getHttpServer());
   const as = (who: string) => ({ Authorization: `Bearer ${token[who]}` });
-  const date = farSaturday();
+  let date = farSaturday(); // re-picked in beforeAll until both doctors have a mostly free day
   const made: string[] = [];
   const run = `${Date.now()}`.slice(-6);
 
@@ -59,6 +59,9 @@ describe('Calendar: moves, rooms, holidays, time off, booking rules, my day (e2e
     for (const [who, email] of [['ownerA', 'owner.a@demo.test'], ['receptionA', 'reception.a@demo.test'], ['doctorA', 'doctor.a@demo.test'], ['maadi', 'reception.maadi@demo.test']]) {
       token[who] = (await http().post('/auth/dev-login').send({ email }).expect(201)).body.accessToken;
     }
+    // Other suites book the same seeded doctors on random far Saturdays too; when one lands on ours first (it
+    // depends on the order jest runs files in), the tests below would find too few free slots. Pick a free day.
+    for (let i = 0; i < 20 && ((await slots(MONA)).length < 15 || (await slots(AHMED)).length < 15); i++) date = farSaturday();
   });
   afterAll(async () => {
     for (const id of made) await http().post(`/appointments/${id}/cancel`).set(as('ownerA')).send({ reason: 'e2e cleanup' });
@@ -203,9 +206,14 @@ describe('Calendar: moves, rooms, holidays, time off, booking rules, my day (e2e
       const ahmed = await book(NOUR, AHMED, (await slots(AHMED, day))[1]);
       const ids = async (who: string, mine?: boolean) =>
         (await http().get('/appointments').query({ date: day, ...(mine !== undefined && { mine: String(mine) }) }).set(as(who)).expect(200)).body.appointments.map((x: { id: string }) => x.id);
-      expect(await ids('doctorA', true)).toEqual([mona.id]);
+      // other suites may leave bookings on the same day, so check membership, not the whole list
+      const mineMona = await ids('doctorA', true);
+      expect(mineMona).toContain(mona.id);
+      expect(mineMona).not.toContain(ahmed.id);
       expect(await ids('doctorA')).toEqual(expect.arrayContaining([mona.id, ahmed.id])); // the whole schedule stays readable (CLR-10)
-      expect(await ids('ownerA', true)).toEqual([ahmed.id]); // the owner is Dr Ahmed
+      const mineAhmed = await ids('ownerA', true); // the owner is Dr Ahmed
+      expect(mineAhmed).toContain(ahmed.id);
+      expect(mineAhmed).not.toContain(mona.id);
       expect(await ids('receptionA', true)).toEqual([]);
     });
   });
