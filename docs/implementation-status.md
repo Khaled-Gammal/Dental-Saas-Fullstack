@@ -3,21 +3,21 @@
 The tracker for every requirement in `docs/SRS.md`. **Where this file and the SRS disagree, this file wins.**
 It is updated at the end of every phase. A status changes only with evidence: code, plus a test that ran and passed.
 
-Last updated: 2026-10-19, end of Phase F4 (reviews in `docs/reviews/`: phase C, D1–D5, E1, E2, E3 of 2026-10-17, E4, F1–F4 of 2026-10-19).
+Last updated: 2026-10-19, end of Phase G (final report: `docs/reviews/2026-10-19-phase-g-final.md`).
 
-## Last verification run (2026-10-19, end of Phase F4)
+## Last verification run (2026-10-19, Phase G)
 
 | Check | Result |
 | --- | --- |
 | Database tests (`pnpm db:test`) | 27 files, **431 checks passed** |
 | API e2e + unit (`pnpm --filter @dental/api test`) | 30 suites, **296 tests passed** |
-| Dashboard unit (vitest) | 75 passed |
+| Dashboard unit (vitest) | 17 files, 75 passed |
 | Website unit (vitest) | 23 passed |
 | `pnpm lint` | passed |
 | `pnpm typecheck` | passed |
 | `pnpm build` | passed |
-| CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4), 39061929809 (`v4/phase-d5-merge`, c687e15), 39064242614 (`v4/phase-e1-billing`, fb47040; the first E1 run failed on an order-dependent test, fixed), 39066575882 (`v4/phase-e2-discounts`, c817d40), 39069462390 (`v4/phase-e3-cash`, ccc0942), 39286909563 (`v4/phase-e4-reports`, d113a5d), 39289331406 (`v4/phase-f1-arabic`, 4e3870e), 39291399273 (`v4/phase-f2-arabic-messages`, 1835e68), 39292552125 (`v4/phase-f3-website`, 69e0d88) |
-| Browser check | **partial** (D4; D5 merge page; E1 and E2 on the demo billing data (`seed:demo-billing`): invoice list, invoice page, A4 printout, discounts queue and role limits, overdue tab, installment invoice): the connected Chrome now opens `localhost:5173`. Viewed, signed in as the owner on the dev data: follow-up list, patient profile with the new cards, dental chart (orientation, tooth panel). No records were created (visits and chart entries cannot be deleted). D1–D3 screens and the visit, plan and print pages not yet clicked through. E3: two Chrome browsers were connected, so no browser was driven; the owner used `#/cash` and `#/expenses` on the dev data themselves (opened, recorded a cash expense, closed with a count that matched), and the same data was read back through the API. E4: `#/reports` driven as the owner on the dev data (all five tabs; read only); phone width not checked |
+| CI on GitHub | **success**: runs 39055317969 (D2), 39056413149 (D3), 39060899597 (`v4/phase-d4-clinical`, d6eb1f4), 39061929809 (`v4/phase-d5-merge`, c687e15), 39064242614 (`v4/phase-e1-billing`, fb47040; the first E1 run failed on an order-dependent test, fixed), 39066575882 (`v4/phase-e2-discounts`, c817d40), 39069462390 (`v4/phase-e3-cash`, ccc0942), 39286909563 (`v4/phase-e4-reports`, d113a5d), 39289331406 (`v4/phase-f1-arabic`, 4e3870e), 39291399273 (`v4/phase-f2-arabic-messages`, 1835e68), 39292552125 (`v4/phase-f3-website`, 69e0d88), 39295231986 (`v4/phase-f4-home`, 976427b) |
+| Browser check | **dashboard: done (Phase G)**. 33 screens as the owner at 390 px and 1280 px in a same-origin frame, with scripted checks for overflow, English words and errors. Two fixes (profile and visit overflow at phone width; the bare new-invoice link). No English interface text. Website: pending, after the dev server restart. Paper printing: not verified |
 
 ## Clinic workflow (SRS §3)
 
@@ -97,7 +97,7 @@ Last updated: 2026-10-19, end of Phase F4 (reviews in `docs/reviews/`: phase C, 
 | REPORT-001…005 | Reports | IMPLEMENTED | E4 | migration 0026 `report_money/expenses/attendance/procedures/outstanding/overdue_installments()` (caller's rights, so RLS and branch access apply); `modules/reports` `GET /reports/{revenue,expenses,attendance,performance,outstanding,branches}`; reception today's revenue only, doctors their own attendance/performance; `#/reports` with A4 print; `25_reports.sql` (fixed data, sums = records, Maadi-only member), `reports.e2e-spec.ts`, `reports-rules.spec.ts` |
 | REPORT-006 | Home per role | IMPLEMENTED | F4 | `GET /reports/home` builds only the blocks the member's rights cover (`homeSections`): reception today's appointments, waiting list, collections, cash box; doctor own day, waiting for them, own follow-ups due; owner/accountant today and month (invoiced, net collections, expenses, no-shows) and outstanding/overdue. `screens/home-figures.tsx`; setup checklist only for the owner until done. `reports-rules.spec.ts`, `reports.e2e-spec.ts` (each block equals the matching report) |
 | L10N-001 | Arabic only | IMPLEMENTED | F1/F3 | Dashboard (F1): always Arabic, no switch, no stored language, `arabic-only.test.ts`. Website (F3): the 404 English line and the platform page's English removed, Arabic metadata; `lib/__tests__/arabic.test.ts`. Brand and clinic names may be Latin (owner, 2026-10-19). Left: the English dictionary half in code (L10N-008) |
-| L10N-002 | RTL everywhere | PARTIALLY | F | Website and dashboard always `lang="ar" dir="rtl"` (F1); every screen at phone width still to check (G) |
+| L10N-002 | RTL everywhere | PARTIALLY | F/G | Dashboard: every screen checked at phone and desktop width (G). Website: to check after the dev server restart |
 | L10N-003 | Arabic errors | IMPLEMENTED (dashboard) | F2 | every API error code has an Arabic text (`api-error-codes.test.ts` scans the API source and fails on a code without one); an unknown code shows Arabic for its HTTP status, never the English `detail`; field problems carry the Zod `rule` + limits (`zod-body.pipe.ts`) and read in Arabic (`validation-text.ts`). Website booking messages: F3 |
 | L10N-004 | Arabic emails | IMPLEMENTED | F2 | every email Arabic only (verification and reset codes, booking confirmation and code, clinic notice, reminders, move, invitation); RTL HTML part + plain text (`arabic-mail.ts`, `smtp-email.sender.ts`); one date wording; worker test fails on English |
 | L10N-005 | Currency | IMPLEMENTED | E1/F2/F3 | dashboard follows the clinic currency (F2); the public site payload now carries `currency` and the website prices use it (`formatMoney`, shared) |
@@ -131,6 +131,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-19 | G | Full run (431 DB, 296 API, 75 dashboard, 23 website), browser sweep of 33 dashboard screens at two widths; fixed the profile/visit overflow at phone width and the bare new-invoice link. Final report |
 | 2026-10-19 | F4 | REPORT-006 home per role (`GET /reports/home`, `screens/home-figures.tsx`). No migration. Phase F complete except the optional L10N-008 code cleanup |
 | 2026-10-19 | F3 | Migration 0027 (sites Arabic only). Website: clinic currency on prices, 12-hour Latin-digit times, Arabic booking fallback, no English text; specialty and money and clock helpers shared in `@dental/ui/text` |
 | 2026-10-19 | F2 | Arabic for every API error and validation message (automated check), Arabic-only RTL emails, clinic currency everywhere in the dashboard, 12-hour times, specialty labels shared with the website. No migration |

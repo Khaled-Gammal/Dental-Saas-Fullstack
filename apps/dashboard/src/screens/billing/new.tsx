@@ -9,7 +9,7 @@ import { send, useBillingMutation, useBranches, usePatient, usePatientBilling, u
 import { to } from '../../router';
 import type { InvoiceDetail } from '../../types';
 import { Button, Card, ErrorText, Field, Input, LinkButton, PageHeader } from '../../ui/components';
-import { Breadcrumbs, ResourceState } from '../../ui/page';
+import { Breadcrumbs, NotFound, ResourceState } from '../../ui/page';
 
 type Line = { serviceId: string; description: string; price: string; qty: string };
 
@@ -38,6 +38,8 @@ export function NewInvoice({ lang, clinicId, query }: { lang: Lang; clinicId: st
       ...(l.price.trim() && toMinor(l.price) !== null && { unitPriceMinor: toMinor(l.price) }),
     })),
   }));
+  // an invoice always starts from a patient (their profile or a visit); a bare link says so instead of "not found"
+  if (!patientId) return <NotFound text={t('invoiceNeedsPatient', lang)} back={{ page: 'patients' }} backLabel={t('navPatients', lang)} />;
   if (!patient.data) {
     return <ResourceState isLoading={patient.isLoading} isError={patient.isError} error={patient.error} notFound={!patientId} refetch={() => void patient.refetch()} back={{ page: 'invoices' }} backLabel={t('navBilling', lang)} />;
   }

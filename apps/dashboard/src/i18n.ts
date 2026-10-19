@@ -1121,6 +1121,7 @@ const dict = {
   vf_items: { ar: 'البنود', en: 'Items' },
   vf_installments: { ar: 'الأقساط', en: 'Installments' },
   // home screen per role (Phase F4, REPORT-006)
+  invoiceNeedsPatient: { ar: 'تبدأ الفاتورة من ملف المريض أو من زيارته. افتح ملف المريض ثم اختر «فاتورة جديدة».', en: 'An invoice starts from a patient’s profile or visit. Open the patient, then choose “New invoice”.' },
   homeSub: { ar: 'ملخص يومك في العيادة', en: 'Your day at the clinic' },
   homeTodayAppointments: { ar: 'مواعيد اليوم', en: 'Today’s appointments' },
   homeMyDay: { ar: 'يومي', en: 'My day' },
