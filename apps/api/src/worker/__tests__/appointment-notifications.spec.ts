@@ -30,7 +30,14 @@ describe('appointmentMessages', () => {
   });
   it('times are shown in the branch zone', () => {
     const riyadh = appointmentMessages({ ...base, branch_tz: 'Asia/Riyadh' }, now)[0].body;
-    expect(riyadh).toContain('17:00'); // 14:00Z is 17:00 in Riyadh, 16:00 in Cairo
+    expect(riyadh).toMatch(/5:00 م/); // 14:00Z is 5 pm in Riyadh, 4 pm in Cairo (12-hour clock, CLR-08)
+  });
+  it('emails are Arabic only, with Latin digits (L10N-004, CLR-08)', () => {
+    for (const x of [...appointmentMessages(base, now), ...rescheduleMessages(base, now)]) {
+      // names are data and may be Latin (brand names, CLR-07 note); everything else is Arabic
+      expect(`${x.subject}\n${x.body}`.replaceAll(base.patient_name!, '')).not.toMatch(/[A-Za-z]{2,}/);
+      expect(x.body).not.toMatch(/[٠-٩]/);
+    }
   });
 });
 

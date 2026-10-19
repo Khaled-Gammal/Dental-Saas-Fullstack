@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import type { ApiError } from '../api';
 import { errorText, t } from '../i18n';
+import { fieldIssueText } from '../validation-text';
 import { useLang } from '../lang';
 import { AlertIcon, CheckIcon, EyeIcon, EyeOffIcon, ToothIcon } from './icons';
 export { initials } from '@dental/ui/text';
@@ -118,7 +119,7 @@ export function Alert({ tone = 'danger', children }: { tone?: 'danger' | 'succes
   );
 }
 
-/** Shows an API error in the user's language (known `code`s are translated, others show the server text). */
+/** Shows an API error in Arabic: the code's text, else the status's; field problems by rule (L10N-003). */
 export function ErrorText({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const lang = useLang();
   if (!error) return null;
@@ -126,8 +127,8 @@ export function ErrorText({ error, onRetry }: { error: unknown; onRetry?: () => 
   const code = typeof e.code === 'string' ? e.code : 'error';
   return (
     <Alert>
-      {errorText(code, e.message ?? '', lang)}
-      {e.errors?.length ? <ul>{e.errors.map((x, i) => <li key={`${x.path}-${i}`}>{x.message}</li>)}</ul> : null}
+      {errorText(code, typeof e.status === 'number' ? e.status : undefined, lang)}
+      {e.errors?.length ? <ul>{e.errors.map((x, i) => <li key={`${x.path}-${i}`}>{fieldIssueText(x, lang)}</li>)}</ul> : null}
       {onRetry && <div><LinkButton onClick={onRetry} className="alert-action">{t('retry', lang)}</LinkButton></div>}
     </Alert>
   );

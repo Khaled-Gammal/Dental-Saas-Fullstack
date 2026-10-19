@@ -52,7 +52,7 @@ function MoveBody({ lang, clinicId, appt, doctors, rooms, canOverride }: {
   const slots = useStaffSlots(clinicId, { branchId: appt.branch_id, doctorId, date, durationMinutes: lengthMin, excludeAppointmentId: appt.id });
   const tz = slots.data?.timezone ?? 'Africa/Cairo';
   const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(loc(lang), { timeZone: tz, ...opts }).format(new Date(iso));
-  const fmtTime = (iso: string) => fmt(iso, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const fmtTime = (iso: string) => fmt(iso, { hour: 'numeric', minute: '2-digit', hour12: true });
 
   const startsAt = !canMove ? appt.starts_at
     : override ? (time && /^\d{2}:\d{2}$/.test(time) ? new Date(zonedToUtc(date, time, tz)).toISOString() : '')

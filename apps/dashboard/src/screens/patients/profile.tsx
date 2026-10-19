@@ -125,7 +125,7 @@ function DetailsCard({ lang, p }: { lang: Lang; p: PatientDetail }) {
 }
 
 function VisitsCard({ lang, p }: { lang: Lang; p: PatientDetail }) {
-  const fmt = new Intl.DateTimeFormat(loc(lang), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(loc(lang), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' });
   const now = Date.now();
   return (
     <Card>

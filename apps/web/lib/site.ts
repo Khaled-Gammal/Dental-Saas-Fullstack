@@ -97,13 +97,8 @@ export const NOUNS = {
   minute: { one: 'دقيقة', two: 'دقيقتان', few: 'دقائق', many: 'دقيقة', other: 'دقيقة' },
 } satisfies Record<string, Forms>;
 
-/** Known specialty codes (seeded clinics use codes; clinics may also type free text, which is shown as is). */
-const SPECIALTY_AR: Record<string, string> = {
-  general: 'طب أسنان عام', cosmetic: 'تجميل الأسنان', orthodontics: 'تقويم الأسنان', orthodontic: 'تقويم الأسنان', implants: 'زراعة الأسنان',
-  implant: 'زراعة الأسنان', pediatric: 'أسنان الأطفال', endodontic: 'علاج الجذور', endodontics: 'علاج الجذور', periodontal: 'أمراض اللثة',
-  prosthodontic: 'التركيبات', prosthodontics: 'التركيبات', surgery: 'جراحة الفم', preventive: 'الوقاية', restorative: 'الحشوات والترميم',
-};
-export const specialtyLabel = (code: string) => SPECIALTY_AR[code.trim().toLowerCase()] ?? code.trim();
+/** Specialty codes in Arabic; shared with the dashboard. */
+export { specialtyLabel } from '@dental/ui/text';
 
 /** Service-catalog category -> icon in @dental/ui ICON_PATHS; services added by hand (no category) get the tooth. */
 export const CATEGORY_ICON: Record<string, string> = {

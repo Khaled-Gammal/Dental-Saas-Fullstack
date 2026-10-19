@@ -3,9 +3,10 @@ import { hasPermission } from '../../../auth/permissions';
 import { PatientDirectory } from '../../patients';
 import { Err } from '../../../shared/errors/app-error';
 import { maskEmail } from '../../../shared/mask';
+import { emailWhen } from '../../../shared/notifications/arabic-mail';
 import { EMAIL_SENDER, type EmailSender } from '../../../shared/notifications/ports';
 import { ACTION_TARGET, canTransition, type StaffAction } from '../domain/appointment-status';
-import { dateInZone, dayWindow, endOfDay, safeTimeZone, timeInZone } from '../../../shared/time/clinic-time';
+import { dateInZone, dayWindow, endOfDay, safeTimeZone } from '../../../shared/time/clinic-time';
 import { GetAvailability } from './get-availability.usecase';
 import {
   BOOKING_CODES, CLOCK, SCHEDULING_REPOSITORY,
@@ -135,7 +136,7 @@ export class ManageAppointments {
       if (row.has_code && date !== dateInZone(row.starts_at.getTime(), tz)) {
         const fresh = await this.freshCode(tx, tenantId);
         code = { hash: fresh.hash, expiresAt: new Date(endOfDay(date, tz)) };
-        if (row.patient_email) newCode = { to: row.patient_email, code: fresh.code, when: `${date} ${timeInZone(startsAt.getTime(), tz)}` };
+        if (row.patient_email) newCode = { to: row.patient_email, code: fresh.code, when: emailWhen(startsAt, tz) };
       }
       await this.repo.releaseExpiredHolds(tx, doctorId);
       await this.repo.move(tx, id, {

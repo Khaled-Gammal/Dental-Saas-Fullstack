@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { initials, pickName } from '@dental/ui/text';
+import { initials, pickName, specialtyLabel } from '@dental/ui/text';
 import { api } from '../../api';
 import { ImageField } from '../../components/image-field';
 import { useLeave, useUnsavedChanges } from '../../hooks';
@@ -21,7 +21,7 @@ const EMPTY: Form = { nameAr: '', nameEn: '', titleAr: '', titleEn: '', bioAr: '
 /** `branchIds` is limited to the branches the form shows (active ones), so an unchecked box is never silently kept. */
 const toForm = (d: Doctor, shown: Branch[]): Form => ({
   nameAr: d.name_ar ?? '', nameEn: d.name_en ?? '', titleAr: d.title_ar ?? '', titleEn: d.title_en ?? '', bioAr: d.bio_ar ?? '',
-  specialties: d.specialties.join(', '), branchIds: d.branch_ids.filter((id) => shown.some((b) => b.id === id)),
+  specialties: d.specialties.map(specialtyLabel).join('، '), branchIds: d.branch_ids.filter((id) => shown.some((b) => b.id === id)),
   showOnWebsite: d.show_on_website, acceptsOnlineBooking: d.accepts_online_booking, isActive: d.is_active, photo: d.photo ?? null,
 });
 /** "تقويم، زراعة" or "ortho, implants" -> ['تقويم', 'زراعة']; Arabic and Latin commas both split. */

@@ -4,7 +4,7 @@ import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { navigate } from '../../hooks';
 import { t, type Key, type Lang } from '../../i18n';
-import { money } from '../../money';
+import { currencyLabel, money } from '../../money';
 import { send, useBillingMutation, useInvoice, useServices } from '../../queries';
 import { to } from '../../router';
 import type { InvoiceDetail, InvoiceStatus, Payment, PaymentMethod } from '../../types';
@@ -181,7 +181,7 @@ function PayForm({ lang, clinicId, v }: { lang: Lang; clinicId: string; v: Invoi
               options={open.map((i) => ({ value: i.id, label: `${fmtNumber(i.seq, lang)} · ${i.due_date} · ${money(i.amount_minor - i.paid_minor, lang, v.currency)}` }))} />}
           </Field>
         )}
-        <Field label={`${t('amount', lang)} (${v.currency === 'EGP' ? t('egp', lang) : v.currency})`} hint={`${t(installment ? 'installmentLeft' : 'balance', lang)}: ${money(limit, lang, v.currency)}`}>
+        <Field label={`${t('amount', lang)} (${currencyLabel(lang, v.currency)})`} hint={`${t(installment ? 'installmentLeft' : 'balance', lang)}: ${money(limit, lang, v.currency)}`}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />}
         </Field>
         <Field label={t('paymentMethod', lang)}>

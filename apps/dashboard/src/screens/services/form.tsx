@@ -12,6 +12,7 @@ import type { CatalogEntry, Service } from '../../types';
 import { Card, Field, Input, Switch, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { FormPage, ResourceState } from '../../ui/page';
+import { currencyLabel } from '../../money';
 
 const ERR_KEY: Record<ServiceFieldError, Key> = { name: 'needName', price: 'errPrice', priceMax: 'errPriceMax', duration: 'errDuration' };
 
@@ -73,7 +74,7 @@ function ServiceFormBody({ lang, clinicId, service, catalog }: { lang: Lang; cli
       <Card>
         <h2>{t('secPricing', lang)}</h2>
         <div className="grid-3 mt">
-          <Field label={`${t('price', lang)} (${t('egp', lang)})`} hint={t('priceHint', lang)} error={show('price')}>
+          <Field label={`${t('price', lang)} (${currencyLabel(lang)})`} hint={t('priceHint', lang)} error={show('price')}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.price} onChange={text('price')} inputMode="numeric" dir="ltr" placeholder="0" autoFocus={!!catalog} />}
           </Field>
           <Field label={t('priceMax', lang)} optional={t('optional', lang)} hint={t('priceRangeHint', lang)} error={show('priceMax')}>

@@ -1548,12 +1548,12 @@ fixed data); a branch-limited member never sees another branch's figures.
 - *Acceptance:* every screen checked at phone and desktop widths with no mirrored icons that carry meaning (e.g.
   "next") pointing the wrong way.
 
-**L10N-003 — Arabic errors and validation messages** · PARTIALLY_IMPLEMENTED · Phase F
+**L10N-003 — Arabic errors and validation messages** · IMPLEMENTED (2026-10-19, F2; website booking messages in F3) · Phase F
 - *Description:* Every API error code and every validation failure is shown in Arabic. The API keeps the stable
   English `code` and English `detail` for developers.
 - *Acceptance:* an automated test fails when the API defines an error code that has no Arabic message.
 
-**L10N-004 — Arabic emails** · PARTIALLY_IMPLEMENTED · Phase F
+**L10N-004 — Arabic emails** · IMPLEMENTED (2026-10-19, F2) · Phase F
 - *Description:* Subjects and bodies of every email (verification codes, booking confirmations, reminders,
   invitations, password reset) are Arabic only, RTL in HTML mail, with a plain-text alternative.
 

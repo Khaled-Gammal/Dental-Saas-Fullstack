@@ -4,6 +4,7 @@ import { can, logout, type Session } from '../api';
 import { roleLabel, t, type Key, type Lang } from '../i18n';
 import { Badge, Logo, initials } from '../ui/components';
 import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, ChartIcon, WalletIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { setClinicCurrency } from '../money';
 import { useProfile } from '../queries';
 import { useMediaQuery } from '../hooks';
 import { to, type Page } from '../router';
@@ -59,6 +60,7 @@ export function AppShell({ lang, session, page, children }: {
 
   // the profile query is updated on save, so a renamed clinic shows everywhere at once
   const profile = useProfile(session.clinic.id).data;
+  setClinicCurrency(profile?.currency); // before the screens below render their amounts (idempotent)
   const name = profile ? pickName(lang, profile.nameAr, profile.nameEn, session.clinic.slug) : clinicName(session, lang);
   return (
     <div className={`app${open ? ' nav-open' : ''}`}>

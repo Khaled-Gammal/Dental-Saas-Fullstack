@@ -51,7 +51,7 @@ export function NewAppointment({ lang, clinicId, patientId, canOverride, prefill
 
   const slots = useStaffSlots(clinicId, { branchId: branch, doctorId: doctor, serviceId: service?.id, date });
   const tz = slots.data?.timezone ?? 'Africa/Cairo';
-  const fmtTime = (iso: string) => new Intl.DateTimeFormat(loc(lang), { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+  const fmtTime = (iso: string) => new Intl.DateTimeFormat(loc(lang), { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
 
   const startsAt = override ? (time && /^\d{2}:\d{2}$/.test(time) ? new Date(zonedToUtc(date, time, tz)).toISOString() : '') : slot;
   const minutes = Number(duration);

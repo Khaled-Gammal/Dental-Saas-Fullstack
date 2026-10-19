@@ -13,6 +13,15 @@ export function pickName(lang: 'ar' | 'en', ar: string | null | undefined, en: s
   return (lang === 'ar' ? ar || en : en || ar) || fallback;
 }
 
+/** Known specialty codes (seeded clinics use codes; clinics may also type free text, which is shown as is). */
+const SPECIALTY_AR: Record<string, string> = {
+  general: 'طب أسنان عام', cosmetic: 'تجميل الأسنان', orthodontics: 'تقويم الأسنان', orthodontic: 'تقويم الأسنان', implants: 'زراعة الأسنان',
+  implant: 'زراعة الأسنان', pediatric: 'أسنان الأطفال', endodontic: 'علاج الجذور', endodontics: 'علاج الجذور', periodontal: 'أمراض اللثة',
+  prosthodontic: 'التركيبات', prosthodontics: 'التركيبات', surgery: 'جراحة الفم', preventive: 'الوقاية', restorative: 'الحشوات والترميم',
+};
+/** A doctor's specialty in Arabic: the label of a known code, otherwise the clinic's own text. */
+export const specialtyLabel = (code: string) => SPECIALTY_AR[code.trim().toLowerCase()] ?? code.trim();
+
 /** ٠١٢٣٤٥٦٧٨٩ and ۰۱۲۳۴۵۶۷۸۹ -> 0123456789 (Arabic-Indic and Persian digits). */
 export function toAsciiDigits(v: string): string {
   return v.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));

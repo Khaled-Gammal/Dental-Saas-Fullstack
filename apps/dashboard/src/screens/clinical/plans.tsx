@@ -13,6 +13,7 @@ import { CalendarIcon, PlusIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 import { money } from './money';
+import { currencyLabel } from '../../money';
 
 const TONE: Record<PlanStatus, 'neutral' | 'primary' | 'success' | 'warning'> = {
   draft: 'neutral', proposed: 'warning', accepted: 'primary', in_progress: 'primary', completed: 'success', cancelled: 'neutral',
@@ -195,10 +196,10 @@ function ItemForm({ lang, clinicId, planId, onDone }: { lang: Lang; clinicId: st
         <Field label={t('toothFdi', lang)} optional={t('optional', lang)}>
           {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={tooth} onChange={(e) => setTooth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="36" />}
         </Field>
-        <Field label={`${t('estimatedPrice', lang)} (${t('egp', lang)})`} optional={service?.price_minor ? t('optional', lang) : undefined}>
+        <Field label={`${t('estimatedPrice', lang)} (${currencyLabel(lang)})`} optional={service?.price_minor ? t('optional', lang) : undefined}>
           {(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={service?.price_minor ? String(service.price_minor / 100) : ''} />}
         </Field>
-        <Field label={`${t('estimateDiscount', lang)} (${t('egp', lang)})`} optional={t('optional', lang)} hint={t('discountEstimateHint', lang)}>
+        <Field label={`${t('estimateDiscount', lang)} (${currencyLabel(lang)})`} optional={t('optional', lang)} hint={t('discountEstimateHint', lang)}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value)} />}
         </Field>
       </div>

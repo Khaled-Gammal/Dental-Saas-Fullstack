@@ -4,7 +4,7 @@ import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { t, type Key, type Lang } from '../../i18n';
-import { money } from '../../money';
+import { currencyLabel, money } from '../../money';
 import { send, useBillingMutation } from '../../queries';
 import type { DiscountStatus, DiscountType, InvoiceDetail, InvoiceLine } from '../../types';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton } from '../../ui/components';
@@ -32,7 +32,7 @@ function DiscountForm({ lang, currency, initial, onSave, onClear, pending, error
       <div className="grid-2">
         <Field label={t('discountKind', lang)}>
           {(a) => <Choice id={a.id} lang={lang} value={type} onChange={(v) => setType(v as DiscountType)}
-            options={[{ value: 'percent', label: t('discountPercent', lang) }, { value: 'amount', label: `${t('discountAmount', lang)} (${currency === 'EGP' ? t('egp', lang) : currency})` }]} />}
+            options={[{ value: 'percent', label: t('discountPercent', lang) }, { value: 'amount', label: `${t('discountAmount', lang)} (${currencyLabel(lang, currency)})` }]} />}
         </Field>
         <Field label={type === 'percent' ? t('percentValue', lang) : t('amount', lang)}>
           {(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />}

@@ -1,4 +1,5 @@
 import { sql, type Tx } from '@dental/db';
+import { emailWhen } from '../shared/notifications/arabic-mail';
 import { safeTimeZone } from '../shared/time/clinic-time';
 import type { OutboxHandler } from './outbox-relay';
 
@@ -18,11 +19,8 @@ interface Row {
 
 const pick = (ar: string | null, en: string | null) => ar ?? en ?? '';
 
-function when(at: Date, tz: string) {
-  const f = new Intl.DateTimeFormat('ar-EG', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-  const en = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  return { ar: f.format(at), en: en.format(at) };
-}
+/** Arabic only (L10N-004): one wording for dates, Latin digits, 12-hour clock (CLR-08). */
+const when = (at: Date, tz: string) => ({ ar: emailWhen(at, tz) });
 
 interface Message { recipient: string; subject: string; body: string; dedupe: string; event: string; scheduledAt?: Date }
 
@@ -42,7 +40,7 @@ export function appointmentMessages(a: Row, now: number): Message[] {
     const codeLine = a.has_code ? 'رمز الحضور وصلك في رسالة منفصلة؛ أظهره في الاستقبال.\n' : ''; // staff bookings have no reception code
     out.push({
       event: 'booking.created', recipient: a.patient_email, subject: `${statusAr} – ${clinic}`, dedupe: `booking:${a.id}:patient:email`,
-      body: `${a.patient_name}،\n${statusAr}.\nالموعد: ${at.ar}\nالطبيب: ${doctor}\n${service ? `الخدمة: ${service}\n` : ''}الفرع: ${branch}\n${codeLine}\n${a.status === 'confirmed' ? 'Your appointment is confirmed' : 'Your booking request was received'}: ${at.en} with ${doctor} at ${branch}.`,
+      body: `${a.patient_name}،\n${statusAr}.\nالموعد: ${at.ar}\nالطبيب: ${doctor}\n${service ? `الخدمة: ${service}\n` : ''}الفرع: ${branch}\n${codeLine}`,
     });
   }
   if (a.clinic_email && website) {
@@ -56,7 +54,7 @@ export function appointmentMessages(a: Row, now: number): Message[] {
     if (sendAt <= now || !a.patient_email) continue;
     out.push({
       event: 'appointment.reminder', recipient: a.patient_email, subject: `تذكير بموعدك – ${clinic}`, dedupe: `reminder:${a.id}:${offset}`, scheduledAt: new Date(sendAt),
-      body: `تذكير: موعدك في ${clinic} ${at.ar} مع ${doctor}.\nالفرع: ${branch}\n\nReminder: ${at.en} with ${doctor}, ${clinic}.`,
+      body: `تذكير: موعدك في ${clinic} ${at.ar} مع ${doctor}.\nالفرع: ${branch}`,
     });
   }
   return out;

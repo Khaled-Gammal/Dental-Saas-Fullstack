@@ -4,8 +4,9 @@ import type { RequestMeta } from '../../identity/identity.types';
 import { PatientDirectory } from '../../patients';
 import { Err } from '../../../shared/errors/app-error';
 import { maskEmail } from '../../../shared/mask';
+import { emailWhen } from '../../../shared/notifications/arabic-mail';
 import { EMAIL_SENDER, type EmailSender } from '../../../shared/notifications/ports';
-import { dateInZone, endOfDay, safeTimeZone, timeInZone } from '../../../shared/time/clinic-time';
+import { dateInZone, endOfDay, safeTimeZone } from '../../../shared/time/clinic-time';
 import {
   BOOKING_CODES, CLOCK, HOLD_DETAILS, SCHEDULING_REPOSITORY,
   type AppointmentView, type BookingCodes, type Clock, type HoldDetails, type HoldDetailsStore, type SchedulingRepository, type Session, type TenantScope,
@@ -119,12 +120,12 @@ export class BookOnline {
 
   /** The code is shown on the confirmation screen; the email is a convenience and must never fail the booking. */
   private async emailCode(b: BookingSummary, email: string): Promise<void> {
-    const when = `${dateInZone(b.startsAt.getTime(), b.timezone)} ${timeInZone(b.startsAt.getTime(), b.timezone)}`; // the branch's wall clock
+    const when = emailWhen(b.startsAt, b.timezone); // the branch's wall clock, in Arabic (L10N-004)
     const doctor = b.appointment.doctor.name_ar ?? b.appointment.doctor.name_en ?? '';
     const title = b.status === 'confirmed' ? 'تم تأكيد موعدك' : 'تم استلام طلب الحجز';
     try {
       await this.email.send(email, `${title} – رمز الحضور ${b.code}`,
-        `${title}.\nالموعد: ${when}\nالطبيب: ${doctor}\nرمز الحضور: ${b.code} — أظهره في الاستقبال.\n\n${b.status === 'confirmed' ? 'Your appointment is confirmed' : 'Your booking request was received'}: ${when} with ${doctor}. Reception code: ${b.code}.`);
+        `${title}.\nالموعد: ${when}\nالطبيب: ${doctor}\nرمز الحضور: ${b.code} — أظهره في الاستقبال.`);
     } catch (err) {
       this.logger.error(`Booking code email to ${maskEmail(email)} failed: ${(err as Error).message}`);
     }

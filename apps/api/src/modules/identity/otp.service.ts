@@ -47,7 +47,7 @@ export class OtpService {
   async send(phone: string, purpose: OtpPurpose, meta: RequestMeta, userId?: string): Promise<void> {
     const code = await this.issue(phone, purpose, meta, userId);
     try {
-      await this.sms.send(phone, `رمز التحقق: ${code} — صالح لمدة ${P.ttlMinutes} دقائق. Your code: ${code}`);
+      await this.sms.send(phone, `رمز التحقق: ${code} — صالح لمدة ${P.ttlMinutes} دقائق.`);
     } catch (err) {
       // the code is stored; the user can ask for a resend. Never fail sign-up because SMS is down.
       this.logger.error(`SMS to ${maskPhone(phone)} failed: ${(err as Error).message}`);
@@ -55,11 +55,11 @@ export class OtpService {
   }
 
   /** The same code, delivered by email (sign-up verifies the owner's email; online booking the visitor's). */
-  async sendByEmail(email: string, purpose: OtpPurpose, meta: RequestMeta, subject = 'رمز التحقق | Verification code', userId?: string): Promise<void> {
+  async sendByEmail(email: string, purpose: OtpPurpose, meta: RequestMeta, subject = 'رمز التحقق', userId?: string): Promise<void> {
     const target = email.toLowerCase();
     const code = await this.issue(target, purpose, meta, userId);
     try {
-      await this.email.send(target, subject, `رمز التحقق: ${code}\nصالح لمدة ${P.ttlMinutes} دقائق. إذا لم تطلب هذا الرمز فتجاهل الرسالة.\n\nYour verification code: ${code} (valid ${P.ttlMinutes} minutes).`);
+      await this.email.send(target, subject, `رمز التحقق: ${code}\nصالح لمدة ${P.ttlMinutes} دقائق. إذا لم تطلب هذا الرمز فتجاهل الرسالة.`);
     } catch (err) {
       this.logger.error(`Email code to ${maskEmail(target)} failed: ${(err as Error).message}`);
     }

@@ -1,13 +1,14 @@
 import { API_URL } from './config';
 import { queryClient } from './queryClient';
+import type { FieldIssue } from './validation-text';
 
-/** RFC 9457 error from the API. `code` is stable; `message` is shown to the user. */
+/** RFC 9457 error from the API. `code` is stable; `message` is the English detail for developers (screens show Arabic, L10N-003). */
 export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
     detail: string,
-    public errors?: { path: string; message: string }[],
+    public errors?: FieldIssue[],
     public body: Record<string, unknown> = {},
   ) {
     super(detail);
@@ -122,7 +123,7 @@ export function uploadFile<T>(path: string, file: File, onProgress: (fraction: n
   return (async () => {
     let res = await send(accessToken);
     if (res.status === 401 && (await refreshSession())) res = await send(accessToken);
-    const p = res.body as { code?: string; detail?: string; title?: string; errors?: { path: string; message: string }[] };
+    const p = res.body as { code?: string; detail?: string; title?: string; errors?: FieldIssue[] };
     if (res.status < 200 || res.status >= 300) throw new ApiError(res.status, p.code ?? 'error', p.detail ?? p.title ?? 'Upload failed', p.errors, p as Record<string, unknown>);
     onProgress(1);
     return res.body as T;

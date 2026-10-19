@@ -13,6 +13,7 @@ import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, OtpInp
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { CalendarIcon, CheckIcon, EditIcon } from '../../ui/icons';
 import { fmtNumber, toAsciiDigits } from '../../util';
+import { money } from '../../money';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const ALL = 'all'; // Radix Select cannot carry an empty value
@@ -80,7 +81,7 @@ export function Appointments({ lang, clinicId, canWrite, canOwn, query, defaultV
   const day = useAppointments(clinicId, date, branchId, view === 'mine');
   const queue = waitingList(day.data?.appointments ?? [], Date.now());
   const tz = day.data?.timezone ?? 'Africa/Cairo';
-  const time = (iso: string) => new Intl.DateTimeFormat(locale(lang), { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+  const time = (iso: string) => new Intl.DateTimeFormat(locale(lang), { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
 
   const act = useAppointmentAction(clinicId);
   const [cancelling, setCancelling] = useState<Appointment | null>(null);
@@ -221,7 +222,7 @@ function CheckInPanel({ lang, clinicId, branches, defaultBranch }: { lang: Lang;
         {checkIn.isSuccess && (
           <Alert tone="success">
             {t('checkedInOk', lang)}: <strong><bdi>{checkIn.data.appointment.patient?.full_name}</bdi></strong>
-            {' · '}{t('amountDue', lang)}: <strong>{fmtNumber(checkIn.data.result.amount_due_minor / 100, lang)} {t('egp', lang)}</strong>
+            {' · '}{t('amountDue', lang)}: <strong>{money(checkIn.data.result.amount_due_minor, lang)}</strong>
           </Alert>
         )}
       </form>

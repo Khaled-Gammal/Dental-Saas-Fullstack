@@ -16,6 +16,7 @@ import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 import { ChartCard } from './chart';
 import { money } from './money';
+import { currencyLabel } from '../../money';
 
 const FIELDS: { f: NoteField; key: Key; rows: number }[] = [
   { f: 'chief_complaint', key: 'chiefComplaint', rows: 2 }, { f: 'diagnosis', key: 'diagnosis', rows: 2 },
@@ -244,7 +245,7 @@ function ProcedureForm({ lang, clinicId, v, onDone }: { lang: Lang; clinicId: st
         <Field label={t('toothFdi', lang)} optional={t('optional', lang)}>
           {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={tooth || (item?.tooth_code ? String(item.tooth_code) : '')} onChange={(e) => setTooth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="36" />}
         </Field>
-        <Field label={`${t('price', lang)} (${t('egp', lang)})`} hint={service ? priceHint(service, lang) : undefined}>
+        <Field label={`${t('price', lang)} (${currencyLabel(lang)})`} hint={service ? priceHint(service, lang) : undefined}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)}
             placeholder={item ? String(item.price_minor / 100) : service && service.price_minor ? String(service.price_minor / 100) : ''} />}
         </Field>
