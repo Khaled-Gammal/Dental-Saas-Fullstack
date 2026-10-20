@@ -53,15 +53,19 @@ import { ServicesList } from './screens/services/list';
 import { AppShell } from './screens/shell';
 import { Logo, Spinner } from './ui/components';
 import { NotFound } from './ui/page';
-import { invitationToken, isSignupLink, to, type Route } from './router';
+import { invitationToken, signupLink, to, type Route } from './router';
 
 export function App() {
   const [session, setSessionState] = useState<Session | null>(null);
   const [booting, setBooting] = useState(true);
-  // H7: the landing page links to `#/signup`; the hash is cleared at once so it never outlives the sign-up form
-  const [screen, setScreen] = useState<AuthScreen>(() => (isSignupLink(window.location.hash) ? { name: 'signup' } : { name: 'login' }));
+  // H7: the landing page links to `#/signup` (with a plan for «اشترك الآن»); the hash is cleared at once so it never
+  // outlives the sign-up form
+  const [screen, setScreen] = useState<AuthScreen>(() => {
+    const link = signupLink(window.location.hash);
+    return link ? { name: 'signup', ...link } : { name: 'login' };
+  });
   useEffect(() => {
-    if (!isSignupLink(window.location.hash)) return;
+    if (!signupLink(window.location.hash)) return;
     history.replaceState(null, '', window.location.pathname + window.location.search);
     window.dispatchEvent(new HashChangeEvent('hashchange')); // the page route re-reads the (now empty) hash
   }, []);
@@ -115,7 +119,7 @@ export function App() {
   } else if (!session) {
     view = (
       <AuthLayout>
-        {screen.name === 'signup' ? <Signup go={setScreen} />
+        {screen.name === 'signup' ? <Signup go={setScreen} subscribe={screen.subscribe} />
           : screen.name === 'verify' ? <Verify email={screen.email} masked={screen.maskedEmail} justSent={screen.justSent} back={() => setScreen({ name: 'login' })} />
           : screen.name === 'forgot' ? <Forgot go={setScreen} />
           : screen.name === 'reset' ? <ResetPassword email={screen.email} go={setScreen} />

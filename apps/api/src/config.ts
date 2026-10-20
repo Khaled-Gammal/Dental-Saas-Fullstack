@@ -126,6 +126,7 @@ export const LANDING_POLICY = {
   plansCacheSeconds: 300,
   throttle: { leadIp: [5, 60 * 60], leadPhone: [3, 24 * 60 * 60] },
   notifySubject: 'طلب تواصل جديد من عيادة',
+  subscribeSubject: 'طلب اشتراك من عيادة جديدة',
 } as const;
 
 /** Image uploads: what is accepted and what is produced. */

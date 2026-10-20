@@ -77,6 +77,26 @@ describe('Landing page: plans and the contact form (e2e, Phase H7)', () => {
     expect(((await http().get('/platform/leads').set(admin()).expect(200)).body as unknown[]).length).toBe(before);
   });
 
+  it('«اشترك الآن»: the sign-up names a plan and a cycle; the new clinic is a subscription request in the panel, on its trial', async () => {
+    const stamp = String(Date.now()).slice(-8);
+    const email = `subscribe.${stamp}@demo.test`;
+    const legalIds = (await http().get('/public/legal').expect(200)).body.map((d: { id: string }) => d.id);
+    const base = { fullName: 'د. هالة سمير', email, phone: `011${stamp}`, password: 'Secret123', clinicNameAr: 'عيادة هالة', slug: `sub-${stamp}`, acceptedDocuments: legalIds };
+    expect((await http().post('/auth/signup').send({ ...base, subscribe: { planCode: 'pro', cycle: 'weekly' } }).expect(400)).body.code).toBe('validation_failed');
+    mail.outbox.delete(ADMIN);
+    await http().post('/auth/signup').send({ ...base, subscribe: { planCode: 'basic', cycle: 'yearly' } }).expect(201);
+    const sent = mail.outbox.get(ADMIN);
+    expect(sent?.subject).toBe('طلب اشتراك من عيادة جديدة');
+    expect(sent?.text).toContain('عيادة هالة');
+    expect(sent?.text).toContain('الأساسية');
+    expect(sent?.text).toContain('سنوي');
+    expect(sent?.text).not.toContain(stamp);
+    const lead = ((await http().get('/platform/leads').set(admin()).expect(200)).body as { phone: string }[]).find((l) => l.phone === `+2011${stamp}`);
+    expect(lead).toMatchObject({ kind: 'subscribe', billing_cycle: 'yearly', plan_code: 'basic', email, clinic_name: 'عيادة هالة', status: 'new', clinic_id: expect.any(String) });
+    const clinic = (await http().get(`/platform/clinics/${(lead as unknown as { clinic_id: string }).clinic_id}`).set(admin()).expect(200)).body;
+    expect(clinic).toMatchObject({ slug: `sub-${stamp}`, subscription_status: 'trialing' });
+  });
+
   it('only the platform panel reads requests and moves them along', async () => {
     const owner = (await http().post('/auth/dev-login').send({ email: 'owner.a@demo.test' }).expect(201)).body.accessToken;
     await http().get('/platform/leads').set({ Authorization: `Bearer ${owner}` }).expect(401);

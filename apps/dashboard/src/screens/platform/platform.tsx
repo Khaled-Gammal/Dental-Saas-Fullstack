@@ -336,7 +336,8 @@ function ActivityPage() {
 
 // ---------- H7 requests from the landing page's contact form (LND-04) ----------
 interface Lead {
-  id: string; full_name: string; phone: string; email: string | null; clinic_name: string | null; city: string | null; message: string | null;
+  id: string; kind: 'call' | 'subscribe'; billing_cycle: 'monthly' | 'yearly' | null; clinic_id: string | null;
+  full_name: string; phone: string; email: string | null; clinic_name: string | null; city: string | null; message: string | null;
   source: string | null; status: LeadStatus; plan_code: string | null; plan_name_ar: string | null; created_at: string; updated_at: string;
   updated_by_name: string | null;
 }
@@ -388,6 +389,12 @@ function LeadsPage() {
                       <td>{when(l.created_at)}</td>
                       <td>
                         <strong><bdi>{l.full_name}</bdi></strong>
+                        <span className="block">
+                          <Badge tone={l.kind === 'subscribe' ? 'success' : 'neutral'}>
+                            {l.kind === 'subscribe' ? t('pl_leadKind_subscribe').replace('{cycle}', t(l.billing_cycle === 'yearly' ? 'cycleYearly' : 'cycleMonthly')) : t('pl_leadKind_call')}
+                          </Badge>
+                          {l.clinic_id && <> <a className="small" href={platformHref({ page: 'clinic', id: l.clinic_id })}>{t('pl_openNewClinic')}</a></>}
+                        </span>
                         {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
                         {l.message && <span className="small block" style={{ whiteSpace: 'pre-wrap', maxWidth: 420 }}><bdi>{l.message}</bdi></span>}
                       </td>

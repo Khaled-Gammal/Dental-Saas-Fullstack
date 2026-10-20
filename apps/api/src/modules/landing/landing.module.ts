@@ -10,5 +10,6 @@ import { LandingService } from './landing.service';
 @Module({
   controllers: [PublicLandingController],
   providers: [LandingService, LandingRepository],
+  exports: [LandingService], // sign-up records «اشترك الآن»
 })
 export class LandingModule {}

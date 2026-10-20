@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bestSaving, EMPTY_LEAD, leadBody, leadError, leadProblems, limitLines, looksLikePhone, planPrice, trialDays, yearlySaving, type PublicPlan } from '../landing';
+import { bestSaving, EMPTY_LEAD, subscribeUrl, leadBody, leadError, leadProblems, limitLines, looksLikePhone, planPrice, trialDays, yearlySaving, type PublicPlan } from '../landing';
 import { faqs } from '../landing-content';
 
 const basic: PublicPlan = {
@@ -28,6 +28,12 @@ describe('the pricing table (LND-02)', () => {
     expect(trialDays([basic, { ...pro, trial_days: 30 }])).toBe(30);
     expect(faqs(14)[0].a).toContain('14 يومًا');
     expect(faqs(0).some((q) => q.q.includes('تجربة'))).toBe(false);
+  });
+});
+
+describe('«اشترك الآن»', () => {
+  it('opens the dashboard sign-up with the plan and the cycle shown', () => {
+    expect(subscribeUrl('http://localhost:5173/#/signup', 'pro', 'yearly')).toBe('http://localhost:5173/#/signup?plan=pro&cycle=yearly');
   });
 });
 

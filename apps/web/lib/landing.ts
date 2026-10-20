@@ -76,6 +76,13 @@ export function limitLines(limits: PublicPlan['limits']): string[] {
   ];
 }
 
+/**
+ * «اشترك الآن» (owner, 2026-10-20): the dashboard's sign-up with the plan and billing cycle; the platform admin is told and
+ * activates the subscription after payment. `signupUrl` is the dashboard's `…/#/signup`.
+ */
+export const subscribeUrl = (signupUrl: string, code: string, cycle: Cycle) =>
+  `${signupUrl}?${new URLSearchParams({ plan: code, cycle })}`;
+
 /** The longest free trial among the plans (a new clinic starts on one), or 0. */
 export const trialDays = (plans: PublicPlan[]) => plans.reduce((m, p) => Math.max(m, p.trial_days), 0);
 

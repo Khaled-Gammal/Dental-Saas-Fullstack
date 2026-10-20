@@ -1,14 +1,15 @@
 'use client';
 import { useState } from 'react';
 import { Icon } from '../icons';
-import { bestSaving, limitLines, planPrice, yearlySaving, type Cycle, type PublicPlan } from '../../lib/landing';
+import { bestSaving, limitLines, planPrice, subscribeUrl, yearlySaving, type Cycle, type PublicPlan } from '../../lib/landing';
 
 /** Asks the contact form (lead-form.tsx) to preselect a plan: the two are separate islands on a server-rendered page. */
 export const PICK_PLAN_EVENT = 'landing:plan';
 
 /**
- * LND-02: the plans from the API with a monthly/yearly switch. With three plans or more the middle one is highlighted
- * (the usual choice); with fewer, none is.
+ * LND-02: the plans from the API with a monthly/yearly switch. «اشترك الآن» opens sign-up with the plan and the chosen
+ * cycle (the admin activates it after payment); the free trial and a call request stay one click away. With three
+ * plans or more the middle one is highlighted (the usual choice); with fewer, none is.
  */
 export function Pricing({ plans, signupUrl }: { plans: PublicPlan[]; signupUrl: string }) {
   const [cycle, setCycle] = useState<Cycle>('monthly');
@@ -36,8 +37,9 @@ export function Pricing({ plans, signupUrl }: { plans: PublicPlan[]; signupUrl: 
                 {limitLines(p.limits).map((line) => <li key={line}><Icon name="check" size={16} />{line}</li>)}
               </ul>
               <div className="l-plan-cta">
-                <a className="s-btn" href={signupUrl}>ابدأ التجربة المجانية</a>
-                <a className="s-btn s-btn-ghost" href="#contact" onClick={() => ask(p.code)}>اطلب اتصالًا</a>
+                <a className="s-btn" href={subscribeUrl(signupUrl, p.code, cycle)}>اشترك الآن</a>
+                <a className="s-btn s-btn-ghost" href={signupUrl}>{p.trial_days > 0 ? `جرّبها مجانًا ${p.trial_days} يومًا` : 'ابدأ التجربة المجانية'}</a>
+                <a className="l-plan-link" href="#contact" onClick={() => ask(p.code)}>أو اطلب اتصالًا</a>
               </div>
             </article>
           );

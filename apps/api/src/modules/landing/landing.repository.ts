@@ -7,6 +7,7 @@ export interface PublicPlan {
   limits: Record<string, number | null>;
 }
 export interface LeadRow {
+  kind?: 'call' | 'subscribe'; billing_cycle?: 'monthly' | 'yearly' | null; clinic_id?: string | null;
   full_name: string; phone: string; email: string | null; clinic_name: string | null; city: string | null; message: string | null;
   source: string | null; plan_id: string | null; ip: string | null; user_agent: string | null;
 }

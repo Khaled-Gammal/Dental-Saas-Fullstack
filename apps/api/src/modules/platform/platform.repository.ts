@@ -11,7 +11,7 @@ export interface ClinicRow {
 }
 
 export interface LeadView {
-  id: string; full_name: string; phone: string; email: string | null; clinic_name: string | null; city: string | null; message: string | null;
+  id: string; kind: 'call' | 'subscribe'; billing_cycle: 'monthly' | 'yearly' | null; clinic_id: string | null; full_name: string; phone: string; email: string | null; clinic_name: string | null; city: string | null; message: string | null;
   source: string | null; status: 'new' | 'contacted' | 'converted' | 'lost'; plan_code: string | null; plan_name_ar: string | null;
   created_at: Date; updated_at: Date; updated_by_name: string | null;
 }

@@ -16,10 +16,27 @@ SELECT test.throws($$INSERT INTO leads (full_name, phone) VALUES (' ', '+2010123
 SELECT test.throws($$INSERT INTO leads (full_name, phone, message) VALUES ('سارة', '+201012345678', repeat('x', 2001))$$,
   'leads_message', 'a message is at most 2000 characters');
 
+-- «اشترك الآن»: a subscription request names the new clinic and the billing cycle; a call request has neither
+INSERT INTO leads (kind, full_name, phone, clinic_name, source, plan_id, billing_cycle, clinic_id)
+VALUES ('subscribe', 'سارة علي', '+201087654321', 'عيادة الابتسامة', 'signup', '00000000-0000-0000-0000-00000000a001', 'yearly',
+        '22222222-2222-2222-2222-222222222222');
+SELECT test.ok(true, 'a new clinic is recorded as a subscription request');
+SELECT test.throws($$INSERT INTO leads (kind, full_name, phone, clinic_id) VALUES ('subscribe', 'سارة', '+201012345678', '22222222-2222-2222-2222-222222222222')$$,
+  'leads_subscribe', 'a subscription request has a billing cycle');
+SELECT test.throws($$INSERT INTO leads (full_name, phone, clinic_id) VALUES ('سارة', '+201012345678', '22222222-2222-2222-2222-222222222222')$$,
+  'leads_subscribe', 'a call request is not linked to a clinic');
+SELECT test.throws($$INSERT INTO leads (full_name, phone, billing_cycle) VALUES ('سارة', '+201012345678', 'monthly')$$,
+  'leads_subscribe', 'a call request has no billing cycle');
+SELECT test.throws($$INSERT INTO leads (kind, full_name, phone, billing_cycle, clinic_id) VALUES ('subscribe', 'سارة', '+201012345678', 'weekly', '22222222-2222-2222-2222-222222222222')$$,
+  'leads_billing_cycle', 'monthly or yearly');
+
 -- the panel
 SELECT test.throws($$SELECT * FROM platform_leads('b0000000-0000-0000-0000-0000000000a1')$$, 'not a platform admin', 'a clinic owner does not list leads');
 SELECT test.ok((SELECT plan_code = 'pro' AND status = 'new' FROM platform_leads('b0000000-0000-0000-0000-0000000000f1') WHERE phone = '+201012345678'),
   'an admin lists them, with the plan asked about');
+SELECT test.ok((SELECT kind = 'subscribe' AND billing_cycle = 'yearly' AND clinic_id = '22222222-2222-2222-2222-222222222222' AND plan_code = 'basic'
+                FROM platform_leads('b0000000-0000-0000-0000-0000000000f1') WHERE phone = '+201087654321'),
+  'a subscription request shows its plan, cycle and clinic');
 SELECT platform_set_lead_status('b0000000-0000-0000-0000-0000000000f1',
   (SELECT id FROM platform_leads('b0000000-0000-0000-0000-0000000000f1') WHERE phone = '+201012345678'), 'contacted');
 SELECT test.ok((SELECT status = 'contacted' AND updated_by_name IS NOT NULL FROM platform_leads('b0000000-0000-0000-0000-0000000000f1') WHERE phone = '+201012345678'),

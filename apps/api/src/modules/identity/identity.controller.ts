@@ -25,6 +25,8 @@ const Signup = z.object({
   locale: z.enum(['ar', 'en']).optional(),
   /** H6: the ids of the current Terms, Privacy Policy and DPA the owner accepted (GET /public/legal) */
   acceptedDocuments: z.array(z.string().uuid()).max(10).default([]),
+  /** H7 «اشترك الآن»: the plan and billing cycle picked on the pricing table (recorded for the platform admin) */
+  subscribe: z.object({ planCode: z.string().trim().regex(/^[a-z0-9_-]{1,40}$/), cycle: z.enum(['monthly', 'yearly']) }).strict().optional(),
 });
 const SlugQuery = z.string().trim().toLowerCase().max(63).catch('');
 const Email = z.string().trim().toLowerCase().email().max(200);

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../../auth/auth.module';
 import { LegalModule } from '../legal/legal.module';
+import { LandingModule } from '../landing/landing.module';
 import { Accounts } from './accounts.service';
 import { AuthEventsRepository } from './auth-events.repository';
 import { PasswordResetService } from './password-reset.service';
@@ -19,7 +20,7 @@ import { SignupService } from './signup.service';
  * controllers (HTTP edge) -> services (one use case each) -> repositories (all SQL).
  */
 @Module({
-  imports: [AuthModule, LegalModule],
+  imports: [AuthModule, LegalModule, LandingModule],
   controllers: [IdentityController, DevLoginController],
   providers: [
     SignupService, LoginService, SessionService, OtpService, PasswordResetService, Accounts,

@@ -15,6 +15,8 @@ export interface SignupInput {
   clinicNameEn?: string;
   slug: string;
   locale?: 'ar' | 'en';
+  /** H7 «اشترك الآن» */
+  subscribe?: { planCode: string; cycle: 'monthly' | 'yearly' };
 }
 
 export type OtpPurpose = 'verify_email' | 'verify_phone' | 'login' | 'reset_password' | 'booking';
