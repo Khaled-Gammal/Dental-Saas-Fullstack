@@ -184,4 +184,52 @@ describe('Reports (e2e, Phase E4)', () => {
     expect((await http().get('/reports/revenue?from=2025-01-01&to=2026-05-01').set(as('ownerA')).expect(400)).body.code).toBe('period_too_long');
     await http().get('/reports/revenue?from=yesterday').set(as('ownerA')).expect(400);
   });
+
+  describe('statistics (owner 2026-10-21)', () => {
+    it('owner and accountant only; the month so far against the same days of last month, a point per day', async () => {
+      for (const who of ['receptionA', 'doctorMona']) {
+        expect((await http().get('/reports/stats').set(as(who)).expect(403)).body.code).toBe('missing_permission');
+      }
+      await http().get('/reports/stats').set(as('accountantA')).expect(200);
+      const r = (await http().get('/reports/stats').set(as('ownerA')).expect(200)).body;
+      const first = `${today.slice(0, 8)}01`;
+      expect(r).toMatchObject({ kind: 'stats', scope: 'all', period: { from: first, to: today }, bucket: 'day', currency: 'EGP' });
+      expect(r.previous_period.from.slice(8)).toBe('01');
+      expect(r.series.map((x: { key: string }) => x.key)[0]).toBe(first);
+      expect(r.series).toHaveLength(Number(today.slice(8)));
+      expect(r.outstanding).toEqual(expect.objectContaining({ balance: expect.any(Number), overdue: expect.any(Number) }));
+    });
+
+    it('every figure is the one its own report gives for the same period and branch', async () => {
+      const q = `from=${today.slice(0, 8)}01&to=${today}&branchId=${NASR}`;
+      const [stats, revenue, expenses, attendance] = await Promise.all(['stats', 'revenue', 'expenses', 'attendance']
+        .map(async (k) => (await http().get(`/reports/${k}?${q}`).set(as('ownerA')).expect(200)).body));
+      expect(stats.totals).toMatchObject({
+        invoiced: revenue.totals.invoiced, collections_net: revenue.totals.net, expenses: expenses.totals.total, result: expenses.totals.result,
+        appointments: attendance.totals,
+      });
+      for (const k of ['invoiced', 'collections_net', 'expenses', 'result', 'new_patients']) expect(sum(stats.series, k)).toBe(stats.totals[k]);
+    });
+
+    it('a new patient is counted on their first visit only, in their clinic only', async () => {
+      const q = `/reports/stats?from=${today}&to=${today}`;
+      const before = (await http().get(q).set(as('ownerA')).expect(200)).body.totals.new_patients;
+      const otherClinic = (await http().get(q).set(as('ownerB')).expect(200)).body.totals.new_patients;
+      const patientId = (await http().post('/patients').set(as('receptionA')).send({ fullName: `مريض جديد ${run}`, phone: `0107${run}` }).expect(201)).body.id;
+      expect((await http().get(q).set(as('ownerA')).expect(200)).body.totals.new_patients).toBe(before); // a file alone is not a new patient
+      await http().post('/visits').set(as('doctorMona')).send({ patientId, branchId: NASR }).expect(201);
+      expect((await http().get(q).set(as('ownerA')).expect(200)).body.totals.new_patients).toBe(before + 1);
+      await http().post('/visits').set(as('doctorMona')).send({ patientId, branchId: NASR }).expect(201);
+      expect((await http().get(q).set(as('ownerA')).expect(200)).body.totals.new_patients).toBe(before + 1); // a second visit is not
+      expect((await http().get(q).set(as('ownerB')).expect(200)).body.totals.new_patients).toBe(otherClinic);
+    });
+
+    it('the period and branch are checked like every report', async () => {
+      expect((await http().get('/reports/stats?from=2025-01-01&to=2026-05-01').set(as('ownerA')).expect(400)).body.code).toBe('period_too_long');
+      expect((await http().get('/reports/stats?branchId=d0000000-0000-0000-0000-0000000000b1').set(as('ownerA')).expect(404)).body.code).toBe('branch_not_found');
+      const long = (await http().get('/reports/stats?from=2026-01-01&to=2026-06-30').set(as('ownerA')).expect(200)).body;
+      expect(long).toMatchObject({ bucket: 'month', previous_period: { from: '2025-07-04', to: '2025-12-31' } });
+      expect(long.series.map((x: { key: string }) => x.key)).toEqual(['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06']);
+    });
+  });
 });
