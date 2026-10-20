@@ -26,7 +26,6 @@ export const VoidExpense = z.object({ reason: Reason }).strict();
 
 export const NewCategory = z.object({ name: z.string().trim().min(2).max(80) }).strict();
 export const EditCategory = z.object({ name: z.string().trim().min(2).max(80), isActive: z.boolean() }).partial().strict();
-export const ExpenseSettings = z.object({ receptionLimitMinor: z.number().int().min(0).max(100_000_000) }).strict();
 
 /** CASH-001…004 */
 export const CashQuery = z.object({ branchId: Uuid }).strict();

@@ -25,7 +25,7 @@ const NAV: NavItem[] = [
   { key: 'navBilling', icon: <ReceiptIcon />, page: 'invoices', perm: 'invoices:read' },
   { key: 'navDiscounts', icon: <TagIcon />, page: 'discounts', perm: 'discounts:approve' },
   { key: 'navCash', icon: <CashIcon />, page: 'cash', perm: 'cash:operate' },
-  { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses', perm: ['expenses:read', 'expenses:write', 'expenses:write:cash'] },
+  { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses', perm: ['expenses:read'] },
   { key: 'navReports', icon: <ChartIcon />, page: 'reports', perm: ['reports:read', 'reports:read:daily', 'reports:read:own'] },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
   { key: 'navWebsite', icon: <GlobeIcon /> },

@@ -3,35 +3,17 @@
 export const EXPENSE_METHODS = ['cash', 'card', 'bank_transfer', 'wallet', 'instapay'] as const;
 export type ExpenseMethod = (typeof EXPENSE_METHODS)[number];
 
-export type EntryDecision =
-  | { status: 'approved' | 'pending' }
-  | { error: 'missing_permission' | 'cash_only' | 'over_reception_limit' };
+// Expenses are the owner's and the accountant's (`expenses:write`, owner 2026-10-20; reception records none). Their
+// expenses are approved on entry (CLR-03); "pending" remains only on expenses reception recorded before that.
 
-/**
- * CLR-03: the owner and the accountant (`expenses:write`) record any expense, approved on entry. A receptionist
- * (`expenses:write:cash`) records cash expenses only, up to the clinic's limit, and they wait for the owner.
- */
-export function expenseEntry(rights: { full: boolean; cash: boolean }, e: { method: ExpenseMethod; amountMinor: number }, receptionLimitMinor: number): EntryDecision {
-  if (rights.full) return { status: 'approved' };
-  if (!rights.cash) return { error: 'missing_permission' };
-  if (e.method !== 'cash') return { error: 'cash_only' };
-  if (e.amountMinor > receptionLimitMinor) return { error: 'over_reception_limit' };
-  return { status: 'pending' };
+/** EXP-004: a recorded expense is voided, never edited (by a member with expenses:write). */
+export function canVoid(e: { status: string }): boolean {
+  return e.status !== 'void';
 }
 
-/** EXP-004: a recorded expense is voided, never edited — by a full writer, or by its author while it still waits. */
-export function canVoid(rights: { full: boolean }, e: { status: string; created_by: string | null }, memberId: string): boolean {
-  if (e.status === 'void') return false;
-  return rights.full || (e.status === 'pending' && e.created_by === memberId);
-}
-
-/**
- * EXP-001 (H2): the supporting document is attached once, while the expense is not void, by whoever may record any
- * expense (expenses:write) or by the member who recorded this one (reception's receipt arriving later).
- */
-export function canAttachDocument(rights: { full: boolean }, e: { status: string; created_by: string | null; file_id: string | null }, memberId: string): boolean {
-  if (e.status === 'void' || e.file_id) return false;
-  return rights.full || e.created_by === memberId;
+/** EXP-001 (H2): the supporting document is attached once, while the expense is not void (by a member with expenses:write). */
+export function canAttachDocument(e: { status: string; file_id: string | null }): boolean {
+  return e.status !== 'void' && !e.file_id;
 }
 
 export interface DayTotals {

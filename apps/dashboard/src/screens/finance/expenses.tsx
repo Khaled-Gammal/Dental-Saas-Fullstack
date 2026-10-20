@@ -1,13 +1,13 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { arName } from '@dental/ui/text';
 import { uploadFile } from '../../api';
-import { toMinor, toPounds } from '../../clinical-model';
+import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { EXPENSE_METHODS, localToday, monthOf, needsReference } from '../../finance-model';
 import { t, type Key } from '../../i18n';
 import { money } from '../../money';
-import { send, useCashBranches, useExpenseCategories, useExpenses, useExpenseSettings, useFinanceMutation, usePendingExpenses } from '../../queries';
+import { send, useCashBranches, useExpenseCategories, useExpenses, useFinanceMutation, usePendingExpenses } from '../../queries';
 import type { Expense, ExpenseStatus, PaymentMethod } from '../../types';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, PageHeader, Skeleton, Switch } from '../../ui/components';
@@ -18,12 +18,12 @@ const FILTERS = ['all', 'pending', 'approved', 'rejected', 'void'] as const;
 const DOC_MAX_BYTES = 20 * 1024 * 1024; // same cap as the API (EXPENSE_FILE_POLICY)
 const DOC_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
 
-export interface ExpenseRights { all: boolean; cash: boolean; read: boolean; approve: boolean }
+export interface ExpenseRights { all: boolean; read: boolean; approve: boolean }
 
 /**
- * `#/expenses` (SRS EXP-001…004, CLR-03): the owner and the accountant record any expense, approved on entry;
- * reception records cash expenses up to the clinic's limit, which wait for the owner. Wrong ones are voided with a
- * reason and stay listed. The owner also keeps the categories and the reception limit here.
+ * `#/expenses` (SRS EXP-001…004, CLR-03): the owner's and the accountant's (reception has no access, owner
+ * 2026-10-20). They record any expense, approved on entry; wrong ones are voided with a reason and stay listed.
+ * Expenses reception recorded before still wait for the owner here. The owner also keeps the categories.
  */
 export function Expenses({ clinicId, rights }: { clinicId: string; rights: ExpenseRights }) {
   const [period, setPeriod] = useState(() => monthOf(localToday()));
@@ -33,9 +33,9 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
   const list = useExpenses(clinicId, { ...period, status: status === 'all' ? undefined : status });
   return (
     <>
-      <PageHeader title={t('navExpenses')} sub={t(rights.all ? 'expensesSub' : 'expensesSubReception')}
-        action={!adding && <Button onClick={() => { setAdding(true); setDocFailed(false); }}>{t('recordExpense')}</Button>} />
-      {adding && <ExpenseForm clinicId={clinicId} rights={rights} onDone={(failed) => { setAdding(false); setDocFailed(failed); }} />}
+      <PageHeader title={t('navExpenses')} sub={t('expensesSub')}
+        action={rights.all && !adding && <Button onClick={() => { setAdding(true); setDocFailed(false); }}>{t('recordExpense')}</Button>} />
+      {adding && <ExpenseForm clinicId={clinicId} onDone={(failed) => { setAdding(false); setDocFailed(failed); }} />}
       {docFailed && <Alert tone="info">{t('expenseSavedNoDocument')}</Alert>}
       {rights.approve && <PendingExpenses clinicId={clinicId} />}
       <Card>
@@ -77,7 +77,7 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
 }
 
 /** `onDone(true)`: the expense was saved but its document did not upload (it can be attached from the list). */
-function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: ExpenseRights; onDone: (documentFailed: boolean) => void }) {
+function ExpenseForm({ clinicId, onDone }: { clinicId: string; onDone: (documentFailed: boolean) => void }) {
   const branches = useCashBranches(clinicId);
   const categories = useExpenseCategories(clinicId);
   const today = localToday();
@@ -93,7 +93,6 @@ function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: E
   const list = branches.data ?? [];
   const branch = branchId || (list.length === 1 ? list[0].id : '');
   const minor = toMinor(amount);
-  const methods = rights.all ? EXPENSE_METHODS : (['cash'] as PaymentMethod[]);
   const tooBig = !!file && file.size > DOC_MAX_BYTES;
   // the expense first, then its document: a failed upload never loses the expense (and never records it twice)
   const save = useFinanceMutation(clinicId, async () => {
@@ -108,7 +107,6 @@ function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: E
   return (
     <Card as="form" className="stack">
       <h2>{t('recordExpense')}</h2>
-      {!rights.all && <Alert tone="info">{t('receptionExpenseNote')}</Alert>}
       <div className="grid-2">
         <Field label={t('branch')}>
           {(a) => <Choice id={a.id} value={branch} onChange={setBranchId} placeholder={t('pickBranch')}
@@ -120,8 +118,8 @@ function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: E
         </Field>
         <Field label={t('amount')}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={!!amount && minor === null} />}</Field>
         <Field label={t('paymentMethod')}>
-          {(a) => <Choice id={a.id} value={method} onChange={(x) => setMethod(x as PaymentMethod)} disabled={methods.length === 1}
-            options={methods.map((x) => ({ value: x, label: t(`pm_${x}` as Key) }))} />}
+          {(a) => <Choice id={a.id} value={method} onChange={(x) => setMethod(x as PaymentMethod)}
+            options={EXPENSE_METHODS.map((x) => ({ value: x, label: t(`pm_${x}` as Key) }))} />}
         </Field>
         {method !== 'cash' && (
           <Field label={t('paymentReference')} optional={needsReference(method) ? undefined : t('optional')} hint={t(`refHint_${method}` as Key)}>
@@ -146,9 +144,9 @@ function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: E
 
 function ExpenseRow({ clinicId, e, rights }: { clinicId: string; e: Expense; rights: ExpenseRights }) {
   const [voiding, setVoiding] = useState(false);
-  const canVoid = e.status !== 'void' && (rights.all || (!rights.read && e.status === 'pending'));
-  // as the API's canAttachDocument: once, not void; anyone who records any expense, or reception for what it recorded (all it sees)
-  const canAttach = !e.document && e.status !== 'void' && (rights.all || (rights.cash && !rights.read));
+  // as the API: expenses:write voids, and attaches the document once; nothing on a void expense
+  const canVoid = rights.all && e.status !== 'void';
+  const canAttach = rights.all && !e.document && e.status !== 'void';
   return (
     <li>
       <span>
@@ -257,31 +255,15 @@ function PendingRow({ clinicId, e }: { clinicId: string; e: Expense }) {
   );
 }
 
-/** EXP-002 and CLR-03: the owner's categories (renamed or deactivated, never deleted) and the reception limit. */
+/** EXP-002: the owner's categories (renamed or deactivated, never deleted). */
 function ExpenseSettingsCard({ clinicId }: { clinicId: string }) {
   const categories = useExpenseCategories(clinicId);
-  const settings = useExpenseSettings(clinicId);
   const [name, setName] = useState('');
-  const [limit, setLimit] = useState<string | null>(null);
   const add = useFinanceMutation(clinicId, () => send('/expenses/categories', 'POST', { name: name.trim() }));
   const toggle = useFinanceMutation(clinicId, (v: { id: string; isActive: boolean }) => send(`/expenses/categories/${v.id}`, 'PATCH', { isActive: v.isActive }));
-  const limitText = limit ?? (settings.data ? toPounds(settings.data.receptionLimitMinor) : '');
-  const limitMinor = toMinor(limitText);
-  const saveLimit = useFinanceMutation(clinicId, () => send('/expenses/settings', 'PATCH', { receptionLimitMinor: limitMinor }));
   return (
     <Card>
-      <h2>{t('expenseSettings')}</h2>
-      <Field label={t('receptionLimit')} hint={t('receptionLimitHint')}>
-        {(a) => (
-          <div className="row-start">
-            <Input id={a.id} describedBy={a.describedBy} className="input-sm" dir="ltr" inputMode="decimal" value={limitText} onChange={(e) => setLimit(e.target.value)} invalid={limitMinor === null} />
-            <Button variant="secondary" disabled={limitMinor === null || limitMinor === settings.data?.receptionLimitMinor} loading={saveLimit.isPending}
-              onClick={() => saveLimit.mutate(undefined, { onSuccess: () => setLimit(null) })}>{t('save')}</Button>
-          </div>
-        )}
-      </Field>
-      <ErrorText error={saveLimit.error} />
-      <h3 className="mt">{t('expenseCategories')}</h3>
+      <h2>{t('expenseCategories')}</h2>
       {categories.data && (
         <ul className="line-list mt-sm">
           {categories.data.map((c) => (

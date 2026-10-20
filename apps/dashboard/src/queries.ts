@@ -343,8 +343,6 @@ export const usePendingExpenses = (clinicId: string, enabled = true) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', 'pending'] as const, queryFn: () => api<Expense[]>('/expenses/pending'), enabled, staleTime: 4 * 60_000, refetchInterval: 4 * 60_000 });
 export const useExpenseCategories = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'categories'] as const, queryFn: () => api<ExpenseCategory[]>('/expenses/categories') });
-export const useExpenseSettings = (clinicId: string, enabled = true) =>
-  useQuery({ queryKey: [...financeKeys.all(clinicId), 'settings'] as const, queryFn: () => api<{ receptionLimitMinor: number }>('/expenses/settings'), enabled });
 export const useCashBranches = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-branches'] as const, queryFn: () => api<CashBranch[]>('/cash/branches') });
 export const useCashDay = (clinicId: string, branchId: string) =>

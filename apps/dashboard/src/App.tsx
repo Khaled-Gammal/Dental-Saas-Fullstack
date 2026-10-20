@@ -176,8 +176,8 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (!can(session, 'discounts:approve')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
       return <Discounts clinicId={clinicId} canSetLimits={can(session, 'staff:manage')} />;
     case 'expenses': {
-      const rights = { all: can(session, 'expenses:write'), cash: can(session, 'expenses:write:cash'), read: can(session, 'expenses:read'), approve: can(session, 'expenses:approve') };
-      if (!rights.read && !rights.all && !rights.cash) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      const rights = { all: can(session, 'expenses:write'), read: can(session, 'expenses:read'), approve: can(session, 'expenses:approve') };
+      if (!rights.read) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
       return <Expenses clinicId={clinicId} rights={rights} />;
     }
     case 'cash':

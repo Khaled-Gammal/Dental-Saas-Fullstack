@@ -28,11 +28,10 @@ describe('Finance: expenses and the daily cash box (e2e, Phase E3)', () => {
       ['maadi', 'reception.maadi@demo.test'], ['doctorA', 'doctor.a@demo.test']]) {
       token[who] = (await http().post('/auth/dev-login').send({ email }).expect(201)).body.accessToken;
     }
-    const cats = (await http().get('/expenses/categories').set(as('receptionA')).expect(200)).body;
+    const cats = (await http().get('/expenses/categories').set(as('accountantA')).expect(200)).body;
     supplies = cats.find((c: { key: string }) => c.key === 'supplies').id;
   });
   afterAll(async () => {
-    await http().patch('/expenses/settings').set(as('ownerA')).send({ receptionLimitMinor: 50000 });
     await app.close();
   });
 
@@ -60,36 +59,27 @@ describe('Finance: expenses and the daily cash box (e2e, Phase E3)', () => {
       await http().post('/expenses').set(as('doctorA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 1000, method: 'cash' }).expect(403);
     });
 
-    it('reception records cash only, up to the limit, and waits for the owner, who never approves their own', async () => {
-      expect((await http().post('/expenses').set(as('receptionA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 1000, method: 'card' }).expect(403)).body.code).toBe('cash_only');
-      expect((await http().post('/expenses').set(as('receptionA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 50001, method: 'cash' }).expect(400)).body)
-        .toMatchObject({ code: 'over_reception_limit', limit: 50000 });
-      const e = (await http().post('/expenses').set(as('receptionA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 30000, method: 'cash', description: `قفازات ${run}` }).expect(201)).body;
-      expect(e).toMatchObject({ status: 'pending', can: { decide: false, void: true } });
-      await http().post(`/expenses/${e.id}/approve`).set(as('receptionA')).send({}).expect(403);
-      await http().post(`/expenses/${e.id}/approve`).set(as('accountantA')).send({}).expect(403); // CLR-03: the accountant does not approve
-      expect((await http().get('/expenses/pending').set(as('ownerA')).expect(200)).body.map((x: { id: string }) => x.id)).toContain(e.id);
-      const ok = (await http().post(`/expenses/${e.id}/approve`).set(as('ownerA')).send({ note: 'تمام' }).expect(200)).body;
-      expect(ok).toMatchObject({ status: 'approved', approved_by_name: 'Dr. Ahmed Salah', decision_note: 'تمام' });
+    it('reception has no expense access: bookings, patients and patient payments only (owner 2026-10-20)', async () => {
+      for (const who of ['receptionA', 'maadi']) {
+        expect((await http().get('/expenses').set(as(who)).expect(403)).body.code).toBe('missing_permission');
+        await http().get('/expenses/categories').set(as(who)).expect(403);
+        await http().post('/expenses').set(as(who)).send({ branchId: NASR, categoryId: supplies, amountMinor: 100, method: 'cash' }).expect(403);
+      }
+      const e = (await http().post('/expenses').set(as('accountantA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 3000, method: 'cash', description: `قفازات ${run}` }).expect(201)).body;
+      await http().get(`/expenses/${e.id}`).set(as('receptionA')).expect(403);
+      await http().post(`/expenses/${e.id}/void`).set(as('receptionA')).send({ reason: 'خطأ في المبلغ' }).expect(403);
+      // nothing new waits for approval: the owner's and the accountant's expenses are approved on entry; the
+      // accountant never approves (CLR-03), and an approved one is not decided again
+      expect(e).toMatchObject({ status: 'approved', can: { decide: false, void: true, attach: true } });
+      await http().post(`/expenses/${e.id}/approve`).set(as('accountantA')).send({}).expect(403);
       expect((await http().post(`/expenses/${e.id}/approve`).set(as('ownerA')).send({}).expect(409)).body.code).toBe('expense_not_pending');
-      // reception lists only what it recorded
-      const seen = (await http().get('/expenses').set(as('receptionA')).expect(200)).body;
-      expect(seen.byCategory).toBeNull();
-      expect(seen.items.every((x: { created_by_name: string }) => x.created_by_name === 'Sara Mohamed')).toBe(true);
-      // the owner's own expense is approved on entry, so self-approval never arises; the limit is a setting
-      await http().patch('/expenses/settings').set(as('accountantA')).send({ receptionLimitMinor: 0 }).expect(403);
-      await http().patch('/expenses/settings').set(as('ownerA')).send({ receptionLimitMinor: 0 }).expect(200);
-      expect((await http().post('/expenses').set(as('receptionA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 100, method: 'cash' }).expect(400)).body.code)
-        .toBe('over_reception_limit');
-      await http().patch('/expenses/settings').set(as('ownerA')).send({ receptionLimitMinor: 50000 }).expect(200);
+      // the old reception limit setting is gone
+      await http().patch('/expenses/settings').set(as('ownerA')).send({ receptionLimitMinor: 0 }).expect(404);
     });
 
     it('a wrong expense is voided with a reason and stays visible (EXP-004)', async () => {
       const e = (await http().post('/expenses').set(as('ownerA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 7000, method: 'cash' }).expect(201)).body;
       await http().post(`/expenses/${e.id}/void`).set(as('ownerA')).send({}).expect(400);
-      const pendingByReception = (await http().post('/expenses').set(as('receptionA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 500, method: 'cash' }).expect(201)).body;
-      await http().post(`/expenses/${e.id}/void`).set(as('receptionA')).send({ reason: 'خطأ في المبلغ' }).expect(404); // not theirs: not even seen
-      await http().post(`/expenses/${pendingByReception.id}/void`).set(as('receptionA')).send({ reason: 'سجلته مرتين' }).expect(200);
       const v = (await http().post(`/expenses/${e.id}/void`).set(as('accountantA')).send({ reason: 'خطأ في المبلغ' }).expect(200)).body;
       expect(v).toMatchObject({ status: 'void', void_reason: 'خطأ في المبلغ', voided_by_name: 'Mahmoud Ibrahim' });
       expect((await http().post(`/expenses/${e.id}/void`).set(as('accountantA')).send({ reason: 'مرة أخرى' }).expect(409)).body.code).toBe('expense_void');
@@ -99,15 +89,15 @@ describe('Finance: expenses and the daily cash box (e2e, Phase E3)', () => {
 
     it('the supporting document: private, checked by its bytes, attached once, opened by a short link (EXP-001, H2)', async () => {
       const PDF = Buffer.from('%PDF-1.7\n% receipt\n');
-      const e = (await http().post('/expenses').set(as('receptionA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 900, method: 'cash', description: `إيصال ${run}` }).expect(201)).body;
+      const e = (await http().post('/expenses').set(as('accountantA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 900, method: 'cash', description: `إيصال ${run}` }).expect(201)).body;
       expect(e).toMatchObject({ document: null, can: { attach: true } });
-      // only PDF and images, by their bytes; nobody without expense rights; nobody who cannot see the expense
-      expect((await http().post(`/expenses/${e.id}/document`).set(as('receptionA')).attach('file', Buffer.from('<html><script>alert(1)</script></html>'), 'r.pdf').expect(400)).body.code)
+      // only PDF and images, by their bytes; nobody without expenses:write (reception, doctors)
+      expect((await http().post(`/expenses/${e.id}/document`).set(as('accountantA')).attach('file', Buffer.from('<html><script>alert(1)</script></html>'), 'r.pdf').expect(400)).body.code)
         .toBe('unsupported_file_type');
       expect((await http().post(`/expenses/${e.id}/document`).set(as('doctorA')).attach('file', PDF, 'r.pdf').expect(403)).body.code).toBe('missing_permission');
-      expect((await http().post(`/expenses/${e.id}/document`).set(as('maadi')).attach('file', PDF, 'r.pdf').expect(404)).body.code).toBe('expense_not_found');
-      // the receptionist attaches the receipt that came later, once
-      const withDoc = (await http().post(`/expenses/${e.id}/document`).set(as('receptionA')).attach('file', PDF, { filename: 'receipt.pdf', contentType: 'application/pdf' }).expect(200)).body;
+      expect((await http().post(`/expenses/${e.id}/document`).set(as('receptionA')).attach('file', PDF, 'r.pdf').expect(403)).body.code).toBe('missing_permission');
+      // the receipt that came later is attached, once
+      const withDoc = (await http().post(`/expenses/${e.id}/document`).set(as('accountantA')).attach('file', PDF, { filename: 'receipt.pdf', contentType: 'application/pdf' }).expect(200)).body;
       expect(withDoc).toMatchObject({ document: { mime_type: 'application/pdf', size_bytes: PDF.length }, can: { attach: false } });
       expect((await http().post(`/expenses/${e.id}/document`).set(as('ownerA')).attach('file', PDF, 'again.pdf').expect(409)).body.code).toBe('expense_has_document');
       // the link opens without a session, for 5 minutes, for that member only, and never as a clinical file
@@ -163,7 +153,7 @@ describe('Finance: expenses and the daily cash box (e2e, Phase E3)', () => {
       const before = (await http().get(`/cash/sessions/${sessionId}`).set(as('maadi')).expect(200)).body;
       await pay(50000, 'cash').expect(201);
       await pay(20000, 'card').expect(201);
-      await http().post('/expenses').set(as('maadi')).send({ branchId: MAADI, categoryId: supplies, amountMinor: 10000, method: 'cash', description: 'بنزين' }).expect(201);
+      await http().post('/expenses').set(as('accountantA')).send({ branchId: MAADI, categoryId: supplies, amountMinor: 10000, method: 'cash', description: 'بنزين' }).expect(201);
       const after = (await http().get(`/cash/sessions/${sessionId}`).set(as('maadi')).expect(200)).body;
       expect(after.expected_minor - before.expected_minor).toBe(40000);
       expect((after.totals.payments.card ?? 0) - (before.totals.payments.card ?? 0)).toBe(20000);
@@ -177,7 +167,7 @@ describe('Finance: expenses and the daily cash box (e2e, Phase E3)', () => {
       expect(closed).toMatchObject({ status: 'closed', difference_minor: -1000, closed_by_name: 'Hala Fathy', can: { close: false, reopen: false } });
 
       expect((await pay(100, 'cash').expect(409)).body.code).toBe('session_closed');
-      expect((await http().post('/expenses').set(as('maadi')).send({ branchId: MAADI, categoryId: supplies, amountMinor: 100, method: 'cash' }).expect(409)).body.code).toBe('session_closed');
+      expect((await http().post('/expenses').set(as('accountantA')).send({ branchId: MAADI, categoryId: supplies, amountMinor: 100, method: 'cash' }).expect(409)).body.code).toBe('session_closed');
       expect((await http().post(`/cash/sessions/${sessionId}/close`).set(as('maadi')).send({ countedMinor: 0 }).expect(409)).body.code).toBe('session_closed');
 
       await http().post(`/cash/sessions/${sessionId}/reopen`).set(as('maadi')).send({ reason: 'إيصال لم يسجل' }).expect(403);

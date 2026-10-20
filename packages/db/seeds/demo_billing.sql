@@ -153,14 +153,16 @@ END $demo2$;
 
 -- Phase E3: expenses and the cash box. Yesterday's cash day at Nasr City was opened with 1,000, paid 150 in cash
 -- for supplies and was closed 20 short (with a note); today is left unopened, so opening it proposes 830.
--- Today: the rent by bank transfer and a voided entry (owner), two small cash expenses by Sara — one approved by
--- the owner, one still waiting. Expenses and cash days are never deleted (by design); voiding is the correction.
+-- Reception (Sara) runs the cash box; expenses are the owner's and the accountant's (owner 2026-10-20), approved on
+-- entry. Today: the rent by bank transfer and a voided entry (owner), two small cash expenses by the accountant.
+-- Expenses and cash days are never deleted (by design); voiding is the correction.
 DO $demo3$
 DECLARE
   t     constant uuid := '11111111-1111-1111-1111-111111111111';
   nasr  constant uuid := 'd0000000-0000-0000-0000-0000000000a1';
   sara  constant uuid := 'c0000000-0000-0000-0000-0000000000a2';
   owner constant uuid := 'c0000000-0000-0000-0000-0000000000a1';
+  acct  constant uuid := 'c0000000-0000-0000-0000-0000000000a5';   -- Mahmoud, the accountant
   today date := business_date(now(), '11111111-1111-1111-1111-111111111111');
   supplies uuid; rent uuid; maint uuid; s uuid; e uuid; totals jsonb; expected bigint;
 BEGIN
@@ -179,8 +181,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM cash_sessions WHERE branch_id = nasr AND (status = 'open' OR business_date = today - 1)) THEN
   INSERT INTO cash_sessions (tenant_id, branch_id, business_date, currency, opening_minor, opened_by, opened_at)
   VALUES (t, nasr, today - 1, 'EGP', 100000, sara, now() - interval '1 day') RETURNING id INTO s;
-  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, description, supplier_name, status, approved_by, approved_at, created_by)
-  VALUES (t, nasr, supplies, 15000, 'EGP', today - 1, 'cash', 'قفازات وكمامات', 'بيانات تجريبية ٣', 'approved', owner, now(), sara);
+  PERFORM set_config('app.member_id', acct::text, true), set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a5', true);
+  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, description, supplier_name, created_by)
+  VALUES (t, nasr, supplies, 15000, 'EGP', today - 1, 'cash', 'قفازات وكمامات', 'بيانات تجريبية ٣', acct);
+  PERFORM set_config('app.member_id', sara::text, true), set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a2', true);
   totals := cash_day_totals(nasr, today - 1);
   expected := 100000 + (totals->>'cash_in')::bigint - (totals->>'cash_refunds')::bigint - (totals->>'cash_expenses')::bigint;
   UPDATE cash_sessions SET status = 'closed', counted_minor = expected - 2000, expected_minor = expected, closing_totals = totals,
@@ -192,11 +196,11 @@ BEGIN
     RAISE NOTICE 'today''s cash day at Nasr City is closed; only yesterday''s demo was added';
     RETURN;
   END IF;
-  -- today: Sara's small cash expenses (one approved by the owner, one waiting)
-  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, description, supplier_name, status, approved_by, approved_at, decision_note, created_by)
-  VALUES (t, nasr, supplies, 8000, 'EGP', today, 'cash', 'مياه وأكواب للعيادة', 'بيانات تجريبية ٣', 'approved', owner, now(), 'تمام', sara);
-  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, description, supplier_name, status, created_by)
-  VALUES (t, nasr, maint, 12000, 'EGP', today, 'cash', 'تصليح حنفية الحوض', 'بيانات تجريبية ٣', 'pending', sara);
+  -- today: the accountant's small cash expenses (approved on entry)
+  PERFORM set_config('app.member_id', acct::text, true), set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a5', true);
+  INSERT INTO expenses (tenant_id, branch_id, category_id, amount_minor, currency, spent_on, payment_method, description, supplier_name, created_by)
+  VALUES (t, nasr, supplies, 8000, 'EGP', today, 'cash', 'مياه وأكواب للعيادة', 'بيانات تجريبية ٣', acct),
+         (t, nasr, maint, 12000, 'EGP', today, 'cash', 'تصليح حنفية الحوض', 'بيانات تجريبية ٣', acct);
 
   -- today: the owner's rent (approved on entry) and an entry voided for a wrong amount
   PERFORM set_config('app.member_id', owner::text, true), set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a1', true);

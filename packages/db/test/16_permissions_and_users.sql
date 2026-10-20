@@ -17,7 +17,9 @@ SELECT test.ok(NOT EXISTS (SELECT 1 FROM unnest(ARRAY['doctor','receptionist','a
   WHERE default_role_permissions(r) && ARRAY['discounts:approve','expenses:approve','cash:reopen','payments:adjust']),
   'approving discounts and expenses, reopening a cash day and adjustments are the owner''s only (CLR-02/03/04/12)');
 SELECT test.ok('cash:operate' = ANY (default_role_permissions('receptionist')) AND 'cash:operate' = ANY (default_role_permissions('accountant'))
-  AND 'expenses:write:cash' = ANY (default_role_permissions('receptionist')), 'reception and the accountant run the cash box; reception records cash expenses (CLR-03/04)');
+  AND NOT EXISTS (SELECT 1 FROM unnest(ARRAY['doctor','receptionist','assistant']) r WHERE default_role_permissions(r) && ARRAY['expenses:read','expenses:write','expenses:write:cash']),
+  'reception and the accountant run the cash box; expenses are the owner''s and the accountant''s only (CLR-04, owner 2026-10-20)');
+SELECT test.ok(NOT EXISTS (SELECT 1 FROM roles WHERE 'expenses:write:cash' = ANY (permissions)), 'no role keeps the retired reception expense right');
 SELECT test.ok('patients:block' = ANY (default_role_permissions('receptionist')) AND NOT ('patients:block' = ANY (default_role_permissions('doctor'))),
   'blocking a patient is a reception right, not a doctor''s');
 -- new clinics get the catalogue

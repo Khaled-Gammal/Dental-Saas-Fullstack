@@ -10,13 +10,7 @@ const num = (v: string | number | null) => (v === null ? null : Number(v));
 @Injectable()
 export class FinanceRepository {
   clinic(tx: Tx, tenantId: string) {
-    return tx.selectFrom('tenants as t').innerJoin('tenant_settings as s', 's.tenant_id', 't.id')
-      .select(['t.currency', 't.timezone', 's.reception_expense_limit_minor']).where('t.id', '=', tenantId).executeTakeFirstOrThrow()
-      .then((c) => ({ ...c, reception_expense_limit_minor: Number(c.reception_expense_limit_minor) }));
-  }
-
-  setReceptionLimit(tx: Tx, tenantId: string, minor: number) {
-    return tx.updateTable('tenant_settings').set({ reception_expense_limit_minor: minor }).where('tenant_id', '=', tenantId).execute();
+    return tx.selectFrom('tenants as t').select(['t.currency', 't.timezone']).where('t.id', '=', tenantId).executeTakeFirstOrThrow();
   }
 
   /** the active branches the member works at, for the cash box's branch picker */
