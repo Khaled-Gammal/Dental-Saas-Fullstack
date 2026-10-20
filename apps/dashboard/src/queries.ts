@@ -3,7 +3,7 @@ import { api } from './api';
 import type {
   Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, CatalogEntry, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
   BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
-  HomeData, ReportBranch, StaffInvitation, StaffMember, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
+  HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
 
 /**
@@ -28,6 +28,9 @@ export const useInvitations = (clinicId: string) =>
   useQuery({ queryKey: [...keys.staff(clinicId), 'invitations'] as const, queryFn: () => api<StaffInvitation[]>('/staff/invitations') });
 export const useRoles = (clinicId: string) =>
   useQuery({ queryKey: [...keys.staff(clinicId), 'roles'] as const, queryFn: () => api<StaffRole[]>('/staff/roles'), staleTime: 5 * 60_000 });
+/** H4: the permissions a role can hold, grouped (fixed per release, so loaded once) */
+export const usePermissionCatalogue = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.staff(clinicId), 'permissions'] as const, queryFn: () => api<PermissionGroup[]>('/staff/permissions'), staleTime: Infinity });
 
 /** Publishes the draft website; refreshes the checklist (pendingChanges) afterwards. */
 export function usePublish(clinicId: string) {

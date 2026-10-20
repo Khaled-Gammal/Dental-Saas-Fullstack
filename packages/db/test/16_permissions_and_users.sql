@@ -22,13 +22,12 @@ SELECT test.ok('cash:operate' = ANY (default_role_permissions('receptionist')) A
 SELECT test.ok(NOT EXISTS (SELECT 1 FROM roles WHERE 'expenses:write:cash' = ANY (permissions)), 'no role keeps the retired reception expense right');
 SELECT test.ok('patients:block' = ANY (default_role_permissions('receptionist')) AND NOT ('patients:block' = ANY (default_role_permissions('doctor'))),
   'blocking a patient is a reception right, not a doctor''s');
--- new clinics get the catalogue
+-- a new clinic starts with the owner role only (H4)
 SET LOCAL app.tenant_id = '33333333-3333-3333-3333-333333333333';
 SET LOCAL ROLE app_user;
 INSERT INTO users (email, phone, full_name, password_hash) VALUES ('perm.owner@test.test', '+201234567890', 'Perm Owner', 'x');
 SELECT * FROM provision_tenant('perm-clinic', 'عيادة', NULL, (SELECT id FROM users WHERE email = 'perm.owner@test.test'), 'lvh.me') \gset
-SELECT test.ok((SELECT permissions = default_role_permissions('accountant') FROM roles WHERE key = 'accountant'),
-  'a new clinic''s accountant role has the catalogue''s rights');
+SELECT test.ok((SELECT array_agg(key) = '{owner}' FROM roles), 'a new clinic has the owner role only');
 
 -- password hashes are not readable by the API role
 SELECT test.throws($$SELECT password_hash FROM users LIMIT 1$$, 'permission denied', 'the API role cannot read password hashes');

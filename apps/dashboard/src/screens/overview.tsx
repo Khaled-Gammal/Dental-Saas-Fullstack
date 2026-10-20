@@ -44,7 +44,7 @@ export function Overview({ session }: { session: Session }) {
     <>
       <section className="hero-card">
         <div className="hero-text">
-          <p className="eyebrow">{t('welcome')}{'، '}<bdi>{session.user.name}</bdi> · {roleLabel(session.clinic.role)}</p>
+          <p className="eyebrow">{t('welcome')}{'، '}<bdi>{session.user.name}</bdi> · {roleLabel(session.clinic.role, session.clinic.roleName)}</p>
           <h1>{t(setup ? 'overviewSub' : 'homeSub')}</h1>
           {can(session, 'website:write') && <SiteLink url={site} />}
         </div>

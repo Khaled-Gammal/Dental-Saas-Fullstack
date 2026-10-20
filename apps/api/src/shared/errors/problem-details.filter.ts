@@ -97,6 +97,13 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   payments_future: { status: 400, code: 'date_in_future', title: 'A payment is not dated in the future' },
   expenses_locked: { status: 409, code: 'expense_locked', title: 'A recorded expense is not edited; void it and record it again' },
   expenses_self_approval: { status: 403, code: 'self_approval', title: 'An expense is approved by someone else' },
+  // custom roles (Phase H4): the service checks these first; the database is the last word
+  roles_owner_fixed: { status: 409, code: 'owner_role_fixed', title: 'The owner role keeps every permission' },
+  roles_permission_unknown: { status: 400, code: 'permission_unknown', title: 'This permission cannot be given to a role' },
+  roles_archived: { status: 409, code: 'role_archived', title: 'This role is archived' },
+  roles_tenant_name_ar: { status: 409, code: 'role_name_taken', title: 'A role with this name exists' },
+  tenant_members_tenant_id_role_id_fkey: { status: 409, code: 'role_in_use', title: 'Members or invitations still have this role' },
+  invitations_tenant_id_role_id_fkey: { status: 409, code: 'role_in_use', title: 'Members or invitations still have this role' },
   // the supporting document (Phase H2): the service checks these first; the database is the last word under races
   expenses_document_fixed: { status: 409, code: 'expense_has_document', title: 'This expense already has its document' },
   expenses_document_private: { status: 400, code: 'file_not_found', title: 'File not found' },

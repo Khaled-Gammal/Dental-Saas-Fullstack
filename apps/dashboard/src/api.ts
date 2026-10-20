@@ -19,7 +19,7 @@ export interface Session {
   accessToken: string;
   expiresIn: number;
   user: { id: string; name: string; email: string | null; phone: string | null };
-  clinic: { id: string; slug: string; nameAr: string | null; nameEn: string | null; role: string; status: string; permissions: string[] };
+  clinic: { id: string; slug: string; nameAr: string | null; nameEn: string | null; role: string; roleName?: string; status: string; permissions: string[] };
   clinics: { slug: string; nameAr: string | null; nameEn: string | null }[];
 }
 

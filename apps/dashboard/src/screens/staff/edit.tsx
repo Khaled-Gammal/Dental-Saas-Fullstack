@@ -6,6 +6,7 @@ import { useLeave, useUnsavedChanges } from '../../hooks';
 import { roleLabel, t } from '../../i18n';
 import { keys, useBranches, useMembers, useOne, useRoles } from '../../queries';
 import { to } from '../../router';
+import { roleOptions } from '../../roles-model';
 import { memberForm, toMemberPatch, type MemberForm } from '../../staff-model';
 import type { Branch, StaffMember, StaffRole } from '../../types';
 import { Card, Field, Input, Switch } from '../../ui/components';
@@ -14,7 +15,7 @@ import { FormPage, ResourceState } from '../../ui/page';
 import { BranchAccess } from './invite';
 
 /** `#/staff/<id>/edit`: role, branches, job title, and whether the member can sign in (SRS ACCESS-002). */
-export function StaffEdit({ clinicId, id }: { clinicId: string; id?: string }) {
+export function StaffEdit({ clinicId, id, has }: { clinicId: string; id?: string; has: (p: string) => boolean }) {
   const one = useOne(useMembers(clinicId), id);
   const roles = useRoles(clinicId);
   const branches = useBranches(clinicId);
@@ -23,10 +24,10 @@ export function StaffEdit({ clinicId, id }: { clinicId: string; id?: string }) {
     const q = roles.isError ? roles : branches;
     return <ResourceState isLoading={!q.isError} isError={q.isError} error={q.error} notFound={false} refetch={() => void q.refetch()} back={to.list('staff')} backLabel={t('navStaff')} />;
   }
-  return <EditBody key={one.data.id} clinicId={clinicId} member={one.data} roles={roles.data} branches={branches.data.filter((b) => b.is_active)} />;
+  return <EditBody key={one.data.id} clinicId={clinicId} member={one.data} roles={roles.data} branches={branches.data.filter((b) => b.is_active)} has={has} />;
 }
 
-function EditBody({ clinicId, member, roles, branches }: { clinicId: string; member: StaffMember; roles: StaffRole[]; branches: Branch[] }) {
+function EditBody({ clinicId, member, roles, branches, has }: { clinicId: string; member: StaffMember; roles: StaffRole[]; branches: Branch[]; has: (p: string) => boolean }) {
   const [orig] = useState(() => memberForm(member)); // frozen baseline: a refetch cannot make the form dirty
   const [form, setForm] = useState<MemberForm>(orig);
   const [confirmOff, setConfirmOff] = useState(false);
@@ -53,7 +54,7 @@ function EditBody({ clinicId, member, roles, branches }: { clinicId: string; mem
         <h2><bdi>{member.user.full_name}</bdi></h2>
         <div className="grid-2 mt">
           <Field label={t('staffRole')}>
-            {(a) => <Choice id={a.id} value={form.roleId} onChange={set('roleId')} options={roles.map((r) => ({ value: r.id, label: roleLabel(r.key) }))} />}
+            {(a) => <Choice id={a.id} value={form.roleId} onChange={set('roleId')} options={roleOptions(roles, has, member.role.id).map((r) => ({ value: r.id, label: roleLabel(r.key, r.name_ar) }))} />}
           </Field>
           <Field label={t('jobTitleLabel')} optional={t('optional')}>
             {(a) => <Input id={a.id} value={form.jobTitle} onChange={(e) => set('jobTitle')(e.target.value)} maxLength={80} />}

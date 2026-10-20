@@ -57,6 +57,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-19 | Proposed defaults accepted for CLR-07 and CLR-08. Added by the owner: the product is Arabic in production, but **brand and clinic names may be written in English (Latin letters)**; Latin digits are fine | L10N-001 (names are on the allow-list), L10N-006, L10N-007, L10N-008 |
 | 2026-10-20 | Owner: expenses are seen and recorded by the owner and the accountant only; reception handles bookings, patients and patient payments (it keeps the cash box, CLR-04). Replaces the reception part of CLR-03 | EXP-001/003, B.1, migration 0029 |
 | 2026-10-20 | Owner asked for CSV export of the reports (was deferred as "Excel export") | DSH-11 (part), L10N-007; H3 |
+| 2026-10-20 | Owner: no fixed roles but the owner. Sign-up creates the owner role only (every permission); the owner creates, changes and deletes every other role and its permissions. `staff:manage` may be given to a role (with anti-escalation guards); mixing clinical and money writing only warns. The B.1 role columns become starting suggestions, no longer created at sign-up | ACCESS-006, B.1, AUTH-03; H4 |
 
 ---
 
@@ -1120,6 +1121,24 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Acceptance:* (1) after the owner disables a member, that member's very next request answers 401/403;
   (2) a role downgrade removes the rights on the next request.
 - *Entities:* `tenant_members`, `roles`, access token claims.
+
+**ACCESS-006 — Roles the owner creates** · IMPLEMENTED (2026-10-20, H4) · Phase H
+- *Description:* A clinic's roles are its own. Sign-up creates one role, the owner, holding every permission (`*`);
+  it is the only fixed role. The owner creates every other role — an Arabic name and any permissions of the B.1
+  catalogue except `*` — and changes or deletes it at any time. Clinics created before 2026-10-20 keep their doctor,
+  receptionist, assistant and accountant roles as ordinary roles (same members and permissions, minus the unused
+  `inventory:*` and `subscription:read`). A role nobody ever held is deleted; one that members or invitations
+  referred to is archived (kept, given to nobody new). Every page and menu item of the dashboard shows
+  only to members whose permissions open it, and the API checks every request against the member's role.
+- *Rules (owner 2026-10-20):* `staff:manage` may be given to a custom role. A member who is not the owner gives only
+  permissions they hold, cannot change their own role or status nor edit the role they hold, and cannot give or take
+  the owner role. A permission needs those its screens read first (e.g. `patients:write` needs `patients:read`).
+  A role that both writes clinical records and money (B.1 separation rule) is allowed with a warning.
+- *Behaviour:* editing a role's permissions applies to its members on their next request (ACCESS-005).
+- *Permissions:* `staff:manage`.
+- *Errors:* `owner_role_fixed`, `role_archived`, `role_in_use`, `role_name_taken`, `permission_unknown`, `permission_requires`,
+  `permission_not_held`, `own_role`, `owner_role_only`.
+- *Entities:* `roles` (+ `archived_at`, `updated_at`), `grantable_permissions()`, `roles_guard`, `roles_bump_access`.
 
 ### B.3 Scheduling and reception
 

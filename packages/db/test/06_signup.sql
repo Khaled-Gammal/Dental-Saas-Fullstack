@@ -21,7 +21,8 @@ CREATE TEMP TABLE p AS SELECT * FROM provision_tenant('bright-smile','عيادة
   'b0000000-0000-0000-0000-0000000000c1','lvh.me');
 SELECT test.ok((SELECT tenant_id = 'cccccccc-0000-0000-0000-000000000001' AND hostname = 'bright-smile.lvh.me' FROM p),
   'clinic created with its subdomain');
-SELECT test.ok((SELECT count(*) FROM roles) = 5, 'five default roles');
+SELECT test.ok((SELECT count(*) = 1 AND bool_and(key = 'owner' AND is_system AND permissions = '{*}') FROM roles),
+  'one role, the owner, with every permission (the owner creates the others, H4)');
 SELECT test.ok((SELECT r.key FROM tenant_members m JOIN roles r ON r.id = m.role_id
   WHERE m.user_id = 'b0000000-0000-0000-0000-0000000000c1') = 'owner', 'signer is the owner');
 SELECT test.ok((SELECT is_main AND slug = 'main' FROM branches), 'main branch created');

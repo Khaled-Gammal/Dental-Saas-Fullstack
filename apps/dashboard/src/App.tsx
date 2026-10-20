@@ -7,6 +7,9 @@ import { navigate, useRoute } from './hooks';
 import { StaffEdit } from './screens/staff/edit';
 import { StaffInvite } from './screens/staff/invite';
 import { StaffList } from './screens/staff/list';
+import { RoleForm, RolesList } from './screens/staff/roles';
+import { canOpen } from './access';
+import { CanProvider } from './can';
 import { BranchForm } from './screens/branches/form';
 import { BranchHours } from './screens/branches/hours';
 import { BranchesList } from './screens/branches/list';
@@ -99,18 +102,23 @@ export function App() {
   } else {
     view = (
       <AppShell session={session} page={route.page}>
-        <Screen route={route} session={session} />
+        <CanProvider has={(p) => can(session, p)}><Screen route={route} session={session} /></CanProvider>
       </AppShell>
     );
   }
   return view;
 }
 
-/** Route -> screen. Permissions only hide what the API would refuse; the server is the real gate. */
+/**
+ * Route -> screen. Permissions only hide what the API would refuse; the server is the real gate. `canOpen` (access.ts,
+ * shared with the menu) decides who opens each page; the cases below pass the finer rights to each screen.
+ */
 function Screen({ route, session }: { route: Route; session: Session }) {
   const clinicId = session.clinic.id;
-  const settings = can(session, 'settings:write');
+  const has = (p: string) => can(session, p);
+  const settings = has('settings:write');
   const { page, id, action } = route;
+  if (!canOpen(has, route)) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
   switch (page) {
     case 'overview': return <Overview session={session} />;
     case 'profile': return <Profile clinicId={clinicId} canEdit={settings} />;
@@ -128,8 +136,8 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action === 'edit' && can(session, 'appointments:write')) return <MoveAppointment clinicId={clinicId} id={id} canOverride={can(session, 'appointments:override')} />;
       if (action) return <NotFound text={t('noPermissionPage')} back={to.list('appointments')} backLabel={t('navAppointments')} />;
       return <Appointments clinicId={clinicId} canWrite={can(session, 'appointments:write')} canOwn={can(session, 'appointments:write:own')} query={route.query}
-        canVisit={can(session, 'clinical:write')} canSeeBalances={can(session, 'invoices:read') || can(session, 'invoices:read:own')} canReadVisit={can(session, 'clinical:read') || can(session, 'clinical:write')}
-        defaultView={session.clinic.role === 'doctor' ? 'mine' : 'all'} />; // a doctor opens on their own day (APPT-004)
+        canVisit={can(session, 'clinical:write')} canSeeBalances={has('patients:read') && (has('invoices:read') || has('invoices:read:own'))} canReadVisit={can(session, 'clinical:read') || can(session, 'clinical:write')}
+        defaultView={has('appointments:write:own') && !has('appointments:write') ? 'mine' : 'all'} />; // a doctor opens on their own day (APPT-004)
     case 'gallery': {
       // website content is the owner's (SRS 2.2: Website & content)
       if (!can(session, 'website:write')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
@@ -192,9 +200,15 @@ function Screen({ route, session }: { route: Route; session: Session }) {
     case 'staff':
       // staff & roles are the owner's (SRS 2.2)
       if (!can(session, 'staff:manage')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
-      if (action === 'new') return <StaffInvite clinicId={clinicId} />;
-      if (action === 'edit') return <StaffEdit clinicId={clinicId} id={id} />;
+      if (action === 'new') return <StaffInvite clinicId={clinicId} has={has} />;
+      if (action === 'edit') return <StaffEdit clinicId={clinicId} id={id} has={has} />;
       return <StaffList clinicId={clinicId} session={session} />;
+    case 'roles':
+      // H4: custom roles (built-in ones are viewed only); a manager who is not the owner gives only what they hold
+      if (action === 'new') return <RoleForm clinicId={clinicId} has={has} copyFrom={route.query?.from} />;
+      if (action === 'edit') return <RoleForm clinicId={clinicId} has={has} id={id} />;
+      if (action === 'view') return <RoleForm clinicId={clinicId} has={has} id={id} readOnly />;
+      return <RolesList clinicId={clinicId} />;
     default:
       return <NotFound text={t('notFoundText')} back={to.list('overview')} backLabel={t('navOverview')} />;
   }

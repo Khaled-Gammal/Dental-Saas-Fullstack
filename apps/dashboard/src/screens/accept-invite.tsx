@@ -46,7 +46,7 @@ export function AcceptInvite({ token, done }: { token: string; done: () => void 
       <header className="form-head">
         <div className="form-icon"><UsersIcon size={22} /></div>
         <h2>{t('acceptTitle')}</h2>
-        <p>{t('acceptIntro').replace('{clinic}', clinic).replace('{role}', roleLabel(p.role.key))}</p>
+        <p>{t('acceptIntro').replace('{clinic}', clinic).replace('{role}', roleLabel(p.role.key, p.role.nameAr))}</p>
       </header>
       <form onSubmit={submit} className="stack">
         <p className="muted">{t(p.accountExists ? 'acceptExisting' : 'acceptNew')}</p>

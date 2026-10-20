@@ -214,7 +214,14 @@ export interface GalleryPage { items: GalleryItem[]; nextCursor: string | null }
 export type GalleryScope = string;
 
 /** A role of the clinic (seeded: owner, doctor, receptionist, assistant, accountant). */
-export interface StaffRole { id: string; key: string; name_ar: string; name_en: string; is_system: boolean }
+export interface StaffRole {
+  id: string; key: string; name_ar: string; name_en: string; is_system: boolean;
+  /** H4: what the role holds ('*' = the owner), how many hold it, whether it is archived, and what the caller may do */
+  permissions: string[]; archived_at: string | null; members: number; invitations: number; mixes_clinical_and_money: boolean;
+  can: { edit: boolean; remove: boolean };
+}
+/** H4: the permission catalogue the API offers (GET /staff/permissions), in screen order */
+export interface PermissionGroup { key: string; permissions: { key: string; requires: string[] }[] }
 export interface StaffRoleRef { id: string; key: string; name_ar: string; name_en: string }
 export interface DoctorRef { id: string; name_ar: string | null; name_en: string | null }
 export interface StaffMember {

@@ -11,6 +11,7 @@ import { Alert, Button, Card, Field, Input, Switch, TextArea } from '../../ui/co
 import { AlertIcon } from '../../ui/icons';
 import { FormPage } from '../../ui/page';
 import { zonedToUtc } from '../../util';
+import { useCan } from '../../can';
 
 const todayIso = () => new Date().toLocaleDateString('en-CA');
 const SOURCES = ['phone', 'walk_in', 'whatsapp', 'dashboard'] as const;
@@ -159,6 +160,7 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
 
 /** Find the patient by name, mobile or file number; create one if nobody matches. */
 function PatientPicker({ clinicId, onPick }: { clinicId: string; onPick: (p: PatientRow) => void }) {
+  const canAdd = useCan()('patients:write');
   const [q, setQ] = useState('');
   const search = useDebounced(q.trim(), 250);
   const found = usePatients(clinicId, search);
@@ -176,7 +178,7 @@ function PatientPicker({ clinicId, onPick }: { clinicId: string; onPick: (p: Pat
           {!found.isFetching && rows.length === 0 && <li className="muted small">{t('noPatientMatch')}</li>}
         </ul>
       )}
-      <p className="small"><Button variant="ghost" onClick={() => { window.location.hash = '#/patients/new'; }}>{t('addPatient')}</Button></p>
+      {canAdd && <p className="small"><Button variant="ghost" onClick={() => { window.location.hash = '#/patients/new'; }}>{t('addPatient')}</Button></p>}
     </div>
   );
 }

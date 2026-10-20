@@ -39,17 +39,22 @@ INSERT INTO subscriptions (tenant_id, plan_id, status, trial_ends_at) VALUES
  ('11111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-00000000a002','trialing', now() + interval '14 days'),
  ('22222222-2222-2222-2222-222222222222','00000000-0000-0000-0000-00000000a001','trialing', now() + interval '14 days');
 
+-- Only the owner role is built in (H4); the clinic's other roles are its own (here the old starter set, with fixed ids
+-- and keys the tests use). Their starting discount limits (CLR-02) are set below.
 INSERT INTO roles (id, tenant_id, key, name_en, name_ar, is_system, permissions) VALUES
  ('a0000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','owner','Owner','المالك',true,'{*}'),
- ('a0000000-0000-0000-0000-0000000000a2','11111111-1111-1111-1111-111111111111','receptionist','Receptionist','الاستقبال',true,
+ ('a0000000-0000-0000-0000-0000000000a2','11111111-1111-1111-1111-111111111111','receptionist','Receptionist','الاستقبال',false,
   '{patients:read,patients:write,patients:block,appointments:read,appointments:write,appointments:override,invoices:read,invoices:write,payments:write,payments:reverse,discounts:apply,cash:operate,reports:read:daily,branches:read}'),
- ('a0000000-0000-0000-0000-0000000000a3','11111111-1111-1111-1111-111111111111','doctor','Doctor','طبيب',true,
+ ('a0000000-0000-0000-0000-0000000000a3','11111111-1111-1111-1111-111111111111','doctor','Doctor','طبيب',false,
   '{patients:read,patients:write,appointments:read,appointments:write:own,clinical:read,clinical:write,treatments:write:own,invoices:read:own,reports:read:own,branches:read}'),
  -- the accountant reads no clinical data (SRS B.1); the receptionist above is deliberately left without clinical:read
  -- (new clinics give it to receptionists), so the tests cover a role that has no clinical access at all
- ('a0000000-0000-0000-0000-0000000000a4','11111111-1111-1111-1111-111111111111','accountant','Accountant','المحاسب',true,
+ ('a0000000-0000-0000-0000-0000000000a4','11111111-1111-1111-1111-111111111111','accountant','Accountant','المحاسب',false,
   '{branches:read,patients:read,appointments:read,invoices:read,invoices:write,invoices:void,payments:write,payments:refund,discounts:apply,expenses:read,expenses:write,reports:read,cash:operate}'),
  ('a0000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222','owner','Owner','المالك',true,'{*}');
+
+UPDATE roles SET max_discount_bp = CASE key WHEN 'receptionist' THEN 1000 WHEN 'accountant' THEN 2000 ELSE 0 END
+ WHERE tenant_id = '11111111-1111-1111-1111-111111111111' AND key IN ('receptionist','accountant');
 
 INSERT INTO users (id, email, phone, full_name, locale, email_verified_at, phone_verified_at, password_hash) VALUES
  ('b0000000-0000-0000-0000-0000000000a1','owner.a@demo.test','+201000000111','Dr. Ahmed Salah','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),

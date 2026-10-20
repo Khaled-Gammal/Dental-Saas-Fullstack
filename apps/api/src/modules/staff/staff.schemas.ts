@@ -26,6 +26,14 @@ export const UpdateMemberBody = z.object({
 }).strict().refine((b) => b.allBranches !== false || (b.branchIds?.length ?? 0) > 0, { message: 'Choose at least one branch', path: ['branchIds'] });
 export type UpdateMemberInput = z.infer<typeof UpdateMemberBody>;
 
+/** A custom role (H4): an Arabic name and its permissions (checked against the catalogue in the service and the database). */
+const RoleName = z.string().trim().min(2).max(60);
+const Permissions = z.array(z.string().max(40)).max(60).transform((p) => [...new Set(p)].sort());
+export const NewRoleBody = z.object({ nameAr: RoleName, permissions: Permissions }).strict();
+export type NewRoleInput = z.infer<typeof NewRoleBody>;
+export const EditRoleBody = z.object({ nameAr: RoleName.optional(), permissions: Permissions.optional() }).strict();
+export type EditRoleInput = z.infer<typeof EditRoleBody>;
+
 /** Accepting an invitation: a new account gives its name and a password; an existing one confirms its password. */
 export const AcceptBody = z.object({ fullName: DisplayName.optional(), password: z.string().min(1).max(128) }).strict();
 export type AcceptInput = z.infer<typeof AcceptBody>;

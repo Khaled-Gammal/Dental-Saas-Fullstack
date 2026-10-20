@@ -67,7 +67,7 @@ function MemberRow({ m, branches, isYou }: { m: StaffMember; branches: Branch[] 
         </span>
       </span>
       <span className="patient-badges">
-        <Badge tone={m.role.key === 'owner' ? 'primary' : 'neutral'}>{roleLabel(m.role.key)}</Badge>
+        <Badge tone={m.role.key === 'owner' ? 'primary' : 'neutral'}>{roleLabel(m.role.key, m.role.name_ar)}</Badge>
         {m.status === 'disabled' && <Badge tone="warning">{t('memberDisabled')}</Badge>}
       </span>
       <RouteLink route={to.edit('staff', m.id)} className="btn btn-secondary btn-sm"><EditIcon size={16} />{t('edit')}</RouteLink>
@@ -98,7 +98,7 @@ function InvitationRow({ inv, clinicId, branches, onDone }: {
         </span>
       </span>
       <span className="patient-badges">
-        <Badge>{roleLabel(inv.role.key)}</Badge>
+        <Badge>{roleLabel(inv.role.key, inv.role.name_ar)}</Badge>
         {inv.expired && <Badge tone="warning">{t('expiredBadge')}</Badge>}
       </span>
       <span className="row-end">

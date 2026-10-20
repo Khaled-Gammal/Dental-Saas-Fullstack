@@ -14,6 +14,7 @@ import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 import { money } from './money';
 import { currencyLabel } from '../../money';
+import { useCan } from '../../can';
 
 const TONE: Record<PlanStatus, 'neutral' | 'primary' | 'success' | 'warning'> = {
   draft: 'neutral', proposed: 'warning', accepted: 'primary', in_progress: 'primary', completed: 'success', cancelled: 'neutral',
@@ -139,7 +140,8 @@ function ItemsCard({ clinicId, p }: { clinicId: string; p: PlanDetail }) {
   const act = useClinicalMutation(clinicId, (a: { itemId: string; op: 'cancel' | 'remove' }) =>
     send(`/plans/${p.id}/items/${a.itemId}${a.op === 'cancel' ? '/cancel' : ''}`, a.op === 'cancel' ? 'POST' : 'DELETE'));
   const editable = p.can.write && planEditable(p.status);
-  const bookable = p.can.schedule && (p.status === 'accepted' || p.status === 'in_progress');
+  const has = useCan();
+  const bookable = p.can.schedule && has('appointments:write') && (p.status === 'accepted' || p.status === 'in_progress');
   const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
   return (
     <Card>

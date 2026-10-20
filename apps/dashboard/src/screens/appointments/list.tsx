@@ -81,6 +81,8 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
   };
   const branches = useBranches(clinicId);
   const day = useAppointments(clinicId, date, branchId, view === 'mine');
+  // a doctor's own-only actions (appointments:write:own, their visits) show where every row is theirs: the "mine" view
+  const own = canOwn && view === 'mine';
   const queue = waitingList(day.data?.appointments ?? [], Date.now());
   const patientIds = [...new Set((day.data?.appointments ?? []).flatMap((a) => (a.patient ? [a.patient.id] : [])))];
   const balances = useBalances(clinicId, patientIds, canSeeBalances).data ?? {};
@@ -135,13 +137,13 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
       ) : day.isLoading ? (
         <ul className="appts"><Skeleton h={84} count={4} /></ul>
       ) : view === 'waiting' ? (
-        <WaitingView queue={queue} time={time} canStart={canWrite || canOwn} onStart={(a) => run(a, 'start')} balances={balances} />
+        <WaitingView queue={queue} time={time} canStart={canWrite} onStart={(a) => run(a, 'start')} balances={balances} />
       ) : !day.data?.appointments.length ? (
         <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noAppointments')} text={t('noAppointmentsText')} /></Card>
       ) : (
         <ul className="appts" aria-busy={day.isFetching || undefined}>
           {day.data.appointments.map((a) => {
-            const actions = (ACTIONS[a.status] ?? []).filter((x) => canWrite || (canOwn && OWN_ACTIONS.includes(x)));
+            const actions = (ACTIONS[a.status] ?? []).filter((x) => canWrite || (own && OWN_ACTIONS.includes(x)));
             return (
               <Card as="li" key={a.id} className={`appt is-${a.status}`}>
                 <div className="appt-time">
@@ -164,10 +166,10 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
                   {a.patient_notes && <p className="appt-notes">{a.patient_notes}</p>}
                   {a.cancel_reason && <p className="appt-notes muted">{a.cancel_reason}</p>}
                 </div>
-                {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status)) || (a.visit_id && canReadVisit) || (canVisit && VISITABLE.includes(a.status))) && (
+                {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status)) || (a.visit_id && canReadVisit) || (canVisit && (canWrite || own) && VISITABLE.includes(a.status))) && (
                   <div className="appt-actions">
                     {a.visit_id && canReadVisit ? <RouteLink route={to.visit(a.visit_id)} className="btn btn-secondary">{t('openVisit')}</RouteLink>
-                      : canVisit && VISITABLE.includes(a.status) && <OpenVisitButton clinicId={clinicId} appointmentId={a.id} />}
+                      : canVisit && (canWrite || own) && VISITABLE.includes(a.status) && <OpenVisitButton clinicId={clinicId} appointmentId={a.id} />}
                     {canWrite && CHANGEABLE.includes(a.status) && (
                       <RouteLink route={to.edit('appointments', a.id)} className="btn btn-ghost"><EditIcon size={16} />{t('editAppointment')}</RouteLink>
                     )}

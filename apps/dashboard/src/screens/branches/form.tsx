@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../../api';
 import { ImageField } from '../../components/image-field';
+import { useCan } from '../../can';
 import { useLeave, useUnsavedChanges } from '../../hooks';
 import { imageFieldValue } from '../../media-model';
 import { t } from '../../i18n';
@@ -33,6 +34,7 @@ export function BranchForm({ clinicId, id }: { clinicId: string; id?: string }) 
 
 function BranchFormBody({ clinicId, branch }: { clinicId: string; branch?: Branch }) {
   const [orig] = useState(() => (branch ? toForm(branch) : null)); // the baseline never moves under the user (see profile.tsx)
+  const canPhoto = useCan()('settings:write'); // the upload is a clinic setting, not a branch right
   const [form, setForm] = useState<Form>(orig ?? EMPTY);
   const [confirmOff, setConfirmOff] = useState(false);
   const invalidate = useInvalidate(clinicId);
@@ -84,7 +86,7 @@ function BranchFormBody({ clinicId, branch }: { clinicId: string; branch?: Branc
         </div>
       </Card>
 
-      {branch && (
+      {branch && canPhoto && (
         <Card>
           <ImageField purpose="photo" shape="wide" value={form.photo} onChange={(photo) => setForm((f) => ({ ...f, photo }))}
             label={t('branchPhoto')} hint={t('branchPhotoHint')} />

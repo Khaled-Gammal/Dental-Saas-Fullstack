@@ -9,19 +9,30 @@ import { Err } from '../../shared/errors/app-error';
 import { maskEmail } from '../../shared/mask';
 import { EMAIL_SENDER, type EmailSender } from '../../shared/notifications/ports';
 import { PlanLimits } from '../../shared/plans/plan-limits.service';
-import type { InviteInput, UpdateMemberInput } from './staff.schemas';
-import { StaffRepository, type InvitationView, type MemberView } from './staff.repository';
+import { PERMISSION_GROUPS, REQUIRES, type Permission } from '../../auth/permission-catalogue';
+import { hasPermission } from '../../auth/permissions';
+import { added, checkRolePermissions, mixesClinicalAndMoney, notHeld } from './role-rules';
+import type { EditRoleInput, InviteInput, NewRoleInput, UpdateMemberInput } from './staff.schemas';
+import { StaffRepository, type InvitationView, type MemberView, type RoleView } from './staff.repository';
 
 /** Invitation links carry 32 random bytes; only their SHA-256 is stored. */
 export const newInvitationToken = () => randomBytes(32).toString('base64url');
 export const hashInvitationToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 const memberNotFound = () => Err.notFound('member_not_found', 'Member not found');
+const roleNotFound = () => Err.notFound('role_not_found', 'Role not found');
+const notHeldError = (permission: string) =>
+  Err.forbidden('permission_not_held', 'You can give only permissions you hold yourself', { permission });
 
 /**
- * Clinic members and invitations, for the owner (SRS ACCESS-001, ACCESS-002; permission `staff:manage`). Every change
- * is audited by the database; a role, status or branch change bumps the member's access version, so it applies on
- * their next request (ACCESS-005).
+ * Clinic members, invitations and roles (SRS ACCESS-001, ACCESS-002, H4; permission `staff:manage`). Every change is
+ * audited by the database; a role, status or branch change — or an edit of a role's permissions — bumps the members'
+ * access version, so it applies on their next request (ACCESS-005).
+ *
+ * Owner 2026-10-20: sign-up creates only the owner role ('*'); the owner creates, changes and deletes every other
+ * role. staff:manage may be given to a role, so that nobody raises their own rights a member who is not the owner
+ * gives only permissions they hold, never changes their own role or status nor edits the role they hold, and never
+ * gives or takes the owner role.
  */
 @Injectable()
 export class StaffService {
@@ -37,8 +48,96 @@ export class StaffService {
   ) {}
 
   members(): Promise<MemberView[]> { return this.db.run((tx) => this.repo.listMembers(tx)); }
-  roles() { return this.db.run((tx) => this.repo.roles(tx)); }
   invitations(): Promise<InvitationView[]> { return this.db.run((tx) => this.repo.listInvitations(tx)); }
+
+  // ---------- roles (H4) ----------
+  private perms() { return this.cls.get('permissions'); }
+  private isOwner() { return hasPermission(this.perms(), '*'); }
+
+  /** The permission catalogue: groups in screen order, what each permission needs, and the separation-rule kinds. */
+  permissions() {
+    return PERMISSION_GROUPS.map((g) => ({ key: g.key, permissions: g.permissions.map((p) => ({ key: p, requires: REQUIRES[p as Permission] ?? [] })) }));
+  }
+
+  /** Every role, with `can.edit` for the caller and the separation-rule warning. */
+  roles() {
+    return this.db.run(async (tx) => {
+      const mine = await this.repo.memberRoleId(tx, this.memberId());
+      return (await this.repo.roles(tx)).map((r) => this.roleView(r, mine));
+    });
+  }
+
+  createRole(input: NewRoleInput) {
+    return this.db.run(async (tx, tenantId) => {
+      this.assertGrantable(input.permissions, []);
+      const { id } = await this.repo.insertRole(tx, { tenantId, key: `custom-${randomBytes(6).toString('hex')}`, nameAr: input.nameAr, permissions: input.permissions });
+      return this.oneRole(tx, id);
+    });
+  }
+
+  updateRole(id: string, input: EditRoleInput) {
+    return this.db.run(async (tx) => {
+      const r = await this.editableRole(tx, id);
+      if (input.permissions) this.assertGrantable(input.permissions, r.permissions);
+      await this.repo.updateRole(tx, id, input);
+      return this.oneRole(tx, id);
+    });
+  }
+
+  /** Deleted when nobody ever held it; archived (kept, given to nobody new) when only past members or invitations refer to it. */
+  removeRole(id: string): Promise<{ archived: boolean }> {
+    return this.db.run(async (tx) => {
+      await this.editableRole(tx, id);
+      const u = await this.repo.roleUsage(tx, id);
+      if (u.active || u.open) throw Err.conflict('role_in_use', 'Members or open invitations still have this role', { members: u.active, invitations: u.open });
+      if (u.members || u.invitations) {
+        await this.repo.archiveRole(tx, id);
+        return { archived: true };
+      }
+      await this.repo.deleteRole(tx, id);
+      return { archived: false };
+    });
+  }
+
+  /** A role in use other than the owner's, and not the caller's own (unless they are the owner). */
+  private async editableRole(tx: Tx, id: string) {
+    const r = await this.repo.lockRole(tx, id);
+    if (!r) throw roleNotFound();
+    if (r.is_system) throw Err.conflict('owner_role_fixed', 'The owner role keeps every permission');
+    if (r.archived_at) throw Err.conflict('role_archived', 'This role is archived');
+    if (!this.isOwner() && r.id === (await this.repo.memberRoleId(tx, this.memberId()))) {
+      throw Err.forbidden('own_role', 'You cannot change your own role');
+    }
+    return r;
+  }
+
+  private assertGrantable(perms: readonly string[], before: readonly string[]) {
+    const problem = checkRolePermissions(perms);
+    if (problem?.error === 'permission_unknown') throw Err.badRequest('permission_unknown', 'This permission cannot be given to a role', { permission: problem.permission });
+    if (problem) throw Err.badRequest('permission_requires', 'A permission needs another one', { permission: problem.permission, requires: problem.requires });
+    const missing = notHeld(this.perms(), added(before, perms));
+    if (missing) throw notHeldError(missing);
+  }
+
+  /** Who may give a role to a member: the owner role only by an owner; any other only if its permissions are the giver's too. */
+  private assertAssignable(role: { key: string; is_system: boolean; permissions: string[]; archived_at: Date | null }) {
+    if (role.archived_at) throw Err.conflict('role_archived', 'This role is archived');
+    if (this.isOwner()) return;
+    if (role.is_system && role.key === 'owner') throw Err.forbidden('owner_role_only', 'Only an owner gives or takes the owner role');
+    const missing = notHeld(this.perms(), role.permissions);
+    if (missing) throw notHeldError(missing);
+  }
+
+  private async oneRole(tx: Tx, id: string) {
+    const r = (await this.repo.roles(tx)).find((x) => x.id === id);
+    if (!r) throw roleNotFound();
+    return this.roleView(r, await this.repo.memberRoleId(tx, this.memberId()));
+  }
+
+  private roleView(r: RoleView, myRoleId: string | null) {
+    const editable = !r.is_system && !r.archived_at && (this.isOwner() || r.id !== myRoleId);
+    return { ...r, mixes_clinical_and_money: mixesClinicalAndMoney(r.permissions), can: { edit: editable, remove: editable } };
+  }
 
   member(id: string): Promise<MemberView> {
     return this.db.run(async (tx) => {
@@ -53,6 +152,7 @@ export class StaffService {
     const { view, clinic } = await this.db.run(async (tx, tenantId) => {
       const role = await this.repo.role(tx, input.roleId);
       if (!role) throw Err.badRequest('role_not_found', 'Role not found');
+      this.assertAssignable(role);
       const branchIds = input.allBranches ? [] : input.branchIds;
       if (!(await this.repo.branchesExist(tx, branchIds))) throw Err.badRequest('branch_not_found', 'Branch not found');
       if (input.doctorId) {
@@ -96,10 +196,16 @@ export class StaffService {
     return this.db.run(async (tx, tenantId) => {
       const m = await this.repo.lockMember(tx, id);
       if (!m) throw memberNotFound();
+      if (!this.isOwner()) {
+        // a manager who is not the owner: never their own access, never an owner's
+        if (id === this.memberId() && (input.roleId !== undefined || input.status !== undefined)) throw Err.forbidden('own_role', 'You cannot change your own role');
+        if (m.role_key === 'owner') throw Err.forbidden('owner_role_only', 'Only an owner gives or takes the owner role');
+      }
       let roleKey = m.role_key;
       if (input.roleId && input.roleId !== m.role_id) {
         const role = await this.repo.role(tx, input.roleId);
         if (!role) throw Err.badRequest('role_not_found', 'Role not found');
+        this.assertAssignable(role);
         roleKey = role.key;
       }
       // the clinic keeps at least one active owner (the database refuses it too)
