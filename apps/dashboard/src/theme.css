@@ -1,0 +1,56 @@
+/*
+ * The dashboard's healthcare theme (redesign R1). It re-points the shared design tokens (@dental/ui/tokens.css, also
+ * used by the public clinic websites, which keep their own look) for the dashboard only: imported after them.
+ * Every screen keeps using the same token names, so the whole dashboard changes from here.
+ *
+ * Contrast (WCAG AA, normal text >= 4.5:1), measured on white unless noted:
+ *   primary-500 #0e7490 5.4 (white text on it 5.4) · primary-600 #155e75 7.3 · primary-700 on primary-50 8.6
+ *   ink #0f172a 17.9 · muted #64748b 4.8 (4.6 on the #f8fafc background) · success #15803d 5.0 · warning-ink #b45309 5.0
+ *   danger #dc2626 4.8 (white text on it 4.8; on danger-bg #fff5f5 4.5)
+ * The palette's brand cyan #0891b2 gives white text only 3.7:1, so it is the accent (focus ring, active marker, logo,
+ * charts), and filled buttons and links use the next shade, #0e7490 (hover #155e75).
+ */
+:root {
+  /* brand: cyan */
+  --brand-accent: #0891b2;
+  --primary-50: #ecfeff;
+  --primary-100: #cffafe;
+  --primary-200: #a5f3fc;
+  --primary-300: #67e8f9;
+  --primary-500: #0e7490;
+  --primary-600: #155e75;
+  --primary-700: #164e63;
+  /* the deep panels (sign-in side, overview welcome card) follow the brand instead of navy */
+  --navy-900: #164e63;
+  --navy-800: #155e75;
+  --navy-700: #0e7490;
+  --navy-950: #083344;
+  --navy-text: #bae6f0; /* secondary text on the deep panels: 7.9:1 on #164e63 */
+  --sky-100: #ecfeff;
+  --sky-400: #22d3ee;
+
+  /* neutrals: white cards on a light slate background */
+  --surface: #f8fafc;
+  --card: #ffffff;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --skeleton-hi: #f1f5f9;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --faint: #94a3b8;
+
+  /* status: the text-safe shade of each (the lighter palette shades are for fills and icons only) */
+  --success: #15803d;
+  --success-bg: #f0fdf4;
+  --warning: #d97706;
+  --warning-ink: #b45309;
+  --warning-bg: #fffbeb;
+  --danger: #dc2626;
+  --danger-bg: #fff5f5;
+
+  /* shape and depth: soft, few shadows */
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-md: 0 4px 12px -4px rgb(15 23 42 / 0.10), 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-lg: 0 16px 36px -12px rgb(15 23 42 / 0.20);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--brand-accent) 35%, transparent);
+}
