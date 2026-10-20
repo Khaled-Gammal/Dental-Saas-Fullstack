@@ -3,7 +3,7 @@ import { arName } from '@dental/ui/text';
 import { can, logout, type Session } from '../api';
 import { roleLabel, t, type Key } from '../i18n';
 import { Badge, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, ChartIcon, WalletIcon, ToothIcon, UsersIcon } from '../ui/icons';
+import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, ChartIcon, WalletIcon, ToothIcon, UsersIcon, EditIcon } from '../ui/icons';
 import { setClinicCurrency } from '../money';
 import { useProfile } from '../queries';
 import { canSee } from '../access';
@@ -30,6 +30,7 @@ const NAV: NavItem[] = [
   { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses' },
   { key: 'navReports', icon: <ChartIcon />, page: 'reports' },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
+  { key: 'navConsents', icon: <EditIcon />, page: 'consents' },
   { key: 'navData', icon: <ShieldIcon />, page: 'data' },
   { key: 'navWebsite', icon: <GlobeIcon />, perm: 'website:write' },
 ];

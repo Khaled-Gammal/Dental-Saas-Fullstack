@@ -59,6 +59,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-20 | Owner asked for CSV export of the reports (was deferred as "Excel export") | DSH-11 (part), L10N-007; H3 |
 | 2026-10-20 | Owner: no fixed roles but the owner. Sign-up creates the owner role only (every permission); the owner creates, changes and deletes every other role and its permissions. `staff:manage` may be given to a role (with anti-escalation guards); mixing clinical and money writing only warns. The B.1 role columns become starting suggestions, no longer created at sign-up | ACCESS-006, B.1, AUTH-03; H4 |
 | 2026-10-20 | Owner: build the platform admin panel now (reverses the CLR-14 default "defer ADM"). Suspending a clinic blocks its staff's sign-in and takes its website offline (not read-only); platform admins sign in with a password and an emailed code every time | ADM-01, ADM-02, ADM-04; H5 |
+| 2026-10-20 | Owner: patient consents are signed on screen (tablet/phone) or recorded on paper with a scan; each clinic writes its texts, starting from platform drafts that must be reviewed before use; a missing consent only warns the doctor, never blocks the treatment | DSH-16, NFR-16, CLR-14; H9 |
 | 2026-10-20 | Owner: the clinic owner deletes the clinic themself (password + clinic name); it closes at once, is kept 90 days (the platform admin can restore it), then is erased with its files. The export is one ZIP (CSV + JSON + every file) prepared in the background, link by email | NFR-08, BIL-05; H8 |
 | 2026-10-20 | Owner: «اشترك الآن» (subscribe now) on the landing pricing table only — it opens sign-up with the plan and monthly/yearly; the new clinic starts on the usual trial and is recorded as a subscription request for the platform admin (email + panel), who collects payment and activates it. No online payment (the 2026-10-17 no-gateway decision stands) | LND-02, ADM-02; H7 |
 | 2026-10-20 | Owner: a suspended clinic sends no automatic emails; a trial that ends without the clinic being activated on a plan suspends it automatically; SMS/WhatsApp credits (ADM-02 "add credits") later | BIL-04 (part), ADM-02, NTF-04; H5 |
@@ -183,7 +184,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | DSH-13 | M | PARTIALLY_IMPLEMENTED | Theme publish only; template, sections, SEO and domains follow the website-content roadmap |
 | DSH-14 | V1 | DEFERRED | — |
 | DSH-15 | M | PARTIALLY_IMPLEMENTED | Patients only; refined by AUDIT-001…003 |
-| DSH-16 | M | NOT_IMPLEMENTED | *AR/EN templates* superseded by L10N-001 (Arabic only). Scope question CLR-14 |
+| DSH-16 | M | IMPLEMENTED | H9 (owner 2026-10-20): the clinic's consent texts per treatment (versioned; starter drafts reviewed before use, `#/consents`); the patient or a child's guardian signs on the clinic's tablet or phone (signature + exact text stored), or staff record a paper form with a scan; withdrawn with a reason, never edited or deleted; a service can need a consent and the visit warns (never blocks). *AR/EN templates* superseded by L10N-001. Migration 0035 |
 | DSH-17 | V1 | DEFERRED (brief) | Dental laboratory tracking |
 | DSH-18 | V1 | NOT_IMPLEMENTED (DB only) | Brought into v4: PAY-004 |
 | DSH-19 | V1 | PARTIALLY_IMPLEMENTED | v4 delivers a manual follow-up list (VISIT-005, done D4); automatic recalls deferred |
@@ -212,7 +213,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | NFR-12 | — | PARTIALLY_IMPLEMENTED | Structured logs with request and tenant id; no error tracking or metrics |
 | NFR-14 | — | PARTIALLY_IMPLEMENTED | Modular monolith, OpenAPI via Swagger; coverage not measured |
 | NFR-15 | — | IMPLEMENTED (2026-10-20, H6) | Versioned Terms, Privacy Policy and DPA published from the platform panel; accepted at sign-up (owner: all three) and on joining (staff: Terms and Privacy); a version may require accepting again at the next sign-in. The real text is the owner's to publish before launch |
-| NFR-16 | — | PARTIALLY_IMPLEMENTED | `marketing_opt_in` stored with time; consents not built |
+| NFR-16 | — | IMPLEMENTED | `marketing_opt_in` stored with time; treatment consents signed and stored with the exact text signed (H9) |
 
 **§7.1 MVP acceptance criteria** — the v3 text shows every box ticked. That was not a statement about the code.
 Actual state on 2026-10-17:
@@ -229,7 +230,7 @@ Actual state on 2026-10-17:
 | 8 | Daily backup + tested restore | NEEDS_VERIFICATION |
 | 9 | Abandoned booking frees its slot in 10 min | IMPLEMENTED |
 | 10 | Issued invoice locked, no overpay, currency checked | IMPLEMENTED (DB), not reachable from the app |
-| 11 | Guardian signs a child's consent | NOT_IMPLEMENTED |
+| 11 | Guardian signs a child's consent | IMPLEMENTED (H9) |
 
 ### A.1 Original SRS v3 (unchanged)
 
@@ -1672,7 +1673,7 @@ CLR-10, CLR-11, CLR-12, CLR-13, CLR-14, CLR-15, CLR-16 and CLR-17**. These defau
 | CLR-11 | Treatment plan acceptance: a staff tick with date, or a patient signature? | TPLAN-002 | Staff records acceptance (member, date); signature later with consents |
 | CLR-12 | Adjustments: waive an installment, write off a remainder, issue a credit note — which, who approves, any limit? | PAY-006 | Waiver and write-off rows with reason, owner only; no credit notes in v4 |
 | CLR-13 | Order of work: pause the website-content roadmap (Phase 2 "Offers", display-only marketing, unrelated to billing discounts) until this plan's Phase E is done? | roadmap | Pause website phases 2–6 |
-| CLR-14 | Consent signing (DSH-16, M in v3) and the super-admin panel (ADM, M in v3) are not in the v4 brief: defer both? | DSH-16, ADM-* | Defer both (Part D). **Owner 2026-10-20: ADM-01/02/04 built now (H5); consents still deferred** |
+| CLR-14 | Consent signing (DSH-16, M in v3) and the super-admin panel (ADM, M in v3) are not in the v4 brief: defer both? | DSH-16, ADM-* | Defer both (Part D). **Owner 2026-10-20: ADM-01/02/04 built now (H5); consents built in H9** |
 | CLR-15 | Patient merge: how are medical histories combined? | PATIENT-003 | Union of allergies, conditions and medications (never lose an allergy); survivor's other fields kept; conflicts listed for the user |
 | CLR-16 | Procedure price: may the doctor change it, or do all reductions go through discounts? | VISIT-003, DISC-* | Price = service price, or within the service's price range when it has one; any other reduction is a discount |
 | CLR-17 | Print format for invoices and receipts: A4, A5, or 80 mm receipt printer? | BILLING-004 | A4 invoice and A5 receipt from the browser; thermal printers later |

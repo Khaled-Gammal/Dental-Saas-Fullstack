@@ -87,6 +87,8 @@ export interface Service {
   is_active: boolean;
   sort_order: number;
   image: MediaImage | null;
+  /** H9: the consent text this treatment needs, if any */
+  consent_key?: string | null;
 }
 
 export interface CatalogEntry { code: string; category: string; name_en: string; name_ar: string; default_duration_minutes: number }
@@ -293,6 +295,8 @@ export interface PrescriptionPrint extends Prescription {
 }
 export interface Amendment { id: string; field: NoteField; new_text: string; reason: string; created_at: string; author_name: string | null }
 export interface Visit {
+  /** H9: treatments of this visit that need a consent; consent_id null = not signed yet (a warning) */
+  consents?: { key: string; title: string | null; consent_id: string | null }[];
   id: string; status: 'draft' | 'final'; appointment_id: string | null; patient_id: string; doctor_id: string; branch_id: string; visit_at: string;
   chief_complaint: string | null; diagnosis: string | null; clinical_notes: string | null; next_visit_note: string | null;
   finalized_at: string | null; finalized_by_name: string | null; created_at: string;

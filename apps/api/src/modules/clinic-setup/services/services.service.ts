@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Tx } from '@dental/db';
 import { TenantDb } from '../../../shared/database/tenant-db.service';
 import { Err } from '../../../shared/errors/app-error';
 import { MediaService, type StoredImage } from '../../media';
@@ -20,6 +21,11 @@ export class ServicesService {
   /** The image goes out with short-lived signed links (it may not be public yet). */
   private present<T extends { image: StoredImage | null }>(s: T) {
     return { ...s, image: this.media.present(s.image) };
+  }
+
+  /** H9: a treatment can only need a consent text the clinic has (and has not archived). */
+  private async assertConsent(tx: Tx, key: string | null | undefined): Promise<void> {
+    if (key && !(await this.repo.consentExists(tx, key))) throw Err.badRequest('consent_not_found', 'No such consent text');
   }
 
   async list() {
@@ -44,6 +50,7 @@ export class ServicesService {
       }
       if (!s.durationMinutes) throw Err.badRequest('validation_failed', 'durationMinutes is required');
       checkRules(s);
+      await this.assertConsent(tx, s.consentKey);
       await this.media.replace(tx, 'image', s.imageFileId, null);
       const { id } = await this.repo.create(tx, tenantId, { ...s, durationMinutes: s.durationMinutes });
       return this.present((await this.repo.get(tx, id))!);
@@ -63,6 +70,7 @@ export class ServicesService {
         priceMinor: patch.priceMinor ?? current.price_minor,
         priceMaxMinor: patch.priceMaxMinor === undefined ? current.price_max_minor : patch.priceMaxMinor,
       });
+      await this.assertConsent(tx, patch.consentKey);
       if (!(await this.repo.update(tx, id, patch))) throw notFound();
       return { tenantId, service: (await this.repo.get(tx, id))! };
     });

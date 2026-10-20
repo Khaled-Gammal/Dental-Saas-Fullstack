@@ -147,4 +147,8 @@ INSERT INTO patients (id, tenant_id, file_no, full_name, gender, phone, email, p
  ('70000000-0000-0000-0000-0000000000a2','11111111-1111-1111-1111-111111111111',2,'Nour Ali','female','+201022222222',NULL,'d0000000-0000-0000-0000-0000000000a1'),
  ('70000000-0000-0000-0000-0000000000b1','22222222-2222-2222-2222-222222222222',1,'Youssef Samir','male','+201033333333',NULL,'d0000000-0000-0000-0000-0000000000b1');
 
+
+-- H9: the starter consent drafts every new clinic gets at sign-up (provision_tenant)
+SELECT seed_consent_drafts(id) FROM tenants;
+
 COMMIT;

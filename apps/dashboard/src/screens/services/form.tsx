@@ -10,6 +10,8 @@ import { to } from '../../router';
 import { fromCatalog, toBody, toForm, validate, type ServiceFieldError, type ServiceForm as Form } from '../../service-model';
 import type { CatalogEntry, Service } from '../../types';
 import { Card, Field, Input, Switch, TextArea } from '../../ui/components';
+import { Choice } from '../../components/choice';
+import { useConsentTexts } from '../consents/templates';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { FormPage, ResourceState } from '../../ui/page';
 import { currencyLabel } from '../../money';
@@ -34,6 +36,7 @@ function ServiceFormBody({ clinicId, service, catalog }: { clinicId: string; ser
   const [touched, setTouched] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
   const invalidate = useInvalidate(clinicId);
+  const texts = useConsentTexts(clinicId);
   const leave = useLeave(to.list('services'));
   const errors = validate(form);
   const body = toBody(form, orig, catalog);
@@ -93,6 +96,16 @@ function ServiceFormBody({ clinicId, service, catalog }: { clinicId: string; ser
           <Switch checked={form.bookableOnline} onChange={set('bookableOnline')} label={t('bookableOnline')} />
           {service && <Switch checked={form.isActive} onChange={setActive} label={t('isActive')} />}
         </div>
+      </Card>
+
+      <Card>
+        <h2>{t('consentForService')}</h2>
+        <Field label={t('consentNeeded')} hint={t('consentNeededHint')}>
+          {(a) => (
+            <Choice id={a.id} value={form.consentKey} onChange={set('consentKey')} noneLabel={t('consentNone')}
+              options={(texts.data ?? []).filter((x) => x.is_active).map((x) => ({ value: x.key, label: x.is_draft ? `${x.title_ar} (${t('consentDraft')})` : x.title_ar }))} />
+          )}
+        </Field>
       </Card>
 
       <ConfirmDialog open={confirmOff} title={t('deactivateService')} confirmLabel={t('deactivate')} danger

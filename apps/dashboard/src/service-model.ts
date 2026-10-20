@@ -12,6 +12,8 @@ export const MAX_MINOR = 100_000_000; // 1,000,000 EGP, same cap as the API
 export interface ServiceForm {
   nameAr: string; nameEn: string; descriptionAr: string; price: string; priceMax: string; duration: string;
   bookableOnline: boolean; showOnWebsite: boolean; isActive: boolean; image: MediaImage | null;
+  /** H9: a consent text's key, '' = none needed */
+  consentKey: string;
 }
 export type ServiceFieldError = 'name' | 'price' | 'priceMax' | 'duration';
 
@@ -19,11 +21,11 @@ const pounds = (minor: number | null) => (minor ? String(Math.round(minor / PIAS
 export const toForm = (s: Service): ServiceForm => ({
   nameAr: s.name_ar ?? '', nameEn: s.name_en ?? '', descriptionAr: s.description_ar ?? '', price: pounds(s.price_minor), priceMax: pounds(s.price_max_minor),
   duration: String(s.duration_minutes), bookableOnline: s.bookable_online, showOnWebsite: s.show_on_website, isActive: s.is_active,
-  image: s.image ?? null,
+  image: s.image ?? null, consentKey: s.consent_key ?? '',
 });
 export const fromCatalog = (c?: CatalogEntry): ServiceForm => ({
   nameAr: c?.name_ar ?? '', nameEn: c?.name_en ?? '', descriptionAr: '', price: '', priceMax: '', duration: c ? String(c.default_duration_minutes) : '30',
-  bookableOnline: true, showOnWebsite: true, isActive: true, image: null,
+  bookableOnline: true, showOnWebsite: true, isActive: true, image: null, consentKey: '',
 });
 
 const digits = (v: string) => toAsciiDigits(v.trim());
@@ -63,6 +65,7 @@ export function toBody(form: ServiceForm, orig: ServiceForm | null, catalog?: Ca
   if (!orig ? duration !== (catalog?.default_duration_minutes ?? NaN) : duration !== Number(orig.duration)) body.durationMinutes = duration;
   for (const k of ['bookableOnline', 'showOnWebsite'] as const) if (!orig || form[k] !== orig[k]) body[k] = form[k];
   if (orig && form.isActive !== orig.isActive) body.isActive = form.isActive;
+  if (orig ? form.consentKey !== orig.consentKey : !!form.consentKey) body.consentKey = form.consentKey || null;
   const image = imageFieldValue(form.image, orig ? orig.image : undefined);
   if (image !== undefined) body.imageFileId = image;
   return body;

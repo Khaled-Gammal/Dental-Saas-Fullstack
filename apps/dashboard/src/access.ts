@@ -32,6 +32,8 @@ const PAGE: Record<Page, Need> = {
   gallery: ['website:write'],
   // H8: the clinic owner only. No role can be given this (it is not in the permission catalogue); the owner's '*' has it
   data: ['clinic:owner'],
+  // H9: the clinic's consent texts (signing happens on the patient's page)
+  consents: ['settings:write'],
 };
 
 /** A page's other screens, where they need more (or other) than the page. */
@@ -40,7 +42,11 @@ const ACTION: Partial<Record<Page, Partial<Record<string, Need>>>> = {
   doctors: { new: ['settings:write'], edit: ['settings:write'], schedule: ['settings:write'] },
   services: { new: ['settings:write'], edit: ['settings:write'] },
   appointments: { new: ['appointments:write', 'patients:read'], edit: ['appointments:write', 'appointments:read'] },
-  patients: { new: ['patients:read', 'patients:write'], edit: ['patients:read', 'patients:write'], merge: ['patients:read', 'patients:merge'] },
+  patients: {
+    new: ['patients:read', 'patients:write'], edit: ['patients:read', 'patients:write'], merge: ['patients:read', 'patients:merge'],
+    // H9: signing is done at reception or in the treatment room; reading a signed consent needs only patients:read
+    sign: ['patients:read', ['patients:write', 'clinical:write', 'treatments:write:own']], consent: ['patients:read'],
+  },
   // a doctor opens the invoices of their own patients (invoices:read:own) but not the clinic's list
   invoices: { view: [INVOICE_ANY], print: [INVOICE_ANY], new: ['invoices:write', 'patients:read', INVOICE_ANY] },
 };
