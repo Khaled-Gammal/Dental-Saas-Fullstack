@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PatientsModule } from '../patients';
-import { InvoicesController, MoneyControlsController, PatientBillingController, PaymentsController } from './billing.controllers';
+import { BalancesController, InvoicesController, MoneyControlsController, PatientBillingController, PaymentsController } from './billing.controllers';
 import { BillingRepository } from './billing.repository';
 import { BillingService } from './billing.service';
 import { MoneyControlsService } from './money-controls.service';
@@ -11,7 +11,7 @@ import { MoneyControlsService } from './money-controls.service';
  */
 @Module({
   imports: [PatientsModule],
-  controllers: [InvoicesController, PaymentsController, PatientBillingController, MoneyControlsController],
+  controllers: [InvoicesController, PaymentsController, PatientBillingController, MoneyControlsController, BalancesController],
   providers: [BillingService, BillingRepository, MoneyControlsService],
 })
 export class BillingModule {}

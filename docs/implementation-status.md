@@ -31,7 +31,7 @@ Last updated: 2026-10-19, end of Phase G (final report: `docs/reviews/2026-10-19
 | 6 | Booking | IMPLEMENTED | patient self-service links (BOOK-08, deferred) |
 | 7 | Check-in | IMPLEMENTED | — |
 | 8 | Clinical visit | IMPLEMENTED | — |
-| 9 | Chart and treatment plan | IMPLEMENTED | invoiced/paid in the plan summary (TPLAN-004, Phase E) |
+| 9 | Chart and treatment plan | IMPLEMENTED | — |
 | 10 | Procedures | IMPLEMENTED | — |
 | 11 | Prescription | IMPLEMENTED | print check on paper (Chrome, Edge, Safari) |
 | 12 | Invoice | IMPLEMENTED (E1, E2) | — |
@@ -74,12 +74,12 @@ Last updated: 2026-10-19, end of Phase G (final report: `docs/reviews/2026-10-19
 | TPLAN-001 | Create/edit treatment plan | IMPLEMENTED | D4 | `/patients/:id/plans`, `/plans/:id/items`; estimate derived; `#/plans/<id>/view` |
 | TPLAN-002 | Plan status | IMPLEMENTED | D4 | CLR-11 default (member + time); `treatment_plans_guard`; progress derived from items |
 | TPLAN-003 | Planned vs. performed | IMPLEMENTED | D4 | item done through a procedure only; accepted items fixed, cancelled kept |
-| TPLAN-004 | Plan summary | PARTIALLY | D4/E | estimate, done, remaining, next recommended visit; invoiced/paid/balance in Phase E |
+| TPLAN-004 | Plan summary | IMPLEMENTED | D4/H1 | estimate, done, remaining, next visit (D4); H1: invoiced, paid and balance per plan from issued invoices of its procedures, shared invoices pro rata (`planBilling`, unit-tested), shown to members who may see the billing; `clinical.e2e-spec.ts` |
 | BILLING-001 | Draft invoice | IMPLEMENTED | E1 | `modules/billing`, `POST /invoices` from unbilled procedures and service lines; `#/invoices/new` |
 | BILLING-002 | Issue invoice + numbering | IMPLEMENTED | E1 | migration 0023 `issue_invoice()` ({prefix}-{year}-{seq}, gap-free, tax half up), number locked; `22_billing_payments.sql` |
 | BILLING-003 | Void invoice | IMPLEMENTED | E1 | `POST /invoices/:id/void` (invoices:void, reason, nothing paid) |
 | BILLING-004 | Arabic invoice/receipt print | IMPLEMENTED (print not verified on paper) | E1 | `#/invoices/<id>/print` (A4), `#/payments/<id>/print` (A5) |
-| BILLING-005 | Patient balance | PARTIALLY | E1 | `GET /patients/:id/billing` (invoices:read, or :own for the doctor's patients); profile card; not shown at check-in yet |
+| BILLING-005 | Patient balance | IMPLEMENTED | E1/H1 | `GET /patients/:id/billing` (profile, payment screen); H1: `GET /balances?patientIds=` (invoices:read, or :own for the doctor's patients) shows «عليه …» on the day list and waiting list and in the code check-in confirmation; `clinical.e2e-spec.ts` |
 | PAY-001 | Record a payment (methods) | IMPLEMENTED | E1 | receiver = signed-in member, idempotency key, reference CHECK; dated now; refused on a closed cash day or in the future (E3) |
 | PAY-002 | Partial and multiple payments | IMPLEMENTED | E1 | status derived; `billing.e2e-spec.ts` |
 | PAY-003 | Immutable payments | IMPLEMENTED | C/E1 | `payments_guard()` (0012, 0023: succeeded → reversed with reason, nothing else); owner, or the receiver the same day (CLR-05) |
@@ -131,6 +131,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-19 | H1 | BILLING-005 at check-in (`GET /balances`), TPLAN-004 invoiced/paid/balance per plan. No migration |
 | 2026-10-19 | F5 | Owner confirmed the "my day" rule and asked for no-shows today as well as the month (home). L10N-008 cleanup approved and done: Arabic-only dictionary and no `lang` plumbing in the dashboard. No migration |
 | 2026-10-19 | G | Full run (431 DB, 296 API, 75 dashboard, 23 website), browser sweep of 33 dashboard screens at two widths; fixed the profile/visit overflow at phone width and the bare new-invoice link. Final report |
 | 2026-10-19 | F4 | REPORT-006 home per role (`GET /reports/home`, `screens/home-figures.tsx`). No migration. Phase F complete except the optional L10N-008 code cleanup |

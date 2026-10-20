@@ -362,3 +362,11 @@ export const useReportBranches = (clinicId: string) =>
 /** REPORT-006: the member's home figures; refreshed with money changes (shared prefix) and every minute while open. */
 export const useHome = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'home'] as const, queryFn: () => api<HomeData>('/reports/home'), refetchInterval: 60_000 });
+
+/** BILLING-005 at check-in: what the day's patients owe (patient id -> balance), for members who may see it. */
+export const useBalances = (clinicId: string, patientIds: string[], enabled: boolean) =>
+  useQuery({
+    queryKey: [...billingKeys.all(clinicId), 'balances', [...patientIds].sort().join(',')] as const,
+    queryFn: () => api<Record<string, number>>(`/balances?patientIds=${patientIds.join(',')}`),
+    enabled: enabled && patientIds.length > 0,
+  });

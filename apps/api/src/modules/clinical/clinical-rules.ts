@@ -55,6 +55,20 @@ export function planSummary(items: readonly PlanItemLike[]) {
   };
 }
 
+/** One invoice line of a plan's procedure, with its invoice's figures (issued or later, never draft or void). */
+export interface PlanInvoiceLine { line_total_minor: number; subtotal_minor: number; total_minor: number; paid_minor: number; balance_minor: number }
+
+/**
+ * TPLAN-004: what a plan has been invoiced, paid and still owes. Payments are recorded per invoice, so a plan's share
+ * of an invoice is its lines' part of the invoice subtotal; that share of the total, of what was paid and of the
+ * balance is the plan's (rounded per line, half up). An invoice with nothing but this plan's lines counts in full.
+ */
+export function planBilling(lines: readonly PlanInvoiceLine[]) {
+  const share = (l: PlanInvoiceLine, v: number) => (l.subtotal_minor > 0 ? Math.round((v * l.line_total_minor) / l.subtotal_minor) : 0);
+  const sum = (pick: (l: PlanInvoiceLine) => number) => lines.reduce((s, l) => s + share(l, pick(l)), 0);
+  return { invoiced_minor: sum((l) => l.total_minor), paid_minor: sum((l) => l.paid_minor), balance_minor: sum((l) => l.balance_minor) };
+}
+
 /** One call-log line kept in the follow-up's notes (VISIT-005): when, who, what was said. */
 export function appendCallNote(notes: string | null, at: string, who: string, note: string): string {
   const line = `${at} — ${who}: ${note.trim()}`;

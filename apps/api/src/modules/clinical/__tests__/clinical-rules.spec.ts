@@ -1,5 +1,5 @@
 import type { AppError } from '../../../shared/errors/app-error';
-import { appendCallNote, cleanSurfaces, currentChart, isToothCode, planSummary, priceFor } from '../clinical-rules';
+import { appendCallNote, cleanSurfaces, currentChart, isToothCode, planBilling, planSummary, priceFor } from '../clinical-rules';
 
 const code = (fn: () => unknown) => { try { fn(); } catch (e) { return (e as AppError).code; } return null; };
 
@@ -63,5 +63,23 @@ describe('appendCallNote (VISIT-005)', () => {
     const long = appendCallNote('x'.repeat(4000), '2031-06-03', 'م', 'آخر مكالمة');
     expect(long.length).toBe(4000);
     expect(long.endsWith('آخر مكالمة')).toBe(true);
+  });
+});
+
+describe('planBilling (TPLAN-004)', () => {
+  const line = (l: Partial<Parameters<typeof planBilling>[0][number]>) => ({ line_total_minor: 0, subtotal_minor: 0, total_minor: 0, paid_minor: 0, balance_minor: 0, ...l });
+  it('an invoice of the plan alone counts in full', () => {
+    expect(planBilling([line({ line_total_minor: 100_000, subtotal_minor: 100_000, total_minor: 90_000, paid_minor: 40_000, balance_minor: 50_000 })]))
+      .toEqual({ invoiced_minor: 90_000, paid_minor: 40_000, balance_minor: 50_000 });
+  });
+  it('an invoice shared with other work counts by the plan lines’ part of it', () => {
+    // 1 200 of a 3 000 subtotal is 40 %: of a 2 700 total (after a 300 invoice discount), 1 000 paid, 1 700 owed
+    expect(planBilling([line({ line_total_minor: 120_000, subtotal_minor: 300_000, total_minor: 270_000, paid_minor: 100_000, balance_minor: 170_000 })]))
+      .toEqual({ invoiced_minor: 108_000, paid_minor: 40_000, balance_minor: 68_000 });
+  });
+  it('several lines and invoices add up; nothing invoiced is zero', () => {
+    const a = line({ line_total_minor: 50_000, subtotal_minor: 50_000, total_minor: 50_000, paid_minor: 50_000 });
+    expect(planBilling([a, a])).toEqual({ invoiced_minor: 100_000, paid_minor: 100_000, balance_minor: 0 });
+    expect(planBilling([])).toEqual({ invoiced_minor: 0, paid_minor: 0, balance_minor: 0 });
   });
 });

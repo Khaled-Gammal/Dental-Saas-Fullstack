@@ -3,8 +3,8 @@ import type { Tx } from '@dental/db';
 import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
 import { PatientDirectory } from '../patients';
-import { ClinicalAccess } from './clinical-access';
-import { cleanSurfaces, planSummary, priceFor } from './clinical-rules';
+import { ClinicalAccess, type ClinicalActor } from './clinical-access';
+import { cleanSurfaces, planBilling, planSummary, priceFor } from './clinical-rules';
 import type { EditPlanInput, EditPlanItemInput, NewPlanInput, NewPlanItemInput } from './clinical.schemas';
 import { PlansRepository, type PlanStatus } from './plans.repository';
 
@@ -34,8 +34,9 @@ export class PlansService {
     return this.db.run(async (tx, tenantId) => {
       if (!(await this.patients.exists(tx, tenantId, patientId))) throw Err.notFound('patient_not_found', 'Patient not found');
       const plans = await this.repo.forPatient(tx, patientId);
-      const items = await this.repo.items(tx, plans.map((p) => p.id));
-      return plans.map((p) => ({ ...p, summary: planSummary(items.filter((i) => i.plan_id === p.id)) }));
+      const [items, a] = await Promise.all([this.repo.items(tx, plans.map((p) => p.id)), this.access.actor(tx)]);
+      const money = await this.billingOf(tx, a, plans);
+      return plans.map((p) => ({ ...p, summary: planSummary(items.filter((i) => i.plan_id === p.id)), billing: money.get(p.id) ?? null }));
     });
   }
 
@@ -164,7 +165,7 @@ export class PlansService {
     const clinical = a.can('clinical:read') || a.can('clinical:write');
     const note = clinical ? await this.repo.latestNextVisitNote(tx, plan.patient_id, plan.doctor_id) : undefined;
     return {
-      ...plan, items, summary: planSummary(items),
+      ...plan, items, summary: planSummary(items), billing: (await this.billingOf(tx, a, [plan])).get(plan.id) ?? null,
       next: { item: next, next_visit_note: note?.next_visit_note ?? null, noted_at: note?.visit_at ?? null },
       can: { write: ClinicalAccess.writesTreatment(a, plan.doctor_id), schedule: a.can('appointments:write') || ClinicalAccess.writesTreatment(a, plan.doctor_id) },
     };
@@ -181,5 +182,15 @@ export class PlansService {
     const p = await this.writable(tx, id);
     if (!EDITABLE.includes(p.status)) throw Err.conflict('plan_locked', 'Items of an accepted plan are fixed; cancel an item, or start a new plan');
     return p;
+  }
+
+  /**
+   * TPLAN-004: invoiced, paid and balance per plan, for members who may see the patient's billing (BILLING-005):
+   * invoices:read, or invoices:read:own for the plan's own doctor. Others get no money figures (null).
+   */
+  private async billingOf(tx: Tx, a: ClinicalActor, plans: readonly { id: string; doctor_id: string }[]) {
+    const shown = plans.filter((p) => a.can('invoices:read') || (a.can('invoices:read:own') && a.doctorId === p.doctor_id));
+    const lines = await this.repo.invoiceLines(tx, shown.map((p) => p.id));
+    return new Map(shown.map((p) => [p.id, planBilling(lines.filter((l) => l.plan_id === p.id))]));
   }
 }

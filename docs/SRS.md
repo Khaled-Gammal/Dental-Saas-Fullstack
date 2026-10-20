@@ -1318,7 +1318,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 - *Acceptance:* (1) recording a procedure for a planned item marks it done; (2) a cancelled item stays visible as
   cancelled (items are never deleted once the plan is accepted).
 
-**TPLAN-004 — Plan summary** · PARTIALLY_IMPLEMENTED (D4: estimate, done, remaining, next recommended visit; invoiced, paid and balance come with billing in Phase E) · Phase D/E
+**TPLAN-004 — Plan summary** · IMPLEMENTED (2026-10-19, H1: invoiced, paid and balance per plan; D4: estimate, done, remaining, next recommended visit; invoiced, paid and balance come with billing in Phase E) · Phase D/E
 - *Description:* For a plan: total estimate, invoiced so far, paid so far, the patient's balance (BILLING-005),
   remaining estimate, and the next recommended visit (next planned item and the doctor's next-visit note).
 - *Entities:* plans, procedures, invoices, payments.
@@ -1359,7 +1359,7 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   remaining balance. Paper format (CLR-17): A4 invoice and A5 receipt from the browser; thermal printers later.
 - *Acceptance:* Arabic, numbers and currency print correctly; nothing is cut off on the chosen paper size.
 
-**BILLING-005 — Patient balance** · PARTIALLY_IMPLEMENTED (2026-10-17, E1: profile and payment screen; not yet at check-in) · Phase E
+**BILLING-005 — Patient balance** · IMPLEMENTED (2026-10-19, H1: also at check-in and on the day list; E1: profile and payment screen) · Phase E
 - *Description:* A patient's outstanding balance is the sum of balances of their issued, non-void invoices (derived,
   never stored by the client). It is shown on the patient profile, at check-in and on the payment screen to members
   with `invoices:read` (doctors: their own patients, `invoices:read:own`).

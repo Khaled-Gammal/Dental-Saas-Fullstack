@@ -112,7 +112,17 @@ function SummaryCard({ p }: { p: PlanDetail }) {
         <div><dt>{t('doneEstimate')}</dt><dd><bdi>{money(s.done_estimate_minor)}</bdi></dd></div>
         <div><dt>{t('remainingEstimate')}</dt><dd><strong><bdi>{money(s.remaining_estimate_minor)}</bdi></strong></dd></div>
       </dl>
-      <p className="muted small mt-sm">{t('billingLater')}</p>
+      {p.billing && (
+        <>
+          <h3 className="mt">{t('planBilling')}</h3>
+          <dl className="detail-list mt-sm">
+            <div><dt>{t('planInvoiced')}</dt><dd><bdi>{money(p.billing.invoiced_minor)}</bdi></dd></div>
+            <div><dt>{t('planPaid')}</dt><dd><bdi>{money(p.billing.paid_minor)}</bdi></dd></div>
+            <div><dt>{t('planBalance')}</dt><dd><strong className={p.billing.balance_minor > 0 ? 'text-owed' : undefined}><bdi>{money(p.billing.balance_minor)}</bdi></strong></dd></div>
+          </dl>
+          <p className="muted small mt-sm">{t('planBillingNote')}</p>
+        </>
+      )}
       {(p.next.item || p.next.next_visit_note) && (
         <div className="mt">
           <h3>{t('nextRecommended')}</h3>

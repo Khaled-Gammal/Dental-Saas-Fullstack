@@ -5,7 +5,7 @@ import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { t, type Key } from '../../i18n';
 import { waitingList } from '../../calendar-model';
-import { send, useAppointmentAction, useAppointments, useBranches, useCheckIn, useClinicalMutation, type AppointmentAction } from '../../queries';
+import { send, useAppointmentAction, useAppointments, useBalances, useBranches, useCheckIn, useClinicalMutation, type AppointmentAction } from '../../queries';
 import { to } from '../../router';
 import { RouteLink } from '../../ui/page';
 import type { Appointment, AppointmentStatus, Branch } from '../../types';
@@ -64,8 +64,10 @@ function OpenVisitButton({ clinicId, appointmentId }: { clinicId: string; appoin
   );
 }
 
-export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 'all', canVisit = false, canReadVisit = false }: {
+export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 'all', canVisit = false, canReadVisit = false, canSeeBalances = false }: {
   clinicId: string; canWrite: boolean; canOwn: boolean; query?: Record<string, string>; defaultView?: View;
+  /** invoices:read or invoices:read:own: show what each patient owes (BILLING-005 at check-in) */
+  canSeeBalances?: boolean;
   /** clinical:write: open the visit of an arrived patient (the API checks it is the doctor's own); clinical:read: open an existing one */
   canVisit?: boolean; canReadVisit?: boolean;
 }) {
@@ -80,6 +82,8 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
   const branches = useBranches(clinicId);
   const day = useAppointments(clinicId, date, branchId, view === 'mine');
   const queue = waitingList(day.data?.appointments ?? [], Date.now());
+  const patientIds = [...new Set((day.data?.appointments ?? []).flatMap((a) => (a.patient ? [a.patient.id] : [])))];
+  const balances = useBalances(clinicId, patientIds, canSeeBalances).data ?? {};
   const tz = day.data?.timezone ?? 'Africa/Cairo';
   const time = (iso: string) => new Intl.DateTimeFormat(locale(), { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
 
@@ -122,7 +126,7 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
         ))}
       </div>
 
-      {canWrite && view !== 'mine' && <CheckInPanel clinicId={clinicId} branches={branches.data ?? []} defaultBranch={branchId} />}
+      {canWrite && view !== 'mine' && <CheckInPanel clinicId={clinicId} branches={branches.data ?? []} defaultBranch={branchId} canSeeBalances={canSeeBalances} />}
       {actionError != null && <ErrorText error={actionError} />}
 
       <h2 className="day-title"><CalendarIcon size={18} />{new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`))}</h2>
@@ -131,7 +135,7 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
       ) : day.isLoading ? (
         <ul className="appts"><Skeleton h={84} count={4} /></ul>
       ) : view === 'waiting' ? (
-        <WaitingView queue={queue} time={time} canStart={canWrite || canOwn} onStart={(a) => run(a, 'start')} />
+        <WaitingView queue={queue} time={time} canStart={canWrite || canOwn} onStart={(a) => run(a, 'start')} balances={balances} />
       ) : !day.data?.appointments.length ? (
         <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noAppointments')} text={t('noAppointmentsText')} /></Card>
       ) : (
@@ -148,6 +152,7 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
                   <div className="appt-head">
                     <strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong>
                     <Badge tone={TONE[a.status]}>{t(`status_${a.status}` as Key)}</Badge>
+                    <Owes balance={a.patient ? balances[a.patient.id] : undefined} />
                   </div>
                   <div className="appt-meta">
                     {a.patient && <span dir="ltr">{a.patient.phone}</span>}
@@ -195,11 +200,13 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
 }
 
 /** Reception types the 6-digit code the patient shows; the API consumes it once and reports what is still to be paid. */
-function CheckInPanel({ clinicId, branches, defaultBranch }: { clinicId: string; branches: Branch[]; defaultBranch?: string }) {
+function CheckInPanel({ clinicId, branches, defaultBranch, canSeeBalances }: { clinicId: string; branches: Branch[]; defaultBranch?: string; canSeeBalances: boolean }) {
   const [code, setCode] = useState('');
   const [branch, setBranch] = useState('');
   const branchId = branch || defaultBranch || branches[0]?.id || '';
   const checkIn = useCheckIn(clinicId);
+  const arrived = checkIn.data?.appointment.patient?.id;
+  const owed = useBalances(clinicId, arrived ? [arrived] : [], canSeeBalances && checkIn.isSuccess).data?.[arrived ?? ''] ?? 0;
   const digits = toAsciiDigits(code).replace(/\D/g, '');
   const submit = (e: { preventDefault(): void }) => {
     e.preventDefault();
@@ -223,6 +230,7 @@ function CheckInPanel({ clinicId, branches, defaultBranch }: { clinicId: string;
           <Alert tone="success">
             {t('checkedInOk')}: <strong><bdi>{checkIn.data.appointment.patient?.full_name}</bdi></strong>
             {' · '}{t('amountDue')}: <strong>{money(checkIn.data.result.amount_due_minor)}</strong>
+            {owed > 0 && <>{' · '}{t('balanceOwed')}: <strong><bdi>{money(owed)}</bdi></strong></>}
           </Alert>
         )}
       </form>
@@ -230,9 +238,14 @@ function CheckInPanel({ clinicId, branches, defaultBranch }: { clinicId: string;
   );
 }
 
+/** BILLING-005: a patient with an outstanding balance from earlier invoices shows it where reception sees them. */
+function Owes({ balance }: { balance: number | undefined }) {
+  return balance && balance > 0 ? <Badge tone="warning">{t('owes')} <bdi>{money(balance)}</bdi></Badge> : null;
+}
+
 /** Reception's waiting list (SRS APPT-003): arrival order, minutes waited, who is with the doctor. Refreshes with the day. */
-function WaitingView({ queue, time, canStart, onStart }: {
-  queue: ReturnType<typeof waitingList>; time: (iso: string) => string; canStart: boolean; onStart: (a: Appointment) => void;
+function WaitingView({ queue, time, canStart, onStart, balances }: {
+  queue: ReturnType<typeof waitingList>; time: (iso: string) => string; canStart: boolean; onStart: (a: Appointment) => void; balances: Record<string, number>;
 }) {
   if (!queue.waiting.length && !queue.withDoctor.length) {
     return <Card><EmptyState icon={<CheckIcon size={28} />} title={t('noWaiting')} text={t('noWaitingText')} /></Card>;
@@ -244,7 +257,8 @@ function WaitingView({ queue, time, canStart, onStart }: {
           <div className="appt-time"><strong>{fmtNumber(i + 1)}</strong><span className="muted"><bdi dir="ltr">{time(a.starts_at)}</bdi></span></div>
           <div className="appt-main">
             <div className="appt-head"><strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong>
-              <Badge tone={waitedMinutes >= 20 ? 'warning' : 'neutral'}>{t('waitingFor')} {fmtNumber(waitedMinutes)} {t('minutesShort')}</Badge></div>
+              <Badge tone={waitedMinutes >= 20 ? 'warning' : 'neutral'}>{t('waitingFor')} {fmtNumber(waitedMinutes)} {t('minutesShort')}</Badge>
+              <Owes balance={a.patient ? balances[a.patient.id] : undefined} /></div>
             <div className="appt-meta">
               <span><bdi>{arName(a.doctor.name_ar, a.doctor.name_en)}</bdi></span>
               {a.service && <span><bdi>{arName(a.service.name_ar, a.service.name_en)}</bdi></span>}

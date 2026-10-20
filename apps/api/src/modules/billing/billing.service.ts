@@ -47,6 +47,16 @@ export class BillingService {
     throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
   }
 
+  /** BILLING-005 at check-in: the outstanding balance of the day's patients, for whoever may see them (as forPatient). */
+  balances(patientIds: string[]) {
+    return this.db.run(async (tx) => {
+      if (this.can('invoices:read')) return this.repo.balances(tx, patientIds, null);
+      const doctorId = this.can('invoices:read:own') ? await this.repo.doctorOfMember(tx, this.member()) : null;
+      if (!doctorId) throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
+      return this.repo.balances(tx, patientIds, doctorId);
+    });
+  }
+
   list(q: InvoicesQueryInput) {
     if (!this.can('invoices:read')) throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
     return this.db.run((tx) => this.repo.list(tx, q));
