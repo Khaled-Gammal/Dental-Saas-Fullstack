@@ -3,7 +3,9 @@ import { t } from '../i18n';
 import { navigate } from '../hooks';
 import { href, type Route } from '../router';
 import { Alert, Button, ErrorText, Skeleton } from './components';
-import { ChevronIcon } from './icons';
+import {
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 
 export interface Crumb { label: string; route?: Route }
 
@@ -18,24 +20,24 @@ export function RouteLink({ route, className = 'link-btn', children, ...rest }: 
   return <a {...rest} href={href(route)} className={className} onClick={onClick}>{children}</a>;
 }
 
-/** "Overview › Doctors › Edit" — every crumb but the last is a link. */
+/** "Overview › Doctors › Edit" — every crumb but the last is a link (shadcn/ui Breadcrumb; the chevrons point left in RTL). */
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
   return (
-    <nav className="crumbs" aria-label={t('breadcrumbs')}>
-      <ol>
+    <Breadcrumb aria-label={t('breadcrumbs')} className="-mb-2">
+      <BreadcrumbList className="gap-1 text-sm text-muted-foreground sm:gap-1.5">
         {items.map((c, i) => {
           const last = i === items.length - 1;
           return (
-            <li key={i}>
+            <BreadcrumbItem key={i}>
               {c.route && !last
-                ? <RouteLink route={c.route} className="crumb-link">{c.label}</RouteLink>
-                : <span aria-current={last ? 'page' : undefined}>{c.label}</span>}
-              {!last && <ChevronIcon size={14} className="crumb-sep" />}
-            </li>
+                ? <BreadcrumbLink asChild><RouteLink route={c.route} className="hover:text-primary-600">{c.label}</RouteLink></BreadcrumbLink>
+                : <BreadcrumbPage className={last ? 'font-semibold text-ink' : undefined}>{c.label}</BreadcrumbPage>}
+              {!last && <BreadcrumbSeparator className="rtl:rotate-180" />}
+            </BreadcrumbItem>
           );
         })}
-      </ol>
-    </nav>
+      </BreadcrumbList>
+    </Breadcrumb>
   );
 }
 
@@ -57,11 +59,11 @@ export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, 
     <>
       <Breadcrumbs items={crumbs} />
       <div className="page-head">
-        <div>
+        <div className="page-head-text">
           <h1 ref={heading} tabIndex={-1}>{title}</h1>
           {sub && <p>{sub}</p>}
         </div>
-        {extra}
+        {extra && <div className="page-actions">{extra}</div>}
       </div>
       <form onSubmit={onSubmit} className="form-page" noValidate>
         <div className="stack">{children}</div>

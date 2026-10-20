@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { useId, useRef, useState, type ButtonHTMLAttributes, type ComponentProps, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import type { ApiError } from '../api';
 import { errorText, t } from '../i18n';
 import { fieldIssueText } from '../validation-text';
@@ -9,7 +9,7 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 /** Defaults to type="button" so a Button inside a form never submits it by accident; pass type="submit" explicitly. */
 export function Button({ variant = 'primary', loading, block, children, className = '', type = 'button', ...rest }:
-  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; loading?: boolean; block?: boolean }) {
+  ComponentProps<'button'> & { variant?: Variant; loading?: boolean; block?: boolean }) {
   return (
     <button {...rest} type={type} className={`btn btn-${variant}${block ? ' btn-block' : ''} ${className}`}
       disabled={rest.disabled || loading} aria-busy={loading || undefined}>
@@ -132,8 +132,10 @@ export function ErrorText({ error, onRetry }: { error: unknown; onRetry?: () => 
   );
 }
 
-export function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'primary' | 'success' | 'warning'; children: ReactNode }) {
-  return <span className={`badge badge-${tone}`}>{children}</span>;
+export type BadgeTone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
+/** A short label; `dot` marks a status (a coloured dot before the word, as in a table's status column). */
+export function Badge({ tone = 'neutral', dot, children }: { tone?: BadgeTone; dot?: boolean; children: ReactNode }) {
+  return <span className={`badge badge-${tone}${dot ? ' badge-dot' : ''}`}>{children}</span>;
 }
 
 export function Card({ children, className = '', as: Tag = 'section', id }: { children: ReactNode; className?: string; as?: 'section' | 'div' | 'li' | 'form'; id?: string }) {
@@ -155,14 +157,18 @@ export function Skeleton({ h = 72, count = 3 }: { h?: number; count?: number }) 
   return <>{Array.from({ length: count }, (_, i) => <div key={i} className="skeleton" style={{ height: h }} aria-hidden />)}</>;
 }
 
-export function PageHeader({ title, sub, action }: { title: string; sub?: string; action?: ReactNode }) {
+/**
+ * A page's title, its one-line description, an optional count next to the title ("12 مريض") and the page's actions
+ * (redesign R2: the same header on every page; breadcrumbs, where a page has them, sit just above it).
+ */
+export function PageHeader({ title, sub, count, action }: { title: string; sub?: string; count?: ReactNode; action?: ReactNode }) {
   return (
     <div className="page-head">
-      <div>
-        <h1>{title}</h1>
+      <div className="page-head-text">
+        <h1>{title}{count !== undefined && count !== null && <span className="page-count">{count}</span>}</h1>
         {sub && <p>{sub}</p>}
       </div>
-      {action}
+      {action && <div className="page-actions">{action}</div>}
     </div>
   );
 }
