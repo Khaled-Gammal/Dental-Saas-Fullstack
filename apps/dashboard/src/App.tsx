@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { can, refreshSession, subscribeSession, type Session } from './api';
+import { can, logout, refreshSession, subscribeSession, type Session } from './api';
 import { t } from './i18n';
 import { AuthLayout, Forgot, Login, ResetPassword, Signup, Verify, type AuthScreen } from './screens/auth';
 import { AcceptInvite } from './screens/accept-invite';
@@ -10,6 +10,8 @@ import { StaffList } from './screens/staff/list';
 import { RoleForm, RolesList } from './screens/staff/roles';
 import { canOpen } from './access';
 import { parsePlatformRoute } from './platform-model';
+import { parseLegalRoute } from './legal-model';
+import { LegalGate, LegalPage } from './components/legal';
 import { PlatformApp } from './screens/platform/platform';
 import { CanProvider } from './can';
 import { BranchForm } from './screens/branches/form';
@@ -60,8 +62,10 @@ export function App() {
   const route = useRoute();
   // H5: `#/platform…` is the platform admin panel, with its own sign-in and session (never the clinic one)
   const [platformRoute, setPlatformRoute] = useState(() => parsePlatformRoute(window.location.hash));
+  // H6: `#/legal/<kind>` shows a legal document to anyone, signed in or not
+  const [legalKind, setLegalKind] = useState(() => parseLegalRoute(window.location.hash));
   useEffect(() => {
-    const on = () => setPlatformRoute(parsePlatformRoute(window.location.hash));
+    const on = () => { setPlatformRoute(parsePlatformRoute(window.location.hash)); setLegalKind(parseLegalRoute(window.location.hash)); };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
@@ -85,7 +89,9 @@ export function App() {
   const invite = invitationToken(window.location.hash);
 
   let view: ReactNode;
-  if (platformRoute) {
+  if (legalKind) {
+    view = <LegalPage kind={legalKind} />;
+  } else if (platformRoute) {
     view = <PlatformApp route={platformRoute} />;
   } else if (booting) {
     view = (
@@ -110,6 +116,9 @@ export function App() {
           : <Login go={setScreen} notice={screen.notice} />}
       </AuthLayout>
     );
+  } else if (session.legalPending?.length) {
+    // H6: documents to accept before using the clinic (a new version that asks again, or one never accepted)
+    view = <AuthLayout><LegalGate session={session} onSignOut={() => void logout()} /></AuthLayout>;
   } else {
     view = (
       <AppShell session={session} page={route.page}>

@@ -13,6 +13,14 @@ export const ChangePlan = z.object({ planId: z.string().uuid() }).strict();
 export const Activate = z.object({ cycle: z.enum(['monthly', 'yearly']) }).strict();
 export const NewNote = z.object({ body: z.string().trim().min(1).max(2000) }).strict();
 
+/** H6: a new version of a legal document (plain text; paragraphs separated by blank lines) */
+export const PublishLegal = z.object({
+  kind: z.enum(['terms', 'privacy', 'dpa']),
+  titleAr: z.string().trim().min(2).max(200),
+  bodyAr: z.string().trim().min(20).max(200_000),
+  requiresReacceptance: z.boolean(),
+}).strict();
+
 /** ADM-04: prices in minor units; limits and features are the plan's known keys only */
 const Limit = z.number().int().min(0).max(1_000_000).nullable();
 export const EditPlan = z.object({

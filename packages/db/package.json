@@ -9,12 +9,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate": "node scripts/dbmate.mjs up",
     "rollback": "node scripts/dbmate.mjs rollback",
-    "seed": "node scripts/run-sql.mjs seeds/dev_seed.sql",
-    "reset": "node scripts/dbmate.mjs drop && node scripts/dbmate.mjs up && node scripts/run-sql.mjs seeds/dev_seed.sql",
+    "seed": "node scripts/run-sql.mjs seeds/dev_seed.sql && node scripts/run-sql.mjs seeds/legal_placeholders.sql",
+    "reset": "node scripts/dbmate.mjs drop && node scripts/dbmate.mjs up && node scripts/run-sql.mjs seeds/dev_seed.sql && node scripts/run-sql.mjs seeds/legal_placeholders.sql",
     "types": "node scripts/codegen.mjs",
     "test": "node scripts/test-db.mjs",
     "seed:demo-billing": "node scripts/run-sql.mjs seeds/demo_billing.sql",
-    "platform:admin": "node scripts/platform-admin.mjs"
+    "platform:admin": "node scripts/platform-admin.mjs",
+    "seed:legal": "node scripts/run-sql.mjs seeds/legal_placeholders.sql"
   },
   "dependencies": {
     "kysely": "^0.28.2",

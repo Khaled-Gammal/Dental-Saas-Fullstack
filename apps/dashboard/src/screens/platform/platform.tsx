@@ -53,6 +53,7 @@ export function PlatformApp({ route }: { route: PlatformRoute }) {
       {route.page === 'clinic' && <ClinicPage id={route.id} />}
       {route.page === 'plans' && <PlansPage />}
       {route.page === 'activity' && <ActivityPage />}
+      {route.page === 'legal' && <LegalAdminPage />}
     </PlatformShell>
   );
 }
@@ -114,7 +115,7 @@ function PlatformShell({ me, route, children }: { me: Me; route: PlatformRoute; 
       <header className="platform-bar">
         <strong><ShieldIcon size={18} /> {t('pl_title')}</strong>
         <nav className="seg" aria-label={t('pl_title')}>
-          {tab({ page: 'clinics' }, 'pl_clinics')}{tab({ page: 'plans' }, 'pl_plans')}{tab({ page: 'activity' }, 'pl_activity')}
+          {tab({ page: 'clinics' }, 'pl_clinics')}{tab({ page: 'plans' }, 'pl_plans')}{tab({ page: 'legal' }, 'pl_legal')}{tab({ page: 'activity' }, 'pl_activity')}
         </nav>
         <span className="row-end">
           <span className="muted small"><bdi>{me.name}</bdi></span>
@@ -328,6 +329,70 @@ function ActivityPage() {
     <>
       <div className="page-head"><div><h1>{t('pl_activity')}</h1><p>{t('pl_activitySub')}</p></div></div>
       <Card>{audit.isError ? <ErrorText error={audit.error} /> : !audit.data ? <Skeleton h={48} count={4} /> : <AuditList rows={audit.data} />}</Card>
+    </>
+  );
+}
+
+// ---------- H6 legal documents ----------
+interface LegalVersion { id: string; kind: string; version: number; title_ar: string; body_ar: string; requires_reacceptance: boolean; published_at: string; published_by: string | null; acceptances: number }
+const LEGAL_KINDS = ['terms', 'privacy', 'dpa'] as const;
+
+function LegalAdminPage() {
+  const qc = useQueryClient();
+  const versions = useQuery({ queryKey: [...KEY, 'legal'], queryFn: () => papi<LegalVersion[]>('/platform/legal') });
+  const [kind, setKind] = useState<string>('terms');
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [reaccept, setReaccept] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const publish = useMutation({
+    mutationFn: () => papi<LegalVersion[]>('/platform/legal', { method: 'POST', body: JSON.stringify({ kind, titleAr: title.trim(), bodyAr: body.trim(), requiresReacceptance: reaccept }) }),
+    onSuccess: (v) => { qc.setQueryData([...KEY, 'legal'], v); setTitle(''); setBody(''); setReaccept(false); },
+  });
+  const latest = (k: string) => versions.data?.find((v) => v.kind === k);
+  const start = (k: string) => { setKind(k); const l = latest(k); setTitle(l?.title_ar ?? ''); setBody(l?.body_ar ?? ''); setReaccept(false); };
+  const ok = title.trim().length >= 2 && body.trim().length >= 20;
+  return (
+    <>
+      <div className="page-head"><div><h1>{t('pl_legal')}</h1><p>{t('pl_legalSub')}</p></div></div>
+      {versions.isError ? <ErrorText error={versions.error} /> : !versions.data ? <Skeleton h={64} count={3} /> : LEGAL_KINDS.map((k) => (
+        <Card key={k}>
+          <div className="row-between">
+            <h2>{t(`pl_legal_${k}` as Key)}</h2>
+            <Button variant="secondary" onClick={() => start(k)}>{t('pl_legalNewVersion')}</Button>
+          </div>
+          {!versions.data.some((v) => v.kind === k) ? <p className="muted small mt-sm">{t('pl_legalNone')}</p> : (
+            <ul className="line-list mt-sm">
+              {versions.data.filter((v) => v.kind === k).map((v) => (
+                <li key={v.id}>
+                  <span>
+                    <strong>{t('legalVersion').replace('{n}', String(v.version))}</strong> — <bdi>{v.title_ar}</bdi>
+                    {v.requires_reacceptance && <> <Badge tone="warning">{t('pl_legalReaccept')}</Badge></>}
+                    <span className="muted small block">{when(v.published_at)} · {v.published_by ?? '—'} · {t('pl_legalAcceptances').replace('{n}', String(v.acceptances))}</span>
+                  </span>
+                  {v.id === latest(k)?.id && <span className="line-end"><a href={`#/legal/${k}`} target="_blank" rel="noopener noreferrer">{t('legalRead')}</a></span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      ))}
+      <Card as="form" className="stack">
+        <h2>{t('pl_legalPublish')}</h2>
+        <p className="muted small">{t('pl_legalPublishHint')}</p>
+        <div className="grid-2">
+          <Field label={t('pl_legalKind')}>{(a) => <Choice id={a.id} value={kind} onChange={start} options={LEGAL_KINDS.map((k) => ({ value: k, label: t(`pl_legal_${k}` as Key) }))} />}</Field>
+          <Field label={t('pl_legalTitle')}>{(a) => <Input id={a.id} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />}</Field>
+        </div>
+        <Field label={t('pl_legalBody')} hint={t('pl_legalBodyHint')}>{(a) => <TextArea id={a.id} describedBy={a.describedBy} value={body} onChange={(e) => setBody(e.target.value)} rows={16} />}</Field>
+        <Switch checked={reaccept} onChange={setReaccept} label={t('pl_legalReacceptLabel')} />
+        <ErrorText error={publish.error} />
+        <div className="row-end"><Button disabled={!ok} loading={publish.isPending} onClick={() => setConfirming(true)}>{t('pl_legalPublishBtn')}</Button></div>
+      </Card>
+      <ConfirmDialog open={confirming} title={t('pl_legalPublish')} confirmLabel={t('pl_legalPublishBtn')} danger={reaccept}
+        onConfirm={() => { setConfirming(false); publish.mutate(); }} onCancel={() => setConfirming(false)}>
+        <p>{t(reaccept ? 'pl_legalConfirmReaccept' : 'pl_legalConfirm')}</p>
+      </ConfirmDialog>
     </>
   );
 }

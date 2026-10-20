@@ -21,6 +21,8 @@ export interface Session {
   user: { id: string; name: string; email: string | null; phone: string | null };
   clinic: { id: string; slug: string; nameAr: string | null; nameEn: string | null; role: string; roleName?: string; status: string; permissions: string[] };
   clinics: { slug: string; nameAr: string | null; nameEn: string | null }[];
+  /** H6: legal documents to accept before using the clinic (the API refuses everything else until then) */
+  legalPending?: { id: string; kind: string; version: number; title_ar: string }[];
 }
 
 // The access token lives in memory only. The refresh token is an httpOnly cookie the browser

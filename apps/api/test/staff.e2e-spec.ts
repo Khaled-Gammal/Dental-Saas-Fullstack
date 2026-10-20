@@ -26,6 +26,7 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
   const linkTo = (email: string) => /#\/invite\/([A-Za-z0-9_-]+)/.exec(mail.outbox.get(email)?.text ?? '')?.[1] ?? '';
   const codeFor = (email: string) => /(\d{6})/.exec(mail.outbox.get(email)?.text ?? '')?.[1] ?? '';
   let roles: Record<string, string> = {};
+  let legalIds: string[] = []; // H6: staff accept the Terms and Privacy when they join (an invited owner the DPA too)
 
   beforeAll(async () => {
     const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -35,6 +36,7 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
     for (const [who, email] of [['ownerA', 'owner.a@demo.test'], ['receptionA', 'reception.a@demo.test'], ['ownerB', 'owner.b@demo.test']]) {
       token[who] = (await http().post('/auth/dev-login').send({ email }).expect(201)).body.accessToken;
     }
+    legalIds = (await http().get('/public/legal').expect(200)).body.map((d: { id: string }) => d.id);
     roles = Object.fromEntries((await http().get('/staff/roles').set(as('ownerA')).expect(200)).body.map((r: { key: string; id: string }) => [r.key, r.id]));
   });
   afterAll(async () => { await app.close(); });
@@ -72,12 +74,12 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
     });
 
     it('accepting with a weak password changes nothing; then joins once, signed in', async () => {
-      expect((await http().post(`/public/invitations/${link}/accept`).send({ fullName: 'Rana Adel', password: 'short' }).expect(400)).body.code)
+      expect((await http().post(`/public/invitations/${link}/accept`).send({ fullName: 'Rana Adel', password: 'short', acceptedDocuments: legalIds }).expect(400)).body.code)
         .toBe('weak_password');
-      const res = await http().post(`/public/invitations/${link}/accept`).send({ fullName: 'Rana Adel', password: 'Secret123' }).expect(200);
+      const res = await http().post(`/public/invitations/${link}/accept`).send({ fullName: 'Rana Adel', password: 'Secret123', acceptedDocuments: legalIds }).expect(200);
       expect(res.body.clinic).toMatchObject({ slug: 'clinic-a', role: 'receptionist' });
       session = { token: res.body.accessToken, cookie: cookieOf(res)! };
-      expect((await http().post(`/public/invitations/${link}/accept`).send({ fullName: 'Rana Adel', password: 'Secret123' }).expect(404)).body.code)
+      expect((await http().post(`/public/invitations/${link}/accept`).send({ fullName: 'Rana Adel', password: 'Secret123', acceptedDocuments: legalIds }).expect(404)).body.code)
         .toBe('invitation_invalid');
       await http().post('/auth/login').send({ identifier: email, password: 'Secret123' }).expect(200); // email proven by the link
       memberId = (await http().get('/staff/members').set(as('ownerA')).expect(200)).body.find((m: { user: { email: string } }) => m.user.email === email).id;
@@ -107,8 +109,8 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
       await http().post('/staff/invitations').set(as('ownerB')).send({ email, roleId: ownerRoleB }).expect(201);
       const link2 = linkTo(email);
       expect((await http().get(`/public/invitations/${link2}`).expect(200)).body).toMatchObject({ accountExists: true, clinic: { slug: 'clinic-b' } });
-      expect((await http().post(`/public/invitations/${link2}/accept`).send({ password: 'Wrong1234' }).expect(401)).body.code).toBe('invalid_credentials');
-      const ok = await http().post(`/public/invitations/${link2}/accept`).send({ password: 'Secret123' }).expect(200); // a wrong password did not use the link
+      expect((await http().post(`/public/invitations/${link2}/accept`).send({ password: 'Wrong1234', acceptedDocuments: legalIds }).expect(401)).body.code).toBe('invalid_credentials');
+      const ok = await http().post(`/public/invitations/${link2}/accept`).send({ password: 'Secret123', acceptedDocuments: legalIds }).expect(200); // a wrong password did not use the link
       expect(ok.body.clinic).toMatchObject({ slug: 'clinic-b', role: 'owner' }); // the Basic demo clinic seeds only the owner role
     });
 
@@ -158,7 +160,7 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
     const doctor = (await http().post('/doctors').set(as('ownerA')).send({ nameAr: `د. ${run}`, branchIds: [NASR] }).expect(201)).body;
     const email = `doctor.${run}@staff.test`;
     await http().post('/staff/invitations').set(as('ownerA')).send({ email, roleId: roles.doctor, doctorId: doctor.id }).expect(201);
-    await http().post(`/public/invitations/${linkTo(email)}/accept`).send({ fullName: 'Dr Invited', password: 'Secret123' }).expect(200);
+    await http().post(`/public/invitations/${linkTo(email)}/accept`).send({ fullName: 'Dr Invited', password: 'Secret123', acceptedDocuments: legalIds }).expect(200);
     const m = (await http().get('/staff/members').set(as('ownerA')).expect(200)).body.find((x: { user: { email: string } }) => x.user.email === email);
     expect(m.doctor).toMatchObject({ id: doctor.id });
     expect((await http().post('/staff/invitations').set(as('ownerA')).send({ email: `other.${run}@staff.test`, roleId: roles.doctor, doctorId: doctor.id }).expect(409)).body.code)

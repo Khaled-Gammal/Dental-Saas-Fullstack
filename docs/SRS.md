@@ -60,6 +60,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-20 | Owner: no fixed roles but the owner. Sign-up creates the owner role only (every permission); the owner creates, changes and deletes every other role and its permissions. `staff:manage` may be given to a role (with anti-escalation guards); mixing clinical and money writing only warns. The B.1 role columns become starting suggestions, no longer created at sign-up | ACCESS-006, B.1, AUTH-03; H4 |
 | 2026-10-20 | Owner: build the platform admin panel now (reverses the CLR-14 default "defer ADM"). Suspending a clinic blocks its staff's sign-in and takes its website offline (not read-only); platform admins sign in with a password and an emailed code every time | ADM-01, ADM-02, ADM-04; H5 |
 | 2026-10-20 | Owner: a suspended clinic sends no automatic emails; a trial that ends without the clinic being activated on a plan suspends it automatically; SMS/WhatsApp credits (ADM-02 "add credits") later | BIL-04 (part), ADM-02, NTF-04; H5 |
+| 2026-10-20 | Owner: legal documents (Terms, Privacy Policy, DPA) are accepted at sign-up by the owner (all three, the DPA for the clinic) and by invited staff (Terms and Privacy); the platform admin decides per new version whether it must be accepted again (then at the next sign-in, before using the system). The text comes from the owner/lawyer | NFR-15; H6 |
 
 ---
 
@@ -208,7 +209,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | NFR-10 | — | IMPLEMENTED (DB) | Applies to every money field in Part B |
 | NFR-12 | — | PARTIALLY_IMPLEMENTED | Structured logs with request and tenant id; no error tracking or metrics |
 | NFR-14 | — | PARTIALLY_IMPLEMENTED | Modular monolith, OpenAPI via Swagger; coverage not measured |
-| NFR-15 | — | NOT_IMPLEMENTED | — |
+| NFR-15 | — | IMPLEMENTED (2026-10-20, H6) | Versioned Terms, Privacy Policy and DPA published from the platform panel; accepted at sign-up (owner: all three) and on joining (staff: Terms and Privacy); a version may require accepting again at the next sign-in. The real text is the owner's to publish before launch |
 | NFR-16 | — | PARTIALLY_IMPLEMENTED | `marketing_opt_in` stored with time; consents not built |
 
 **§7.1 MVP acceptance criteria** — the v3 text shows every box ticked. That was not a statement about the code.

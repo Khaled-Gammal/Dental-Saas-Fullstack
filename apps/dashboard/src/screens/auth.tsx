@@ -4,6 +4,7 @@ import { api, type ApiError, setSession, type Session } from '../api';
 import { DEMO_PASSWORD, DEMO_USERS, ROOT_DOMAIN } from '../config';
 import { t } from '../i18n';
 import { Alert, Button, ErrorText, Field, Input, LinkButton, Logo, OtpInput, PasswordInput } from '../ui/components';
+import { LegalConsent, useLegalDocs } from '../components/legal';
 import { CalendarIcon, CheckIcon, GlobeIcon, PhoneIcon, ShieldIcon } from '../ui/icons';
 import { DentalArch, SmileCanvas } from '../ui/illustrations';
 import { useDebounced } from '../hooks';
@@ -120,11 +121,15 @@ export function Signup({ go }: { go: (s: AuthScreen) => void }) {
   });
   const slugPending = typedSlug.length >= 3 && (typedSlug !== slug || slugCheck.isFetching);
   const pw = passwordChecks(f.password);
+  // H6: the owner accepts the current Terms, Privacy Policy and DPA (when the platform has published them)
+  const legal = useLegalDocs();
+  const [agreed, setAgreed] = useState(false);
+  const legalDocs = legal.data ?? [];
 
   const signup = useMutation({
     mutationFn: () => api<{ email: string; website: string }>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ ...f, phone: toAsciiDigits(f.phone), slug: typedSlug, locale: 'ar' }),
+      body: JSON.stringify({ ...f, phone: toAsciiDigits(f.phone), slug: typedSlug, locale: 'ar', acceptedDocuments: agreed ? legalDocs.map((d) => d.id) : [] }),
     }),
     onSuccess: (r) => go({ name: 'verify', email: f.email.trim().toLowerCase(), maskedEmail: r.email, justSent: true }),
   });
@@ -187,8 +192,10 @@ export function Signup({ go }: { go: (s: AuthScreen) => void }) {
           </Field>
         </fieldset>
 
+        <LegalConsent docs={legalDocs} checked={agreed} onChange={setAgreed} />
         <ErrorText error={signup.error} />
-        <Button type="submit" block loading={signup.isPending} disabled={slugCheck.data?.available === false && slug === typedSlug}>{t('create')}</Button>
+        <Button type="submit" block loading={signup.isPending}
+          disabled={(slugCheck.data?.available === false && slug === typedSlug) || (legalDocs.length > 0 && !agreed)}>{t('create')}</Button>
       </form>
       <p className="form-foot"><LinkButton onClick={() => go({ name: 'login' })}>{t('haveAccount')}</LinkButton></p>
     </>

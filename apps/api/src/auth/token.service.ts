@@ -13,6 +13,8 @@ export interface AccessTokenPayload {
   perms: string[];
   /** tenant_members.access_version when the token was signed; a role/status/branch change makes the token stale */
   av: number;
+  /** H6: legal documents still to accept — only @AllowLegalPending routes take the token until they are */
+  lp?: boolean;
 }
 
 /** A platform admin's session (H5): no clinic; only the /platform routes accept it, and they re-check the admin each request. */

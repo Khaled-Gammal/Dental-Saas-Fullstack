@@ -117,6 +117,18 @@ export class PlatformService {
     return this.repo.audit(null, 100);
   }
 
+  // ---------- legal documents (H6, NFR-15) ----------
+  legalVersions() {
+    this.admin();
+    return this.repo.legalVersions();
+  }
+
+  /** A new version of a document; `requiresReacceptance`: those who accepted an older one accept it at their next sign-in. */
+  async publishLegal(kind: string, title: string, body: string, requiresReacceptance: boolean) {
+    await this.repo.publishLegal(this.admin(), kind, title, body, requiresReacceptance);
+    return this.repo.legalVersions();
+  }
+
   // ---------- plans (ADM-04) ----------
   plans() {
     this.admin();

@@ -539,6 +539,27 @@ export interface Leads {
   status: Generated<string>;
 }
 
+export interface LegalAcceptances {
+  accepted_at: Generated<Timestamp>;
+  document_id: string;
+  id: Generated<string>;
+  ip: string | null;
+  tenant_id: string | null;
+  user_agent: string | null;
+  user_id: string;
+}
+
+export interface LegalDocuments {
+  body_ar: string;
+  id: Generated<string>;
+  kind: string;
+  published_at: Generated<Timestamp>;
+  published_by: string | null;
+  requires_reacceptance: Generated<boolean>;
+  title_ar: string;
+  version: number;
+}
+
 export interface MemberBranches {
   branch_id: string;
   member_id: string;
@@ -1280,6 +1301,8 @@ export interface DB {
   lab_orders: LabOrders;
   labs: Labs;
   leads: Leads;
+  legal_acceptances: LegalAcceptances;
+  legal_documents: LegalDocuments;
   member_branches: MemberBranches;
   notification_templates: NotificationTemplates;
   notifications: Notifications;

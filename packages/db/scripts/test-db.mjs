@@ -24,6 +24,8 @@ console.log(`Rebuilding ${dbName} ...`);
 if (node('dbmate.mjs', '--test', 'drop').status !== 0) process.exit(1);
 if (node('dbmate.mjs', '--test', 'up').status !== 0) process.exit(1);
 if (node('run-sql.mjs', path.join(pkg, 'seeds/dev_seed.sql'), '--test').status !== 0) process.exit(1);
+// placeholder legal documents (H6) and the demo members' acceptances, so the API tests sign in as usual
+if (node('run-sql.mjs', path.join(pkg, 'seeds/legal_placeholders.sql'), '--test').status !== 0) process.exit(1);
 
 const hasLocalPsql = run('psql', ['--version']).status === 0;
 function psql(file) {

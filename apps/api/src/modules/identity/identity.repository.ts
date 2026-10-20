@@ -66,7 +66,9 @@ export class IdentityRepository {
    * the user, the clinic and everything provision_tenant() seeds commit together or not at all.
    */
   createUserWithClinic(tenantId: string, u: { email: string; phone: string; fullName: string; passwordHash: string; locale: 'ar' | 'en' },
-    clinic: { slug: string; nameAr: string; nameEn: string | null; rootDomain: string }) {
+    clinic: { slug: string; nameAr: string; nameEn: string | null; rootDomain: string },
+    /** runs in the same transaction once the account and clinic exist (H6: the legal acceptances) */
+    then?: (tx: Tx, userId: string) => Promise<void>) {
     return this.db.runAs(tenantId, async (tx) => {
       const user = await tx.insertInto('users')
         .values({ email: u.email, phone: u.phone, full_name: u.fullName, password_hash: u.passwordHash, locale: u.locale })
@@ -74,6 +76,7 @@ export class IdentityRepository {
       const { rows } = await sql<{ tenant_id: string; hostname: string }>`
         select * from provision_tenant(${clinic.slug}, ${clinic.nameAr}, ${clinic.nameEn}, ${user.id}::uuid,
                                        ${clinic.rootDomain}, ${AUTH_POLICY.signupPlan}, ${u.locale})`.execute(tx);
+      if (then) await then(tx, user.id);
       return { userId: user.id, hostname: rows[0].hostname };
     });
   }

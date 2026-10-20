@@ -89,6 +89,20 @@ export class PlatformRepository {
     return sql`select platform_record(${actor}::uuid, ${action}, ${tenantId}::uuid, ${JSON.stringify(details)}::jsonb, ${ip}::inet)`.execute(this.db);
   }
 
+  // ---------- legal documents (H6, NFR-15) ----------
+  /** Every version of every document, newest first, with how many accepted it. */
+  legalVersions() {
+    return this.db.selectFrom('legal_documents as d').leftJoin('users as u', 'u.id', 'd.published_by')
+      .select(['d.id', 'd.kind', 'd.version', 'd.title_ar', 'd.body_ar', 'd.requires_reacceptance', 'd.published_at', 'u.full_name as published_by',
+        sql<number>`(select count(*)::int from legal_acceptances a where a.document_id = d.id)`.as('acceptances')])
+      .orderBy('d.kind').orderBy('d.version', 'desc').execute();
+  }
+
+  async publishLegal(actor: string, kind: string, title: string, body: string, reaccept: boolean): Promise<string> {
+    const { rows } = await sql<{ id: string }>`select platform_publish_legal(${actor}::uuid, ${kind}, ${title}, ${body}, ${reaccept}) as id`.execute(this.db);
+    return rows[0].id;
+  }
+
   // ---------- plans (ADM-04) ----------
   plans() {
     return this.db.selectFrom('plans as p')
