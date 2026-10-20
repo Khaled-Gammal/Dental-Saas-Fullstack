@@ -5,7 +5,7 @@ import { t } from '../../i18n';
 import { galleryApi, useBranches, useGalleryMutation } from '../../queries';
 import { to } from '../../router';
 import type { GalleryItem } from '../../types';
-import { Alert, Button, Card, Field } from '../../ui/components';
+import { Alert, Button, Card, Field, PageHeader } from '../../ui/components';
 import { Breadcrumbs, RouteLink } from '../../ui/page';
 import { ScopeSelect, Thumb } from './shared';
 
@@ -22,7 +22,7 @@ export function GalleryUpload({ clinicId, query }: { clinicId: string; query?: R
   return (
     <>
       <Breadcrumbs items={[{ label: t('navGallery'), route: to.list('gallery') }, { label: t('addPhotos') }]} />
-      <div className="page-head"><div><h1>{t('addPhotos')}</h1><p>{t('uploadPageSub')}</p></div></div>
+      <PageHeader title={t('addPhotos')} sub={t('uploadPageSub')} />
       <div className="stack mt">
         <Card>
           <Field label={t('uploadInto')} hint={t('uploadIntoHint')}>

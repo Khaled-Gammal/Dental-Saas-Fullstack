@@ -11,6 +11,7 @@ import { CheckIcon, EditIcon, PlusIcon, TagIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 import { currencyLabel } from '../../money';
+import { RowMenu } from '../../ui/row-menu';
 
 export const priceLabel = (s: Pick<Service, 'price_minor' | 'price_max_minor'>) => {
   const p = priceParts(s, (n) => fmtNumber(n));
@@ -86,7 +87,7 @@ export function ServicesList({ clinicId, canWrite }: { clinicId: string; canWrit
         onRetry={() => void services.refetch()}
         search={{ placeholder: t('serviceSearchHint'), text: (s) => [s.name_ar, s.name_en, s.catalog_code].filter(Boolean).join(' ') }}
         pageSize={50}
-        actions={canWrite ? (s) => <RouteLink route={to.edit('services', s.id)} className="btn btn-secondary btn-sm"><EditIcon size={16} />{t('edit')}</RouteLink> : undefined}
+        actions={canWrite ? (s) => <RowMenu label={serviceName(s)} actions={[{ label: t('edit'), icon: <EditIcon size={16} />, route: to.edit('services', s.id) }]} /> : undefined}
         onRowClick={canWrite ? (s) => navigate(to.edit('services', s.id)) : undefined}
         empty={{ icon: <TagIcon size={28} />, title: t('noServices'), text: t('noServicesText'), action: addBtn || undefined }}
       />

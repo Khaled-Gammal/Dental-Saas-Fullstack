@@ -8,8 +8,8 @@ import { money } from '../../money';
 import { send, useBillingMutation, useBranches, usePatient, usePatientBilling, useServices } from '../../queries';
 import { to } from '../../router';
 import type { InvoiceDetail } from '../../types';
-import { Button, Card, ErrorText, Field, Input, LinkButton, PageHeader } from '../../ui/components';
-import { Breadcrumbs, NotFound, ResourceState } from '../../ui/page';
+import { Button, Card, Field, Input, LinkButton } from '../../ui/components';
+import { FormPage, NotFound, ResourceState } from '../../ui/page';
 import { Checkbox } from '../../components/ui/checkbox';
 
 type Line = { serviceId: string; description: string; price: string; qty: string };
@@ -51,9 +51,9 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
   const submit = (e: FormEvent) => { e.preventDefault(); if (ready) create.mutate(undefined, { onSuccess: (inv) => navigate(to.invoice(inv.id)) }); };
   return (
     <>
-      <Breadcrumbs items={[{ label: t('navBilling'), route: { page: 'invoices' } }, { label: patient.data.full_name, route: to.view('patients', patient.data.id) }, { label: t('newInvoice') }]} />
-      <PageHeader title={t('newInvoice')} sub={patient.data.full_name} />
-      <form className="stack" onSubmit={submit}>
+      {/* UI refinement U3: the shared form page (form width, Cancel and the create button in its footer) */}
+      <FormPage title={t('newInvoice')} sub={patient.data.full_name} crumbs={[{ label: t('navBilling'), route: { page: 'invoices' } }, { label: patient.data.full_name, route: to.view('patients', patient.data.id) }, { label: t('newInvoice') }]}
+        back={to.view('patients', patient.data.id)} onSubmit={submit} saving={create.isPending} canSave={ready} error={create.error} saveLabel={t('createDraft')}>
         <Card>
           <Field label={t('branch')}>
             {(a) => <Choice id={a.id} value={branch} onChange={setBranchId} placeholder={t('pickBranch')}
@@ -95,9 +95,7 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
             </div>
           ))}
         </Card>
-        <ErrorText error={create.error} />
-        <div className="row-end"><Button type="submit" loading={create.isPending} disabled={!ready}>{t('createDraft')}</Button></div>
-      </form>
+      </FormPage>
     </>
   );
 }

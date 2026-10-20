@@ -7,7 +7,10 @@ import { t } from '../../i18n';
 import { calendarKeys, keys, useDoctors, useOne, useTimeOff } from '../../queries';
 import { to } from '../../router';
 import type { CalendarConflict, TimeOff } from '../../types';
-import { Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, Skeleton } from '../../ui/components';
+import { Button, Card, ErrorText, Field, Input, PageHeader } from '../../ui/components';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
+import { DataTable } from '../../ui/data-table';
+import { RowMenu } from '../../ui/row-menu';
 import { CalendarIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState } from '../../ui/page';
 import { zonedToUtc } from '../../util';
@@ -36,6 +39,7 @@ export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id
     onSuccess: (r) => { setConflicts(r.conflicts); setReason(''); void refresh(); },
   });
   const remove = useMutation({ mutationFn: (offId: string) => api(`/doctors/${id}/time-off/${offId}`, { method: 'DELETE' }), onSuccess: () => void refresh() });
+  const [removing, setRemoving] = useState<TimeOff | null>(null); // U2: removing leave asks first (the doctor becomes bookable again)
   if (!one.data) return <ResourceState {...one} back={to.list('doctors')} backLabel={t('navDoctors')} />;
   const name = arName(one.data.name_ar, one.data.name_en, '—');
   const fmt = (iso: string) => new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: TZ }).format(new Date(iso));
@@ -44,7 +48,7 @@ export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id
   return (
     <>
       <Breadcrumbs items={[{ label: t('navOverview'), route: to.list('overview') }, { label: t('navDoctors'), route: to.list('doctors') }, { label: name }]} />
-      <div className="page-head"><div><h1>{t('timeOffTitle')} · <bdi>{name}</bdi></h1><p>{t('timeOffSub')}</p></div></div>
+      <PageHeader title={<>{t('timeOffTitle')} · <bdi>{name}</bdi></>} sub={t('timeOffSub')} />
       {canWrite && (
         <Card>
           <h2>{t('addTimeOff')}</h2>
@@ -60,23 +64,27 @@ export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id
           {conflicts && <Conflicts items={conflicts} />}
         </Card>
       )}
-      {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
-        : list.isLoading ? <Skeleton h={56} count={2} />
-        : !list.data?.length ? <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noTimeOff')} text={t('timeOffSub')} /></Card>
-        : (
-          <ul className="patient-rows mt">
-            {list.data.map((o) => (
-              <Card as="li" key={o.id} className="patient-row">
-                <span className="patient-main">
-                  <span className="patient-avatar" aria-hidden><CalendarIcon size={18} /></span>
-                  <span className="patient-text"><strong><bdi dir="ltr">{fmt(o.starts_at)} – {fmt(o.ends_at)}</bdi></strong>{o.reason && <span className="muted small"><bdi>{o.reason}</bdi></span>}</span>
-                </span>
-                {canWrite && <LinkButton onClick={() => remove.mutate(o.id)} disabled={remove.isPending}>{t('remove')}</LinkButton>}
-              </Card>
-            ))}
-          </ul>
-        )}
+      <DataTable
+        label={t('timeOffTitle')}
+        rows={list.data}
+        columns={[
+          { id: 'period', header: t('timeOffColPeriod'), sortValue: (o) => o.starts_at, cell: (o) => <bdi dir="ltr" className="whitespace-nowrap font-semibold">{fmt(o.starts_at)} – {fmt(o.ends_at)}</bdi> },
+          { id: 'reason', header: t('reasonLabel'), cell: (o) => (o.reason ? <bdi>{o.reason}</bdi> : <span className="muted">—</span>) },
+        ]}
+        rowKey={(o) => o.id}
+        isLoading={list.isLoading}
+        isFetching={list.isFetching || remove.isPending}
+        error={list.isError ? list.error : undefined}
+        onRetry={() => void list.refetch()}
+        defaultSort={{ id: 'period', dir: 'asc' }}
+        actions={canWrite ? (o) => <RowMenu label={fmt(o.starts_at)} actions={[{ label: t('remove'), destructive: true, onSelect: () => setRemoving(o) }]} /> : undefined}
+        empty={{ icon: <CalendarIcon size={28} />, title: t('noTimeOff'), text: t('timeOffSub') }}
+      />
       <ErrorText error={remove.error} />
+      <ConfirmDialog open={!!removing} title={t('removeTimeOffTitle')} confirmLabel={t('remove')} danger
+        onConfirm={() => { if (removing) remove.mutate(removing.id); setRemoving(null); }} onCancel={() => setRemoving(null)}>
+        {t('removeTimeOffText')}
+      </ConfirmDialog>
     </>
   );
 }

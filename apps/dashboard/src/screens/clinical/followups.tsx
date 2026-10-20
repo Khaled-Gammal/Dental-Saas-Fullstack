@@ -13,6 +13,7 @@ import { CalendarIcon, PhoneIcon } from '../../ui/icons';
 import { DataTable, type Column } from '../../ui/data-table';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
+import { RowMenu } from '../../ui/row-menu';
 
 type View = 'due' | 'upcoming' | 'closed';
 const VIEWS: View[] = ['due', 'upcoming', 'closed'];
@@ -50,7 +51,7 @@ export function FollowUps({ clinicId, canWrite, canBook, query }: { clinicId: st
         search={{ placeholder: t('followUpSearchHint'), text: (r) => `${r.patient.full_name} ${r.patient.phone} ${t(`recall_${r.reason}` as Key)}` }}
         defaultSort={{ id: 'due', dir: view === 'closed' ? 'desc' : 'asc' }}
         pageSize={25}
-        actions={canWrite || canBook ? (r) => <RecallActions clinicId={clinicId} r={r} canWrite={canWrite} canBook={canBook} inTable /> : undefined}
+        actions={canWrite || canBook ? (r) => <RecallRowActions clinicId={clinicId} r={r} canWrite={canWrite} canBook={canBook} /> : undefined}
         empty={{ icon: <CalendarIcon size={28} />, title: t('noFollowUps'), text: t(`noFollowUps_${view}` as Key) }}
       />
     </>
@@ -105,16 +106,45 @@ function RecallDue({ r, today }: { r: Recall; today: string }) {
   );
 }
 
+/** In the table: «حجز موعد» stays in sight, a call and dismissing are in the row's «⋯» menu (UI refinement U2). */
+function RecallRowActions({ clinicId, r, canWrite, canBook }: { clinicId: string; r: Recall; canWrite: boolean; canBook: boolean }) {
+  const [dialog, setDialog] = useState<'contact' | 'dismiss' | null>(null);
+  const [note, setNote] = useState('');
+  const act = useClinicalMutation(clinicId, (a: { op: 'contact' | 'dismiss'; text: string }) =>
+    send(`/recalls/${r.id}/${a.op}`, 'POST', a.op === 'contact' ? { note: a.text } : { reason: a.text || null }));
+  if (!isOpen(r)) return null;
+  return (
+    <div className="flex items-center justify-end gap-2">
+      {canBook && (
+        <RouteLink route={to.create('appointments', { patient: r.patient.id, recall: r.id, ...(r.doctor_id && { doctor: r.doctor_id }) })} className="btn btn-secondary btn-sm whitespace-nowrap">
+          <CalendarIcon size={16} />{t('book')}
+        </RouteLink>
+      )}
+      <RowMenu label={r.patient.full_name} actions={[
+        { label: t('logCall'), icon: <PhoneIcon size={16} />, onSelect: () => { setNote(''); setDialog('contact'); }, hidden: !canWrite },
+        { label: t('dismiss'), destructive: true, onSelect: () => { setNote(''); setDialog('dismiss'); }, hidden: !canWrite },
+      ]} />
+      <ErrorText error={act.error} />
+      <ConfirmDialog open={!!dialog} title={t(dialog === 'dismiss' ? 'dismissFollowUp' : 'logCall')} confirmLabel={t(dialog === 'dismiss' ? 'dismiss' : 'save')} danger={dialog === 'dismiss'}
+        onConfirm={() => { if (dialog && (dialog === 'dismiss' || note.trim())) act.mutate({ op: dialog, text: note.trim() }, { onSettled: () => setDialog(null) }); }}
+        onCancel={() => setDialog(null)}>
+        <Field label={t(dialog === 'dismiss' ? 'dismissReason' : 'callNote')} optional={dialog === 'dismiss' ? t('optional') : undefined}>
+          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? t('callNoteExample') : undefined} />}
+        </Field>
+      </ConfirmDialog>
+    </div>
+  );
+}
+
 /** An open follow-up's work: book it (the appointment is linked), log a call, or dismiss it. */
-function RecallActions({ clinicId, r, canWrite, canBook, inTable }: { clinicId: string; r: Recall; canWrite: boolean; canBook: boolean; inTable?: boolean }) {
+function RecallActions({ clinicId, r, canWrite, canBook }: { clinicId: string; r: Recall; canWrite: boolean; canBook: boolean }) {
   const [dialog, setDialog] = useState<'contact' | 'dismiss' | null>(null);
   const [note, setNote] = useState('');
   const act = useClinicalMutation(clinicId, (a: { op: 'contact' | 'dismiss'; text: string }) =>
     send(`/recalls/${r.id}/${a.op}`, 'POST', a.op === 'contact' ? { note: a.text } : { reason: a.text || null }));
   if (!isOpen(r) || !(canWrite || canBook)) return null;
   return (
-    // in the table the three stay on one line (stacked on a phone, so the table fits without scrolling sideways)
-    <div className={inTable ? 'flex flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-center md:justify-end' : 'appt-actions'}>
+    <div className="appt-actions">
       {canBook && (
         <RouteLink route={to.create('appointments', { patient: r.patient.id, recall: r.id, ...(r.doctor_id && { doctor: r.doctor_id }) })} className="btn btn-primary">
           <CalendarIcon size={16} />{t('book')}

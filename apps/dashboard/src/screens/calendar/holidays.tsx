@@ -7,7 +7,10 @@ import { DatePicker } from '../../components/date-picker';
 import { t } from '../../i18n';
 import { calendarKeys, keys, useBranches, useHolidays } from '../../queries';
 import type { CalendarConflict, Holiday } from '../../types';
-import { Badge, Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, PageHeader, Skeleton } from '../../ui/components';
+import { Badge, Button, Card, ErrorText, Field, Input, PageHeader } from '../../ui/components';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
+import { DataTable } from '../../ui/data-table';
+import { RowMenu } from '../../ui/row-menu';
 import { CalendarIcon } from '../../ui/icons';
 import { Conflicts } from './conflicts';
 
@@ -29,6 +32,7 @@ export function Holidays({ clinicId, canWrite }: { clinicId: string; canWrite: b
     onSuccess: (r) => { setConflicts(r.conflicts); setName(''); void refresh(); },
   });
   const remove = useMutation({ mutationFn: (id: string) => api(`/holidays/${id}`, { method: 'DELETE' }), onSuccess: () => void refresh() });
+  const [removing, setRemoving] = useState<Holiday | null>(null); // U2: removing a closed day asks first (it reopens the day for booking)
   const submit = (e: FormEvent) => { e.preventDefault(); if (date && name.trim()) add.mutate(); };
   const branchName = (id: string | null) => (id ? arName(branches.find((b) => b.id === id)?.name_ar ?? null, branches.find((b) => b.id === id)?.name_en ?? null, '—') : t('wholeClinic'));
   const fmtDate = (d: string) => new Intl.DateTimeFormat(loc(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
@@ -53,24 +57,28 @@ export function Holidays({ clinicId, canWrite }: { clinicId: string; canWrite: b
         </Card>
       )}
       <h2 className="section-title mt">{t('holidaysLink')}</h2>
-      {holidays.isError ? <ErrorText error={holidays.error} onRetry={() => void holidays.refetch()} />
-        : holidays.isLoading ? <Skeleton h={56} count={3} />
-        : !holidays.data?.length ? <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noHolidays')} text={t('holidaysSub')} /></Card>
-        : (
-          <ul className="patient-rows">
-            {holidays.data.map((h) => (
-              <Card as="li" key={h.id} className="patient-row">
-                <span className="patient-main">
-                  <span className="patient-avatar" aria-hidden><CalendarIcon size={18} /></span>
-                  <span className="patient-text"><strong><bdi>{h.name}</bdi></strong><span className="muted small">{fmtDate(h.date)}</span></span>
-                </span>
-                <span className="patient-badges"><Badge>{branchName(h.branch_id)}</Badge></span>
-                {canWrite && <LinkButton onClick={() => remove.mutate(h.id)} disabled={remove.isPending}>{t('remove')}</LinkButton>}
-              </Card>
-            ))}
-          </ul>
-        )}
+      <DataTable
+        label={t('holidaysTitle')}
+        rows={holidays.data}
+        columns={[
+          { id: 'name', header: t('holidayName'), sortValue: (h) => h.name, cell: (h) => <strong><bdi>{h.name}</bdi></strong> },
+          { id: 'date', header: t('date'), sortValue: (h) => h.date, cell: (h) => <span className="whitespace-nowrap">{fmtDate(h.date)}</span> },
+          { id: 'branch', header: t('branch'), sortValue: (h) => branchName(h.branch_id), cell: (h) => <Badge>{branchName(h.branch_id)}</Badge> },
+        ]}
+        rowKey={(h) => h.id}
+        isLoading={holidays.isLoading}
+        isFetching={holidays.isFetching || remove.isPending}
+        error={holidays.isError ? holidays.error : undefined}
+        onRetry={() => void holidays.refetch()}
+        defaultSort={{ id: 'date', dir: 'asc' }}
+        actions={canWrite ? (h) => <RowMenu label={h.name} actions={[{ label: t('remove'), destructive: true, onSelect: () => setRemoving(h) }]} /> : undefined}
+        empty={{ icon: <CalendarIcon size={28} />, title: t('noHolidays'), text: t('holidaysSub') }}
+      />
       <ErrorText error={remove.error} />
+      <ConfirmDialog open={!!removing} title={t('removeHolidayTitle')} confirmLabel={t('remove')} danger
+        onConfirm={() => { if (removing) remove.mutate(removing.id); setRemoving(null); }} onCancel={() => setRemoving(null)}>
+        {t('removeHolidayText')}
+      </ConfirmDialog>
     </>
   );
 }

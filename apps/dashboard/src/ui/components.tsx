@@ -161,7 +161,7 @@ export function Skeleton({ h = 72, count = 3 }: { h?: number; count?: number }) 
  * A page's title, its one-line description, an optional count next to the title ("12 مريض") and the page's actions
  * (redesign R2: the same header on every page; breadcrumbs, where a page has them, sit just above it).
  */
-export function PageHeader({ title, sub, count, action }: { title: string; sub?: string; count?: ReactNode; action?: ReactNode }) {
+export function PageHeader({ title, sub, count, action }: { title: ReactNode; sub?: string; count?: ReactNode; action?: ReactNode }) {
   return (
     <div className="page-head">
       <div className="page-head-text">

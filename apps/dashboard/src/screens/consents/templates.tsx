@@ -2,11 +2,13 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import type { ConsentText, ConsentTextDetail } from '../../consents-model';
-import { useFlash, useLeave, useUnsavedChanges } from '../../hooks';
+import { navigate, useFlash, useLeave, useUnsavedChanges } from '../../hooks';
 import { t } from '../../i18n';
 import { to } from '../../router';
-import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../../ui/components';
-import { ShieldIcon } from '../../ui/icons';
+import { Alert, Badge, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../../ui/components';
+import { DataTable, type Column } from '../../ui/data-table';
+import { RowMenu } from '../../ui/row-menu';
+import { EditIcon, ShieldIcon } from '../../ui/icons';
 import { FormPage, RouteLink } from '../../ui/page';
 import { Checkbox } from '../../components/ui/checkbox';
 
@@ -19,6 +21,24 @@ export const useConsentTexts = (clinicId: string) =>
   useQuery({ queryKey: consentKeys.texts(clinicId), queryFn: () => api<ConsentText[]>('/consents/templates'), staleTime: 60_000 });
 
 const day = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium' }).format(new Date(iso));
+
+/** The consent texts table (U2): the text and where it stands, its version, who reviewed it and how often it was signed. */
+const CONSENT_COLUMNS: Column<ConsentText>[] = [
+  {
+    id: 'title', header: t('consentColTitle'), sortValue: (x) => x.title_ar,
+    cell: (x) => <strong className={x.is_active ? undefined : 'muted'}><bdi>{x.title_ar}</bdi></strong>,
+  },
+  {
+    id: 'state', header: t('status'),
+    cell: (x) => (!x.is_active ? <Badge dot>{t('consentArchived')}</Badge> : x.is_draft ? <Badge tone="warning" dot>{t('consentDraft')}</Badge> : <Badge tone="success" dot>{t('consentReviewed')}</Badge>),
+  },
+  { id: 'version', header: t('consentColVersion'), numeric: true, sortValue: (x) => x.version, cell: (x) => x.version },
+  {
+    id: 'reviewed', header: t('consentColReviewed'), hideOnMobile: true, sortValue: (x) => x.reviewed_at ?? '',
+    cell: (x) => (x.reviewed_at ? <><bdi>{x.reviewed_by_name ?? '—'}</bdi><span className="muted small block">{day(x.reviewed_at)}</span></> : <span className="muted">—</span>),
+  },
+  { id: 'signed', header: t('consentColSigned'), numeric: true, sortValue: (x) => x.signed ?? 0, cell: (x) => x.signed ?? 0 },
+];
 
 /**
  * `#/consents` (H9): the clinic's consent texts. Starter drafts are marked and cannot be signed until the owner reviews
@@ -34,29 +54,19 @@ export function ConsentTexts({ clinicId, canWrite }: { clinicId: string; canWrit
         action={canWrite && <RouteLink route={to.create('consents')} className="btn btn-primary">{t('newConsentText')}</RouteLink>} />
       {flash && <Alert tone="success">{flash}</Alert>}
       {texts.some((x) => x.is_draft && x.is_active) && <Alert tone="info">{t('consentDraftsNote')}</Alert>}
-      <Card>
-        {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
-          : !list.data ? <Skeleton h={48} count={4} />
-          : !texts.length ? <EmptyState icon={<ShieldIcon size={28} />} title={t('noConsentTexts')} text={t('noConsentTextsText')} />
-          : (
-            <ul className="line-list">
-              {texts.map((x) => (
-                <li key={x.key} className={x.is_active ? undefined : 'is-cancelled'}>
-                  <span>
-                    <strong><bdi>{x.title_ar}</bdi></strong>{' '}
-                    {!x.is_active ? <Badge>{t('consentArchived')}</Badge> : x.is_draft ? <Badge tone="warning">{t('consentDraft')}</Badge> : <Badge tone="success">{t('consentReviewed')}</Badge>}
-                    <span className="muted small block">
-                      {t('consentVersion').replace('{n}', String(x.version))}
-                      {x.reviewed_at && <> · {t('consentReviewedBy').replace('{name}', x.reviewed_by_name ?? '—').replace('{date}', day(x.reviewed_at))}</>}
-                      {' · '}{t('consentSignedCount').replace('{n}', String(x.signed ?? 0))}
-                    </span>
-                  </span>
-                  {canWrite && <span className="line-end"><RouteLink route={to.edit('consents', x.key)} className="btn btn-secondary">{x.is_draft ? t('consentReview') : t('edit')}</RouteLink></span>}
-                </li>
-              ))}
-            </ul>
-          )}
-      </Card>
+      <DataTable
+        label={t('navConsents')}
+        rows={list.data}
+        columns={CONSENT_COLUMNS}
+        rowKey={(x) => x.key}
+        isLoading={list.isLoading}
+        isFetching={list.isFetching}
+        error={list.isError ? list.error : undefined}
+        onRetry={() => void list.refetch()}
+        actions={canWrite ? (x) => <RowMenu label={x.title_ar} actions={[{ label: x.is_draft ? t('consentReview') : t('edit'), icon: <EditIcon size={16} />, route: to.edit('consents', x.key) }]} /> : undefined}
+        onRowClick={canWrite ? (x) => navigate(to.edit('consents', x.key)) : undefined}
+        empty={{ icon: <ShieldIcon size={28} />, title: t('noConsentTexts'), text: t('noConsentTextsText') }}
+      />
     </>
   );
 }

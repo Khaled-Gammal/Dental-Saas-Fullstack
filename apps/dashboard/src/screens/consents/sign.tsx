@@ -9,7 +9,7 @@ import { t, type Key } from '../../i18n';
 import { usePatient } from '../../queries';
 import { to } from '../../router';
 import type { PatientDetail } from '../../types';
-import { Alert, Button, Card, ErrorText, Field, Input, Skeleton } from '../../ui/components';
+import { Alert, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton } from '../../ui/components';
 import { Breadcrumbs } from '../../ui/page';
 import { consentKeys, useConsentTexts } from './templates';
 import { Checkbox } from '../../components/ui/checkbox';
@@ -62,8 +62,8 @@ function SignForm({ clinicId, patient, texts, query }: {
   return (
     <>
       <Breadcrumbs items={[{ label: t('navPatients'), route: to.list('patients') }, { label: patient.full_name, route: to.view('patients', patient.id) }, { label: t('consentSign') }]} />
+      <PageHeader title={<>{t('consentSign')} — <bdi>{patient.full_name}</bdi></>} />
       <div className="sign-page">
-        <h1>{t('consentSign')} — <bdi>{patient.full_name}</bdi></h1>
         {!texts.length && <Alert tone="info">{t('consentNoneSignable')}</Alert>}
         <Field label={t('consentWhich')}>
           {(a) => <Choice id={a.id} value={key} onChange={(v) => { setKey(v); setRead(false); }} placeholder={t('consentPick')} options={texts.map((x) => ({ value: x.key, label: x.title_ar }))} />}

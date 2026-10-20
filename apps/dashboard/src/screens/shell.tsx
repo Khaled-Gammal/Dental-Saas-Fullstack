@@ -45,6 +45,12 @@ function startOpen(): boolean {
  * icons on desktop and a sheet on phones, grouped by module; the header with the sidebar toggle and the clinic; the
  * page in `children`. The member sees only the pages they may open (access.ts); the API checks every request anyway.
  */
+/**
+ * Pages that are settings or one form (UI refinement U1): a 960px column. Every other page (lists, tables, reports,
+ * the overview) uses the full width beside the sidebar; create/edit pages keep their own form width (.form-page).
+ */
+const NARROW_PAGES: ReadonlySet<string> = new Set(['data', 'booking', 'cash', 'discounts', 'holidays']);
+
 export function AppShell({ session, page, children }: { session: Session; page: Page | 'not-found'; children: ReactNode }) {
   // the profile query is updated on save, so a renamed clinic shows everywhere at once
   const profile = useProfile(session.clinic.id).data;
@@ -66,7 +72,7 @@ export function AppShell({ session, page, children }: { session: Session; page: 
           <span className="truncate font-semibold text-ink"><bdi>{name}</bdi></span>
           {session.clinic.status === 'trialing' && <Badge tone="warning">{t('trial')}</Badge>}
         </header>
-        <div id="main" className="content" tabIndex={-1}>{children}</div>
+        <div id="main" className={`content${NARROW_PAGES.has(page) ? ' content-narrow' : ''}`} tabIndex={-1}>{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

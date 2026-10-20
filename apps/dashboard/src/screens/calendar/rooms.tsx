@@ -6,7 +6,7 @@ import { t } from '../../i18n';
 import { calendarKeys, useBranches, useOne, useRooms } from '../../queries';
 import { to } from '../../router';
 import type { Room } from '../../types';
-import { Button, Card, EmptyState, ErrorText, Field, Input, Skeleton, Switch } from '../../ui/components';
+import { Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Skeleton, Switch } from '../../ui/components';
 import { ListIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState } from '../../ui/page';
 
@@ -32,7 +32,7 @@ export function BranchRooms({ clinicId, id, canWrite }: { clinicId: string; id?:
   return (
     <>
       <Breadcrumbs items={[{ label: t('navOverview'), route: to.list('overview') }, { label: t('branches'), route: to.list('branches') }, { label: branchName }]} />
-      <div className="page-head"><div><h1>{t('roomsTitle')} · <bdi>{branchName}</bdi></h1><p>{t('roomsSub')}</p></div></div>
+      <PageHeader title={<>{t('roomsTitle')} · <bdi>{branchName}</bdi></>} sub={t('roomsSub')} />
       {canWrite && (
         <Card>
           <form onSubmit={submit} className="row-between">
