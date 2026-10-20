@@ -1456,12 +1456,14 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.10 Expenses (feature F3)
 
-**EXP-001 — Record an expense** · PARTIAL (2026-10-17, E3: everything but the supporting document, which comes with private expense files) · Phase E (refines DSH-08)
+**EXP-001 — Record an expense** · IMPLEMENTED (2026-10-20, H2: the supporting document; E3: everything else) · Phase E (refines DSH-08)
 - *Description:* An expense with branch, category, description, amount, date, payment method (cash, bank transfer,
   card, wallet, InstaPay), reference, optional supplier and optional supporting document.
 - *Behaviour:* the responsible staff member is the signed-in member who records it. The supporting document is
-  private (image or PDF, same checks as PATIENT-004). Expenses are separate from patient invoices and payments and
-  never change a patient's balance.
+  private (image or PDF, same checks as PATIENT-004). It is attached when the expense is recorded or later, once, while
+  the expense is not void, by a member with `expenses:write` or by the member who recorded it; it is never replaced or
+  removed (void and record again). Expenses are separate from patient invoices and payments and never change a
+  patient's balance.
 - *Validation:* amount > 0; date not in the future; branch and category in the clinic; reference rules as PAY-001.
 - *Permissions:* `expenses:write`.
 - *Entities:* `expenses` (+ method, reference, status, approver, responsible-staff FK), `files`.

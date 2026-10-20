@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { arName } from '@dental/ui/text';
+import { uploadFile } from '../../api';
 import { toMinor, toPounds } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
@@ -9,11 +10,13 @@ import { money } from '../../money';
 import { send, useCashBranches, useExpenseCategories, useExpenses, useExpenseSettings, useFinanceMutation, usePendingExpenses } from '../../queries';
 import type { Expense, ExpenseStatus, PaymentMethod } from '../../types';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Skeleton, Switch } from '../../ui/components';
+import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, PageHeader, Skeleton, Switch } from '../../ui/components';
 import { WalletIcon } from '../../ui/icons';
 
 const STATUS_TONE: Record<ExpenseStatus, 'neutral' | 'primary' | 'success' | 'warning'> = { pending: 'warning', approved: 'success', rejected: 'neutral', void: 'neutral' };
 const FILTERS = ['all', 'pending', 'approved', 'rejected', 'void'] as const;
+const DOC_MAX_BYTES = 20 * 1024 * 1024; // same cap as the API (EXPENSE_FILE_POLICY)
+const DOC_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
 
 export interface ExpenseRights { all: boolean; cash: boolean; read: boolean; approve: boolean }
 
@@ -26,12 +29,14 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
   const [period, setPeriod] = useState(() => monthOf(localToday()));
   const [status, setStatus] = useState<(typeof FILTERS)[number]>('all');
   const [adding, setAdding] = useState(false);
+  const [docFailed, setDocFailed] = useState(false);
   const list = useExpenses(clinicId, { ...period, status: status === 'all' ? undefined : status });
   return (
     <>
       <PageHeader title={t('navExpenses')} sub={t(rights.all ? 'expensesSub' : 'expensesSubReception')}
-        action={!adding && <Button onClick={() => setAdding(true)}>{t('recordExpense')}</Button>} />
-      {adding && <ExpenseForm clinicId={clinicId} rights={rights} onDone={() => setAdding(false)} />}
+        action={!adding && <Button onClick={() => { setAdding(true); setDocFailed(false); }}>{t('recordExpense')}</Button>} />
+      {adding && <ExpenseForm clinicId={clinicId} rights={rights} onDone={(failed) => { setAdding(false); setDocFailed(failed); }} />}
+      {docFailed && <Alert tone="info">{t('expenseSavedNoDocument')}</Alert>}
       {rights.approve && <PendingExpenses clinicId={clinicId} />}
       <Card>
         <div className="row-between">
@@ -71,7 +76,8 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
   );
 }
 
-function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: ExpenseRights; onDone: () => void }) {
+/** `onDone(true)`: the expense was saved but its document did not upload (it can be attached from the list). */
+function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: ExpenseRights; onDone: (documentFailed: boolean) => void }) {
   const branches = useCashBranches(clinicId);
   const categories = useExpenseCategories(clinicId);
   const today = localToday();
@@ -83,14 +89,21 @@ function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: E
   const [spentOn, setSpentOn] = useState(today);
   const [supplier, setSupplier] = useState('');
   const [description, setDescription] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const list = branches.data ?? [];
   const branch = branchId || (list.length === 1 ? list[0].id : '');
   const minor = toMinor(amount);
   const methods = rights.all ? EXPENSE_METHODS : (['cash'] as PaymentMethod[]);
-  const save = useFinanceMutation(clinicId, () => send<Expense>('/expenses', 'POST', {
-    branchId: branch, categoryId, amountMinor: minor, method, spentOn, reference: reference.trim(), supplierName: supplier.trim(), description: description.trim(),
-  }));
-  const ready = !!branch && !!categoryId && !!minor && minor > 0 && (!needsReference(method) || reference.trim().length > 0);
+  const tooBig = !!file && file.size > DOC_MAX_BYTES;
+  // the expense first, then its document: a failed upload never loses the expense (and never records it twice)
+  const save = useFinanceMutation(clinicId, async () => {
+    const e = await send<Expense>('/expenses', 'POST', {
+      branchId: branch, categoryId, amountMinor: minor, method, spentOn, reference: reference.trim(), supplierName: supplier.trim(), description: description.trim(),
+    });
+    if (!file) return false;
+    return uploadFile<Expense>(`/expenses/${e.id}/document`, file, () => undefined).then(() => false, () => true);
+  });
+  const ready = !!branch && !!categoryId && !!minor && minor > 0 && (!needsReference(method) || reference.trim().length > 0) && !tooBig;
   const submit = (e: FormEvent) => { e.preventDefault(); if (ready) save.mutate(undefined, { onSuccess: onDone }); };
   return (
     <Card as="form" className="stack">
@@ -118,10 +131,13 @@ function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: E
         <Field label={t('expenseDate')}>{(a) => <DatePicker id={a.id} value={spentOn} onChange={setSpentOn} max={today} />}</Field>
         <Field label={t('supplier')} optional={t('optional')}>{(a) => <Input id={a.id} value={supplier} onChange={(e) => setSupplier(e.target.value)} maxLength={120} />}</Field>
         <Field label={t('lineDescription')} optional={t('optional')}>{(a) => <Input id={a.id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />}</Field>
+        <Field label={t('expenseDocument')} optional={t('optional')} hint={t('expenseDocumentHint')} error={tooBig ? t('clinicalTooBig') : undefined}>
+          {(a) => <input id={a.id} aria-describedby={a.describedBy} type="file" accept={DOC_ACCEPT} className="input" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />}
+        </Field>
       </div>
       <ErrorText error={save.error} />
       <div className="row-end">
-        <Button variant="ghost" onClick={onDone}>{t('cancel')}</Button>
+        <Button variant="ghost" onClick={() => onDone(false)}>{t('cancel')}</Button>
         <Button type="submit" onClick={submit} loading={save.isPending} disabled={!ready}>{t('save')}</Button>
       </div>
     </Card>
@@ -131,6 +147,8 @@ function ExpenseForm({ clinicId, rights, onDone }: { clinicId: string; rights: E
 function ExpenseRow({ clinicId, e, rights }: { clinicId: string; e: Expense; rights: ExpenseRights }) {
   const [voiding, setVoiding] = useState(false);
   const canVoid = e.status !== 'void' && (rights.all || (!rights.read && e.status === 'pending'));
+  // as the API's canAttachDocument: once, not void; anyone who records any expense, or reception for what it recorded (all it sees)
+  const canAttach = !e.document && e.status !== 'void' && (rights.all || (rights.cash && !rights.read));
   return (
     <li>
       <span>
@@ -142,6 +160,7 @@ function ExpenseRow({ clinicId, e, rights }: { clinicId: string; e: Expense; rig
           {e.approved_by_name && <> · {t(e.status === 'rejected' ? 'rejectedBy' : 'approvedBy')} <bdi>{e.approved_by_name}</bdi></>}
           {e.decision_note && <> — <bdi>{e.decision_note}</bdi></>}</span>
         {e.status === 'void' && <span className="small block">{t('voidedBecause')}: <bdi>{e.void_reason}</bdi>{e.voided_by_name && <> · <bdi>{e.voided_by_name}</bdi></>}</span>}
+        {e.document ? <DocumentLink doc={e.document} /> : canAttach && <AttachDocument clinicId={clinicId} expenseId={e.id} />}
       </span>
       <span className="line-end">
         <bdi className={e.status === 'void' ? 'struck' : undefined}>{money(e.amount_minor, e.currency)}</bdi>
@@ -149,6 +168,36 @@ function ExpenseRow({ clinicId, e, rights }: { clinicId: string; e: Expense; rig
       </span>
       {voiding && <VoidDialog clinicId={clinicId} e={e} onClose={() => setVoiding(false)} />}
     </li>
+  );
+}
+
+/** EXP-001: opens the private document in a new tab (a 5-minute link for this member; the list refreshes it). */
+function DocumentLink({ doc }: { doc: NonNullable<Expense['document']> }) {
+  return (
+    <a className="small block" href={doc.url} target="_blank" rel="noopener noreferrer">
+      {t('openDocument')} ({doc.mime_type === 'application/pdf' ? 'PDF' : t('documentImage')})
+    </a>
+  );
+}
+
+/** EXP-001: the receipt that arrives after the expense was recorded; attached once, never replaced. */
+function AttachDocument({ clinicId, expenseId }: { clinicId: string; expenseId: string }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [tooBig, setTooBig] = useState(false);
+  const upload = useFinanceMutation(clinicId, (f: File) => uploadFile<Expense>(`/expenses/${expenseId}/document`, f, () => undefined));
+  const pick = (f: File | undefined) => {
+    if (input.current) input.current.value = '';
+    if (!f) return;
+    setTooBig(f.size > DOC_MAX_BYTES);
+    if (f.size <= DOC_MAX_BYTES) upload.mutate(f);
+  };
+  return (
+    <span className="small block">
+      <input ref={input} type="file" accept={DOC_ACCEPT} hidden onChange={(x) => pick(x.target.files?.[0])} />
+      <LinkButton disabled={upload.isPending} onClick={() => input.current?.click()}>{upload.isPending ? t('uploadingDocument') : t('attachDocument')}</LinkButton>
+      {tooBig && <span className="text-owed"> {t('clinicalTooBig')}</span>}
+      <ErrorText error={upload.error} />
+    </span>
   );
 }
 
@@ -189,6 +238,7 @@ function PendingRow({ clinicId, e }: { clinicId: string; e: Expense }) {
         <strong>{e.category_name}</strong> · <bdi>{money(e.amount_minor, e.currency)}</bdi>
         <span className="muted small"> · {e.spent_on} · <bdi>{arName(e.branch.name_ar, e.branch.name_en)}</bdi> · {t('recordedBy')} <bdi>{e.created_by_name}</bdi></span>
         {e.description && <span className="small block"><bdi>{e.description}</bdi></span>}
+        {e.document && <DocumentLink doc={e.document} />}
         <ErrorText error={approve.error ?? reject.error} />
       </span>
       <span className="line-end">

@@ -96,6 +96,35 @@ describe('Finance: expenses and the daily cash box (e2e, Phase E3)', () => {
       const list = (await http().get('/expenses?status=void').set(as('ownerA')).expect(200)).body.items;
       expect(list.map((x: { id: string }) => x.id)).toContain(e.id);
     });
+
+    it('the supporting document: private, checked by its bytes, attached once, opened by a short link (EXP-001, H2)', async () => {
+      const PDF = Buffer.from('%PDF-1.7\n% receipt\n');
+      const e = (await http().post('/expenses').set(as('receptionA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 900, method: 'cash', description: `إيصال ${run}` }).expect(201)).body;
+      expect(e).toMatchObject({ document: null, can: { attach: true } });
+      // only PDF and images, by their bytes; nobody without expense rights; nobody who cannot see the expense
+      expect((await http().post(`/expenses/${e.id}/document`).set(as('receptionA')).attach('file', Buffer.from('<html><script>alert(1)</script></html>'), 'r.pdf').expect(400)).body.code)
+        .toBe('unsupported_file_type');
+      expect((await http().post(`/expenses/${e.id}/document`).set(as('doctorA')).attach('file', PDF, 'r.pdf').expect(403)).body.code).toBe('missing_permission');
+      expect((await http().post(`/expenses/${e.id}/document`).set(as('maadi')).attach('file', PDF, 'r.pdf').expect(404)).body.code).toBe('expense_not_found');
+      // the receptionist attaches the receipt that came later, once
+      const withDoc = (await http().post(`/expenses/${e.id}/document`).set(as('receptionA')).attach('file', PDF, { filename: 'receipt.pdf', contentType: 'application/pdf' }).expect(200)).body;
+      expect(withDoc).toMatchObject({ document: { mime_type: 'application/pdf', size_bytes: PDF.length }, can: { attach: false } });
+      expect((await http().post(`/expenses/${e.id}/document`).set(as('ownerA')).attach('file', PDF, 'again.pdf').expect(409)).body.code).toBe('expense_has_document');
+      // the link opens without a session, for 5 minutes, for that member only, and never as a clinical file
+      const url = new URL(withDoc.document.url);
+      const opened = await http().get(url.pathname + url.search).expect(200);
+      expect(opened.headers['content-type']).toBe('application/pdf');
+      expect(opened.headers['cache-control']).toBe('private, no-store');
+      const other = new URL(url); other.searchParams.set('u', 'b0000000-0000-0000-0000-0000000000a1');
+      expect((await http().get(other.pathname + other.search).expect(403)).body.code).toBe('link_expired');
+      expect((await http().get(url.pathname.replace('/expense-files/', '/clinical-files/') + url.search).expect(403)).body.code).toBe('link_expired');
+      // the owner sees it in the list; a void expense takes no document
+      const listed = (await http().get('/expenses').set(as('ownerA')).expect(200)).body.items.find((x: { id: string }) => x.id === e.id);
+      expect(listed.document.mime_type).toBe('application/pdf');
+      const v = (await http().post('/expenses').set(as('accountantA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 800, method: 'cash' }).expect(201)).body;
+      await http().post(`/expenses/${v.id}/void`).set(as('accountantA')).send({ reason: 'سجلته مرتين' }).expect(200);
+      expect((await http().post(`/expenses/${v.id}/document`).set(as('accountantA')).attach('file', PDF, 'r.pdf').expect(409)).body.code).toBe('expense_void');
+    });
   });
 
   describe('the cash day on one branch (CASH-001…004, CLR-04)', () => {

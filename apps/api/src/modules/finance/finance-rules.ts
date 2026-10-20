@@ -25,6 +25,15 @@ export function canVoid(rights: { full: boolean }, e: { status: string; created_
   return rights.full || (e.status === 'pending' && e.created_by === memberId);
 }
 
+/**
+ * EXP-001 (H2): the supporting document is attached once, while the expense is not void, by whoever may record any
+ * expense (expenses:write) or by the member who recorded this one (reception's receipt arriving later).
+ */
+export function canAttachDocument(rights: { full: boolean }, e: { status: string; created_by: string | null; file_id: string | null }, memberId: string): boolean {
+  if (e.status === 'void' || e.file_id) return false;
+  return rights.full || e.created_by === memberId;
+}
+
 export interface DayTotals {
   payments: Record<string, number>;
   refunds: Record<string, number>;

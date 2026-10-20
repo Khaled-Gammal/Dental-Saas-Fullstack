@@ -1,4 +1,6 @@
-import { canVoid, dayTotals, expectedCash, expenseEntry, needsNote } from '../finance-rules';
+import { ClinicalFileSigner } from '../../patients/clinical-files';
+import { ExpenseFileSigner, expenseKey } from '../expense-files';
+import { canAttachDocument, canVoid, dayTotals, expectedCash, expenseEntry, needsNote } from '../finance-rules';
 
 describe('expense entry (CLR-03)', () => {
   const owner = { full: true, cash: false };
@@ -42,5 +44,30 @@ describe('the cash day (CASH-002, CASH-003)', () => {
     expect(needsNote(90, 100, null)).toBe(true);
     expect(needsNote(90, 100, ' نق ')).toBe(true);
     expect(needsNote(90, 100, 'نقص فكة')).toBe(false);
+  });
+});
+
+describe('the supporting document (EXP-001, H2)', () => {
+  const owner = { full: true };
+  const reception = { full: false };
+  const e = (x: Partial<{ status: string; created_by: string | null; file_id: string | null }>) => ({ status: 'approved', created_by: 'sara', file_id: null, ...x });
+  it('is attached once, while the expense is not void', () => {
+    expect(canAttachDocument(owner, e({}), 'owner')).toBe(true);
+    expect(canAttachDocument(owner, e({ file_id: 'f1' }), 'owner')).toBe(false);
+    expect(canAttachDocument(owner, e({ status: 'void' }), 'owner')).toBe(false);
+  });
+  it('by whoever records any expense, or by the member who recorded this one (any status but void)', () => {
+    expect(canAttachDocument(reception, e({ status: 'approved' }), 'sara')).toBe(true);
+    expect(canAttachDocument(reception, e({ status: 'rejected' }), 'sara')).toBe(true);
+    expect(canAttachDocument(reception, e({}), 'mona')).toBe(false);
+  });
+  it('has its own storage path and links that are never valid as clinical ones', () => {
+    expect(expenseKey('t1', 'f1')).toBe('t/t1/expenses/f1');
+    const now = Date.parse('2031-01-01T10:00:00Z');
+    const url = new URL(new ExpenseFileSigner('test-secret-0123456789', 'https://api.example').url('t1', 'f1', 'u1', 300, now));
+    expect(url.pathname).toBe('/expense-files/t1/f1');
+    const p = Object.fromEntries(url.searchParams);
+    expect(new ExpenseFileSigner('test-secret-0123456789', 'https://api.example').verify('t1', 'f1', 'u1', Number(p.exp), p.sig, now)).toBe(true);
+    expect(new ClinicalFileSigner('test-secret-0123456789', 'https://api.example').verify('t1', 'f1', 'u1', Number(p.exp), p.sig, now)).toBe(false);
   });
 });

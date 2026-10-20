@@ -1,7 +1,10 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import type { z } from 'zod';
-import { RequirePermission } from '../../auth/decorators';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { z } from 'zod';
+import { Public, RequirePermission } from '../../auth/decorators';
+import { EXPENSE_FILE_POLICY } from '../../config';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { CashService } from './cash.service';
 import { ExpensesService } from './expenses.service';
@@ -87,6 +90,35 @@ export class ExpensesController {
   @Post(':id/void') @HttpCode(200)
   void(@Param('id', id) expenseId: string, @Body(new ZodBody(VoidExpense)) body: Body<typeof VoidExpense>) {
     return this.expenses.void(expenseId, body.reason);
+  }
+
+  /** EXP-001: the supporting document (multipart field `file`: PDF or image), attached once; who may is checked in the service. */
+  @Post(':id/document') @HttpCode(200)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: EXPENSE_FILE_POLICY.maxUploadBytes, files: 1, fields: 0 } }))
+  attachDocument(@Param('id', id) expenseId: string, @UploadedFile() file: { buffer?: Buffer } | undefined) {
+    return this.expenses.attachDocument(expenseId, file?.buffer ?? Buffer.alloc(0));
+  }
+}
+
+const SignedQuery = z.object({ u: z.string().uuid(), exp: z.coerce.number().int(), sig: z.string().regex(/^[A-Za-z0-9_-]{20,64}$/) }).strict();
+
+/** An expense document's 5-minute signed link (no session; the signature is bound to the member). */
+@ApiTags('finance')
+@Controller('expense-files')
+export class ExpenseFileLinkController {
+  constructor(private readonly expenses: ExpensesService) {}
+
+  @Public()
+  @Get(':tenantId/:fileId')
+  async open(@Param('tenantId', id) tenantId: string, @Param('fileId', id) fileId: string, @Query(new ZodBody(SignedQuery)) q: z.infer<typeof SignedQuery>,
+    @Res({ passthrough: true }) res: Response) {
+    const f = await this.expenses.openDocument(tenantId, fileId, q.u, q.exp, q.sig);
+    res.set({
+      'Content-Type': f.mime, 'Content-Length': String(f.length), 'Content-Disposition': `inline; filename="${f.name}"`,
+      'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
+    });
+    return new StreamableFile(f.body as never);
   }
 }
 
