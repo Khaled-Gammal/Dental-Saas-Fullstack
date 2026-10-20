@@ -38,7 +38,7 @@ Last updated: 2026-10-19, end of Phase G (final report: `docs/reviews/2026-10-19
 | 13 | Payments | IMPLEMENTED (E1, E2, E3) | back-dating a payment (not offered; payments are dated now) |
 | 14 | Follow-up | IMPLEMENTED | — |
 | 15 | Expenses and cash | IMPLEMENTED (E3, H2) | — |
-| 16 | Reporting | IMPLEMENTED (E4, F4) | Excel export (deferred) |
+| 16 | Reporting | IMPLEMENTED (E4, F4, H3) | — |
 
 ## Part B — approved new requirements
 
@@ -102,7 +102,7 @@ Last updated: 2026-10-19, end of Phase G (final report: `docs/reviews/2026-10-19
 | L10N-004 | Arabic emails | IMPLEMENTED | F2 | every email Arabic only (verification and reset codes, booking confirmation and code, clinic notice, reminders, move, invitation); RTL HTML part + plain text (`arabic-mail.ts`, `smtp-email.sender.ts`); one date wording; worker test fails on English |
 | L10N-005 | Currency | IMPLEMENTED | E1/F2/F3 | dashboard follows the clinic currency (F2); the public site payload now carries `currency` and the website prices use it (`formatMoney`, shared) |
 | L10N-006 | Dates and times | IMPLEMENTED | F2/F3 | CLR-08: Latin digits and a 12-hour clock with ص/م in the dashboard, emails and website (hours, open now, booking times; `clock12`, shared). Structured data keeps 24-hour times (schema.org) |
-| L10N-007 | Arabic data | PARTIALLY | F | Arabic stored and searched with normalisation (PATIENT-001); no export yet |
+| L10N-007 | Arabic data | PARTIALLY | F/H3 | Arabic stored and searched with normalisation (PATIENT-001); H3: report tables export as CSV, UTF-8 with BOM (`csv.ts`, `csv.test.ts`) |
 | L10N-008 | Remove multilingual infrastructure | IMPLEMENTED | F1/F3/F5 | F1: switch, stored language, English inputs (data kept, CLR-07). F3: `sites.locales = {ar}`. F5 (owner approved 2026-10-19): the dictionary holds Arabic only, `t(key)` without a language, the `lang` props, `Lang` type and language context removed from the dashboard (62 files), names via `arName()` (Arabic first, English only where no Arabic exists). `_en` and locale columns and their data stay |
 | AUDIT-001 | Financial audit | IMPLEMENTED (DB) | C | Triggers on invoices, lines, payments, refunds, plans, installments, expenses (0013); `14_audit_triggers.sql`. New money tables (discounts, cash) add the same trigger in E |
 | AUDIT-002 | Clinical audit | IMPLEMENTED | D4 | triggers on visits, amendments, procedures, chart, plans, items, prescriptions, follow-ups record what changed with clinical text as `true`; visit, prescription and chart views audited |
@@ -131,6 +131,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-20 | H3 | CSV export of every report table (`#/reports`, in the browser from the data shown). No migration, no API change |
 | 2026-10-20 | H2b | Owner: expenses are the owner's and the accountant's only; reception keeps bookings, patients, patient payments and the cash box. Migration 0029 (retires `expenses:write:cash`, bumps the access version of the members concerned) |
 | 2026-10-20 | H2 | EXP-001 supporting document. Migration 0028 (`expenses_guard`: document attached once; private files of the clinic; one expense per file) |
 | 2026-10-19 | H1 | BILLING-005 at check-in (`GET /balances`), TPLAN-004 invoiced/paid/balance per plan. No migration |
