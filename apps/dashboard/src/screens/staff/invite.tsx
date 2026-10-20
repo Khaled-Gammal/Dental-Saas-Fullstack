@@ -8,12 +8,13 @@ import { roleLabel, t } from '../../i18n';
 import { keys, useBranches, useDoctors, useMembers, useRoles } from '../../queries';
 import { to } from '../../router';
 import { EMPTY_INVITE, inviteProblem, toInviteBody, type InviteForm } from '../../staff-model';
-import type { Branch, StaffInvitation } from '../../types';
+import { roleOptions } from '../../roles-model';
+import type { Branch, StaffInvitation, StaffRole } from '../../types';
 import { Badge, Card, Field, Input, Switch } from '../../ui/components';
 import { FormPage, ResourceState } from '../../ui/page';
 
 /** `#/staff/new`: invite someone by email with a role and branch access (SRS ACCESS-001). */
-export function StaffInvite({ clinicId }: { clinicId: string }) {
+export function StaffInvite({ clinicId, has }: { clinicId: string; has: (p: string) => boolean }) {
   const roles = useRoles(clinicId);
   const branches = useBranches(clinicId);
   const doctors = useDoctors(clinicId);
@@ -24,12 +25,12 @@ export function StaffInvite({ clinicId }: { clinicId: string }) {
   }
   // a doctor record can get a login only once
   const linkable = doctors.data.filter((d) => d.is_active && !members.data!.some((m) => m.doctor?.id === d.id));
-  return <InviteBody clinicId={clinicId} roles={roles.data} branches={branches.data.filter((b) => b.is_active)}
+  return <InviteBody clinicId={clinicId} roles={roleOptions(roles.data, has)} branches={branches.data.filter((b) => b.is_active)}
     doctors={linkable.map((d) => ({ value: d.id, label: arName(d.name_ar, d.name_en, '—') }))} />;
 }
 
 function InviteBody({ clinicId, roles, branches, doctors }: {
-  clinicId: string; roles: { id: string; key: string }[]; branches: Branch[]; doctors: { value: string; label: string }[];
+  clinicId: string; roles: StaffRole[]; branches: Branch[]; doctors: { value: string; label: string }[];
 }) {
   const [form, setForm] = useState<InviteForm>(EMPTY_INVITE);
   const [tried, setTried] = useState(false);
@@ -63,7 +64,7 @@ function InviteBody({ clinicId, roles, branches, doctors }: {
           </Field>
           <Field label={t('staffRole')} error={show('role') ? t('needRole') : undefined}>
             {(a) => <Choice id={a.id} value={form.roleId} onChange={set('roleId')} placeholder={t('needRole')} invalid={show('role')}
-              options={roles.map((r) => ({ value: r.id, label: roleLabel(r.key) }))} />}
+              options={roles.map((r) => ({ value: r.id, label: roleLabel(r.key, r.name_ar) }))} />}
           </Field>
           <Field label={t('jobTitleLabel')} optional={t('optional')}>
             {(a) => <Input id={a.id} value={form.jobTitle} onChange={(e) => set('jobTitle')(e.target.value)} maxLength={80} />}

@@ -6,29 +6,31 @@ import { Badge, Logo, initials } from '../ui/components';
 import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, ChartIcon, WalletIcon, ToothIcon, UsersIcon } from '../ui/icons';
 import { setClinicCurrency } from '../money';
 import { useProfile } from '../queries';
+import { canSee } from '../access';
 import { useMediaQuery } from '../hooks';
 import { to, type Page } from '../router';
 import { RouteLink } from '../ui/page';
 
-/** `perm`: shown only to members who hold it, or one of them (the page refuses others anyway). */
-type NavItem = { key: Key; icon: ReactNode; page?: Page; perm?: string | string[] };
+/** A page shows when the member may open it (`access.ts`); the disabled website item shows to who will edit the site. */
+type NavItem = { key: Key; icon: ReactNode; page?: Page; perm?: string };
 const NAV: NavItem[] = [
   { key: 'navOverview', icon: <HomeIcon />, page: 'overview' },
   { key: 'navProfile', icon: <ToothIcon />, page: 'profile' },
   { key: 'navBranches', icon: <PinIcon />, page: 'branches' },
   { key: 'navAppointments', icon: <CalendarIcon />, page: 'appointments' },
   { key: 'navPatients', icon: <UsersIcon />, page: 'patients' },
-  { key: 'navFollowUps', icon: <PhoneIcon />, page: 'followups', perm: 'patients:read' },
+  { key: 'navFollowUps', icon: <PhoneIcon />, page: 'followups' },
   { key: 'navDoctors', icon: <StethoscopeIcon />, page: 'doctors' },
   { key: 'navServices', icon: <ListIcon />, page: 'services' },
-  { key: 'navStaff', icon: <ShieldIcon />, page: 'staff', perm: 'staff:manage' },
-  { key: 'navBilling', icon: <ReceiptIcon />, page: 'invoices', perm: 'invoices:read' },
-  { key: 'navDiscounts', icon: <TagIcon />, page: 'discounts', perm: 'discounts:approve' },
-  { key: 'navCash', icon: <CashIcon />, page: 'cash', perm: 'cash:operate' },
-  { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses', perm: ['expenses:read'] },
-  { key: 'navReports', icon: <ChartIcon />, page: 'reports', perm: ['reports:read', 'reports:read:daily', 'reports:read:own'] },
+  { key: 'navStaff', icon: <ShieldIcon />, page: 'staff' },
+  { key: 'navRoles', icon: <ShieldIcon />, page: 'roles' },
+  { key: 'navBilling', icon: <ReceiptIcon />, page: 'invoices' },
+  { key: 'navDiscounts', icon: <TagIcon />, page: 'discounts' },
+  { key: 'navCash', icon: <CashIcon />, page: 'cash' },
+  { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses' },
+  { key: 'navReports', icon: <ChartIcon />, page: 'reports' },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
-  { key: 'navWebsite', icon: <GlobeIcon /> },
+  { key: 'navWebsite', icon: <GlobeIcon />, perm: 'website:write' },
 ];
 
 export const clinicName = (session: Session) => arName(session.clinic.nameAr, session.clinic.nameEn, session.clinic.slug);
@@ -81,7 +83,7 @@ export function AppShell({ session, page, children }: {
         </div>
         <nav aria-label={t('mainNav')}>
           <ul className="nav">
-            {NAV.filter((n) => !n.perm || [n.perm].flat().some((p) => can(session, p))).map((n) => (
+            {NAV.filter((n) => (n.page ? canSee((p) => can(session, p), n.page) : !n.perm || can(session, n.perm))).map((n) => (
               <li key={n.key}>
                 {n.page ? (
                   <RouteLink route={to.list(n.page)} className={`nav-item${page === n.page ? ' active' : ''}`} aria-current={page === n.page ? 'page' : undefined}
@@ -113,7 +115,7 @@ export function AppShell({ session, page, children }: {
             <span className="avatar">{initials(session.user.name)}</span>
             <span className="user-text hide-sm">
               <strong><bdi>{session.user.name}</bdi></strong>
-              <small>{roleLabel(session.clinic.role)}</small>
+              <small>{roleLabel(session.clinic.role, session.clinic.roleName)}</small>
             </span>
           </div>
         </header>

@@ -89,7 +89,7 @@ export class IdentityRepository {
   activeMember(tenantId: string, userId: string) {
     return this.db.runAs(tenantId, (tx) =>
       tx.selectFrom('tenant_members as tm').innerJoin('roles as r', 'r.id', 'tm.role_id')
-        .select(['tm.id', 'r.permissions', 'tm.access_version'])
+        .select(['tm.id', 'r.permissions', 'tm.access_version', 'r.name_ar as role_name'])
         .where('tm.user_id', '=', userId).where('tm.status', '=', 'active')
         .executeTakeFirst(),
     );

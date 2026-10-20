@@ -51,6 +51,7 @@ Last updated: 2026-10-19, end of Phase G (final report: `docs/reviews/2026-10-19
 | ACCESS-003 | Branch-scoped access | IMPLEMENTED | C | Restrictive RLS (migration 0015) + `branch_forbidden` in scheduling; `15_branch_access.sql`, `access.e2e-spec.ts`. Cash sessions get the policy when they exist (E) |
 | ACCESS-004 | Permission catalogue + separation | IMPLEMENTED | C | Migration 0014; `16_permissions_and_users.sql`. New permissions are enforced as their features arrive (`patients:block` now) |
 | ACCESS-005 | Access changes on the next request | IMPLEMENTED | D1 | `access_version` + `member_access_state()` checked in `JwtAuthGuard`; `staff.e2e-spec.ts` |
+| ACCESS-006 | Roles the owner creates | IMPLEMENTED | H4 | migration 0030 (`grantable_permissions()`, `roles_guard`: built-in fixed from the API, catalogue only, no `*`; archive; `roles_bump_access`); `/staff/permissions`, `/staff/roles` CRUD with anti-escalation; `#/roles`; one page-access map for menu and routes (`access.ts`); `28_custom_roles.sql`, `roles.e2e-spec.ts`, `role-rules.spec.ts`, `access.test.ts` |
 | APPT-001 | Reschedule | IMPLEMENTED | D2 | `POST /appointments/:id/move`, `appointment.rescheduled` worker handler; dashboard `#/appointments/<id>/edit`; `calendar.e2e-spec.ts` |
 | APPT-002 | Staff booking validation | IMPLEMENTED | C | API (`doctor_inactive`, `doctor_not_at_branch`) + trigger (0012); `access.e2e-spec.ts`, `13_money_integrity.sql` |
 | APPT-003 | Waiting list | IMPLEMENTED | D2 | Appointments "قائمة الانتظار" view (`calendar-model.ts` `waitingList`, unit-tested) |
@@ -131,6 +132,7 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-20 | H4 | Roles the owner creates (ACCESS-006): migration 0030, roles screen, page-access map for menu and routes, buttons hidden where the API would refuse (book from visit/plan, follow-up form, block switch, add patient, own-only appointment actions, branch photo, expense branches) |
 | 2026-10-20 | H3 | CSV export of every report table (`#/reports`, in the browser from the data shown). No migration, no API change |
 | 2026-10-20 | H2b | Owner: expenses are the owner's and the accountant's only; reception keeps bookings, patients, patient payments and the cash box. Migration 0029 (retires `expenses:write:cash`, bumps the access version of the members concerned) |
 | 2026-10-20 | H2 | EXP-001 supporting document. Migration 0028 (`expenses_guard`: document attached once; private files of the clinic; one expense per file) |

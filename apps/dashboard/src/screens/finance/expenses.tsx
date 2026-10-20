@@ -7,7 +7,7 @@ import { DatePicker } from '../../components/date-picker';
 import { EXPENSE_METHODS, localToday, monthOf, needsReference } from '../../finance-model';
 import { t, type Key } from '../../i18n';
 import { money } from '../../money';
-import { send, useCashBranches, useExpenseCategories, useExpenses, useFinanceMutation, usePendingExpenses } from '../../queries';
+import { send, useBranches, useExpenseCategories, useExpenses, useFinanceMutation, usePendingExpenses } from '../../queries';
 import type { Expense, ExpenseStatus, PaymentMethod } from '../../types';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, PageHeader, Skeleton, Switch } from '../../ui/components';
@@ -78,7 +78,7 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
 
 /** `onDone(true)`: the expense was saved but its document did not upload (it can be attached from the list). */
 function ExpenseForm({ clinicId, onDone }: { clinicId: string; onDone: (documentFailed: boolean) => void }) {
-  const branches = useCashBranches(clinicId);
+  const branches = useBranches(clinicId); // every member reads branches; the API checks the member may use the one chosen
   const categories = useExpenseCategories(clinicId);
   const today = localToday();
   const [branchId, setBranchId] = useState('');
@@ -90,7 +90,7 @@ function ExpenseForm({ clinicId, onDone }: { clinicId: string; onDone: (document
   const [supplier, setSupplier] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const list = branches.data ?? [];
+  const list = (branches.data ?? []).filter((b) => b.is_active);
   const branch = branchId || (list.length === 1 ? list[0].id : '');
   const minor = toMinor(amount);
   const tooBig = !!file && file.size > DOC_MAX_BYTES;

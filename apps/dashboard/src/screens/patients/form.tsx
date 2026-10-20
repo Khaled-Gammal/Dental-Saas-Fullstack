@@ -10,6 +10,7 @@ import { to } from '../../router';
 import type { PatientDetail } from '../../types';
 import { Badge, Card, Field, Input, Switch, TextArea } from '../../ui/components';
 import { FormPage, ResourceState, RouteLink } from '../../ui/page';
+import { useCan } from '../../can';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 const RELATIONS = ['father', 'mother', 'sibling', 'spouse', 'legal_guardian', 'other'] as const;
@@ -25,6 +26,7 @@ export function PatientForm({ clinicId, id }: { clinicId: string; id?: string })
 
 function PatientFormBody({ clinicId, patient }: { clinicId: string; patient?: PatientDetail }) {
   const [orig] = useState(() => (patient ? toPatientForm(patient) : null)); // frozen baseline: a background refetch cannot make the form dirty
+  const canBlock = useCan()('patients:block');
   const [form, setForm] = useState<Form>(orig ?? EMPTY_PATIENT);
   const [touched, setTouched] = useState(false);
   const [showGuardian, setShowGuardian] = useState(() => !!(orig?.guardianName || orig?.guardianPhone || orig?.guardianRelation));
@@ -140,8 +142,8 @@ function PatientFormBody({ clinicId, patient }: { clinicId: string; patient?: Pa
           <Field label={t('notes')} optional={t('optional')}>{(a) => <TextArea id={a.id} value={form.notes} onChange={text('notes')} maxLength={2000} />}</Field>
           <Switch checked={form.marketingOptIn} onChange={set('marketingOptIn')} label={t('marketingOptIn')} />
           <p className="muted small">{t('marketingHint')}</p>
-          {patient && <Switch checked={form.isBlocked} onChange={set('isBlocked')} label={t('blockBooking')} />}
-          {patient && <p className="muted small">{t('blockBookingHint')}</p>}
+          {patient && canBlock && <Switch checked={form.isBlocked} onChange={set('isBlocked')} label={t('blockBooking')} />}
+          {patient && canBlock && <p className="muted small">{t('blockBookingHint')}</p>}
         </div>
       </Card>
     </FormPage>

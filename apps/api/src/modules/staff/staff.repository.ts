@@ -22,6 +22,11 @@ export interface OpenInvitation {
   clinic_slug: string; clinic_name_ar: string | null; clinic_name_en: string | null;
 }
 
+export interface RoleView {
+  id: string; key: string; name_ar: string; name_en: string; is_system: boolean; permissions: string[]; archived_at: Date | null;
+  created_at: Date; updated_at: Date; members: number; invitations: number;
+}
+
 const roleJson = sql<MemberView['role']>`json_build_object('id', r.id, 'key', r.key, 'name_ar', r.name_ar, 'name_en', r.name_en)`;
 
 /** All SQL for clinic members and invitations (SRS 8.2 `tenancy`: tenant_members, member_branches, invitations). */
@@ -76,12 +81,59 @@ export class StaffRepository {
     }
   }
 
-  roles(tx: Tx) {
-    return tx.selectFrom('roles').select(['id', 'key', 'name_ar', 'name_en', 'is_system']).orderBy('is_system', 'desc').orderBy('key').execute();
+  /** Every role with its permissions and how many hold it (active members, open invitations). Built-in first, in B.1 order. */
+  roles(tx: Tx): Promise<RoleView[]> {
+    return tx.selectFrom('roles as r')
+      .select([
+        'r.id', 'r.key', 'r.name_ar', 'r.name_en', 'r.is_system', 'r.permissions', 'r.archived_at', 'r.created_at', 'r.updated_at',
+        sql<number>`(select count(*)::int from tenant_members m where m.role_id = r.id and m.status = 'active')`.as('members'),
+        sql<number>`(select count(*)::int from invitations i where i.role_id = r.id and i.accepted_at is null and i.revoked_at is null and i.expires_at > now())`.as('invitations'),
+      ])
+      .orderBy(sql`array_position(array['owner','doctor','receptionist','assistant','accountant'], r.key::text)`)
+      .orderBy('r.name_ar').execute();
   }
 
   role(tx: Tx, id: string) {
-    return tx.selectFrom('roles').select(['id', 'key']).where('id', '=', id).executeTakeFirst();
+    return tx.selectFrom('roles').select(['id', 'key', 'is_system', 'permissions', 'archived_at']).where('id', '=', id).executeTakeFirst();
+  }
+
+  async memberRoleId(tx: Tx, memberId: string): Promise<string | null> {
+    return (await tx.selectFrom('tenant_members').select('role_id').where('id', '=', memberId).executeTakeFirst())?.role_id ?? null;
+  }
+
+  /** The role row, locked for an edit or removal. */
+  lockRole(tx: Tx, id: string) {
+    return tx.selectFrom('roles').select(['id', 'key', 'is_system', 'permissions', 'archived_at']).where('id', '=', id).forUpdate().executeTakeFirst();
+  }
+
+  insertRole(tx: Tx, r: { tenantId: string; key: string; nameAr: string; permissions: string[] }) {
+    // name_en is required by the v3 schema; the product is Arabic only, so it carries the same name (CLR-07)
+    return tx.insertInto('roles').values({ tenant_id: r.tenantId, key: r.key, name_ar: r.nameAr, name_en: r.nameAr, permissions: r.permissions })
+      .returning('id').executeTakeFirstOrThrow();
+  }
+
+  updateRole(tx: Tx, id: string, p: { nameAr?: string; permissions?: string[] }) {
+    return tx.updateTable('roles')
+      .set({ ...(p.nameAr !== undefined && { name_ar: p.nameAr, name_en: p.nameAr }), ...(p.permissions !== undefined && { permissions: p.permissions }) })
+      .where('id', '=', id).execute();
+  }
+
+  /** Who refers to the role: members (any status) and invitations (any state); a role nobody ever held is deleted. */
+  async roleUsage(tx: Tx, id: string) {
+    const { rows } = await sql<{ active: number; members: number; open: number; invitations: number }>`
+      select (select count(*)::int from tenant_members where role_id = ${id} and status = 'active') as active,
+             (select count(*)::int from tenant_members where role_id = ${id}) as members,
+             (select count(*)::int from invitations where role_id = ${id} and accepted_at is null and revoked_at is null and expires_at > now()) as open,
+             (select count(*)::int from invitations where role_id = ${id}) as invitations`.execute(tx);
+    return rows[0]!;
+  }
+
+  deleteRole(tx: Tx, id: string) {
+    return tx.deleteFrom('roles').where('id', '=', id).execute();
+  }
+
+  archiveRole(tx: Tx, id: string) {
+    return tx.updateTable('roles').set({ archived_at: sql<Date>`now()` }).where('id', '=', id).execute();
   }
 
   async branchesExist(tx: Tx, ids: string[]): Promise<boolean> {

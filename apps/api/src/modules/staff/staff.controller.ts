@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
@@ -8,7 +8,7 @@ import { SessionCookie, requestMeta } from '../identity/session-cookie';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { InvitationAcceptance } from './invitation-acceptance.service';
-import { AcceptBody, InvitationToken, InviteBody, UpdateMemberBody } from './staff.schemas';
+import { AcceptBody, EditRoleBody, InvitationToken, InviteBody, NewRoleBody, UpdateMemberBody } from './staff.schemas';
 import { StaffService } from './staff.service';
 
 const id = new ParseUUIDPipe();
@@ -33,8 +33,23 @@ export class StaffController {
     return this.staff.updateMember(memberId, b);
   }
 
+  /** H4: the permissions a role can hold, grouped as the roles screen shows them */
+  @Get('permissions')
+  permissions() { return this.staff.permissions(); }
+
   @Get('roles')
   roles() { return this.staff.roles(); }
+
+  /** H4: a custom role (built-in roles are fixed); a member who is not the owner gives only permissions they hold */
+  @Post('roles')
+  createRole(@Body(new ZodBody(NewRoleBody)) b: z.infer<typeof NewRoleBody>) { return this.staff.createRole(b); }
+
+  @Patch('roles/:id')
+  updateRole(@Param('id', id) roleId: string, @Body(new ZodBody(EditRoleBody)) b: z.infer<typeof EditRoleBody>) { return this.staff.updateRole(roleId, b); }
+
+  /** deleted when nobody ever held it, archived when only past members or invitations refer to it */
+  @Delete('roles/:id')
+  removeRole(@Param('id', id) roleId: string) { return this.staff.removeRole(roleId); }
 
   @Get('invitations')
   invitations() { return this.staff.invitations(); }

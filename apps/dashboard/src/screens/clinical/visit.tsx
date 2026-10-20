@@ -17,6 +17,7 @@ import { fmtNumber } from '../../util';
 import { ChartCard } from './chart';
 import { money } from './money';
 import { currencyLabel } from '../../money';
+import { useCan } from '../../can';
 
 const FIELDS: { f: NoteField; key: Key; rows: number }[] = [
   { f: 'chief_complaint', key: 'chiefComplaint', rows: 2 }, { f: 'diagnosis', key: 'diagnosis', rows: 2 },
@@ -360,6 +361,7 @@ function NextVisitCard({ clinicId, v }: { clinicId: string; v: Visit }) {
     ?? (plans.data ?? []).find((p) => p.status === 'accepted' || p.status === 'in_progress');
   const plan = usePlan(clinicId, open?.id);
   const next = plan.data?.next.item;
+  const has = useCan();
   const [reason, setReason] = useState<RecallReason>('checkup');
   const [due, setDue] = useState(addMonths(todayIso(), 6));
   const [note, setNote] = useState('');
@@ -370,10 +372,12 @@ function NextVisitCard({ clinicId, v }: { clinicId: string; v: Visit }) {
       <h2>{t('nextVisit')}</h2>
       {v.next_visit_note && <p className="history-notes mt-sm">{v.next_visit_note}</p>}
       {next && <p className="small mt-sm">{t('nextPlannedItem')}: <strong><bdi>{arName(next.service_ar, next.service_en)}</bdi></strong>{next.tooth_code && <> · <bdi dir="ltr">{next.tooth_code}</bdi></>}</p>}
-      <div className="row-end mt">
-        <RouteLink route={to.create('appointments', nextBookingQuery(v, plan.data))} className="btn btn-primary"><CalendarIcon size={16} />{t('bookNext')}</RouteLink>
-      </div>
-      <form className="stack mt" onSubmit={(e) => { e.preventDefault(); add.mutate(undefined, { onSuccess: () => { setAdded(true); setNote(''); } }); }}>
+      {has('appointments:write') && (
+        <div className="row-end mt">
+          <RouteLink route={to.create('appointments', nextBookingQuery(v, plan.data))} className="btn btn-primary"><CalendarIcon size={16} />{t('bookNext')}</RouteLink>
+        </div>
+      )}
+      {has('patients:write') && <form className="stack mt" onSubmit={(e) => { e.preventDefault(); add.mutate(undefined, { onSuccess: () => { setAdded(true); setNote(''); } }); }}>
         <h3>{t('addFollowUp')}</h3>
         <div className="grid-2">
           <Field label={t('followUpReason')}>
@@ -388,7 +392,7 @@ function NextVisitCard({ clinicId, v }: { clinicId: string; v: Visit }) {
         {added && <Alert tone="success">{t('followUpAdded')}</Alert>}
         <ErrorText error={add.error} />
         <div className="row-end"><Button type="submit" variant="secondary" loading={add.isPending}>{t('addFollowUp')}</Button></div>
-      </form>
+      </form>}
     </Card>
   );
 }

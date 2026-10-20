@@ -894,6 +894,7 @@ export interface Reviews {
 }
 
 export interface Roles {
+  archived_at: Timestamp | null;
   created_at: Generated<Timestamp>;
   id: Generated<string>;
   is_system: Generated<boolean>;
@@ -904,6 +905,7 @@ export interface Roles {
   name_en: string;
   permissions: Generated<string[]>;
   tenant_id: string;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface Rooms {

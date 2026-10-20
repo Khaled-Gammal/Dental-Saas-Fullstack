@@ -251,7 +251,7 @@ export class BillingRepository {
   }
 
   async roleLimits(tx: Tx) {
-    const rows = await tx.selectFrom('roles').select(['id', 'key', 'name_ar', 'name_en', 'is_system', 'permissions', 'max_discount_bp', 'max_discount_minor'])
+    const rows = await tx.selectFrom('roles').select(['id', 'key', 'name_ar', 'name_en', 'is_system', 'permissions', 'max_discount_bp', 'max_discount_minor']).where('archived_at', 'is', null)
       .orderBy('is_system', 'desc').orderBy('key').execute();
     return rows.map((r) => ({ ...r, max_discount_minor: r.max_discount_minor == null ? null : Number(r.max_discount_minor), unlimited: r.permissions.includes('*') }));
   }

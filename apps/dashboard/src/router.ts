@@ -3,7 +3,7 @@
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
 export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking'
-  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports';
+  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles';
 export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge';
 
 /** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
@@ -34,9 +34,10 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   invoices: ['new', 'view', 'print'], // print = the A4 invoice
   payments: ['print'], // the A5 receipt
   discounts: [], // the owner's approval queue and role limits
-  expenses: [], // expenses, the owner's approval queue, categories and the reception limit
+  expenses: [], // expenses, the owner's approval queue and categories
   cash: [], // the branch's cash day: open, expected cash, count and close; history
   reports: [], // revenue, expenses, attendance, performance, balances (`?tab=`), each printable
+  roles: ['new', 'edit', 'view'], // H4: the clinic's roles and their permissions (built-in ones are viewed only)
 };
 
 /**

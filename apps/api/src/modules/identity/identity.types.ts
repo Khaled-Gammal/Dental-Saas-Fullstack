@@ -25,7 +25,7 @@ export interface Session {
   expiresIn: number;
   refreshToken: string; // goes into the httpOnly cookie, never into the JSON body
   user: { id: string; name: string; email: string | null; phone: string | null };
-  clinic: { id: string; slug: string; nameAr: string | null; nameEn: string | null; role: string; status: string; permissions: string[] };
+  clinic: { id: string; slug: string; nameAr: string | null; nameEn: string | null; role: string; roleName: string; status: string; permissions: string[] };
   clinics: { slug: string; nameAr: string | null; nameEn: string | null }[];
 }
 
