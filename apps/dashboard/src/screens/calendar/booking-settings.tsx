@@ -8,6 +8,7 @@ import { t, type Key } from '../../i18n';
 import { calendarKeys, useBookingSettings } from '../../queries';
 import type { BookingSettings } from '../../types';
 import { Alert, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, Switch } from '../../ui/components';
+import { Checkbox } from '../../components/ui/checkbox';
 
 const STEPS = [5, 10, 15, 20, 30, 60];
 
@@ -80,8 +81,8 @@ function RulesForm({ clinicId, orig, canWrite }: { clinicId: string; orig: Booki
                 const on = form.reminderOffsetsMinutes.includes(m);
                 return (
                   <label key={m} className="check">
-                    <input type="checkbox" checked={on} disabled={!on && form.reminderOffsetsMinutes.length >= MAX_REMINDERS}
-                      onChange={() => set('reminderOffsetsMinutes')(toggleReminder(form.reminderOffsetsMinutes, m))} />
+                    <Checkbox checked={on} disabled={!on && form.reminderOffsetsMinutes.length >= MAX_REMINDERS}
+                      onCheckedChange={() => set('reminderOffsetsMinutes')(toggleReminder(form.reminderOffsetsMinutes, m))} />
                     {reminderLabel(m)}
                   </label>
                 );

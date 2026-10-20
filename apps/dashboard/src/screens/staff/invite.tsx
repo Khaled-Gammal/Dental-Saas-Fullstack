@@ -12,6 +12,7 @@ import { roleOptions } from '../../roles-model';
 import type { Branch, StaffInvitation, StaffRole } from '../../types';
 import { Alert, Badge, Card, Field, Input, Switch } from '../../ui/components';
 import { FormPage, ResourceState, RouteLink } from '../../ui/page';
+import { Checkbox } from '../../components/ui/checkbox';
 
 /** `#/staff/new`: invite someone by email with a role and branch access (SRS ACCESS-001). */
 export function StaffInvite({ clinicId, has }: { clinicId: string; has: (p: string) => boolean }) {
@@ -98,7 +99,7 @@ export function BranchAccess({ branches, allBranches, branchIds, onAll, onToggle
             <div className="branch-checks">
               {branches.map((b) => (
                 <label key={b.id} className="check">
-                  <input type="checkbox" checked={branchIds.includes(b.id)} onChange={(e) => onToggle(b.id, e.target.checked)} />
+                  <Checkbox checked={branchIds.includes(b.id)} onCheckedChange={(v) => onToggle(b.id, v === true)} />
                   <bdi>{arName(b.name_ar, b.name_en, b.slug)}</bdi>{b.is_main && <Badge tone="primary">{t('main')}</Badge>}
                 </label>
               ))}

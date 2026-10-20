@@ -8,6 +8,7 @@ import { to } from '../../router';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../../ui/components';
 import { ShieldIcon } from '../../ui/icons';
 import { FormPage, RouteLink } from '../../ui/page';
+import { Checkbox } from '../../components/ui/checkbox';
 
 export const consentKeys = {
   texts: (clinicId: string) => ['consents', clinicId, 'texts'] as const,
@@ -114,7 +115,7 @@ function TextEditor({ clinicId, detail }: { clinicId: string; detail?: ConsentTe
           {(a) => <TextArea id={a.id} describedBy={a.describedBy} value={body} onChange={(e) => setBody(e.target.value)} rows={14} maxLength={20_000} required />}
         </Field>
         <label className="check-row mt">
-          <input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} />
+          <Checkbox checked={reviewed} onCheckedChange={(v) => setReviewed(v === true)} />
           <span>{t('consentReviewedCheck')}</span>
         </label>
         {tried && !reviewed && <p className="field-error">{t('consentReviewedNeeded')}</p>}

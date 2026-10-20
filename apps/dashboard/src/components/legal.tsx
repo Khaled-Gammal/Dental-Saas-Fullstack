@@ -5,6 +5,7 @@ import { t } from '../i18n';
 import { legalHref, type LegalDoc, type LegalKind } from '../legal-model';
 import { Alert, Button, ErrorText, Skeleton } from '../ui/components';
 import { ShieldIcon } from '../ui/icons';
+import { Checkbox } from './ui/checkbox';
 
 /** The current version of each published document (empty until the platform publishes them). */
 export const useLegalDocs = () =>
@@ -17,7 +18,7 @@ export function LegalConsent({ docs, checked, onChange }: { docs: readonly Legal
   if (!docs.length) return null;
   return (
     <label className="check-row legal-consent">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} required />
+      <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} required />
       <span>
         {t('legalAccept')}{' '}
         {docs.map((d, i) => (

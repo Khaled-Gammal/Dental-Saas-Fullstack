@@ -13,6 +13,7 @@ import { Badge, Card, Field, Input, Switch, TextArea } from '../../ui/components
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { FormPage, ResourceState } from '../../ui/page';
 import { diffText } from '../../util';
+import { Checkbox } from '../../components/ui/checkbox';
 
 const TEXT = ['nameAr', 'nameEn', 'titleAr', 'titleEn', 'bioAr'] as const;
 type Form = Record<(typeof TEXT)[number], string> & { specialties: string; branchIds: string[]; showOnWebsite: boolean; acceptsOnlineBooking: boolean; isActive: boolean; photo: MediaImage | null };
@@ -106,7 +107,7 @@ function DoctorFormBody({ clinicId, branches, doctor }: { clinicId: string; bran
           <div className="branch-checks">
             {branches.map((b) => (
               <label key={b.id} className="check">
-                <input type="checkbox" checked={form.branchIds.includes(b.id)} onChange={(e) => toggleBranch(b.id, e.target.checked)} />
+                <Checkbox checked={form.branchIds.includes(b.id)} onCheckedChange={(v) => toggleBranch(b.id, v === true)} />
                 <bdi>{arName(b.name_ar, b.name_en, b.slug)}</bdi>{b.is_main && <Badge tone="primary">{t('main')}</Badge>}
               </label>
             ))}

@@ -3,6 +3,7 @@ import { arName } from '@dental/ui/text';
 import { uploadFile } from '../../api';
 import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
+import { FilePicker } from '../../components/file-picker';
 import { DatePicker } from '../../components/date-picker';
 import { EXPENSE_METHODS, localToday, monthOf, needsReference } from '../../finance-model';
 import { t, type Key } from '../../i18n';
@@ -138,7 +139,7 @@ function ExpenseForm({ clinicId, onDone }: { clinicId: string; onDone: (document
         <Field label={t('supplier')} optional={t('optional')}>{(a) => <Input id={a.id} value={supplier} onChange={(e) => setSupplier(e.target.value)} maxLength={120} />}</Field>
         <Field label={t('lineDescription')} optional={t('optional')}>{(a) => <Input id={a.id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />}</Field>
         <Field label={t('expenseDocument')} optional={t('optional')} hint={t('expenseDocumentHint')} error={tooBig ? t('clinicalTooBig') : undefined}>
-          {(a) => <input id={a.id} aria-describedby={a.describedBy} type="file" accept={DOC_ACCEPT} className="input" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />}
+          {(a) => <FilePicker id={a.id} describedBy={a.describedBy} accept={DOC_ACCEPT} file={file} onChange={setFile} disabled={save.isPending} />}
         </Field>
       </div>
       <ErrorText error={save.error} />

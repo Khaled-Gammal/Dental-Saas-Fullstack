@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, uploadFile } from '../../api';
 import { Choice } from '../../components/choice';
+import { FilePicker } from '../../components/file-picker';
 import { consentState, defaultSigner, signable, SIGNER_RELATIONS, type PatientConsent, type SignerRelation } from '../../consents-model';
 import { t, type Key } from '../../i18n';
 import { usePatient } from '../../queries';
@@ -87,7 +88,6 @@ function PaperConsentDialog({ clinicId, patient, onClose }: { clinicId: string; 
   const [relation, setRelation] = useState<SignerRelation>(start.relation);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
-  const input = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
   const send = useMutation({
     mutationFn: () => uploadFile<PatientConsent>(`/patients/${patient.id}/consents/paper`, file!, setProgress, undefined,
@@ -112,7 +112,7 @@ function PaperConsentDialog({ clinicId, patient, onClose }: { clinicId: string; 
         </Field>
       </div>
       <Field label={t('consentScan')} error={tooBig ? t('fileTooBig') : undefined}>
-        {(a) => <input id={a.id} ref={input} type="file" accept={ACCEPT} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />}
+        {(a) => <FilePicker id={a.id} describedBy={a.describedBy} accept={ACCEPT} file={file} onChange={setFile} disabled={send.isPending} />}
       </Field>
       <ErrorText error={send.error} />
     </ConfirmDialog>
