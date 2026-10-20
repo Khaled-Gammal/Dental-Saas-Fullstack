@@ -1,6 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export interface Option { value: string; label: string }
+/** `disabled`: shown (it is the current value) but not choosable, as a branch that was closed */
+export interface Option { value: string; label: string; disabled?: boolean }
 
 /** Radix Select cannot carry an empty value, so "nothing chosen" travels as this sentinel. */
 const NONE = '__none__';
@@ -20,7 +21,7 @@ export function Choice({ id, value, onChange, options, placeholder, noneLabel, i
       </SelectTrigger>
       <SelectContent>
         {noneLabel && <SelectItem value={NONE}>{noneLabel}</SelectItem>}
-        {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+        {options.map((o) => <SelectItem key={o.value} value={o.value} disabled={o.disabled}>{o.label}</SelectItem>)}
       </SelectContent>
     </Select>
   );

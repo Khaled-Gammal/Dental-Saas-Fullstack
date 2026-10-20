@@ -1,7 +1,8 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, uploadFile } from '../../api';
 import { Choice } from '../../components/choice';
+import { FilePicker } from '../../components/file-picker';
 import { DatePicker } from '../../components/date-picker';
 import { t, type Key } from '../../i18n';
 import { patientKeys, usePatientFiles } from '../../queries';
@@ -73,7 +74,6 @@ export function FilesCard({ clinicId, patientId, canWrite }: { clinicId: string;
 }
 
 function UploadForm({ patientId, onDone }: { patientId: string; onDone: () => void }) {
-  const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [kind, setKind] = useState<ClinicalFileKind>('xray');
   const [caption, setCaption] = useState('');
@@ -84,7 +84,7 @@ function UploadForm({ patientId, onDone }: { patientId: string; onDone: () => vo
     mutationFn: () => uploadFile<PatientFile>(`/patients/${patientId}/files`, file!, setProgress, undefined, {
       kind, ...(caption.trim() && { caption: caption.trim() }), ...(takenAt && { takenAt }),
     }),
-    onSuccess: () => { setFile(null); setCaption(''); setTakenAt(''); setProgress(0); if (input.current) input.current.value = ''; onDone(); },
+    onSuccess: () => { setFile(null); setCaption(''); setTakenAt(''); setProgress(0); onDone(); },
   });
   const submit = (e: FormEvent) => { e.preventDefault(); if (file && !tooBig) upload.mutate(); };
   // the API's 413 says 10 MB for website images; clinical files allow 20 MB
@@ -93,7 +93,7 @@ function UploadForm({ patientId, onDone }: { patientId: string; onDone: () => vo
   return (
     <form onSubmit={submit} className="grid-2 mt">
       <Field label={t('chooseFile')} error={tooBig || (upload.error instanceof ApiError && upload.error.code === 'payload_too_large') ? t('clinicalTooBig') : undefined}>
-        {(a) => <input id={a.id} ref={input} type="file" accept={ACCEPT} className="input" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />}
+        {(a) => <FilePicker id={a.id} describedBy={a.describedBy} accept={ACCEPT} file={file} onChange={setFile} disabled={upload.isPending} />}
       </Field>
       <Field label={t('fileKind')}>
         {(a) => <Choice id={a.id} value={kind} onChange={(v) => setKind(v as ClinicalFileKind)} options={KINDS.map((k) => ({ value: k, label: t(`kind_${k}` as Key) }))} />}

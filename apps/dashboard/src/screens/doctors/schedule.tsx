@@ -8,6 +8,7 @@ import { useBranches, useDoctors, useInvalidate, useOne } from '../../queries';
 import { to } from '../../router';
 import { canAddSlot, dayError, fromRows, nextSlot, toPayload, type ScheduleDay, type Slot, type SlotError } from '../../schedule-model';
 import type { Branch, Doctor } from '../../types';
+import { Choice } from '../../components/choice';
 import { Alert, Card, LinkButton } from '../../ui/components';
 import { CloseIcon, PlusIcon } from '../../ui/icons';
 import { FormPage, ResourceState } from '../../ui/page';
@@ -63,11 +64,12 @@ function ScheduleEditor({ clinicId, doctor, branches }: { clinicId: string; doct
                     {d.slots.length === 0 && <span className="muted day-closed">{t('dayOff')}</span>}
                     {d.slots.map((s, k) => (
                       <div className="shift slot" key={s.id}>
-                        <select className="input slot-branch" value={s.branchId} aria-label={`${dayName} ${t('branch')} ${k + 1}`}
-                          onChange={(e) => setSlot(i, k, { branchId: e.target.value })}>
-                          {branches.map((b) => <option key={b.id} value={b.id}>{arName(b.name_ar, b.name_en, b.slug)}</option>)}
-                          {!ids.includes(s.branchId) && <option value={s.branchId} disabled>{t('inactive')}</option>}
-                        </select>
+                        <Choice value={s.branchId} label={`${dayName} ${t('branch')} ${k + 1}`} className="h-10 w-full bg-card sm:w-44"
+                          onChange={(v) => setSlot(i, k, { branchId: v })}
+                          options={[
+                            ...branches.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en, b.slug) })),
+                            ...(ids.includes(s.branchId) ? [] : [{ value: s.branchId, label: t('inactive'), disabled: true }]),
+                          ]} />
                         <span className="shift-times" dir="ltr">
                           <input className="input time" type="time" step={300} value={s.starts} required
                             aria-label={`${dayName} ${t('opensAt')} ${k + 1}`} onChange={(e) => setSlot(i, k, { starts: e.target.value })} />

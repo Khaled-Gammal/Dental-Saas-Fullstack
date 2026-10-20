@@ -327,12 +327,13 @@ fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-wid
 .check-group legend { font-weight: 600; padding: 0; margin-bottom: 2px; }
 .branch-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; min-height: 32px; }
-.check input { width: 18px; height: 18px; accent-color: var(--primary-500); margin: 0; }
+.check { position: relative; } /* Radix keeps a hidden native input beside the checkbox inside forms */
+.check [data-slot="checkbox"] { width: 18px; height: 18px; } /* no colours here: unlayered rules would beat the checked state */
 .switch-row { display: flex; flex-wrap: wrap; gap: 12px 28px; }
 .slot { flex-wrap: wrap; }
-.slot-branch { width: 180px; min-height: 40px; padding: 6px 10px; }
+
 .shift-times { display: inline-flex; align-items: center; gap: 8px; }
-@media (max-width: 640px) { .slot-branch { width: 100%; } .slot .input.time { width: 108px; } }
+@media (max-width: 640px) { .slot .input.time { width: 108px; } }
 
 /* ---------- services ---------- */
 .grid-3 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
@@ -365,8 +366,6 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 .day-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .day-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .day-date { min-height: 40px; }
-.select { min-height: 40px; padding: 0 12px; border-radius: var(--r-md); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); font: inherit; }
-.select:focus-visible { outline: none; border-color: var(--primary-500); box-shadow: var(--ring); }
 .day-title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); font-weight: 600; margin: 20px 0 12px; }
 .day-title svg { color: var(--primary-500); }
 .checkin-form { display: flex; flex-direction: column; gap: 14px; }
@@ -605,7 +604,8 @@ a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 /* billing (Phase E1) */
 .text-owed { color: var(--danger); }
 .check-row { display: inline-flex; align-items: flex-start; gap: 10px; cursor: pointer; }
-.check-row input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--primary-500); }
+.check-row { position: relative; }
+.check-row [data-slot="checkbox"] { margin-top: 3px; width: 18px; height: 18px; } /* no colours here: unlayered rules would beat the checked state */
 .rx-doc-title { margin: 6px 0 0; font-weight: 700; font-size: 16px; }
 .print-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .print-table th, .print-table td { border-bottom: 1px solid #ccc; padding: 6px 8px; text-align: start; }
@@ -705,3 +705,7 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .data-table-sort:hover { color: var(--ink); }
 .data-table-none { padding: 24px; text-align: center; color: var(--muted); }
 .data-table-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* ---------- file picker (components/file-picker.tsx, redesign R4b): an Arabic button in place of the browser's field ---------- */
+.file-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 42px; }
+.file-picker-name { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }

@@ -10,6 +10,7 @@ import { to } from '../../router';
 import type { InvoiceDetail } from '../../types';
 import { Button, Card, ErrorText, Field, Input, LinkButton, PageHeader } from '../../ui/components';
 import { Breadcrumbs, NotFound, ResourceState } from '../../ui/page';
+import { Checkbox } from '../../components/ui/checkbox';
 
 type Line = { serviceId: string; description: string; price: string; qty: string };
 
@@ -66,7 +67,7 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
               {unbilled.map((p) => (
                 <li key={p.id}>
                   <label className="check-row">
-                    <input type="checkbox" checked={chosen.has(p.id)} onChange={() => toggle(p.id)} />
+                    <Checkbox checked={chosen.has(p.id)} onCheckedChange={() => toggle(p.id)} />
                     <span><bdi>{arName(p.service_ar, p.service_en)}</bdi>{p.tooth_code && <> · <bdi dir="ltr">{p.tooth_code}</bdi></>}
                       <span className="muted small"> · <bdi>{arName(p.doctor_ar, p.doctor_en)}</bdi> · {p.visit_at.slice(0, 10)}</span></span>
                   </label>

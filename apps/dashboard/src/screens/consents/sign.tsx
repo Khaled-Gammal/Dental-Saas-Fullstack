@@ -12,6 +12,7 @@ import type { PatientDetail } from '../../types';
 import { Alert, Button, Card, ErrorText, Field, Input, Skeleton } from '../../ui/components';
 import { Breadcrumbs } from '../../ui/page';
 import { consentKeys, useConsentTexts } from './templates';
+import { Checkbox } from '../../components/ui/checkbox';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 
@@ -83,7 +84,7 @@ function SignForm({ clinicId, patient, texts, query }: {
           </Field>
         </div>
         <label className="check-row">
-          <input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} disabled={!text} />
+          <Checkbox checked={read} onCheckedChange={(v) => setRead(v === true)} disabled={!text} />
           <span>{t('consentReadCheck')}</span>
         </label>
         {tried && problems.includes('read') && <p className="field-error">{t('consentReadNeeded')}</p>}

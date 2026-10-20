@@ -11,6 +11,7 @@ import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, LinkBu
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { EditIcon, PlusIcon, ShieldIcon } from '../../ui/icons';
 import { FormPage, ResourceState, RouteLink } from '../../ui/page';
+import { Checkbox } from '../../components/ui/checkbox';
 
 const permLabel = (p: string) => t(`perm_${p}` as Key);
 
@@ -165,8 +166,8 @@ function RoleBody({ clinicId, has, role, source, catalogue, readOnly }: {
                 return (
                   <li key={p.key}>
                     <label className={`check${locked && !on ? ' muted' : ''}`}>
-                      <input type="checkbox" checked={on} disabled={locked}
-                        onChange={(e) => setPerms(togglePermission(catalogue, perms, p.key, e.target.checked))} />
+                      <Checkbox checked={on} disabled={locked}
+                        onCheckedChange={(v) => setPerms(togglePermission(catalogue, perms, p.key, v === true))} />
                       <span>{permLabel(p.key)}</span>
                     </label>
                   </li>

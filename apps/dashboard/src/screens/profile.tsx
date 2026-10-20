@@ -7,6 +7,7 @@ import { imageFieldValue } from '../media-model';
 import { t } from '../i18n';
 import { keys, useInvalidate, useOnboarding, useProfile, usePublish } from '../queries';
 import type { ClinicProfile, MediaImage } from '../types';
+import { Choice } from '../components/choice';
 import { Alert, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../ui/components';
 import { CheckIcon, GlobeIcon, PhoneIcon, ToothIcon } from '../ui/icons';
 import { diffText } from '../util';
@@ -183,9 +184,8 @@ function CurrencyCard({ clinicId, current, canEdit }: { clinicId: string; curren
       <h2>{t('currency')}</h2>
       <p className="muted small">{t('currencyHint')}</p>
       <div className="row-end mt-sm">
-        <select className="select" value={value} onChange={(e) => setValue(e.target.value)} disabled={!canEdit} aria-label={t('currency')}>
-          {(CURRENCIES.includes(current) ? CURRENCIES : [current, ...CURRENCIES]).map((c) => <option key={c} value={c}>{c === 'EGP' ? `${t('egpName')} (EGP)` : c}</option>)}
-        </select>
+        <Choice value={value} onChange={setValue} disabled={!canEdit} label={t('currency')} className="h-10 w-56 bg-card"
+          options={(CURRENCIES.includes(current) ? CURRENCIES : [current, ...CURRENCIES]).map((c) => ({ value: c, label: c === 'EGP' ? `${t('egpName')} (EGP)` : c }))} />
         {canEdit && <Button variant="secondary" loading={save.isPending} disabled={value === current} onClick={() => save.mutate()}>{t('save')}</Button>}
       </div>
       <ErrorText error={save.error} />
