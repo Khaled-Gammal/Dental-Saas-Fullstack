@@ -4,60 +4,66 @@ import { t } from './i18n';
 import { AuthLayout, Forgot, Login, ResetPassword, Signup, Verify, type AuthScreen } from './screens/auth';
 import { AcceptInvite } from './screens/accept-invite';
 import { navigate, useRoute } from './hooks';
-import { StaffEdit } from './screens/staff/edit';
-import { StaffInvite } from './screens/staff/invite';
-import { StaffList } from './screens/staff/list';
-import { RoleForm, RolesList } from './screens/staff/roles';
 import { canOpen } from './access';
 import { parsePlatformRoute } from './platform-model';
 import { parseLegalRoute } from './legal-model';
 import { LegalGate, LegalPage } from './components/legal';
-import { PlatformApp } from './screens/platform/platform';
 import { CanProvider } from './can';
-import { BranchForm } from './screens/branches/form';
-import { BranchHours } from './screens/branches/hours';
-import { BranchesList } from './screens/branches/list';
-import { DoctorForm } from './screens/doctors/form';
-import { DoctorsList } from './screens/doctors/list';
-import { DoctorSchedule } from './screens/doctors/schedule';
-import { Appointments } from './screens/appointments/list';
-import { NewAppointment } from './screens/appointments/new';
-import { MoveAppointment } from './screens/appointments/move';
-import { BookingRules } from './screens/calendar/booking-settings';
-import { Holidays } from './screens/calendar/holidays';
-import { BranchRooms } from './screens/calendar/rooms';
-import { DoctorTimeOff } from './screens/calendar/time-off';
-import { Discounts } from './screens/billing/discounts';
-import { CashBox } from './screens/finance/cash';
-import { Expenses } from './screens/finance/expenses';
-import { Reports } from './screens/reports/reports';
-import { InvoicePage } from './screens/billing/invoice';
-import { InvoicesList } from './screens/billing/list';
-import { NewInvoice } from './screens/billing/new';
-import { InvoicePrint, ReceiptPrint } from './screens/billing/print';
-import { FollowUps } from './screens/clinical/followups';
-import { PlanPage } from './screens/clinical/plans';
-import { PrescriptionPrint } from './screens/clinical/prescription-print';
-import { VisitPage } from './screens/clinical/visit';
-import { PatientForm } from './screens/patients/form';
-import { PatientsList } from './screens/patients/list';
-import { PatientMerge } from './screens/patients/merge';
-import { PatientProfile } from './screens/patients/profile';
-import { GalleryForm } from './screens/gallery/form';
-import { GalleryList } from './screens/gallery/list';
-import { GalleryUpload } from './screens/gallery/new';
 import { Overview } from './screens/overview';
-import { Profile } from './screens/profile';
-import { ClinicData } from './screens/clinic-data';
-import { ConsentTextForm, ConsentTexts } from './screens/consents/templates';
-import { ConsentView } from './screens/consents/patient-consents';
-import { SignConsent } from './screens/consents/sign';
-import { ServiceFormPage } from './screens/services/form';
-import { ServicesList } from './screens/services/list';
 import { AppShell } from './screens/shell';
 import { Logo, Spinner } from './ui/components';
 import { NotFound } from './ui/page';
 import { invitationToken, signupLink, to, type Route } from './router';
+import { lazyScreen, ScreenBoundary } from './ui/lazy-screen';
+
+// every screen but the sign-in ones, the shell and the overview loads when first opened (redesign R5: one 1.8 MB file before)
+const StaffEdit = lazyScreen(() => import('./screens/staff/edit'), 'StaffEdit');
+const StaffInvite = lazyScreen(() => import('./screens/staff/invite'), 'StaffInvite');
+const StaffList = lazyScreen(() => import('./screens/staff/list'), 'StaffList');
+const RoleForm = lazyScreen(() => import('./screens/staff/roles'), 'RoleForm');
+const RolesList = lazyScreen(() => import('./screens/staff/roles'), 'RolesList');
+const PlatformApp = lazyScreen(() => import('./screens/platform/platform'), 'PlatformApp');
+const BranchForm = lazyScreen(() => import('./screens/branches/form'), 'BranchForm');
+const BranchHours = lazyScreen(() => import('./screens/branches/hours'), 'BranchHours');
+const BranchesList = lazyScreen(() => import('./screens/branches/list'), 'BranchesList');
+const DoctorForm = lazyScreen(() => import('./screens/doctors/form'), 'DoctorForm');
+const DoctorsList = lazyScreen(() => import('./screens/doctors/list'), 'DoctorsList');
+const DoctorSchedule = lazyScreen(() => import('./screens/doctors/schedule'), 'DoctorSchedule');
+const Appointments = lazyScreen(() => import('./screens/appointments/list'), 'Appointments');
+const NewAppointment = lazyScreen(() => import('./screens/appointments/new'), 'NewAppointment');
+const MoveAppointment = lazyScreen(() => import('./screens/appointments/move'), 'MoveAppointment');
+const BookingRules = lazyScreen(() => import('./screens/calendar/booking-settings'), 'BookingRules');
+const Holidays = lazyScreen(() => import('./screens/calendar/holidays'), 'Holidays');
+const BranchRooms = lazyScreen(() => import('./screens/calendar/rooms'), 'BranchRooms');
+const DoctorTimeOff = lazyScreen(() => import('./screens/calendar/time-off'), 'DoctorTimeOff');
+const Discounts = lazyScreen(() => import('./screens/billing/discounts'), 'Discounts');
+const CashBox = lazyScreen(() => import('./screens/finance/cash'), 'CashBox');
+const Expenses = lazyScreen(() => import('./screens/finance/expenses'), 'Expenses');
+const Reports = lazyScreen(() => import('./screens/reports/reports'), 'Reports');
+const InvoicePage = lazyScreen(() => import('./screens/billing/invoice'), 'InvoicePage');
+const InvoicesList = lazyScreen(() => import('./screens/billing/list'), 'InvoicesList');
+const NewInvoice = lazyScreen(() => import('./screens/billing/new'), 'NewInvoice');
+const InvoicePrint = lazyScreen(() => import('./screens/billing/print'), 'InvoicePrint');
+const ReceiptPrint = lazyScreen(() => import('./screens/billing/print'), 'ReceiptPrint');
+const FollowUps = lazyScreen(() => import('./screens/clinical/followups'), 'FollowUps');
+const PlanPage = lazyScreen(() => import('./screens/clinical/plans'), 'PlanPage');
+const PrescriptionPrint = lazyScreen(() => import('./screens/clinical/prescription-print'), 'PrescriptionPrint');
+const VisitPage = lazyScreen(() => import('./screens/clinical/visit'), 'VisitPage');
+const PatientForm = lazyScreen(() => import('./screens/patients/form'), 'PatientForm');
+const PatientsList = lazyScreen(() => import('./screens/patients/list'), 'PatientsList');
+const PatientMerge = lazyScreen(() => import('./screens/patients/merge'), 'PatientMerge');
+const PatientProfile = lazyScreen(() => import('./screens/patients/profile'), 'PatientProfile');
+const GalleryForm = lazyScreen(() => import('./screens/gallery/form'), 'GalleryForm');
+const GalleryList = lazyScreen(() => import('./screens/gallery/list'), 'GalleryList');
+const GalleryUpload = lazyScreen(() => import('./screens/gallery/new'), 'GalleryUpload');
+const Profile = lazyScreen(() => import('./screens/profile'), 'Profile');
+const ClinicData = lazyScreen(() => import('./screens/clinic-data'), 'ClinicData');
+const ConsentTextForm = lazyScreen(() => import('./screens/consents/templates'), 'ConsentTextForm');
+const ConsentTexts = lazyScreen(() => import('./screens/consents/templates'), 'ConsentTexts');
+const ConsentView = lazyScreen(() => import('./screens/consents/patient-consents'), 'ConsentView');
+const SignConsent = lazyScreen(() => import('./screens/consents/sign'), 'SignConsent');
+const ServiceFormPage = lazyScreen(() => import('./screens/services/form'), 'ServiceFormPage');
+const ServicesList = lazyScreen(() => import('./screens/services/list'), 'ServicesList');
 
 export function App() {
   const [session, setSessionState] = useState<Session | null>(null);
@@ -106,7 +112,7 @@ export function App() {
   if (legalKind) {
     view = <LegalPage kind={legalKind} />;
   } else if (platformRoute) {
-    view = <PlatformApp route={platformRoute} />;
+    view = <ScreenBoundary resetKey="platform"><PlatformApp route={platformRoute} /></ScreenBoundary>;
   } else if (booting) {
     view = (
       <div className="boot" role="status" aria-label={t('loading')}>
@@ -136,7 +142,9 @@ export function App() {
   } else {
     view = (
       <AppShell session={session} page={route.page}>
-        <CanProvider has={(p) => can(session, p)}><Screen route={route} session={session} /></CanProvider>
+        <CanProvider has={(p) => can(session, p)}>
+          <ScreenBoundary resetKey={`${route.page}/${route.id ?? ''}/${route.action ?? ''}`}><Screen route={route} session={session} /></ScreenBoundary>
+        </CanProvider>
       </AppShell>
     );
   }

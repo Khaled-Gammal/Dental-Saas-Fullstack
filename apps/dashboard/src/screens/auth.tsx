@@ -95,7 +95,7 @@ function DevQuickLogin() {
     <details className="dev">
       <summary>{t('devQuick')}</summary>
       <div className="dev-row">
-        <select className="input" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" aria-label="demo user">
+        <select className="input" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" aria-label={t('devDemoUser')}>
           {DEMO_USERS.map((u) => <option key={u}>{u}</option>)}
         </select>
         <Button variant="secondary" onClick={() => quick.mutate()} loading={quick.isPending}>{t('signIn')}</Button>

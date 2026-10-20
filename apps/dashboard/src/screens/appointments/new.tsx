@@ -12,6 +12,7 @@ import { AlertIcon } from '../../ui/icons';
 import { FormPage } from '../../ui/page';
 import { zonedToUtc } from '../../util';
 import { useCan } from '../../can';
+import { TimeField } from '../../components/time-field';
 
 const todayIso = () => new Date().toLocaleDateString('en-CA');
 const SOURCES = ['phone', 'walk_in', 'whatsapp', 'dashboard'] as const;
@@ -125,7 +126,7 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
         </div>
         {override ? (
           <div className="grid-2 mt">
-            <Field label={t('time')} hint={t('tzHint').replace('{tz}', tz)}>{(a) => <Input id={a.id} describedBy={a.describedBy} type="time" dir="ltr" value={time} onChange={(e) => setTime(e.target.value)} />}</Field>
+            <Field label={t('time')} hint={t('tzHint').replace('{tz}', tz)}>{(a) => <TimeField id={a.id} describedBy={a.describedBy} value={time} onChange={setTime} />}</Field>
             {!service && <Field label={t('duration')}>{(a) => <Input id={a.id} type="number" dir="ltr" min={5} max={480} step={5} value={duration} onChange={(e) => setDuration(e.target.value)} />}</Field>}
             <Field label={t('overrideReason')} hint={t('overrideHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
           </div>

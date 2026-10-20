@@ -106,6 +106,7 @@ select.input { appearance: auto; }
 .badge-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 .skeleton { border-radius: var(--r-md); background: linear-gradient(90deg, var(--line) 0%, var(--skeleton-hi) 50%, var(--line) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
+[dir="rtl"] .skeleton { animation-direction: reverse; } /* the shine moves the way Arabic reads */
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 
 /* ---------- logo / avatars ---------- */
@@ -298,13 +299,11 @@ select.input { appearance: auto; }
 .day-closed { padding-top: 8px; }
 .shifts { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .shift { display: flex; align-items: center; gap: 8px; }
-.input.time { width: 148px; min-height: 40px; padding: 6px 10px; font-variant-numeric: tabular-nums; }
 .shift-dash { color: var(--muted); }
 .shift-actions { display: flex; flex-wrap: wrap; gap: 18px; padding-top: 4px; }
 @media (max-width: 640px) {
   .day { grid-template-columns: 1fr; }
   .day-name, .day-closed { padding-top: 0; }
-  .input.time { width: 128px; }
 }
 
 fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -333,7 +332,6 @@ fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-wid
 .slot { flex-wrap: wrap; }
 
 .shift-times { display: inline-flex; align-items: center; gap: 8px; }
-@media (max-width: 640px) { .slot .input.time { width: 108px; } }
 
 /* ---------- services ---------- */
 .grid-3 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

@@ -31,9 +31,9 @@ export function FollowUps({ clinicId, canWrite, canBook, query }: { clinicId: st
   return (
     <>
       <PageHeader title={t('navFollowUps')} sub={t('followUpsSub')} />
-      <div className="seg" role="tablist" aria-label={t('navFollowUps')}>
+      <div className="seg" role="group" aria-label={t('navFollowUps')}>
         {VIEWS.map((v) => (
-          <RouteLink key={v} route={{ page: 'followups', query: { view: v } }} className={`seg-btn${v === view ? ' is-on' : ''}`} role="tab" aria-selected={v === view}>{t(`fu_${v}` as Key)}</RouteLink>
+          <RouteLink key={v} route={{ page: 'followups', query: { view: v } }} className={`seg-btn${v === view ? ' is-on' : ''}`} aria-current={v === view ? 'page' : undefined}>{t(`fu_${v}` as Key)}</RouteLink>
         ))}
       </div>
       {/* the view tabs ask the API; the table searches and sorts what it returned (redesign R4) */}
@@ -64,21 +64,22 @@ function recallColumns(today: string): Column<Recall>[] {
   return [
     {
       id: 'patient', header: t('patientColName'), sortValue: (r) => r.patient.full_name,
-      cell: (r) => <RouteLink route={to.view('patients', r.patient.id)} className="font-semibold no-underline hover:underline"><bdi>{r.patient.full_name}</bdi></RouteLink>,
+      cell: (r) => (
+        <>
+          <RouteLink route={to.view('patients', r.patient.id)} className="font-semibold no-underline hover:underline"><bdi>{r.patient.full_name}</bdi></RouteLink>
+          {/* on a phone the number (still a tap to call) and the due date sit under the name, their columns hidden, so the
+              row fits beside its buttons. Tailwind display classes only: the unlayered .block and .link-plain would beat md:hidden */}
+          <span className="mt-1 flex flex-col items-start gap-1 md:hidden">
+            <a href={`tel:${r.patient.phone}`} dir="ltr" className="link-plain tabular-nums small"><PhoneIcon size={14} /> {r.patient.phone}</a>
+            <RecallDue r={r} today={today} />
+          </span>
+        </>
+      ),
     },
-    { id: 'phone', header: t('phone'), cell: (r) => <a href={`tel:${r.patient.phone}`} dir="ltr" className="link-plain tabular-nums"><PhoneIcon size={14} /> {r.patient.phone}</a> },
+    { id: 'phone', header: t('phone'), hideOnMobile: true, cell: (r) => <a href={`tel:${r.patient.phone}`} dir="ltr" className="link-plain tabular-nums"><PhoneIcon size={14} /> {r.patient.phone}</a> },
     { id: 'reason', header: t('recallReason'), hideOnMobile: true, sortValue: (r) => t(`recall_${r.reason}` as Key), cell: (r) => t(`recall_${r.reason}` as Key) },
     {
-      id: 'due', header: t('dueDate'), sortValue: (r) => r.due_date,
-      cell: (r) => {
-        const overdue = isOpen(r) && r.due_date < today;
-        return (
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="whitespace-nowrap">{fmtDate(r.due_date)}</span>
-            <Badge tone={overdue ? 'danger' : STATUS_TONE[r.status]} dot>{overdue ? t('overdue') : t(`fus_${r.status}` as Key)}</Badge>
-          </span>
-        );
-      },
+      id: 'due', header: t('dueDate'), hideOnMobile: true, sortValue: (r) => r.due_date, cell: (r) => <RecallDue r={r} today={today} />,
     },
     {
       id: 'doctor', header: t('doctor'), hideOnMobile: true, sortValue: (r) => (r.doctor ? arName(r.doctor.name_ar, r.doctor.name_en) : ''),
@@ -93,6 +94,17 @@ function recallColumns(today: string): Column<Recall>[] {
   ];
 }
 
+/** The due date and where the follow-up stands («متأخرة» in red once an open one is past its date). */
+function RecallDue({ r, today }: { r: Recall; today: string }) {
+  const overdue = isOpen(r) && r.due_date < today;
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <span className="whitespace-nowrap">{fmtDate(r.due_date)}</span>
+      <Badge tone={overdue ? 'danger' : STATUS_TONE[r.status]} dot>{overdue ? t('overdue') : t(`fus_${r.status}` as Key)}</Badge>
+    </span>
+  );
+}
+
 /** An open follow-up's work: book it (the appointment is linked), log a call, or dismiss it. */
 function RecallActions({ clinicId, r, canWrite, canBook, inTable }: { clinicId: string; r: Recall; canWrite: boolean; canBook: boolean; inTable?: boolean }) {
   const [dialog, setDialog] = useState<'contact' | 'dismiss' | null>(null);
@@ -101,8 +113,8 @@ function RecallActions({ clinicId, r, canWrite, canBook, inTable }: { clinicId: 
     send(`/recalls/${r.id}/${a.op}`, 'POST', a.op === 'contact' ? { note: a.text } : { reason: a.text || null }));
   if (!isOpen(r) || !(canWrite || canBook)) return null;
   return (
-    // in the table the three stay on one line, the column takes their width
-    <div className={inTable ? 'flex flex-nowrap items-center justify-end gap-2' : 'appt-actions'}>
+    // in the table the three stay on one line (stacked on a phone, so the table fits without scrolling sideways)
+    <div className={inTable ? 'flex flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-center md:justify-end' : 'appt-actions'}>
       {canBook && (
         <RouteLink route={to.create('appointments', { patient: r.patient.id, recall: r.id, ...(r.doctor_id && { doctor: r.doctor_id }) })} className="btn btn-primary">
           <CalendarIcon size={16} />{t('book')}

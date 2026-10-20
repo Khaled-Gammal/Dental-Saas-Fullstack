@@ -50,9 +50,9 @@ export function InvoicesList({ clinicId, query }: { clinicId: string; query?: Re
   return (
     <>
       <PageHeader title={t('navBilling')} sub={t('invoicesSub')} count={status !== 'overdue' && list.data ? fmtNumber(list.data.length) : undefined} />
-      <div className="seg" role="tablist" aria-label={t('navBilling')}>
+      <div className="seg" role="group" aria-label={t('navBilling')}>
         {FILTERS.map((f) => (
-          <RouteLink key={f} route={{ page: 'invoices', query: { status: f } }} className={`seg-btn${f === status ? ' is-on' : ''}`} role="tab" aria-selected={f === status}>{t(`invf_${f}` as Key)}</RouteLink>
+          <RouteLink key={f} route={{ page: 'invoices', query: { status: f } }} className={`seg-btn${f === status ? ' is-on' : ''}`} aria-current={f === status ? 'page' : undefined}>{t(`invf_${f}` as Key)}</RouteLink>
         ))}
       </div>
       {status === 'overdue' ? <OverdueInstallments clinicId={clinicId} /> : (

@@ -120,9 +120,9 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
         <BranchSelect branches={branches.data ?? []} value={branchId ?? ALL} onChange={(v) => go({ branch: v === ALL ? null : v })} allLabel={t('allBranches')} />
       </div>
 
-      <div className="seg mt" role="tablist" aria-label={t('navAppointments')}>
+      <div className="seg mt" role="group" aria-label={t('navAppointments')}>
         {VIEWS.filter((x) => x.v !== 'mine' || canOwn).map((x) => (
-          <button key={x.v} type="button" role="tab" aria-selected={view === x.v} className={`seg-btn${view === x.v ? ' is-on' : ''}`} onClick={() => go({ view: x.v })}>
+          <button key={x.v} type="button" aria-pressed={view === x.v} className={`seg-btn${view === x.v ? ' is-on' : ''}`} onClick={() => go({ view: x.v })}>
             {t(x.key)}{x.v === 'waiting' && queue.waiting.length > 0 && <Badge tone="warning">{fmtNumber(queue.waiting.length)}</Badge>}
           </button>
         ))}
