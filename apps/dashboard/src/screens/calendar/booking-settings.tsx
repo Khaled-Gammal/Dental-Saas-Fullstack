@@ -46,7 +46,7 @@ function RulesForm({ clinicId, orig, canWrite }: { clinicId: string; orig: Booki
   const choices = [...new Set([...REMINDER_CHOICES, ...form.reminderOffsetsMinutes])].sort((a, b) => b - a);
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} className="stack"> {/* header, notices and cards spaced like any page (the form wraps them all) */}
       <PageHeader title={t('bookingTitle')} sub={t('bookingSub')}
         action={canWrite ? <Button type="submit" loading={save.isPending} disabled={!dirty}>{t('save')}</Button> : undefined} />
       {(saved || flash) && <Alert tone="success">{saved ? t('bookingSaved') : flash}</Alert>}

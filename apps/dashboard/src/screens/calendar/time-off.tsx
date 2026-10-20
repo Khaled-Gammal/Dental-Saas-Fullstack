@@ -7,7 +7,7 @@ import { t } from '../../i18n';
 import { calendarKeys, keys, useDoctors, useOne, useTimeOff } from '../../queries';
 import { to } from '../../router';
 import type { CalendarConflict, TimeOff } from '../../types';
-import { Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, Skeleton } from '../../ui/components';
+import { Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, PageHeader, Skeleton } from '../../ui/components';
 import { CalendarIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState } from '../../ui/page';
 import { zonedToUtc } from '../../util';
@@ -44,7 +44,7 @@ export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id
   return (
     <>
       <Breadcrumbs items={[{ label: t('navOverview'), route: to.list('overview') }, { label: t('navDoctors'), route: to.list('doctors') }, { label: name }]} />
-      <div className="page-head"><div><h1>{t('timeOffTitle')} · <bdi>{name}</bdi></h1><p>{t('timeOffSub')}</p></div></div>
+      <PageHeader title={<>{t('timeOffTitle')} · <bdi>{name}</bdi></>} sub={t('timeOffSub')} />
       {canWrite && (
         <Card>
           <h2>{t('addTimeOff')}</h2>

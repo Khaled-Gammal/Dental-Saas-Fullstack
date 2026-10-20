@@ -6,7 +6,7 @@ import { DatePicker } from '../../components/date-picker';
 import { t, type Key } from '../../i18n';
 import { money } from '../../money';
 import { filterClinics, filterLeads, LEAD_STATUSES, papi, platformHref, trialDaysLeft, type LeadStatus, type PlatformRoute } from '../../platform-model';
-import { Alert, Badge, Button, Card, ErrorText, Field, Input, OtpInput, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
+import { Alert, Badge, Button, Card, ErrorText, Field, Input, OtpInput, PageHeader, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { DataTable, type Column } from '../../ui/data-table';
 import { ShieldIcon } from '../../ui/icons';
@@ -164,7 +164,7 @@ function ClinicsPage() {
   ];
   return (
     <>
-      <div className="page-head"><div className="page-head-text"><h1>{t('pl_clinics')}{clinics.data && <span className="page-count">{clinics.data.length}</span>}</h1><p>{t('pl_clinicsSub')}</p></div></div>
+      <PageHeader title={t('pl_clinics')} sub={t('pl_clinicsSub')} count={clinics.data?.length} />
       {clinics.data && (
         <div className="stats">
           {(['trialing', 'active', 'past_due', 'suspended'] as const).map((s) => (
@@ -342,7 +342,7 @@ function ActivityPage() {
   const audit = useQuery({ queryKey: [...KEY, 'audit'], queryFn: () => papi<AuditRow[]>('/platform/audit') });
   return (
     <>
-      <div className="page-head"><div><h1>{t('pl_activity')}</h1><p>{t('pl_activitySub')}</p></div></div>
+      <PageHeader title={t('pl_activity')} sub={t('pl_activitySub')} />
       <Card>{audit.isError ? <ErrorText error={audit.error} /> : !audit.data ? <Skeleton h={48} count={4} /> : <AuditList rows={audit.data} />}</Card>
     </>
   );
@@ -412,7 +412,7 @@ function LeadsPage() {
   ];
   return (
     <>
-      <div className="page-head"><div className="page-head-text"><h1>{t('pl_leads')}</h1><p>{t('pl_leadsSub')}</p></div></div>
+      <PageHeader title={t('pl_leads')} sub={t('pl_leadsSub')} />
       {leads.data && (
         <div className="stats">
           {LEAD_STATUSES.map((s) => (
@@ -462,7 +462,7 @@ function LegalAdminPage() {
   const ok = title.trim().length >= 2 && body.trim().length >= 20;
   return (
     <>
-      <div className="page-head"><div><h1>{t('pl_legal')}</h1><p>{t('pl_legalSub')}</p></div></div>
+      <PageHeader title={t('pl_legal')} sub={t('pl_legalSub')} />
       {versions.isError ? <ErrorText error={versions.error} /> : !versions.data ? <Skeleton h={64} count={3} /> : LEGAL_KINDS.map((k) => (
         <Card key={k}>
           <div className="row-between">
@@ -510,7 +510,7 @@ function PlansPage() {
   const plans = useQuery({ queryKey: [...KEY, 'plans'], queryFn: () => papi<Plan[]>('/platform/plans') });
   return (
     <>
-      <div className="page-head"><div><h1>{t('pl_plans')}</h1><p>{t('pl_plansSub')}</p></div></div>
+      <PageHeader title={t('pl_plans')} sub={t('pl_plansSub')} />
       {plans.isError ? <ErrorText error={plans.error} /> : !plans.data ? <Skeleton h={96} count={2} /> : plans.data.map((p) => <PlanCard key={p.id} p={p} />)}
     </>
   );
