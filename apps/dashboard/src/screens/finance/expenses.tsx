@@ -10,7 +10,8 @@ import { money } from '../../money';
 import { send, useBranches, useExpenseCategories, useExpenses, useFinanceMutation, usePendingExpenses } from '../../queries';
 import type { Expense, ExpenseStatus, PaymentMethod } from '../../types';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, PageHeader, Skeleton, Switch } from '../../ui/components';
+import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader, Switch } from '../../ui/components';
+import { DataTable, type Column } from '../../ui/data-table';
 import { WalletIcon } from '../../ui/icons';
 
 const STATUS_TONE: Record<ExpenseStatus, 'neutral' | 'primary' | 'success' | 'warning'> = { pending: 'warning', approved: 'success', rejected: 'neutral', void: 'neutral' };
@@ -38,29 +39,36 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
       {adding && <ExpenseForm clinicId={clinicId} onDone={(failed) => { setAdding(false); setDocFailed(failed); }} />}
       {docFailed && <Alert tone="info">{t('expenseSavedNoDocument')}</Alert>}
       {rights.approve && <PendingExpenses clinicId={clinicId} />}
-      <Card>
-        <div className="row-between">
-          <div className="seg" role="tablist" aria-label={t('navExpenses')}>
-            {FILTERS.map((f) => (
-              <button key={f} type="button" className={`seg-btn${f === status ? ' is-on' : ''}`} role="tab" aria-selected={f === status} onClick={() => setStatus(f)}>
-                {t(f === 'all' ? 'expf_all' : (`exp_${f}` as Key))}
-              </button>
-            ))}
-          </div>
-          <div className="period">
-            <DatePicker label={t('fromDate')} value={period.from} onChange={(from) => setPeriod((p) => ({ ...p, from }))} max={period.to} />
-            <DatePicker label={t('toDate')} value={period.to} onChange={(to) => setPeriod((p) => ({ ...p, to }))} min={period.from} />
-          </div>
+      <div className="row-between">
+        <div className="seg" role="tablist" aria-label={t('navExpenses')}>
+          {FILTERS.map((f) => (
+            <button key={f} type="button" className={`seg-btn${f === status ? ' is-on' : ''}`} role="tab" aria-selected={f === status} onClick={() => setStatus(f)}>
+              {t(f === 'all' ? 'expf_all' : (`exp_${f}` as Key))}
+            </button>
+          ))}
         </div>
-        {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
-          : !list.data ? <Skeleton h={56} count={4} />
-          : !list.data.items.length ? <EmptyState icon={<WalletIcon size={28} />} title={t('noExpenses')} text={t('noExpensesText')} />
-          : (
-            <ul className="line-list mt">
-              {list.data.items.map((e) => <ExpenseRow key={e.id} clinicId={clinicId} e={e} rights={rights} />)}
-            </ul>
-          )}
-      </Card>
+        <div className="period">
+          <DatePicker label={t('fromDate')} value={period.from} onChange={(from) => setPeriod((p) => ({ ...p, from }))} max={period.to} />
+          <DatePicker label={t('toDate')} value={period.to} onChange={(to) => setPeriod((p) => ({ ...p, to }))} min={period.from} />
+        </div>
+      </div>
+      {/* the tabs and the period ask the API; the table searches, sorts and pages what it returned (redesign R4) */}
+      <DataTable
+        key={`${status}:${period.from}:${period.to}`}
+        label={t('navExpenses')}
+        rows={list.data?.items}
+        columns={expenseColumns(clinicId, rights)}
+        rowKey={(e) => e.id}
+        isLoading={list.isLoading}
+        isFetching={list.isFetching}
+        error={list.isError ? list.error : undefined}
+        onRetry={() => void list.refetch()}
+        search={{ placeholder: t('expenseSearchHint'), text: (e) => [e.category_name, e.supplier_name, e.description, e.reference, e.created_by_name, arName(e.branch.name_ar, e.branch.name_en)].filter(Boolean).join(' ') }}
+        defaultSort={{ id: 'date', dir: 'desc' }}
+        pageSize={25}
+        actions={rights.all ? (e) => <ExpenseActions clinicId={clinicId} e={e} /> : undefined}
+        empty={{ icon: <WalletIcon size={28} />, title: t('noExpenses'), text: t('noExpensesText') }}
+      />
       {list.data?.byCategory && list.data.byCategory.length > 0 && (
         <Card>
           <h2>{t('byCategory')}</h2>
@@ -142,30 +150,48 @@ function ExpenseForm({ clinicId, onDone }: { clinicId: string; onDone: (document
   );
 }
 
-function ExpenseRow({ clinicId, e, rights }: { clinicId: string; e: Expense; rights: ExpenseRights }) {
-  const [voiding, setVoiding] = useState(false);
-  // as the API: expenses:write voids, and attaches the document once; nothing on a void expense
-  const canVoid = rights.all && e.status !== 'void';
+/** The expenses table's columns; who recorded, approved or voided it and its document stay with the category. */
+function expenseColumns(clinicId: string, rights: ExpenseRights): Column<Expense>[] {
+  return [
+    { id: 'date', header: t('expenseDate'), sortValue: (e) => e.spent_on, cell: (e) => <span className="whitespace-nowrap tabular-nums">{e.spent_on}</span> },
+    { id: 'category', header: t('expenseCategory'), sortValue: (e) => e.category_name, cell: (e) => <ExpenseDetails clinicId={clinicId} e={e} rights={rights} /> },
+    { id: 'branch', header: t('branch'), hideOnMobile: true, sortValue: (e) => arName(e.branch.name_ar, e.branch.name_en), cell: (e) => <bdi className="muted">{arName(e.branch.name_ar, e.branch.name_en)}</bdi> },
+    {
+      id: 'method', header: t('paymentMethod'), hideOnMobile: true,
+      cell: (e) => (e.payment_method ? <>{t(`pm_${e.payment_method}` as Key)}{e.reference && <span className="muted small block"><bdi dir="ltr">{e.reference}</bdi></span>}</> : <span className="muted">—</span>),
+    },
+    {
+      id: 'amount', header: t('amount'), numeric: true, sortValue: (e) => e.amount_minor,
+      cell: (e) => <bdi className={e.status === 'void' ? 'struck' : 'font-semibold'}>{money(e.amount_minor, e.currency)}</bdi>,
+    },
+  ];
+}
+
+function ExpenseDetails({ clinicId, e, rights }: { clinicId: string; e: Expense; rights: ExpenseRights }) {
+  // as the API: expenses:write attaches the document once; nothing on a void expense
   const canAttach = rights.all && !e.document && e.status !== 'void';
   return (
-    <li>
-      <span>
-        <strong>{e.category_name}</strong> <Badge tone={STATUS_TONE[e.status]}>{t(`exp_${e.status}` as Key)}</Badge>
-        <span className="muted small"> · {e.spent_on} · <bdi>{arName(e.branch.name_ar, e.branch.name_en)}</bdi>
-          {e.payment_method && <> · {t(`pm_${e.payment_method}` as Key)}</>}{e.reference && <> · <bdi dir="ltr">{e.reference}</bdi></>}</span>
-        {(e.description || e.supplier_name) && <span className="small block"><bdi>{[e.supplier_name, e.description].filter(Boolean).join(' — ')}</bdi></span>}
-        <span className="muted small block">{t('recordedBy')} <bdi>{e.created_by_name}</bdi>
-          {e.approved_by_name && <> · {t(e.status === 'rejected' ? 'rejectedBy' : 'approvedBy')} <bdi>{e.approved_by_name}</bdi></>}
-          {e.decision_note && <> — <bdi>{e.decision_note}</bdi></>}</span>
-        {e.status === 'void' && <span className="small block">{t('voidedBecause')}: <bdi>{e.void_reason}</bdi>{e.voided_by_name && <> · <bdi>{e.voided_by_name}</bdi></>}</span>}
-        {e.document ? <DocumentLink doc={e.document} /> : canAttach && <AttachDocument clinicId={clinicId} expenseId={e.id} />}
-      </span>
-      <span className="line-end">
-        <bdi className={e.status === 'void' ? 'struck' : undefined}>{money(e.amount_minor, e.currency)}</bdi>
-        {canVoid && <Button variant="ghost" onClick={() => setVoiding(true)}>{t('voidExpense')}</Button>}
-      </span>
+    <>
+      <span className="flex flex-wrap items-center gap-2"><strong>{e.category_name}</strong> <Badge tone={STATUS_TONE[e.status]} dot>{t(`exp_${e.status}` as Key)}</Badge></span>
+      {(e.description || e.supplier_name) && <span className="small block"><bdi>{[e.supplier_name, e.description].filter(Boolean).join(' — ')}</bdi></span>}
+      <span className="muted small block">{t('recordedBy')} <bdi>{e.created_by_name}</bdi>
+        {e.approved_by_name && <> · {t(e.status === 'rejected' ? 'rejectedBy' : 'approvedBy')} <bdi>{e.approved_by_name}</bdi></>}
+        {e.decision_note && <> — <bdi>{e.decision_note}</bdi></>}</span>
+      {e.status === 'void' && <span className="small block">{t('voidedBecause')}: <bdi>{e.void_reason}</bdi>{e.voided_by_name && <> · <bdi>{e.voided_by_name}</bdi></>}</span>}
+      {e.document ? <DocumentLink doc={e.document} /> : canAttach && <AttachDocument clinicId={clinicId} expenseId={e.id} />}
+    </>
+  );
+}
+
+/** expenses:write voids an expense (with a reason); a void one has nothing left to do. */
+function ExpenseActions({ clinicId, e }: { clinicId: string; e: Expense }) {
+  const [voiding, setVoiding] = useState(false);
+  if (e.status === 'void') return null;
+  return (
+    <>
+      <Button variant="ghost" onClick={() => setVoiding(true)}>{t('voidExpense')}</Button>
       {voiding && <VoidDialog clinicId={clinicId} e={e} onClose={() => setVoiding(false)} />}
-    </li>
+    </>
   );
 }
 

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { arName } from '@dental/ui/text';
+import { navigate } from '../../hooks';
 import { t } from '../../i18n';
 import { money } from '../../money';
 import { send, useBillingMutation, useDiscountLimits, useOverdueInstallments, usePendingDiscounts } from '../../queries';
 import { to } from '../../router';
-import type { RoleLimit } from '../../types';
+import type { OverdueInstallment, RoleLimit } from '../../types';
 import { Badge, Button, Card, EmptyState, ErrorText, Input, PageHeader, Skeleton } from '../../ui/components';
+import { DataTable, type Column } from '../../ui/data-table';
 import { ReceiptIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
@@ -79,24 +81,42 @@ function LimitRow({ clinicId, r, canEdit }: { clinicId: string; r: RoleLimit; ca
 }
 
 /** Installments unpaid after their date (PAY-004), shown on the invoices page. */
+/** What is still due on an installment (the same expression as before the table: amount minus what was paid on it). */
+const installmentLeft = (i: OverdueInstallment) => i.amount_minor - i.paid_minor;
+
+const OVERDUE_COLUMNS: Column<OverdueInstallment>[] = [
+  {
+    id: 'patient', header: t('invColPatient'), sortValue: (i) => i.patient.full_name,
+    cell: (i) => <RouteLink route={to.invoice(i.invoice_id)} className="font-semibold no-underline hover:underline"><bdi>{i.patient.full_name}</bdi></RouteLink>,
+  },
+  { id: 'phone', header: t('phone'), hideOnMobile: true, cell: (i) => <bdi dir="ltr" className="tabular-nums">{i.patient.phone}</bdi> },
+  { id: 'invoice', header: t('invColNumber'), hideOnMobile: true, sortValue: (i) => i.number, cell: (i) => <bdi dir="ltr" className="whitespace-nowrap">{i.number}</bdi> },
+  { id: 'seq', header: t('installment'), numeric: true, sortValue: (i) => i.seq, cell: (i) => fmtNumber(i.seq) },
+  {
+    id: 'due', header: t('dueDate'), sortValue: (i) => i.due_date,
+    cell: (i) => <span className="whitespace-nowrap"><span className="tabular-nums">{i.due_date}</span> <Badge tone="danger" dot>{t('overdue')}</Badge></span>,
+  },
+  { id: 'left', header: t('invColBalance'), numeric: true, sortValue: installmentLeft, cell: (i) => <bdi className="text-owed font-semibold">{money(installmentLeft(i), i.currency)}</bdi> },
+];
+
+/** The invoices page's «أقساط متأخرة» tab: installments past their date and not paid, oldest first (redesign R4: DataTable). */
 export function OverdueInstallments({ clinicId }: { clinicId: string }) {
   const overdue = useOverdueInstallments(clinicId);
-  if (overdue.isError) return <ErrorText error={overdue.error} onRetry={() => void overdue.refetch()} />;
-  if (!overdue.data) return <Skeleton h={64} count={3} />;
-  if (!overdue.data.items.length) return <Card><EmptyState icon={<ReceiptIcon size={28} />} title={t('noOverdue')} text={t('noOverdueText')} /></Card>;
   return (
-    <Card>
-      <ul className="line-list">
-        {overdue.data.items.map((i) => (
-          <li key={i.id}>
-            <span>
-              <RouteLink route={to.invoice(i.invoice_id)}><strong><bdi>{i.patient.full_name}</bdi></strong></RouteLink>
-              <span className="muted small"> · <bdi dir="ltr">{i.patient.phone}</bdi> · {i.number} · {t('installment')} {fmtNumber(i.seq)} · {i.due_date}</span>
-            </span>
-            <span className="line-end"><Badge tone="warning">{t('overdue')}</Badge><bdi>{money(i.amount_minor - i.paid_minor, i.currency)}</bdi></span>
-          </li>
-        ))}
-      </ul>
-    </Card>
+    <DataTable
+      label={t('invf_overdue')}
+      rows={overdue.data?.items}
+      columns={OVERDUE_COLUMNS}
+      rowKey={(i) => i.id}
+      isLoading={overdue.isLoading}
+      isFetching={overdue.isFetching}
+      error={overdue.isError ? overdue.error : undefined}
+      onRetry={() => void overdue.refetch()}
+      search={{ placeholder: t('invoiceSearchHint'), text: (i) => `${i.patient.full_name} ${i.patient.phone} ${i.number ?? ''} ${i.patient.file_no}` }}
+      defaultSort={{ id: 'due', dir: 'asc' }}
+      pageSize={20}
+      onRowClick={(i) => navigate(to.invoice(i.invoice_id))}
+      empty={{ icon: <ReceiptIcon size={28} />, title: t('noOverdue'), text: t('noOverdueText') }}
+    />
   );
 }

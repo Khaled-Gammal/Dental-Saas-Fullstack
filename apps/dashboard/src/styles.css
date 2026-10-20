@@ -5,7 +5,7 @@ html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; font-family: var(--font); font-size: var(--fs-md); line-height: 1.6; color: var(--ink); background: var(--surface); -webkit-font-smoothing: antialiased; }
 h1, h2, h3 { line-height: 1.3; margin: 0; color: var(--ink); }
 p { margin: 0; }
-a:not([data-slot]) { color: var(--primary-600); } /* a link that is a shadcn part (a sidebar item) has its own colour */
+a:where(:not([data-slot])) { color: var(--primary-600); } /* a link that is a shadcn part (a sidebar item) has its own colour; :where keeps it as weak as a plain `a`, so .btn-primary and the like win */
 code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.85em; }
 :focus-visible { outline: 2px solid transparent; box-shadow: var(--ring); } /* transparent outline still shows in Windows forced-colours mode */
 .hero-card :focus-visible, .auth-brand :focus-visible { box-shadow: var(--ring-on-dark); }
