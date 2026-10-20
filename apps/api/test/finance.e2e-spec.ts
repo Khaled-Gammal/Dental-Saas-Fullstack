@@ -77,6 +77,23 @@ describe('Finance: expenses and the daily cash box (e2e, Phase E3)', () => {
       await http().patch('/expenses/settings').set(as('ownerA')).send({ receptionLimitMinor: 0 }).expect(404);
     });
 
+    it('the list pages with "load more" in its own order (date, then entry); nothing repeats or is skipped', async () => {
+      for (let i = 0; i < 3; i++) {
+        await http().post('/expenses').set(as('ownerA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 1000 + i, method: 'cash' }).expect(201);
+      }
+      const ids = (r: request.Response) => (r.body.items as { id: string }[]).map((x) => x.id);
+      const first = ids(await http().get('/expenses?limit=2').set(as('ownerA')).expect(200));
+      const next = ids(await http().get(`/expenses?limit=2&after=${first[1]}`).set(as('ownerA')).expect(200));
+      expect(first).toHaveLength(2);
+      expect(next).toHaveLength(2);
+      expect(new Set([...first, ...next]).size).toBe(4);
+      // anything another suite adds meanwhile is newer and comes first: the two pages stay one unbroken run
+      const all = ids(await http().get('/expenses?limit=500').set(as('ownerA')).expect(200));
+      const at = all.indexOf(first[0]);
+      expect(all.slice(at, at + 4)).toEqual([...first, ...next]);
+      await http().get('/expenses?after=not-an-id').set(as('ownerA')).expect(400);
+    });
+
     it('a wrong expense is voided with a reason and stays visible (EXP-004)', async () => {
       const e = (await http().post('/expenses').set(as('ownerA')).send({ branchId: NASR, categoryId: supplies, amountMinor: 7000, method: 'cash' }).expect(201)).body;
       await http().post(`/expenses/${e.id}/void`).set(as('ownerA')).send({}).expect(400);

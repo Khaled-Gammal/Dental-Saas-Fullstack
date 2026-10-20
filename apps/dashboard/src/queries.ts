@@ -302,8 +302,15 @@ export const billingKeys = {
   patient: (clinicId: string, patientId: string) => ['billing', clinicId, 'patient', patientId] as const,
   payment: (clinicId: string, id: string) => ['billing', clinicId, 'payment', id] as const,
 };
+/** invoices per request; a full page means there may be more ("load more" asks for the ones after its last) */
+export const INVOICE_PAGE = 100;
 export const useInvoices = (clinicId: string, status: string) =>
-  useQuery({ queryKey: billingKeys.list(clinicId, status), queryFn: () => api<InvoiceRow[]>(`/invoices${status === 'all' ? '' : `?status=${status}`}`) });
+  useInfiniteQuery({
+    queryKey: billingKeys.list(clinicId, status),
+    queryFn: ({ pageParam }) => api<InvoiceRow[]>(`/invoices?${new URLSearchParams({ ...(status !== 'all' && { status }), limit: String(INVOICE_PAGE), ...(pageParam && { after: pageParam }) })}`),
+    initialPageParam: '',
+    getNextPageParam: (last) => (last.length === INVOICE_PAGE ? last[last.length - 1].id : undefined),
+  });
 export const useInvoice = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: billingKeys.invoice(clinicId, id ?? ''), queryFn: () => api<InvoiceDetail>(`/invoices/${id}`), enabled: !!id });
 export const usePatientBilling = (clinicId: string, patientId: string | undefined, enabled = true) =>
@@ -339,9 +346,19 @@ export function useFinanceMutation<V, R = unknown>(clinicId: string, fn: (v: V) 
   const qc = useQueryClient();
   return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: financeKeys.all(clinicId) }) });
 }
+/** expenses per request; a full page means there may be more ("load more" asks for the ones after its last) */
+export const EXPENSE_PAGE = 200;
 export const useExpenses = (clinicId: string, q: { status?: string; from?: string; to?: string; branchId?: string; categoryId?: string }) =>
-  // document links last 5 minutes (EXP-001): refreshed before they expire, like a patient's files
-  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', q] as const, queryFn: () => api<ExpensesPage>(`/expenses${qs(q)}`), staleTime: 4 * 60_000, refetchInterval: 4 * 60_000 });
+  // document links last 5 minutes (EXP-001): refreshed before they expire, like a patient's files. The per-item totals
+  // come with every page and always cover the whole period, not just the loaded rows.
+  useInfiniteQuery({
+    queryKey: [...financeKeys.all(clinicId), 'expenses', q] as const,
+    queryFn: ({ pageParam }) => api<ExpensesPage>(`/expenses${qs({ ...q, limit: String(EXPENSE_PAGE), ...(pageParam && { after: pageParam }) })}`),
+    initialPageParam: '',
+    getNextPageParam: (last) => (last.items.length === EXPENSE_PAGE ? last.items[last.items.length - 1].id : undefined),
+    staleTime: 4 * 60_000,
+    refetchInterval: 4 * 60_000,
+  });
 export const usePendingExpenses = (clinicId: string, enabled = true) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', 'pending'] as const, queryFn: () => api<Expense[]>('/expenses/pending'), enabled, staleTime: 4 * 60_000, refetchInterval: 4 * 60_000 });
 export const useExpenseCategories = (clinicId: string) =>

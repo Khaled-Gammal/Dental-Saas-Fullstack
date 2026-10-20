@@ -120,4 +120,20 @@ describe('Billing: invoices, payments, reversals, refunds (e2e, Phase E1)', () =
     await http().delete(`/invoices/${draft}`).set(as('receptionA')).expect(204);
     await http().get(`/invoices/${draft}`).set(as('receptionA')).expect(404);
   });
+
+  it('the list pages with "load more": each page continues the last, nothing repeats or is skipped; an id from another clinic gives nothing', async () => {
+    for (let i = 0; i < 3; i++) await http().post('/invoices').set(as('receptionA')).send({ patientId, branchId: NASR, lines: [{ serviceId: SCALING }] }).expect(201);
+    const ids = (r: request.Response) => (r.body as { id: string }[]).map((x) => x.id);
+    const first = ids(await http().get('/invoices?limit=2').set(as('accountantA')).expect(200));
+    const next = ids(await http().get(`/invoices?limit=2&after=${first[1]}`).set(as('accountantA')).expect(200));
+    expect(first).toHaveLength(2);
+    expect(next).toHaveLength(2);
+    expect(new Set([...first, ...next]).size).toBe(4);
+    // other suites may add invoices meanwhile; they are newer, so they come before: the two pages stay one unbroken run
+    const all = ids(await http().get('/invoices?limit=200').set(as('accountantA')).expect(200));
+    const at = all.indexOf(first[0]);
+    expect(all.slice(at, at + 4)).toEqual([...first, ...next]);
+    expect((await http().get(`/invoices?after=${first[0]}`).set(as('ownerB')).expect(200)).body).toEqual([]);
+    await http().get('/invoices?after=not-an-id').set(as('accountantA')).expect(400);
+  });
 });

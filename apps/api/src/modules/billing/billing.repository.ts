@@ -28,14 +28,17 @@ export class BillingRepository {
       ]);
   }
 
-  async list(tx: Tx, q: { status?: string; patientId?: string; from?: string; to?: string; limit: number }) {
+  async list(tx: Tx, q: { status?: string; patientId?: string; from?: string; to?: string; limit: number; after?: string }) {
     let query = this.invoices(tx);
     if (q.patientId) query = query.where('i.patient_id', '=', q.patientId);
     if (q.status === 'open') query = query.where('i.status', 'in', ['issued', 'partially_paid']);
     else if (q.status) query = query.where('i.status', '=', q.status);
     if (q.from) query = query.where(sql<boolean>`coalesce(i.issue_date, i.created_at::date) >= ${q.from}::date`);
     if (q.to) query = query.where(sql<boolean>`coalesce(i.issue_date, i.created_at::date) <= ${q.to}::date`);
-    const rows = await query.orderBy('i.created_at', 'desc').limit(q.limit).execute();
+    // keyset paging (newest first, the id breaks ties): the page after `after`; an id this clinic cannot see (RLS)
+    // matches no row, so nothing comes back
+    if (q.after) query = query.where(sql<boolean>`(i.created_at, i.id) < (select a.created_at, a.id from invoices a where a.id = ${q.after})`);
+    const rows = await query.orderBy('i.created_at', 'desc').orderBy('i.id', 'desc').limit(q.limit).execute();
     return rows.map((r) => money(r, INVOICE_MONEY));
   }
 

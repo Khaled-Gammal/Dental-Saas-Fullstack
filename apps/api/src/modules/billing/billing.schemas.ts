@@ -44,6 +44,8 @@ export const InvoicesQuery = z.object({
   status: z.enum(['draft', 'issued', 'partially_paid', 'paid', 'void', 'open']).optional(),
   from: z.string().regex(ISO_DATE).optional(), to: z.string().regex(ISO_DATE).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  /** "load more": the invoices listed after this one (the last of the previous page) */
+  after: Uuid.optional(),
 }).strict();
 
 export type NewInvoiceInput = z.infer<typeof NewInvoice>;
