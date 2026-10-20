@@ -15,6 +15,7 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
 import { MediaModule } from './modules/media';
 import { PatientsModule } from './modules/patients';
+import { PlatformModule } from './modules/platform/platform.module';
 import { PublicSiteModule } from './modules/public-site/public-site.module';
 import { SchedulingModule } from './modules/scheduling';
 import { StaffModule } from './modules/staff/staff.module';
@@ -71,6 +72,7 @@ class ConfigModule {}
     MediaModule,
     GalleryModule,
     StaffModule,
+    PlatformModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemDetailsFilter }],
 })

@@ -97,6 +97,17 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   payments_future: { status: 400, code: 'date_in_future', title: 'A payment is not dated in the future' },
   expenses_locked: { status: 409, code: 'expense_locked', title: 'A recorded expense is not edited; void it and record it again' },
   expenses_self_approval: { status: 403, code: 'self_approval', title: 'An expense is approved by someone else' },
+  // the platform admin panel (Phase H5): the platform_*() functions check these
+  platform_admin_only: { status: 401, code: 'platform_session_required', title: 'Sign in to the platform panel' },
+  platform_trial_range: { status: 400, code: 'trial_out_of_range', title: 'A trial ends after today and within a year' },
+  platform_not_trialing: { status: 409, code: 'not_trialing', title: 'The clinic is not on a trial' },
+  platform_status: { status: 409, code: 'clinic_status', title: 'The clinic is not in a state that allows this' },
+  platform_clinic_missing: { status: 404, code: 'clinic_not_found', title: 'Clinic not found' },
+  platform_trial_ended: { status: 409, code: 'trial_ended', title: 'The trial has ended: extend it or activate the subscription' },
+  platform_already_active: { status: 409, code: 'already_active', title: 'The subscription is already active' },
+  platform_cycle: { status: 400, code: 'validation_failed', title: 'A subscription is monthly or yearly' },
+  platform_plan_missing: { status: 404, code: 'subscription_plan_not_found', title: 'Plan not found' },
+  tenants_suspension_reason: { status: 400, code: 'reason_required', title: 'Give the reason (3 characters at least)' },
   // custom roles (Phase H4): the service checks these first; the database is the last word
   roles_owner_fixed: { status: 409, code: 'owner_role_fixed', title: 'The owner role keeps every permission' },
   roles_permission_unknown: { status: 400, code: 'permission_unknown', title: 'This permission cannot be given to a role' },

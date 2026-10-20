@@ -108,6 +108,16 @@ export const AUTH_POLICY = {
   userAgentMaxLength: 300,
 } as const;
 
+/**
+ * The platform admin panel (H5): sign-in is password + an emailed code every time; the session is a short-lived token
+ * in an httpOnly cookie scoped to /platform (SameSite=Strict), never readable by JavaScript.
+ */
+export const PLATFORM_POLICY = {
+  sessionSeconds: 60 * 60,
+  cookie: { name: 'pt', path: '/platform' },
+  codeSubject: 'رمز الدخول إلى لوحة إدارة المنصة',
+} as const;
+
 /** Image uploads: what is accepted and what is produced. */
 export const MEDIA_POLICY = {
   maxUploadBytes: 10 * 1024 * 1024,
@@ -152,6 +162,8 @@ export const WORKER_POLICY = {
   notificationsEveryMs: 30_000,
   releaseHoldsEveryMs: 60_000,
   noShowEveryMs: 5 * 60_000,
+  /** H5: a trial that ended without activation suspends the clinic (owner 2026-10-20) */
+  expireTrialsEveryMs: 15 * 60_000,
   purgeAuthCron: '15 3 * * *',
   purgeImagesCron: '45 3 * * *',
   timezone: 'Africa/Cairo',

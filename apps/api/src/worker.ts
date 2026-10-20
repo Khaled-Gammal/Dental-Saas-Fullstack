@@ -16,7 +16,8 @@ import { purgeOrphanImages } from './worker/purge-orphan-images';
 /**
  * Background worker (separate process). Connects as app_worker, which may work across clinics.
  * Jobs: outbox relay (booking emails and reminders), sending due notifications, releasing expired website slot
- * holds every minute, marking no-shows, purging old auth data and unused uploaded images nightly. Next: site revalidation through the outbox.
+ * holds every minute, marking no-shows, suspending clinics whose trial ended (every 15 minutes), purging old auth data
+ * and unused uploaded images nightly. Next: site revalidation through the outbox.
  */
 async function main() {
   const cfg = loadConfig();
@@ -35,6 +36,7 @@ async function main() {
   await every('send-notifications', WORKER_POLICY.notificationsEveryMs);
   await every('release-expired-holds', WORKER_POLICY.releaseHoldsEveryMs);
   await every('mark-no-shows', WORKER_POLICY.noShowEveryMs);
+  await every('expire-trials', WORKER_POLICY.expireTrialsEveryMs);
   // 03:15 every night: delete expired codes, old sessions and auth events older than 180 days
   await queue.upsertJobScheduler('purge-auth-data', { pattern: WORKER_POLICY.purgeAuthCron, tz: WORKER_POLICY.timezone }, { name: 'purge-auth-data' });
   // 03:45 every night: uploaded images nothing uses, older than a day
@@ -66,6 +68,13 @@ async function main() {
           const marked = rows[0]?.marked ?? 0;
           if (marked > 0) log({ job: job.name, marked });
           return { marked };
+        }
+        case 'expire-trials': {
+          // H5: trials that ended without activation; the clinic's staff are cut off at their next request
+          const { rows } = await sql<{ suspended: number }>`select expire_trials() as suspended`.execute(db);
+          const suspended = rows[0]?.suspended ?? 0;
+          if (suspended > 0) log({ job: job.name, suspended });
+          return { suspended };
         }
         case 'purge-auth-data': {
           const { rows } = await sql<{ otp_deleted: number; tokens_deleted: number; events_deleted: number }>`select * from purge_auth_data()`.execute(db);

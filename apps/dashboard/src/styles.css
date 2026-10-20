@@ -699,3 +699,11 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .perm-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; }
 .perm-list .check { align-items: flex-start; }
 .perm-list .check input { margin-top: 4px; flex: none; }
+
+/* H5: the platform admin panel (#/platform) — a top bar instead of the clinic sidebar */
+.platform { min-height: 100vh; background: var(--surface); }
+.platform-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 12px 24px;
+  background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
+.platform-bar > strong { display: inline-flex; align-items: center; gap: 8px; }
+.platform-bar .seg a { text-decoration: none; }
+.platform-main { max-width: 1200px; margin: 0 auto; padding: 24px 16px; display: grid; gap: 16px; }

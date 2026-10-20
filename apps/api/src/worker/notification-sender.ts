@@ -11,11 +11,12 @@ const LEASE_MINUTES = 10;
  * transaction (attempts + 1 and a lease on scheduled_at, SKIP LOCKED so parallel workers never share a row), then
  * sent with no transaction or lock held — a slow mail server cannot pin a database connection — and finally marked
  * sent. Delivery is at-least-once: a crash between the send and the final update sends again after the lease.
- * Reminders for appointments that are no longer pending/confirmed are cancelled instead of sent.
+ * Reminders for appointments that are no longer pending/confirmed are cancelled instead of sent, and so is anything a
+ * suspended clinic would send (H5, owner 2026-10-20) — cancelled, not held back, so a reactivated clinic gets no stale mail.
  */
 export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: object) => void): Promise<number> {
   const claimed = await db.transaction().execute(async (tx) => {
-    const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; appointment_status: string | null }>`
+    const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; appointment_status: string | null; tenant_status: string | null }>`
       with due as (
         select id from notifications
         where status = 'queued' and scheduled_at <= now() and attempts < ${MAX_ATTEMPTS}
@@ -24,7 +25,8 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
       update notifications n set attempts = n.attempts + 1, scheduled_at = now() + make_interval(mins => ${LEASE_MINUTES})
       from due where n.id = due.id
       returning n.id, n.channel, n.recipient, n.subject, n.body, n.attempts, n.event, n.related_id,
-        (select a.status from appointments a where a.id = n.related_id) as appointment_status`.execute(tx);
+        (select a.status from appointments a where a.id = n.related_id) as appointment_status,
+        (select t.status from tenants t where t.id = n.tenant_id) as tenant_status`.execute(tx);
     return rows;
   });
 
@@ -32,6 +34,7 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
   for (const n of claimed) {
     const cancel = (why: string) => db.updateTable('notifications').set({ status: 'cancelled', last_error: why }).where('id', '=', n.id).execute();
     if (n.channel !== 'email') { await cancel('channel disabled: email only'); continue; }
+    if (n.tenant_status === 'suspended') { await cancel('clinic suspended'); continue; }
     if (n.event === 'appointment.reminder' && !['pending', 'confirmed'].includes(n.appointment_status ?? '')) { await cancel(`appointment ${n.appointment_status ?? 'missing'}`); continue; }
     try {
       await email.send(n.recipient, n.subject ?? '', n.body);
