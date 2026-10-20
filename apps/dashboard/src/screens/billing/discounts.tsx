@@ -8,10 +8,11 @@ import { to } from '../../router';
 import type { OverdueInstallment, RoleLimit } from '../../types';
 import { Badge, Button, Card, EmptyState, ErrorText, Input, PageHeader, Skeleton } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
-import { ReceiptIcon } from '../../ui/icons';
+import { ReceiptIcon, UsersIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 import { toMinor } from '../../clinical-model';
+import { RowMenu } from '../../ui/row-menu';
 
 /**
  * `#/discounts` (SRS DISC-002/003): the owner's approval queue for discounts above a role's limit, and each role's
@@ -116,6 +117,12 @@ export function OverdueInstallments({ clinicId }: { clinicId: string }) {
       defaultSort={{ id: 'due', dir: 'asc' }}
       pageSize={20}
       onRowClick={(i) => navigate(to.invoice(i.invoice_id))}
+      actions={(i) => (
+        <RowMenu label={i.patient.full_name} actions={[
+          { label: t('rowOpenInvoice'), icon: <ReceiptIcon size={16} />, route: to.invoice(i.invoice_id) },
+          { label: t('rowOpenFile'), icon: <UsersIcon size={16} />, route: to.view('patients', i.patient.id) },
+        ]} />
+      )}
       empty={{ icon: <ReceiptIcon size={28} />, title: t('noOverdue'), text: t('noOverdueText') }}
     />
   );

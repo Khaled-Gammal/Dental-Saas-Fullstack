@@ -10,6 +10,8 @@ a:where(:not([data-slot])) { color: var(--primary-600); } /* a link that is a sh
 code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.85em; }
 :focus-visible { outline: 2px solid transparent; box-shadow: var(--ring); } /* transparent outline still shows in Windows forced-colours mode */
 .hero-card :focus-visible, .auth-brand :focus-visible { box-shadow: var(--ring-on-dark); }
+/* pop-up panels (menus, select lists) take focus when they open, and their items show focus with a highlighted background: no ring there */
+[data-slot$="-content"]:focus-visible, [role="menuitem"]:focus-visible, [role="option"]:focus-visible { box-shadow: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .muted { color: var(--muted); }
 .strong { font-weight: 600; color: var(--ink); }
@@ -220,13 +222,6 @@ select.input { appearance: auto; }
 .step.current .step-label { font-weight: 700; }
 
 .cards { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.branch { display: flex; flex-direction: column; gap: 14px; transition: box-shadow var(--t-med), border-color var(--t-med); }
-.branch-top { display: flex; align-items: center; gap: 14px; }
-.branch:hover { border-color: var(--primary-200); box-shadow: var(--shadow-md); }
-.branch-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--primary-50); color: var(--primary-500); flex-shrink: 0; }
-.branch-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.branch-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.branch-text code { color: var(--muted); align-self: flex-start; }
 
 /* ---------- dental illustrations ---------- */
 .arch { width: 100%; height: auto; overflow: visible; }
@@ -291,9 +286,6 @@ select.input { appearance: auto; }
 .save-bar { display: flex; flex-direction: column; gap: 10px; }
 
 /* ---------- branches + hours ---------- */
-.branch-hours { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-sm); padding-top: 12px; border-top: 1px dashed var(--line); }
-.branch-hours strong { color: var(--ink); }
-.branch-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .hours-card { border-color: var(--primary-200); box-shadow: var(--shadow-md); }
 .hours-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .week { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
@@ -321,12 +313,9 @@ fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-wid
 
 /* ---------- doctors ---------- */
 .avatar-lg { width: 44px; height: 44px; font-size: var(--fs-md); border-radius: 12px; flex-shrink: 0; }
-.doctor { display: flex; flex-direction: column; gap: 12px; transition: box-shadow var(--t-med), border-color var(--t-med); }
-.doctor:hover { border-color: var(--primary-200); box-shadow: var(--shadow-md); }
 .is-inactive { opacity: 0.72; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { font-size: var(--fs-xs); padding: 2px 10px; border-radius: var(--r-pill); background: var(--primary-50); color: var(--primary-600); font-weight: 600; }
-.branch-hours.no-line { border-top: 0; padding-top: 0; }
 .check-group { border: 0; margin: 0; padding: 0; min-width: 0; }
 .check-group legend { font-weight: 600; padding: 0; margin-bottom: 2px; }
 .branch-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; }
@@ -363,7 +352,6 @@ fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-wid
 .dialog-body { display: flex; flex-direction: column; gap: 12px; color: var(--muted); font-size: var(--fs-sm); }
 a.catalog-item, a.btn, a.link-btn { text-decoration: none; }
 .catalog-item.is-added { cursor: default; background: var(--surface); color: var(--muted); border-color: var(--line); }
-.branch.is-inactive { opacity: 0.72; }
 
 /* ===== appointments: day view + reception check-in ===== */
 .day-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -712,3 +700,8 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 /* ---------- file picker (components/file-picker.tsx, redesign R4b): an Arabic button in place of the browser's field ---------- */
 .file-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 42px; }
 .file-picker-name { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+
+/* ---------- row menu (ui/row-menu.tsx, UI refinement U2): the «⋯» at the end of a table row ---------- */
+.row-menu-trigger { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: var(--r-md); background: none; color: var(--muted); cursor: pointer; }
+.row-menu-trigger:hover, .row-menu-trigger[data-state="open"] { background: var(--surface); border-color: var(--line); color: var(--ink); }
+.row-menu-trigger:focus-visible { outline: none; box-shadow: var(--ring); }

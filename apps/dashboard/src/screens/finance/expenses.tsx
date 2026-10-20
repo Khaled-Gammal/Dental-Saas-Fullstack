@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader, Switch } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
 import { WalletIcon } from '../../ui/icons';
+import { RowMenu } from '../../ui/row-menu';
 
 const STATUS_TONE: Record<ExpenseStatus, 'neutral' | 'primary' | 'success' | 'warning'> = { pending: 'warning', approved: 'success', rejected: 'neutral', void: 'neutral' };
 const FILTERS = ['all', 'pending', 'approved', 'rejected', 'void'] as const;
@@ -196,7 +197,7 @@ function ExpenseActions({ clinicId, e }: { clinicId: string; e: Expense }) {
   if (e.status === 'void') return null;
   return (
     <>
-      <Button variant="ghost" onClick={() => setVoiding(true)}>{t('voidExpense')}</Button>
+      <RowMenu label={e.category_name} actions={[{ label: t('voidExpense'), destructive: true, onSelect: () => setVoiding(true) }]} />
       {voiding && <VoidDialog clinicId={clinicId} e={e} onClose={() => setVoiding(false)} />}
     </>
   );

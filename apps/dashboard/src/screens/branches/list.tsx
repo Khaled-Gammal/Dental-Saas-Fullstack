@@ -5,8 +5,11 @@ import { openDays } from '../../hours-model';
 import { useBranches } from '../../queries';
 import { to } from '../../router';
 import { fmtNumber } from '../../util';
-import { Alert, Badge, Button, Card, EmptyState, ErrorText, PageHeader, Skeleton } from '../../ui/components';
+import type { Branch } from '../../types';
+import { Alert, Badge, Button, PageHeader } from '../../ui/components';
+import { DataTable, type Column } from '../../ui/data-table';
 import { RouteLink } from '../../ui/page';
+import { RowMenu } from '../../ui/row-menu';
 import { CalendarIcon, EditIcon, PinIcon, PlusIcon } from '../../ui/icons';
 
 /** `canWrite` only hides links the API would refuse (receptionists can view, not edit). */
@@ -28,43 +31,46 @@ export function BranchesList({ clinicId, canWrite }: { clinicId: string; canWrit
     <>
       <PageHeader title={t('branches')} sub={t('branchesSub')} action={calendarLinks} />
       {flash && <Alert tone="success">{flash}</Alert>}
-      {branches.isError ? (
-        <ErrorText error={branches.error} onRetry={() => void branches.refetch()} />
-      ) : branches.isLoading ? (
-        <div className="cards"><Skeleton h={96} count={3} /></div>
-      ) : count === 0 ? (
-        <Card><EmptyState icon={<PinIcon size={28} />} title={t('noBranches')} text={t('noBranchesText')} action={addBtn} /></Card>
-      ) : (
-        <ul className="cards" aria-busy={branches.isFetching || undefined}>
-          {branches.data?.map((b) => (
-            <Card as="li" key={b.id} className={`branch${b.is_active ? '' : ' is-inactive'}`}>
-              <div className="branch-top">
-                <span className="branch-icon"><PinIcon /></span>
-                <div className="branch-text">
-                  <strong><bdi>{arName(b.name_ar, b.name_en, b.slug)}</bdi></strong>
-                  <code dir="ltr">{b.slug}</code>
-                </div>
-                {b.is_main ? <Badge tone="primary">{t('main')}</Badge> : !b.is_active ? <Badge>{t('inactive')}</Badge> : null}
-              </div>
-              <div className="branch-hours">
-                <CalendarIcon size={16} />
-                {b.hours.length
-                  ? <span>{t('openDays')}: <strong><bdi>{fmtNumber(openDays(b.hours))}/7</bdi></strong></span>
-                  : <span className="warn-text">{t('noHours')}</span>}
-              </div>
-              {canWrite && (
-                <div className="branch-actions">
-                  <RouteLink route={to.hours(b.id)} className={`btn btn-${b.hours.length ? 'secondary' : 'primary'}`}>
-                    <CalendarIcon size={16} />{t('workingHours')}
-                  </RouteLink>
-                  <RouteLink route={to.rooms(b.id)}>{t('roomsLink')}</RouteLink>
-                  <RouteLink route={to.edit('branches', b.id)}><EditIcon size={16} />{t('edit')}</RouteLink>
-                </div>
-              )}
-            </Card>
-          ))}
-        </ul>
-      )}
+      {/* a table with a «⋯» menu per row (UI refinement U2); the row opens the branch for those who edit it */}
+      <DataTable
+        label={t('branches')}
+        rows={branches.data}
+        columns={BRANCH_COLUMNS}
+        rowKey={(b) => b.id}
+        isLoading={branches.isLoading}
+        isFetching={branches.isFetching}
+        error={branches.isError ? branches.error : undefined}
+        onRetry={() => void branches.refetch()}
+        actions={canWrite ? (b) => (
+          <RowMenu label={arName(b.name_ar, b.name_en, b.slug)} actions={[
+            { label: t('workingHours'), icon: <CalendarIcon size={16} />, route: to.hours(b.id) },
+            { label: t('roomsLink'), icon: <PinIcon size={16} />, route: to.rooms(b.id) },
+            { label: t('edit'), icon: <EditIcon size={16} />, route: to.edit('branches', b.id) },
+          ]} />
+        ) : undefined}
+        onRowClick={canWrite ? (b) => navigate(to.edit('branches', b.id)) : undefined}
+        empty={{ icon: <PinIcon size={28} />, title: t('noBranches'), text: t('noBranchesText'), action: addBtn || undefined }}
+      />
     </>
   );
 }
+
+const BRANCH_COLUMNS: Column<Branch>[] = [
+  {
+    id: 'branch', header: t('branch'), sortValue: (b) => arName(b.name_ar, b.name_en, b.slug),
+    cell: (b) => (
+      <span className="patient-main">
+        <span className="patient-avatar" aria-hidden><PinIcon size={18} /></span>
+        <span className="patient-text"><strong><bdi>{arName(b.name_ar, b.name_en, b.slug)}</bdi></strong><code dir="ltr" className="muted small">{b.slug}</code></span>
+      </span>
+    ),
+  },
+  {
+    id: 'state', header: t('status'),
+    cell: (b) => (b.is_main ? <Badge tone="primary">{t('main')}</Badge> : !b.is_active ? <Badge dot>{t('inactive')}</Badge> : <Badge tone="success" dot>{t('active')}</Badge>),
+  },
+  {
+    id: 'hours', header: t('openDays'), sortValue: (b) => openDays(b.hours),
+    cell: (b) => (b.hours.length ? <bdi className="tabular-nums">{fmtNumber(openDays(b.hours))}/7</bdi> : <span className="warn-text">{t('noHours')}</span>),
+  },
+];

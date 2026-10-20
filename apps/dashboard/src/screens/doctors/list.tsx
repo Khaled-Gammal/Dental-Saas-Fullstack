@@ -5,9 +5,10 @@ import { useBranches, useDoctors } from '../../queries';
 import { to } from '../../router';
 import { scheduledDays } from '../../schedule-model';
 import type { Branch, Doctor } from '../../types';
-import { Alert, Badge, Button, Card, EmptyState, ErrorText, PageHeader, Skeleton, initials } from '../../ui/components';
-import { CalendarIcon, EditIcon, PinIcon, PlusIcon, StethoscopeIcon } from '../../ui/icons';
-import { RouteLink } from '../../ui/page';
+import { Alert, Badge, Button, PageHeader, initials } from '../../ui/components';
+import { DataTable, type Column } from '../../ui/data-table';
+import { RowMenu } from '../../ui/row-menu';
+import { CalendarIcon, EditIcon, PlusIcon, StethoscopeIcon } from '../../ui/icons';
 import { fmtNumber } from '../../util';
 
 /** `#/doctors` — the team; `canWrite` only hides links the API would refuse (settings:write). */
@@ -25,54 +26,64 @@ export function DoctorsList({ clinicId, canWrite }: { clinicId: string; canWrite
       <PageHeader title={t('navDoctors')} sub={t('doctorsSub')} action={count > 0 ? addBtn : undefined} />
       {flash && <Alert tone="success">{flash}</Alert>}
       {canWrite && noBranches && <Alert tone="info">{t('noBranchesYet')}</Alert>}
-      {doctors.isError ? (
-        <ErrorText error={doctors.error} onRetry={() => void doctors.refetch()} />
-      ) : doctors.isLoading ? (
-        <div className="cards"><Skeleton h={120} count={3} /></div>
-      ) : count === 0 ? (
-        <Card><EmptyState icon={<StethoscopeIcon size={28} />} title={t('noDoctors')} text={t('noDoctorsText')} action={addBtn} /></Card>
-      ) : (
-        <ul className="cards" aria-busy={doctors.isFetching || undefined}>
-          {doctors.data?.map((d) => <DoctorCard key={d.id} doctor={d} branches={activeBranches} canWrite={canWrite} />)}
-        </ul>
-      )}
+      {/* a table with a «⋯» menu per row (UI refinement U2); the row opens the doctor for those who edit doctors */}
+      <DataTable
+        label={t('navDoctors')}
+        rows={doctors.data}
+        columns={doctorColumns(activeBranches)}
+        rowKey={(d) => d.id}
+        isLoading={doctors.isLoading}
+        isFetching={doctors.isFetching}
+        error={doctors.isError ? doctors.error : undefined}
+        onRetry={() => void doctors.refetch()}
+        search={{ placeholder: t('doctorSearchHint'), text: (d) => [d.name_ar, d.name_en, d.title_ar, d.title_en, ...d.specialties.map((s) => specialtyLabel(s))].filter(Boolean).join(' ') }}
+        actions={canWrite ? (d) => (
+          <RowMenu label={arName(d.name_ar, d.name_en, '—')} actions={[
+            // as before: the schedule needs a branch the doctor works at
+            { label: t('schedule'), icon: <CalendarIcon size={16} />, route: to.schedule(d.id), hidden: !activeBranches.some((b) => d.branch_ids.includes(b.id)) },
+            { label: t('timeOffLink'), icon: <CalendarIcon size={16} />, route: to.timeOff(d.id) },
+            { label: t('edit'), icon: <EditIcon size={16} />, route: to.edit('doctors', d.id) },
+          ]} />
+        ) : undefined}
+        onRowClick={canWrite ? (d) => navigate(to.edit('doctors', d.id)) : undefined}
+        empty={{ icon: <StethoscopeIcon size={28} />, title: t('noDoctors'), text: t('noDoctorsText'), action: addBtn || undefined }}
+      />
     </>
   );
 }
 
-function DoctorCard({ doctor: d, branches, canWrite }: { doctor: Doctor; branches: Branch[]; canWrite: boolean }) {
-  const name = arName(d.name_ar, d.name_en, '—');
-  const title = arName(d.title_ar, d.title_en);
-  const where = branches.filter((b) => d.branch_ids.includes(b.id)).map((b) => arName(b.name_ar, b.name_en, b.slug));
-  const days = scheduledDays(d.schedule);
-  return (
-    <Card as="li" className={`doctor${d.is_active ? '' : ' is-inactive'}`}>
-      <div className="branch-top">
-        {d.photo ? <img className="avatar avatar-lg avatar-photo" src={d.photo.thumbUrl} alt="" width={44} height={44} loading="lazy" /> : <span className="avatar avatar-lg">{initials(name)}</span>}
-        <div className="branch-text">
-          <strong><bdi>{name}</bdi></strong>
-          {title && <span className="muted small"><bdi>{title}</bdi></span>}
-        </div>
-        {!d.is_active ? <Badge>{t('inactive')}</Badge> : !d.show_on_website ? <Badge tone="warning">{t('hidden')}</Badge> : null}
-      </div>
-      {d.specialties.length > 0 && <div className="chips">{d.specialties.map((s) => <span key={s} className="chip"><bdi>{specialtyLabel(s)}</bdi></span>)}</div>}
-      <div className="branch-hours">
-        <PinIcon size={16} />
-        {where.length ? <span><bdi>{where.join('، ')}</bdi></span> : <span className="warn-text">{t('needBranch')}</span>}
-      </div>
-      <div className="branch-hours no-line">
-        <CalendarIcon size={16} />
-        {days ? <span>{t('schedule')}: <strong><bdi>{fmtNumber(days)}/7</bdi></strong> {t('scheduleDays')}</span> : <span className="warn-text">{t('noSchedule')}</span>}
-      </div>
-      {canWrite && (
-        <div className="branch-actions">
-          {where.length > 0 && (
-            <RouteLink route={to.schedule(d.id)} className={`btn btn-${days ? 'secondary' : 'primary'}`}><CalendarIcon size={16} />{t('schedule')}</RouteLink>
-          )}
-          <RouteLink route={to.timeOff(d.id)}>{t('timeOffLink')}</RouteLink>
-          <RouteLink route={to.edit('doctors', d.id)}><EditIcon size={16} />{t('edit')}</RouteLink>
-        </div>
-      )}
-    </Card>
-  );
+/** The doctors table: who, what they do, where and when they work, and whether patients see them on the website. */
+function doctorColumns(branches: Branch[]): Column<Doctor>[] {
+  const where = (d: Doctor) => branches.filter((b) => d.branch_ids.includes(b.id)).map((b) => arName(b.name_ar, b.name_en, b.slug));
+  return [
+    {
+      id: 'doctor', header: t('doctor'), sortValue: (d) => arName(d.name_ar, d.name_en, '—'),
+      cell: (d) => {
+        const name = arName(d.name_ar, d.name_en, '—');
+        const title = arName(d.title_ar, d.title_en);
+        return (
+          <span className="patient-main">
+            {d.photo ? <img className="avatar avatar-photo" src={d.photo.thumbUrl} alt="" width={36} height={36} loading="lazy" /> : <span className="avatar">{initials(name)}</span>}
+            <span className="patient-text"><strong><bdi>{name}</bdi></strong>{title && <span className="muted small"><bdi>{title}</bdi></span>}</span>
+          </span>
+        );
+      },
+    },
+    {
+      id: 'specialties', header: t('specialties'), hideOnMobile: true,
+      cell: (d) => (d.specialties.length ? <span className="chips">{d.specialties.map((s) => <span key={s} className="chip"><bdi>{specialtyLabel(s)}</bdi></span>)}</span> : <span className="muted">—</span>),
+    },
+    {
+      id: 'branches', header: t('staffColBranches'), hideOnMobile: true,
+      cell: (d) => { const w = where(d); return w.length ? <bdi>{w.join('، ')}</bdi> : <span className="warn-text">{t('needBranch')}</span>; },
+    },
+    {
+      id: 'schedule', header: t('schedule'), sortValue: (d) => scheduledDays(d.schedule),
+      cell: (d) => { const days = scheduledDays(d.schedule); return days ? <bdi className="tabular-nums">{fmtNumber(days)}/7</bdi> : <span className="warn-text">{t('noSchedule')}</span>; },
+    },
+    {
+      id: 'state', header: t('status'), hideOnMobile: true,
+      cell: (d) => (!d.is_active ? <Badge dot>{t('inactive')}</Badge> : !d.show_on_website ? <Badge tone="warning" dot>{t('hidden')}</Badge> : <Badge tone="success" dot>{t('showOnWebsite')}</Badge>),
+    },
+  ];
 }

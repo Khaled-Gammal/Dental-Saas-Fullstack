@@ -7,9 +7,10 @@ import { to } from '../../router';
 import type { PatientRow } from '../../types';
 import { Alert, Badge, Button, PageHeader } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
-import { CalendarIcon, PlusIcon, UsersIcon } from '../../ui/icons';
+import { CalendarIcon, EditIcon, PlusIcon, UsersIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
+import { RowMenu } from '../../ui/row-menu';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 
@@ -72,9 +73,13 @@ export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string
         onRetry={() => void list.refetch()}
         search={{ placeholder: t('patientSearchHint'), value: q, onChange: setQ, autoFocus: true }}
         onRowClick={(p) => navigate(to.view('patients', p.id))}
-        actions={canBook ? (p) => !p.is_blocked && (
-          <RouteLink route={to.create('appointments', { patient: p.id })} className="btn btn-secondary btn-sm"><CalendarIcon size={16} />{t('book')}</RouteLink>
-        ) : undefined}
+        actions={(p) => (
+          <RowMenu label={p.full_name} actions={[
+            { label: t('rowOpenFile'), icon: <UsersIcon size={16} />, route: to.view('patients', p.id) },
+            { label: t('book'), icon: <CalendarIcon size={16} />, route: to.create('appointments', { patient: p.id }), hidden: !canBook || p.is_blocked },
+            { label: t('edit'), icon: <EditIcon size={16} />, route: to.edit('patients', p.id), hidden: !canWrite },
+          ]} />
+        )}
         empty={{
           icon: <UsersIcon size={28} />, title: t(search ? 'noPatientMatch' : 'noPatients'), text: t(search ? 'noPatientMatchText' : 'noPatientsText'),
           action: search ? undefined : add || undefined,

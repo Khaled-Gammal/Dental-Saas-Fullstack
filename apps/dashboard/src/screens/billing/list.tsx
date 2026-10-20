@@ -1,3 +1,4 @@
+import { Printer } from 'lucide-react';
 import { useState } from 'react';
 import { arName } from '@dental/ui/text';
 import { navigate } from '../../hooks';
@@ -8,11 +9,12 @@ import { to } from '../../router';
 import type { InvoiceRow } from '../../types';
 import { Badge, Button, Card, ErrorText, PageHeader } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
-import { ReceiptIcon } from '../../ui/icons';
+import { ReceiptIcon, UsersIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 import { OverdueInstallments } from './discounts';
 import { STATUS_TONE } from './invoice';
+import { RowMenu } from '../../ui/row-menu';
 
 const FILTERS = ['open', 'overdue', 'draft', 'paid', 'void', 'all'] as const;
 
@@ -71,6 +73,13 @@ export function InvoicesList({ clinicId, query }: { clinicId: string; query?: Re
           search={{ placeholder: t('invoiceSearchHint'), text: (i) => `${i.number ?? ''} ${i.patient.full_name} ${i.patient.file_no}` }}
           pageSize={20}
           onRowClick={(i) => navigate(to.invoice(i.id))}
+          actions={(i) => (
+            <RowMenu label={i.number ?? t('draftInvoice')} actions={[
+              { label: t('rowOpenInvoice'), icon: <ReceiptIcon size={16} />, route: to.invoice(i.id) },
+              { label: t('print'), icon: <Printer size={16} aria-hidden />, route: to.printInvoice(i.id), hidden: i.status === 'draft' },
+              { label: t('rowOpenFile'), icon: <UsersIcon size={16} />, route: to.view('patients', i.patient_id) },
+            ]} />
+          )}
           empty={{ icon: <ReceiptIcon size={28} />, title: t('noInvoices'), text: t('noInvoicesText') }}
           // the table searches and sorts what is loaded; older invoices come in 100 at a time
           footer={list.hasNextPage && (
