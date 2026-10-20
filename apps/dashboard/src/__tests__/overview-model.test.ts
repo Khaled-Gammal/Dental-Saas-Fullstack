@@ -29,7 +29,7 @@ describe('the overview (2026-10-21)', () => {
       cash: [{ branch_id: 'a', name_ar: 'مدينة نصر', name_en: null, status: 'open' }, { branch_id: 'b', name_ar: 'المعادي', name_en: null, status: 'none' }],
     });
     expect(attentionItems(h, { unconfirmed: 1, discounts: 0 })).toEqual([
-      { key: 'waiting', n: 2 }, { key: 'unconfirmed', n: 1 }, { key: 'cash', n: 1, branch: { name_ar: 'المعادي', name_en: null } },
+      { key: 'waiting', n: 2 }, { key: 'unconfirmed', n: 1 }, { key: 'cash', n: 1, branches: [{ name_ar: 'المعادي', name_en: null }] },
     ]);
   });
 

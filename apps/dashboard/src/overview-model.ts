@@ -16,7 +16,7 @@ export function remainingToday(day: readonly Appointment[], limit = 8): { rows: 
 }
 
 export type AttentionKey = 'waiting' | 'unconfirmed' | 'followUps' | 'overdue' | 'discounts' | 'expenses' | 'cash';
-export interface AttentionItem { key: AttentionKey; n: number; branch?: { name_ar: string | null; name_en: string | null } }
+export interface AttentionItem { key: AttentionKey; n: number; branches?: { name_ar: string | null; name_en: string | null }[] }
 
 /**
  * What is waiting for someone, in the order a clinic deals with it: people in the building first, then calls and
@@ -31,7 +31,9 @@ export function attentionItems(h: HomeData, extra: { unconfirmed?: number; disco
   add('overdue', h.finance?.outstanding.overdue_installments);
   add('discounts', extra.discounts);
   add('expenses', extra.expenses);
-  for (const c of h.cash ?? []) if (c.status === 'none') items.push({ key: 'cash', n: 1, branch: { name_ar: c.name_ar, name_en: c.name_en } });
+  // one item for the cash boxes not opened today, counted, with their branches named
+  const closed = (h.cash ?? []).filter((c) => c.status === 'none').map((c) => ({ name_ar: c.name_ar, name_en: c.name_en }));
+  if (closed.length) items.push({ key: 'cash', n: closed.length, branches: closed });
   return items;
 }
 

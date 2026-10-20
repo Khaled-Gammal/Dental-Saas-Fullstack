@@ -53,4 +53,11 @@
   --shadow-md: 0 4px 12px -4px rgb(15 23 42 / 0.10), 0 1px 2px rgb(15 23 42 / 0.05);
   --shadow-lg: 0 16px 36px -12px rgb(15 23 42 / 0.20);
   --ring: 0 0 0 3px color-mix(in srgb, var(--brand-accent) 35%, transparent);
+  /* charts (overview, 2026-10-21): the brand teal first, then colours that stay apart for colour-blind readers */
+  --chart-1: #0e7490; /* money in: collections */
+  --chart-2: #f59e0b; /* money out: expenses */
+  --chart-3: #15803d; /* the result, attended */
+  --chart-4: #94a3b8; /* neutral: cancelled, the rest */
+  --chart-5: #38bdf8; /* still ahead: upcoming */
+  --chart-6: #dc2626; /* missed: no-shows */
 }

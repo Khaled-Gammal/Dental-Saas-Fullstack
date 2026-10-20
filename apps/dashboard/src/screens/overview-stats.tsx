@@ -1,6 +1,7 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { arName } from '@dental/ui/text';
 import { Choice } from '../components/choice';
+import { csvFileName, downloadCsv, pounds, toCsv } from '../csv';
 import { t, type Key } from '../i18n';
 import { money } from '../money';
 import { change } from '../overview-model';
@@ -8,111 +9,127 @@ import { useReport, useReportBranches } from '../queries';
 import { PRESETS, presetPeriod, type Preset } from '../reports-model';
 import { to, type Route } from '../router';
 import type { StatsReport } from '../types';
-import { Card, ErrorText, Skeleton } from '../ui/components';
+import { Button, Card, ErrorText, Skeleton } from '../ui/components';
 import { CalendarIcon, ChartIcon, ReceiptIcon, UsersIcon } from '../ui/icons';
 import { RouteLink } from '../ui/page';
 import { fmtNumber } from '../util';
 
-const day = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
-const month = (ym: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'short', timeZone: 'UTC' }).format(new Date(`${ym}-01T00:00:00Z`));
-// shadcn/ui chart (recharts) loads on demand: only the owner and the accountant see it
-const StatsChart = lazy(() => import('./overview-chart'));
+// shadcn/ui charts (recharts) load on demand: only the owner and the accountant see them
+const MoneyTrend = lazy(() => import('./overview-chart').then((m) => ({ default: m.MoneyTrend })));
+const Sparkline = lazy(() => import('./overview-chart').then((m) => ({ default: m.Sparkline })));
+
+const dayLabel = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const monthLabel = (ym: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'short', timeZone: 'UTC' }).format(new Date(`${ym}-01T00:00:00Z`));
 const compact = new Intl.NumberFormat('ar-EG-u-nu-latn', { notation: 'compact', maximumFractionDigits: 1 });
 
+/** The overview's period and branch (owner and accountant). Held by the page: the header holds the controls. */
+export interface StatsFilters { preset: Preset; branchId: string; today: string }
+const query = (f: StatsFilters) => ({ ...presetPeriod(f.preset, f.today), branchId: f.branchId || undefined });
+
 /**
- * The clinic's figures for a period, against the period before (owner and accountant: GET /reports/stats, 2026-10-21).
- * This month by default, as the money figures always were; a branch when the member has more than one. Every number
- * is the API's: the cards, the chart and the summary show it as the reports compute it.
+ * The header's actions (after the Untitled UI reference: "Select date" and "Export"): the period (the reports page's
+ * presets), the branch when there is more than one, and the period's figures as a CSV file.
  */
-export function OverviewStats({ clinicId, today }: { clinicId: string; today: string }) {
-  const [preset, setPreset] = useState<Preset>('thisMonth');
-  const [branchId, setBranchId] = useState('');
+export function StatsControls({ clinicId, value, onChange }: { clinicId: string; value: StatsFilters; onChange: (f: StatsFilters) => void }) {
   const branches = useReportBranches(clinicId).data ?? [];
-  const period = presetPeriod(preset, today);
-  const stats = useReport<StatsReport>(clinicId, 'stats', { ...period, branchId: branchId || undefined });
-  const s = stats.data;
-
+  const stats = useReport<StatsReport>(clinicId, 'stats', query(value)).data; // the figures' own request (one cache)
+  const exportCsv = () => {
+    if (!stats) return;
+    const head = [t(stats.bucket === 'day' ? 'date' : 'ovMonth'), t('repInvoiced'), t('repNet'), t('repExpensesTotal'), t('ovNetIncome'), t('ovNewPatients')];
+    const rows = stats.series.map((p) => [p.key, pounds(p.invoiced), pounds(p.collections_net), pounds(p.expenses), pounds(p.result), p.new_patients]);
+    const foot = [t('total'), pounds(stats.totals.invoiced), pounds(stats.totals.collections_net), pounds(stats.totals.expenses), pounds(stats.totals.result), stats.totals.new_patients];
+    downloadCsv(csvFileName('stats', stats.period?.from, stats.period?.to), toCsv(head, rows, foot));
+  };
   return (
-    <section className="ov-period" aria-labelledby="ov-period">
-      <div className="ov-section-head">
-        <div>
-          <h2 id="ov-period">{t('ovPeriodTitle')}</h2>
-          <p className="muted small">{s ? t('ovVsPeriod').replace('{from}', day(s.previous_period.from)).replace('{to}', day(s.previous_period.to)) : ' '}</p>
-        </div>
-        <div className="ov-toolbar">
-          <Choice value={preset} onChange={(v) => setPreset(v as Preset)} label={t('period')} className="h-9 w-40 bg-card"
-            options={PRESETS.map((p) => ({ value: p, label: t(`preset_${p}` as Key) }))} />
-          {branches.length > 1 && (
-            <Choice value={branchId} onChange={setBranchId} label={t('branch')} noneLabel={t('allBranches')} className="h-9 w-44 bg-card"
-              options={branches.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en) }))} />
-          )}
-        </div>
-      </div>
-
-      {stats.isError ? <Card><ErrorText error={stats.error} onRetry={() => void stats.refetch()} /></Card>
-        : !s ? <><div className="ov-stats"><Skeleton h={112} count={4} /></div><Skeleton h={280} count={1} /></>
-        : (
-          <>
-            <div className="ov-stats" aria-busy={stats.isFetching || undefined}>
-              <PeriodCard icon={<ReceiptIcon size={18} />} label={t('repNet')} cur={s.totals.collections_net} prev={s.previous.collections_net} show={(v) => money(v, s.currency)} route={to.list('reports')}
-                sub={<>{t('repInvoiced')} <bdi>{money(s.totals.invoiced, s.currency)}</bdi></>} />
-              <PeriodCard icon={<ChartIcon size={18} />} label={t('ovNetIncome')} cur={s.totals.result} prev={s.previous.result} show={(v) => money(v, s.currency)} route={{ page: 'reports', query: { tab: 'expenses' } }}
-                sub={t('repResult')} />
-              <PeriodCard icon={<UsersIcon size={18} />} label={t('ovNewPatients')} cur={s.totals.new_patients} prev={s.previous.new_patients} show={fmtNumber} route={to.list('patients')}
-                sub={t('ovNewPatientsSub')} />
-              <PeriodCard icon={<CalendarIcon size={18} />} label={t('ovAppointments')} cur={s.totals.appointments.booked} prev={s.previous.appointments.booked} show={fmtNumber}
-                route={{ page: 'reports', query: { tab: 'attendance' } }}
-                sub={t('ovAttendedSub').replace('{a}', fmtNumber(s.totals.appointments.attended)).replace('{n}', fmtNumber(s.totals.appointments.no_show))} />
-            </div>
-            <Card className="ov-chart-card">
-              <div className="ov-section-head">
-                <div>
-                  <h2>{t('homeMoney')}</h2>
-                  <p className="muted small">{t(s.bucket === 'day' ? 'ovChartByDay' : 'ovChartByMonth')}</p>
-                </div>
-                <RouteLink route={to.list('reports')} className="btn btn-secondary btn-sm">{t('navReports')}</RouteLink>
-              </div>
-              <div className="ov-chart-body">
-                <Suspense fallback={<Skeleton h={260} count={1} />}>
-                  <StatsChart labels={{ collections: t('repNet'), expenses: t('repExpensesTotal'), title: t('homeMoney') }}
-                    points={s.series.map((p) => ({ key: p.key, label: s.bucket === 'day' ? day(p.key) : month(p.key), collections: p.collections_net, expenses: p.expenses }))}
-                    format={(v) => money(v, s.currency)} axisFormat={(v) => compact.format(v / 100)} />
-                </Suspense>
-                <dl className="ov-summary">
-                  <div><dt>{t('repInvoiced')}</dt><dd><bdi>{money(s.totals.invoiced, s.currency)}</bdi></dd></div>
-                  <div><dt>{t('repNet')}</dt><dd><bdi>{money(s.totals.collections_net, s.currency)}</bdi></dd></div>
-                  <div><dt>{t('repExpensesTotal')}</dt><dd><bdi>{money(s.totals.expenses, s.currency)}</bdi></dd></div>
-                  <div className="is-total"><dt>{t('ovNetIncome')}</dt><dd><bdi>{money(s.totals.result, s.currency)}</bdi></dd></div>
-                  <div><dt>{t('repOwed')}</dt><dd><bdi>{money(s.outstanding.balance, s.currency)}</bdi></dd></div>
-                  <div className={s.outstanding.overdue > 0 ? 'is-alert' : undefined}><dt>{t('repOverdue')}</dt><dd><bdi>{money(s.outstanding.overdue, s.currency)}</bdi></dd></div>
-                </dl>
-              </div>
-            </Card>
-          </>
-        )}
-    </section>
+    <div className="ov-toolbar">
+      <Choice value={value.preset} onChange={(v) => onChange({ ...value, preset: v as Preset })} label={t('period')} className="h-10 w-40 bg-card"
+        options={PRESETS.map((p) => ({ value: p, label: t(`preset_${p}` as Key) }))} />
+      {branches.length > 1 && (
+        <Choice value={value.branchId} onChange={(branchId) => onChange({ ...value, branchId })} label={t('branch')} noneLabel={t('allBranches')} className="h-10 w-44 bg-card"
+          options={branches.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en) }))} />
+      )}
+      <Button variant="secondary" onClick={exportCsv} disabled={!stats}>{t('ovExport')}</Button>
+    </div>
   );
 }
 
-/** One figure for the period, and how it moved against the period before (nothing shown when that was zero). */
-function PeriodCard({ icon, label, cur, prev, show, sub, route }: {
-  icon: ReactNode; label: string; cur: number; prev: number; show: (v: number) => string; sub: ReactNode; route: Route;
-}) {
-  const c = change(cur, prev);
-  const pct = c === null ? null : `${Math.abs(Math.round(c * 1000) / 10)}%`;
+/** The period's four figures against the period before (GET /reports/stats); only the ▲/▼ percentage is worked out here. */
+export function StatsKpis({ clinicId, filters }: { clinicId: string; filters: StatsFilters }) {
+  const stats = useReport<StatsReport>(clinicId, 'stats', query(filters));
+  const s = stats.data;
+  if (stats.isError) return <Card><ErrorText error={stats.error} onRetry={() => void stats.refetch()} /></Card>;
+  if (!s) return <div className="ov-stats"><Skeleton h={150} count={4} /></div>;
+  const m = (v: number) => money(v, s.currency);
+  const a = s.totals.appointments;
   return (
-    <RouteLink route={route} className="card ov-stat">
-      <span className="ov-stat-head"><span className="stat-icon">{icon}</span>{label}</span>
-      <span className="ov-stat-value"><bdi>{show(cur)}</bdi></span>
-      <span className="ov-stat-sub">
-        {pct !== null && c !== null && (
-          <span className={`ov-delta ${c > 0 ? 'is-up' : c < 0 ? 'is-down' : ''}`} aria-label={t(c > 0 ? 'ovUpBy' : c < 0 ? 'ovDownBy' : 'ovSame').replace('{p}', pct)}>
-            <span aria-hidden>{c > 0 ? '▲' : c < 0 ? '▼' : '='}</span> <bdi>{pct}</bdi>
-          </span>
+    <div className="ov-stats" aria-busy={stats.isFetching || undefined}>
+      <KpiCard icon={<ReceiptIcon size={16} />} label={t('repNet')} value={m(s.totals.collections_net)} route={to.list('reports')}
+        delta={{ cur: s.totals.collections_net, prev: s.previous.collections_net }} spark={{ values: s.series.map((p) => p.collections_net), color: 'var(--chart-1)' }} />
+      <KpiCard icon={<ChartIcon size={16} />} label={t('ovNetIncome')} value={m(s.totals.result)} negative={s.totals.result < 0} route={{ page: 'reports', query: { tab: 'expenses' } }}
+        delta={{ cur: s.totals.result, prev: s.previous.result }} spark={{ values: s.series.map((p) => p.result), color: 'var(--chart-3)' }} />
+      <KpiCard icon={<UsersIcon size={16} />} label={t('ovNewPatients')} value={fmtNumber(s.totals.new_patients)} route={to.list('patients')}
+        delta={{ cur: s.totals.new_patients, prev: s.previous.new_patients }} spark={{ values: s.series.map((p) => p.new_patients), color: 'var(--chart-5)' }} />
+      <KpiCard icon={<CalendarIcon size={16} />} label={t('ovAppointments')} value={fmtNumber(a.booked)} route={{ page: 'reports', query: { tab: 'attendance' } }}
+        delta={{ cur: a.booked, prev: s.previous.appointments.booked }}
+        foot={t('ovAttendedSub').replace('{a}', fmtNumber(a.attended)).replace('{n}', fmtNumber(a.no_show))} />
+    </div>
+  );
+}
+
+/** The one chart: net collections and expenses over the period, per day or month as the API groups them. */
+export function StatsTrend({ clinicId, filters }: { clinicId: string; filters: StatsFilters }) {
+  const s = useReport<StatsReport>(clinicId, 'stats', query(filters)).data; // the same request (one cache)
+  if (!s) return null; // the cards above show the loading and the error
+  const m = (v: number) => money(v, s.currency);
+  return (
+    <Card className="ov-card">
+      <div className="ov-section-head">
+        <div>
+          <h2>{t('homeMoney')}</h2>
+          <p className="muted small">{t('ovTrendSub')}</p>
+        </div>
+        <RouteLink route={to.list('reports')} className="btn btn-secondary btn-sm">{t('navReports')}</RouteLink>
+      </div>
+      <Suspense fallback={<Skeleton h={300} count={1} />}>
+        <MoneyTrend labels={{ collections: t('repNet'), expenses: t('repExpensesTotal'), title: t('homeMoney') }}
+          points={s.series.map((p) => ({ key: p.key, label: s.bucket === 'day' ? dayLabel(p.key) : monthLabel(p.key), collections: p.collections_net, expenses: p.expenses }))}
+          format={m} axisFormat={(v) => compact.format(v / 100)} />
+      </Suspense>
+    </Card>
+  );
+}
+
+/**
+ * One figure card, as in the reference: icon and label, the value on its own line, then how it moved (▲/▼ against the
+ * period before) beside its trend. Without a comparison or a trend (reception's today figures) the bottom line is a
+ * short note. The card opens the figure's page.
+ */
+export function KpiCard({ icon, label, value, route, delta, spark, foot, negative, alert }: {
+  icon: ReactNode; label: string; value: string; route: Route;
+  delta?: { cur: number; prev: number }; spark?: { values: number[]; color: string }; foot?: ReactNode; negative?: boolean; alert?: boolean;
+}) {
+  const c = delta ? change(delta.cur, delta.prev) : undefined;
+  const pct = c === null || c === undefined ? null : `${Math.abs(Math.round(c * 1000) / 10)}%`;
+  return (
+    <RouteLink route={route} className={`card ov-kpi${alert ? ' is-alert' : ''}`}>
+      <span className="ov-kpi-label"><span className="ov-kpi-icon" aria-hidden>{icon}</span>{label}</span>
+      <span className={`ov-kpi-value${negative ? ' is-negative' : ''}`}><bdi>{value}</bdi></span>
+      <span className="ov-kpi-bottom">
+        <span className="ov-kpi-delta">
+          {c !== undefined && (c === null
+            ? <span className="ov-delta" title={t('ovNoCompare')}>—</span>
+            : (
+              <span className={`ov-delta${c > 0 ? ' is-up' : c < 0 ? ' is-down' : ''}`} aria-label={t(c > 0 ? 'ovUpBy' : c < 0 ? 'ovDownBy' : 'ovSame').replace('{p}', pct ?? '')}>
+                <span aria-hidden>{c > 0 ? '↑' : c < 0 ? '↓' : '='}</span><bdi>{pct}</bdi>
+              </span>
+            ))}
+          {c !== undefined && <span className="muted small">{c === null ? t('ovNoCompareShort') : t('ovVsLast')}</span>}
+          {foot && <span className="muted small ov-kpi-foot">{foot}</span>}
+        </span>
+        {spark && spark.values.length > 1 && (
+          <span className="ov-kpi-spark"><Suspense fallback={null}><Sparkline values={spark.values} color={spark.color} /></Suspense></span>
         )}
-        {' '}{pct !== null ? t('ovVsLast') : t('ovNoCompare')}
       </span>
-      <span className="ov-stat-sub">{sub}</span>
     </RouteLink>
   );
 }
