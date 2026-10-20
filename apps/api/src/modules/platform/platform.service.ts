@@ -68,15 +68,23 @@ export class PlatformService {
   }
 
   // ---------- clinics (ADM-01, ADM-02) ----------
-  clinics() {
-    return this.repo.clinics(this.admin());
+  /** Every clinic; one its owner deleted carries `deletion` (asked when, erased when). */
+  async clinics() {
+    const [list, deletions] = await Promise.all([this.repo.clinics(this.admin()), this.repo.deletions(this.admin())]);
+    return list.map((c) => ({ ...c, deletion: deletions.get(c.id) ?? null }));
   }
 
   async clinic(id: string) {
-    const c = (await this.repo.clinics(this.admin())).find((x) => x.id === id);
+    const c = (await this.clinics()).find((x) => x.id === id);
     if (!c) throw clinicNotFound();
     const [notes, history] = await Promise.all([this.repo.notes(this.admin(), id), this.repo.audit(id)]);
     return { ...c, notes, history };
+  }
+
+  /** H8: a clinic its owner deleted comes back as it was, within its 90 days */
+  async restore(id: string) {
+    await this.repo.restore(this.admin(), id);
+    return this.clinic(id);
   }
 
   async extendTrial(id: string, until: string) {

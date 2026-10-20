@@ -9,6 +9,8 @@ export interface StoredObject { body: Readable; contentType: string; length: num
  */
 export interface ObjectStorage {
   put(key: string, body: Buffer, contentType: string): Promise<void>;
+  /** A large object from a local file, streamed (never read into memory): a clinic's data export (H8). */
+  putFile(key: string, filePath: string, contentType: string): Promise<void>;
   /** null when the object does not exist */
   get(key: string): Promise<StoredObject | null>;
   /** idempotent: missing keys are ignored */

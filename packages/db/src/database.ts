@@ -178,6 +178,21 @@ export interface ConsentTemplates {
   version: Generated<number>;
 }
 
+export interface DataExports {
+  created_at: Generated<Timestamp>;
+  error: string | null;
+  expires_at: Timestamp | null;
+  files_count: number | null;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  object_key: string | null;
+  requested_by: string;
+  size_bytes: Int8 | null;
+  started_at: Timestamp | null;
+  status: Generated<string>;
+  tenant_id: string;
+}
+
 export interface DoctorBranches {
   branch_id: string;
   doctor_id: string;
@@ -1092,7 +1107,9 @@ export interface Tenants {
   created_at: Generated<Timestamp>;
   currency: Generated<string>;
   default_locale: Generated<string>;
+  delete_after: Timestamp | null;
   deleted_at: Timestamp | null;
+  deletion_requested_by: string | null;
   email: string | null;
   id: Generated<string>;
   logo_file_id: string | null;
@@ -1104,6 +1121,7 @@ export interface Tenants {
   social_links: Generated<Json>;
   specialties: Generated<string[]>;
   status: Generated<string>;
+  status_before_cancellation: string | null;
   status_before_suspension: string | null;
   suspended_at: Timestamp | null;
   suspension_kind: string | null;
@@ -1285,6 +1303,7 @@ export interface DB {
   cash_session_reopenings: CashSessionReopenings;
   cash_sessions: CashSessions;
   consent_templates: ConsentTemplates;
+  data_exports: DataExports;
   doctor_branches: DoctorBranches;
   doctor_payouts: DoctorPayouts;
   doctor_schedules: DoctorSchedules;

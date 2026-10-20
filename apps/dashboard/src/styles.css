@@ -193,6 +193,11 @@ select.input { appearance: auto; }
 /* ---------- cards & pages ---------- */
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: clamp(16px, 2.5vw, 24px); box-shadow: var(--shadow-sm); }
 .card h2 { font-size: var(--fs-lg); font-weight: 700; }
+/* H8: a card whose action cannot be undone (deleting the clinic) */
+.card-danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+/* one field and its button on a line (wraps on phones) */
+.row-form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.row-form > :first-child { flex: 1 1 260px; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-head h1 { font-size: var(--fs-2xl); font-weight: 700; }
 .page-head p { color: var(--muted); margin-top: 2px; }

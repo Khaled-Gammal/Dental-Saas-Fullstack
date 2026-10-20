@@ -30,6 +30,8 @@ const PAGE: Record<Page, Need> = {
   staff: ['staff:manage'],
   roles: ['staff:manage'],
   gallery: ['website:write'],
+  // H8: the clinic owner only. No role can be given this (it is not in the permission catalogue); the owner's '*' has it
+  data: ['clinic:owner'],
 };
 
 /** A page's other screens, where they need more (or other) than the page. */

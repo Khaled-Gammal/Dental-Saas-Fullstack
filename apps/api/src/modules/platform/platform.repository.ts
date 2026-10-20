@@ -61,6 +61,16 @@ export class PlatformRepository {
     return sql`select platform_suspend(${actor}::uuid, ${tenantId}::uuid, ${reason})`.execute(this.db);
   }
 
+  /** H8: clinics their owner deleted, waiting out their 90 days */
+  async deletions(actor: string): Promise<Map<string, { requested_at: Date; delete_after: Date }>> {
+    const { rows } = await sql<{ tenant_id: string; requested_at: Date; delete_after: Date }>`select * from platform_deletions(${actor}::uuid)`.execute(this.db);
+    return new Map(rows.map((r) => [r.tenant_id, { requested_at: r.requested_at, delete_after: r.delete_after }]));
+  }
+
+  restore(actor: string, tenantId: string) {
+    return sql`select platform_restore_clinic(${actor}::uuid, ${tenantId}::uuid)`.execute(this.db);
+  }
+
   reactivate(actor: string, tenantId: string) {
     return sql`select platform_reactivate(${actor}::uuid, ${tenantId}::uuid)`.execute(this.db);
   }

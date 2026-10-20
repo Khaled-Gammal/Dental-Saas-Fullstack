@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { assertKey, type ObjectStorage, type StoredObject } from './ports';
 
@@ -22,6 +22,13 @@ export class LocalObjectStorage implements ObjectStorage {
     await mkdir(path.dirname(full), { recursive: true });
     await writeFile(full, body);
     await writeFile(`${full}.type`, contentType); // the content type travels with the object, as in S3
+  }
+
+  async putFile(key: string, filePath: string, contentType: string): Promise<void> {
+    const full = this.file(key);
+    await mkdir(path.dirname(full), { recursive: true });
+    await copyFile(filePath, full);
+    await writeFile(`${full}.type`, contentType);
   }
 
   async get(key: string): Promise<StoredObject | null> {

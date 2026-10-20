@@ -1,4 +1,6 @@
 import { CreateBucketCommand, DeleteObjectsCommand, GetObjectCommand, HeadBucketCommand, NoSuchKey, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import type { Readable } from 'node:stream';
 import { assertKey, type ObjectStorage, type StoredObject } from './ports';
 
@@ -27,6 +29,15 @@ export class S3ObjectStorage implements ObjectStorage {
   async put(key: string, body: Buffer, contentType: string): Promise<void> {
     assertKey(key);
     await this.s3.send(new PutObjectCommand({ Bucket: this.cfg.bucket, Key: key, Body: body, ContentType: contentType }));
+  }
+
+  /** One streamed PUT: S3 takes up to 5 GB this way (a larger export fails and is reported; multipart would lift it). */
+  async putFile(key: string, filePath: string, contentType: string): Promise<void> {
+    assertKey(key);
+    const { size } = await stat(filePath);
+    await this.s3.send(new PutObjectCommand({
+      Bucket: this.cfg.bucket, Key: key, Body: createReadStream(filePath), ContentLength: size, ContentType: contentType,
+    }));
   }
 
   async get(key: string): Promise<StoredObject | null> {

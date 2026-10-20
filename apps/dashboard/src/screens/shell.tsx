@@ -30,6 +30,7 @@ const NAV: NavItem[] = [
   { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses' },
   { key: 'navReports', icon: <ChartIcon />, page: 'reports' },
   { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
+  { key: 'navData', icon: <ShieldIcon />, page: 'data' },
   { key: 'navWebsite', icon: <GlobeIcon />, perm: 'website:write' },
 ];
 

@@ -18,6 +18,8 @@ interface Clinic {
   plan_code: string | null; plan_name_ar: string | null; subscription_status: string | null; trial_ends_at: string | null;
   billing_cycle: string | null; current_period_end: string | null;
   members: number; branches: number; patients: number; appointments_30d: number; last_login_at: string | null; owner_email: string | null;
+  /** H8: the owner deleted the clinic; its data is erased at delete_after unless it is restored */
+  deletion: { requested_at: string; delete_after: string } | null;
 }
 interface AuditRow { id: string; action: string; tenant_id: string | null; details: Record<string, unknown>; created_at: string; actor: string | null }
 interface ClinicDetail extends Clinic { notes: { id: string; body: string; created_at: string; author: string }[]; history: AuditRow[] }
@@ -170,7 +172,10 @@ function ClinicsPage() {
                     return (
                       <tr key={c.id}>
                         <td><a href={platformHref({ page: 'clinic', id: c.id })}><bdi>{clinicName(c)}</bdi></a><span className="muted small block" dir="ltr">{c.slug}</span></td>
-                        <td><Badge tone={STATUS_TONE[c.status] ?? 'neutral'}>{t(c.suspension_kind === 'trial_ended' ? 'pl_trialEnded' : (`pl_status_${c.status}` as Key))}</Badge></td>
+                        <td>
+                          <Badge tone={STATUS_TONE[c.status] ?? 'neutral'}>{t(c.deletion ? 'pl_deletionPending' : c.suspension_kind === 'trial_ended' ? 'pl_trialEnded' : (`pl_status_${c.status}` as Key))}</Badge>
+                          {c.deletion && <span className="muted small block">{date(c.deletion.delete_after)}</span>}
+                        </td>
                         <td>{c.plan_name_ar ?? '—'}</td>
                         <td>{left === null ? '—' : left >= 0 ? t('pl_daysLeft').replace('{n}', String(left)) : t('pl_trialEnded')}</td>
                         <td className="num">{c.members}</td><td className="num">{c.patients}</td><td className="num">{c.appointments_30d}</td>
@@ -216,7 +221,7 @@ function ClinicPage({ id }: { id: string }) {
       <p><a href={platformHref({ page: 'clinics' })}>{t('pl_clinics')}</a></p>
       <div className="page-head">
         <div>
-          <h1><bdi>{clinicName(d)}</bdi> <Badge tone={STATUS_TONE[d.status] ?? 'neutral'}>{t(`pl_status_${d.status}` as Key)}</Badge></h1>
+          <h1><bdi>{clinicName(d)}</bdi> <Badge tone={STATUS_TONE[d.status] ?? 'neutral'}>{t(d.deletion ? 'pl_deletionPending' : (`pl_status_${d.status}` as Key))}</Badge></h1>
           <p dir="ltr" className="muted">{d.slug} · {d.owner_email ?? '—'}</p>
         </div>
       </div>
@@ -225,6 +230,14 @@ function ClinicPage({ id }: { id: string }) {
           <div key={k} className="stat"><span className="stat-text"><small>{t(k)}</small><strong>{v}</strong></span></div>
         ))}
       </div>
+      {d.deletion && (
+        <Card className="card-danger">
+          <h2>{t('pl_deletionTitle')}</h2>
+          <p className="mt-sm">{t('pl_deletionText').replace('{asked}', date(d.deletion.requested_at)).replace('{date}', date(d.deletion.delete_after))}</p>
+          <p className="muted small mt-sm">{t('pl_restoreText')}</p>
+          <div className="mt"><Button loading={act.isPending && act.variables?.path === 'restore'} onClick={() => act.mutate({ path: 'restore' })}>{t('pl_restore')}</Button></div>
+        </Card>
+      )}
       <Card>
         <h2>{t('pl_subscription')}</h2>
         <dl className="detail-list mt-sm">

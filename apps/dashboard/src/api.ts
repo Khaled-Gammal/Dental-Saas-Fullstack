@@ -98,6 +98,11 @@ export async function logout() {
   setSession(null);
 }
 
+/** H8: a message for the sign-in screen after the session ends on purpose (the clinic was just deleted). Read once. */
+let loginNotice: string | undefined;
+export const setLoginNotice = (text: string) => { loginNotice = text; };
+export const takeLoginNotice = () => { const n = loginNotice; loginNotice = undefined; return n; };
+
 /** UI hint only (hide buttons the API would refuse); the API checks every permission itself. */
 export const can = (s: Session, perm: string) => s.clinic.permissions?.includes('*') || s.clinic.permissions?.includes(perm) || false;
 
