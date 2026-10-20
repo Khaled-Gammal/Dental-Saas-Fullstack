@@ -5,12 +5,10 @@ import { roleLabel, t, type Key } from '../i18n';
 import { navigate } from '../hooks';
 import { useOnboarding, usePublish } from '../queries';
 import { to, type Page } from '../router';
-import { Badge, Button, Card, ErrorText } from '../ui/components';
+import { Badge, Button, Card, ErrorText, PageHeader } from '../ui/components';
 import { CheckIcon, CopyIcon, ExternalIcon } from '../ui/icons';
-import { DentalArch } from '../ui/illustrations';
 import { HomeFigures } from './home-figures';
 
-const ARCH_TEETH = 14;
 const COPIED_MS = 1800;
 
 type Step = { key: Key; done: boolean; action?: { label: Key; go: () => void; busy?: boolean } };
@@ -42,21 +40,10 @@ export function Overview({ session }: { session: Session }) {
 
   return (
     <>
-      <section className="hero-card">
-        <div className="hero-text">
-          <p className="eyebrow">{t('welcome')}{'، '}<bdi>{session.user.name}</bdi> · {roleLabel(session.clinic.role, session.clinic.roleName)}</p>
-          <h1>{t(setup ? 'overviewSub' : 'homeSub')}</h1>
-          {can(session, 'website:write') && <SiteLink url={site} />}
-        </div>
-        {setup && (
-          <div className="hero-art">
-            <DentalArch filled={(done / steps.length) * ARCH_TEETH} label={`${done}/${steps.length} ${t('stepsDone')}`} />
-            <span className="hero-art-caption">{t('archCaption')}</span>
-          </div>
-        )}
-      </section>
-
-      <HomeFigures clinicId={clinicId} />
+      {/* a compact header in place of the welcome banner (overview redesign 2026-10-21); the website link stays */}
+      <PageHeader title={t('navOverview')}
+        sub={<>{t('welcome')}{'، '}<bdi>{session.user.name}</bdi> · {roleLabel(session.clinic.role, session.clinic.roleName)} — {t(setup ? 'overviewSub' : 'homeSub')}</>}
+        action={can(session, 'website:write') ? <SiteLink url={site} /> : undefined} />
 
       {setup && <ErrorText error={publish.error} />}
       {setup && <Card className="setup">
@@ -82,6 +69,8 @@ export function Overview({ session }: { session: Session }) {
           ))}
         </ol>
       </Card>}
+
+      <HomeFigures session={session} />
     </>
   );
 }
@@ -99,13 +88,13 @@ function SiteLink({ url }: { url: string }) {
     } catch { /* clipboard blocked: the link stays selectable */ }
   };
   return (
-    <div className="site-link">
-      <span className="site-url" dir="ltr">{url.replace(/^https?:\/\//, '')}</span>
-      <button type="button" className="chip-btn" onClick={() => void copy()}>
+    <div className="ov-site">
+      <span className="ov-site-url" dir="ltr">{url.replace(/^https?:\/\//, '')}</span>
+      <Button variant="secondary" className="btn-sm" onClick={() => void copy()}>
         {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}{copied ? t('copied') : t('copy')}
-      </button>
+      </Button>
       <span role="status" className="sr-only">{copied ? t('copiedAnnounce') : ''}</span>
-      <a className="chip-btn" href={url} target="_blank" rel="noreferrer"><ExternalIcon size={16} />{t('open')}</a>
+      <a className="btn btn-secondary btn-sm" href={url} target="_blank" rel="noreferrer"><ExternalIcon size={16} />{t('ovOpenSite')}</a>
     </div>
   );
 }
