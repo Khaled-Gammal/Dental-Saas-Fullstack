@@ -136,6 +136,20 @@ export class BillingRepository {
       .where('patient_id', '=', patientId).where('status', 'in', ['issued', 'partially_paid']).executeTakeFirstOrThrow().then((r) => Number(r.b));
   }
 
+  /**
+   * BILLING-005 at check-in: what each of these patients owes (issued and partly paid invoices), for the day list.
+   * With `doctorId`, only patients that doctor has treated or booked (invoices:read:own).
+   */
+  async balances(tx: Tx, patientIds: string[], doctorId: string | null): Promise<Record<string, number>> {
+    const r = await sql<{ patient_id: string; balance: string }>`
+      select i.patient_id, sum(i.balance_minor) as balance from invoices i
+      where i.patient_id = any(${patientIds}::uuid[]) and i.status in ('issued', 'partially_paid') and i.balance_minor > 0
+        and (${doctorId}::uuid is null or i.patient_id in (select patient_id from visits where doctor_id = ${doctorId}::uuid
+                                                   union select patient_id from appointments where doctor_id = ${doctorId}::uuid))
+      group by i.patient_id`.execute(tx);
+    return Object.fromEntries(r.rows.map((x) => [x.patient_id, Number(x.balance)]));
+  }
+
   // ---------- payments ----------
   private payments(tx: Tx) {
     return tx.selectFrom('payments as pm').select([

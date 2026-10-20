@@ -43,6 +43,20 @@ export class PlansRepository {
     if (Object.keys(f).length) await tx.updateTable('treatment_plans').set(f).where('id', '=', id).execute();
   }
 
+  /**
+   * TPLAN-004: the invoice lines of each plan's procedures (procedure -> plan item), with their invoice's figures.
+   * Issued, partly paid and paid invoices only (a draft is not billed yet, a void one never was).
+   */
+  async invoiceLines(tx: Tx, planIds: string[]) {
+    if (!planIds.length) return [];
+    const r = await sql<{ plan_id: string; line_total_minor: string; subtotal_minor: string; total_minor: string; paid_minor: string; balance_minor: string }>`
+      select pi.plan_id, ii.line_total_minor, i.subtotal_minor, i.total_minor, i.paid_minor, i.balance_minor
+      from invoice_items ii join invoices i on i.id = ii.invoice_id
+      join visit_procedures vp on vp.id = ii.visit_procedure_id join treatment_plan_items pi on pi.id = vp.plan_item_id
+      where pi.plan_id = any(${planIds}::uuid[]) and i.status in ('issued', 'partially_paid', 'paid')`.execute(tx);
+    return r.rows.map((x) => ({ plan_id: x.plan_id, line_total_minor: Number(x.line_total_minor), subtotal_minor: Number(x.subtotal_minor), total_minor: Number(x.total_minor), paid_minor: Number(x.paid_minor), balance_minor: Number(x.balance_minor) }));
+  }
+
   items(tx: Tx, planIds: string[]) {
     if (!planIds.length) return Promise.resolve([]);
     return tx.selectFrom('treatment_plan_items as i').innerJoin('services as s', 's.id', 'i.service_id')

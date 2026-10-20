@@ -154,6 +154,27 @@ describe('Clinical: visits, notes, procedures, plans, prescriptions, chart, foll
       expect((await http().delete(`/visits/${visitId}/procedures/${again.procedures[0].id}`).set(as('doctorA')).expect(409)).body.code).toBe('visit_finalized');
     });
 
+    it('the plan shows what it was invoiced, paid and still owes; the patient’s balance shows for the day list (TPLAN-004, BILLING-005)', async () => {
+      const before = (await http().get(`/plans/${planId}`).set(as('receptionA')).expect(200)).body;
+      expect(before.billing).toEqual({ invoiced_minor: 0, paid_minor: 0, balance_minor: 0 });
+      // the plan's filling and an unrelated cleaning on one invoice: the plan's share is its line's part of the subtotal
+      const v = (await http().get(`/visits/${visitId}`).set(as('doctorA')).expect(200)).body;
+      const inv = (await http().post('/invoices').set(as('receptionA')).send({ patientId, branchId: NASR, procedureIds: [v.procedures[0].id], lines: [{ serviceId: SCALING }] }).expect(201)).body;
+      const issued = (await http().post(`/invoices/${inv.id}/issue`).set(as('receptionA')).expect(200)).body;
+      await http().post(`/invoices/${inv.id}/payments`).set(as('receptionA')).send({ amountMinor: 30000, method: 'cash', idempotencyKey: `plan-${Date.now()}` }).expect(201);
+      const line = issued.lines.find((l: { visit_procedure_id: string | null }) => l.visit_procedure_id === v.procedures[0].id).line_total_minor;
+      const share = (x: number) => Math.round((x * line) / issued.subtotal_minor);
+      const plan = (await http().get(`/plans/${planId}`).set(as('receptionA')).expect(200)).body;
+      expect(plan.billing).toEqual({ invoiced_minor: share(issued.total_minor), paid_minor: share(30000), balance_minor: share(issued.total_minor - 30000) });
+      expect((await http().get(`/plans/${planId}`).set(as('doctorA')).expect(200)).body.billing).toEqual(plan.billing); // the plan's own doctor
+      expect((await http().get(`/patients/${patientId}/plans`).set(as('receptionA')).expect(200)).body.find((p: { id: string }) => p.id === planId).billing).toEqual(plan.billing);
+      // the day list's balances: reception sees every patient, the doctor the patients she treats
+      const owed = issued.total_minor - 30000;
+      expect((await http().get('/balances').query({ patientIds: patientId }).set(as('receptionA')).expect(200)).body).toEqual({ [patientId]: owed });
+      expect((await http().get('/balances').query({ patientIds: patientId }).set(as('doctorA')).expect(200)).body).toEqual({ [patientId]: owed });
+      await http().get('/balances').query({ patientIds: 'not-a-uuid' }).set(as('receptionA')).expect(400);
+    });
+
     it('cancelling the last open item completes the plan; a cancelled item stays visible', async () => {
       const plan = (await http().post(`/plans/${planId}/items/${scalingItem}/cancel`).set(as('doctorA')).expect(200)).body;
       expect(plan.status).toBe('completed');

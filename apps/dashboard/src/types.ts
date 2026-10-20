@@ -308,6 +308,8 @@ export interface PlanRow {
   id: string; patient_id: string; doctor_id: string; title: string; status: PlanStatus; total_estimate_minor: number; notes: string | null;
   accepted_at: string | null; accepted_by_name: string | null; created_at: string; updated_at: string;
   doctor: { name_ar: string | null; name_en: string | null }; summary: PlanSummary;
+  /** TPLAN-004: null for members who may not see the patient's billing */
+  billing: { invoiced_minor: number; paid_minor: number; balance_minor: number } | null;
 }
 export interface PlanDetail extends PlanRow {
   items: PlanItem[];

@@ -23,6 +23,10 @@ export const NewInvoice = z.object({
 export const EditInvoice = z.object({ notes: Text(1000).nullable(), dueDate: z.string().regex(ISO_DATE).nullable() }).partial().strict();
 export const NewLine = z.union([z.object({ procedureId: Uuid }).strict(), ServiceLine]);
 export const VoidInvoice = z.object({ reason: Reason }).strict();
+/** BILLING-005 at check-in: up to 200 patient ids, comma-separated (the day list's patients). */
+export const BalancesQuery = z.object({
+  patientIds: z.string().transform((v) => [...new Set(v.split(',').map((x) => x.trim()).filter(Boolean))]).pipe(z.array(Uuid).min(1).max(200)),
+}).strict();
 
 export const NewPayment = z.object({
   amountMinor: Money, method: z.enum(PAYMENT_METHODS), reference: Text(100).nullable().optional(), notes: Text(500).nullable().optional(),

@@ -4,6 +4,7 @@ import type { z } from 'zod';
 import { RequirePermission } from '../../auth/decorators';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import {
+  BalancesQuery,
   Decision, Discount, EditInvoice, InvoicesQuery, MoveInstallment, NewInvoice, NewLine, NewPayment, NewPlan, NewRefund, Rejection, Reverse, RoleLimit, VoidInvoice, Waive, WriteOff,
 } from './billing.schemas';
 import { BillingService } from './billing.service';
@@ -209,5 +210,19 @@ export class MoneyControlsController {
   @RequirePermission('payments:adjust')
   waive(@Param('id', id) installmentId: string, @Body(new ZodBody(Waive)) body: Body<typeof Waive>) {
     return this.controls.waive(installmentId, body.reason);
+  }
+}
+
+/** BILLING-005 at check-in: `GET /balances?patientIds=a,b` — invoices:read, or invoices:read:own for the doctor's patients. */
+@ApiTags('billing')
+@ApiBearerAuth()
+@Controller('balances')
+export class BalancesController {
+  constructor(private readonly billing: BillingService) {}
+
+  @Get()
+  @RequirePermission('patients:read')
+  balances(@Query(new ZodBody(BalancesQuery)) q: Body<typeof BalancesQuery>) {
+    return this.billing.balances(q.patientIds);
   }
 }

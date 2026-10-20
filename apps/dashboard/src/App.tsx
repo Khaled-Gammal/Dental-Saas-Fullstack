@@ -128,7 +128,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action === 'edit' && can(session, 'appointments:write')) return <MoveAppointment clinicId={clinicId} id={id} canOverride={can(session, 'appointments:override')} />;
       if (action) return <NotFound text={t('noPermissionPage')} back={to.list('appointments')} backLabel={t('navAppointments')} />;
       return <Appointments clinicId={clinicId} canWrite={can(session, 'appointments:write')} canOwn={can(session, 'appointments:write:own')} query={route.query}
-        canVisit={can(session, 'clinical:write')} canReadVisit={can(session, 'clinical:read') || can(session, 'clinical:write')}
+        canVisit={can(session, 'clinical:write')} canSeeBalances={can(session, 'invoices:read') || can(session, 'invoices:read:own')} canReadVisit={can(session, 'clinical:read') || can(session, 'clinical:write')}
         defaultView={session.clinic.role === 'doctor' ? 'mine' : 'all'} />; // a doctor opens on their own day (APPT-004)
     case 'gallery': {
       // website content is the owner's (SRS 2.2: Website & content)
