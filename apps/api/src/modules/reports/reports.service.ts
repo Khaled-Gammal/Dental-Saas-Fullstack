@@ -7,7 +7,8 @@ import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
 import { dateInZone, safeTimeZone } from '../../shared/time/clinic-time';
 import {
-  attendanceFigures, attendanceReport, expensesReport, homeSections, netCollections, outstandingReport, performanceReport, reportAccess, resolvePeriod, revenueReport,
+  attendanceFigures, attendanceReport, expensesReport, homeSections, netCollections, outstandingReport, performanceReport, previousPeriod, reportAccess, resolvePeriod, revenueReport,
+  statsReport,
   type Period, type ReportKind, type Scope,
 } from './reports-rules';
 import type { ReportQueryInput } from './reports.schemas';
@@ -109,6 +110,23 @@ export class ReportsService {
         today, month, currency: clinic.currency, sections: s, linked_doctor: mine ? !!doctorId : null,
         appointments: a, follow_ups: f, today_money: money && { ...money.totals, by_method: money.by_method }, finance: fin, cash,
       };
+    });
+  }
+
+  /**
+   * Statistics (owner 2026-10-21; owner and accountant: `reports:read`): the period's appointments, new patients, money,
+   * expenses and result against the period before (previousPeriod), a day-or-month series for the chart, and what
+   * patients owe now. Same rows, same rules as the reports: nothing is computed differently.
+   */
+  stats(q: ReportQueryInput) {
+    return this.report('stats', q, async (tx, p, branchId) => {
+      const prev = previousPeriod(p);
+      const read = (period: Period) => Promise.all([
+        this.repo.money(tx, period, branchId), this.repo.expenses(tx, period, branchId),
+        this.repo.attendance(tx, period, branchId, null), this.repo.newPatients(tx, period, branchId),
+      ]).then(([money, expenses, attendance, newPatients]) => ({ money, expenses, attendance, newPatients }));
+      const [cur, before, owed, overdue] = await Promise.all([read(p), read(prev), this.repo.outstanding(tx, branchId), this.repo.overdue(tx, branchId)]);
+      return { ...statsReport(cur, before, p, prev), outstanding: outstandingReport(owed, overdue).totals };
     });
   }
 

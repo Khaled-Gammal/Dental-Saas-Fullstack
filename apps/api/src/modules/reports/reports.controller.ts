@@ -53,4 +53,10 @@ export class ReportsController {
   performance(@Query(new ZodBody(ReportQuery)) q: Q) {
     return this.reports.performance(q);
   }
+
+  /** statistics for the overview: a period against the one before, a chart series, what is owed now (reports:read) */
+  @Get('stats')
+  stats(@Query(new ZodBody(ReportQuery)) q: Q) {
+    return this.reports.stats(q);
+  }
 }

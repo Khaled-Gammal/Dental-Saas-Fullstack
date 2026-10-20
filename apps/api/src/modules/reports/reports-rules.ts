@@ -6,7 +6,7 @@
 import { hasPermission } from '../../auth/permissions';
 import { addDays } from '../../shared/time/clinic-time';
 
-export const REPORTS = ['revenue', 'expenses', 'attendance', 'outstanding', 'performance'] as const;
+export const REPORTS = ['revenue', 'expenses', 'attendance', 'outstanding', 'performance', 'stats'] as const; // stats: reports:read only (reportAccess)
 export type ReportKind = (typeof REPORTS)[number];
 
 /** all = the clinic (within the member's branches); own = a doctor's own figures; today = reception's daily view */
@@ -214,3 +214,77 @@ export function homeSections(perms: readonly string[] | undefined): HomeSections
     finance: has('reports:read'),
   };
 }
+
+// ---------- statistics (owner 2026-10-21): the overview's figures for a period, against the period before ----------
+export interface NewPatientRow { branch_id: string; day: string; n: number }
+export type StatsBucket = 'day' | 'month';
+/** Up to about two months the chart goes by day; longer periods (to the 366-day cap) by month. */
+export const STATS_DAILY_MAX_DAYS = 62;
+
+const daysIn = (p: Period) => Math.round((Date.parse(`${p.to}T00:00:00Z`) - Date.parse(`${p.from}T00:00:00Z`)) / 86_400_000) + 1;
+const monthEnd = (ym: string) => addDays(`${nextMonth(ym)}-01`, -1);
+function nextMonth(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+function prevMonth(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+}
+
+/**
+ * The period a period is compared with. A period starting on the 1st and staying in its month (this month so far) is
+ * compared with the same days of the month before, cut at that month's end (31 March → 1–29 February in a leap year);
+ * any other period with as many days just before it.
+ */
+export function previousPeriod(p: Period): Period {
+  if (p.from.endsWith('-01') && p.from.slice(0, 7) === p.to.slice(0, 7)) {
+    const ym = prevMonth(p.from.slice(0, 7));
+    const to = `${ym}-${p.to.slice(8)}`;
+    const end = monthEnd(ym);
+    return { from: `${ym}-01`, to: to > end ? end : to };
+  }
+  const to = addDays(p.from, -1);
+  return { from: addDays(to, -(daysIn(p) - 1)), to };
+}
+
+export const statsBucket = (p: Period): StatsBucket => (daysIn(p) <= STATS_DAILY_MAX_DAYS ? 'day' : 'month');
+
+/** Every bucket of the period, oldest first, so the chart has a point for days or months with nothing in them. */
+export function bucketKeys(p: Period, bucket: StatsBucket): string[] {
+  const keys: string[] = [];
+  if (bucket === 'day') for (let d = p.from; d <= p.to; d = addDays(d, 1)) keys.push(d);
+  else for (let m = p.from.slice(0, 7); m <= p.to.slice(0, 7); m = nextMonth(m)) keys.push(m);
+  return keys;
+}
+
+/** A period's figures, each by the rule of its own report: money as REPORT-001, expenses and the result as REPORT-002. */
+function statsFigures(money: readonly MoneyRow[], expenses: readonly ExpenseRow[], newPatients: readonly NewPatientRow[]) {
+  const rev = revenueReport(money).totals;
+  const exp = expensesReport(expenses, rev.net).totals;
+  return {
+    invoiced: rev.invoiced, collections_net: rev.net, expenses: exp.total, result: exp.result,
+    new_patients: sum(newPatients.map((r) => r.n)),
+  };
+}
+
+/**
+ * The statistics: the period and the one before it (appointments as REPORT-003, money, expenses, result, new
+ * patients), and the same money and patient figures per day or month for the chart. Nothing new is computed: every
+ * figure is the sum its own report makes of the same rows.
+ */
+export function statsReport(cur: StatsInput, prev: StatsInput, period: Period, previous: Period) {
+  const bucket = statsBucket(period);
+  const key = (day: string) => (bucket === 'day' ? day : day.slice(0, 7));
+  const series = bucketKeys(period, bucket).map((k) => ({
+    key: k,
+    ...statsFigures(cur.money.filter((r) => key(r.day) === k), cur.expenses.filter((r) => key(r.day) === k), cur.newPatients.filter((r) => key(r.day) === k)),
+  }));
+  return {
+    previous_period: previous, bucket,
+    totals: { ...statsFigures(cur.money, cur.expenses, cur.newPatients), appointments: attendanceFigures(cur.attendance) },
+    previous: { ...statsFigures(prev.money, prev.expenses, prev.newPatients), appointments: attendanceFigures(prev.attendance) },
+    series,
+  };
+}
+export interface StatsInput { money: MoneyRow[]; expenses: ExpenseRow[]; attendance: AttendanceRow[]; newPatients: NewPatientRow[] }

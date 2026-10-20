@@ -9,7 +9,7 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; } /* no preflight: th
 a:where(:not([data-slot])) { color: var(--primary-600); } /* a link that is a shadcn part (a sidebar item) has its own colour; :where keeps it as weak as a plain `a`, so .btn-primary and the like win */
 code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.85em; }
 :focus-visible { outline: 2px solid transparent; box-shadow: var(--ring); } /* transparent outline still shows in Windows forced-colours mode */
-.hero-card :focus-visible, .auth-brand :focus-visible { box-shadow: var(--ring-on-dark); }
+.auth-brand :focus-visible { box-shadow: var(--ring-on-dark); }
 /* pop-up panels (menus, select lists) take focus when they open, and their items show focus with a highlighted background: no ring there */
 [data-slot$="-content"]:focus-visible, [role="menuitem"]:focus-visible, [role="option"]:focus-visible { box-shadow: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -185,21 +185,6 @@ select.input { appearance: auto; }
 .empty-icon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--primary-50); color: var(--primary-500); margin-bottom: 8px; }
 .empty h3 { font-size: var(--fs-lg); }
 .empty p { color: var(--muted); max-width: 380px; margin-bottom: 12px; }
-
-.hero-card { position: relative; overflow: hidden; border-radius: var(--r-xl); padding: clamp(22px, 4vw, 36px); color: #fff;
-  background: radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(--sky-400) 35%, transparent), transparent 55%), linear-gradient(135deg, var(--primary-500), var(--navy-800)); box-shadow: var(--shadow-md); }
-.hero-card { display: grid; grid-template-columns: 1fr minmax(220px, 300px); align-items: center; gap: 24px; }
-.hero-text { position: relative; z-index: 1; max-width: 620px; min-width: 0; }
-.hero-art { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.hero-art-caption { font-size: var(--fs-xs); color: rgb(255 255 255 / 0.92); text-align: center; }
-@media (max-width: 720px) { .hero-card { grid-template-columns: 1fr; } .hero-art { display: none; } }
-.hero-card .eyebrow { color: rgb(255 255 255 / 0.92); font-weight: 600; margin-bottom: 4px; }
-.hero-card h1 { color: #fff; font-size: var(--fs-xl); font-weight: 700; margin-bottom: 20px; }
-.site-link { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.site-url { padding: 8px 14px; border-radius: var(--r-pill); background: rgb(255 255 255 / 0.14); font-weight: 600; font-size: var(--fs-sm); max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.chip-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: var(--r-pill); border: 0; background: #fff; color: var(--primary-600);
-  font: inherit; font-size: var(--fs-sm); font-weight: 600; text-decoration: none; cursor: pointer; }
-.chip-btn:hover { background: var(--primary-50); }
 
 .stats { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .stat { display: flex; align-items: center; gap: 14px; padding: 18px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
@@ -639,17 +624,6 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 }
 
 /* the home screen per role (Phase F4, REPORT-006) */
-.home-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(max(280px, calc((100% - 32px) / 3)), 1fr)); align-items: start; } /* at most three a row, so wide screens never leave empty columns (U1) */
-.home-grid > .alert { grid-column: 1 / -1; }
-.home-block.is-wide { grid-column: 1 / -1; }
-.home-title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--fs-md, 1rem); }
-.home-title .stat-icon { width: 36px; height: 36px; }
-.home-big { font-size: 1.75rem; font-weight: 800; margin: 10px 0 2px; }
-.home-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 12px 0 6px; }
-.home-figures div { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); }
-.home-figures dt { color: var(--muted); font-size: var(--fs-xs); }
-.home-figures dd { margin: 2px 0 0; font-weight: 700; font-size: var(--fs-lg); }
-.home-figures .is-alert { border-color: var(--warning, #d97706); background: var(--warning-bg); }
 
 /* H4: the permission checklist of a role, two columns when there is room */
 .perm-group { border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -705,3 +679,25 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .row-menu-trigger { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: var(--r-md); background: none; color: var(--muted); cursor: pointer; }
 .row-menu-trigger:hover, .row-menu-trigger[data-state="open"] { background: var(--surface); border-color: var(--line); color: var(--ink); }
 .row-menu-trigger:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ---------- overview (screens/overview.tsx, home-figures.tsx; redesign 2026-10-21, after Untitled UI) ---------- */
+.ov-site { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ov-site-url { font-size: var(--fs-sm); color: var(--muted); padding-inline: 4px; }
+.ov-stats { display: grid; gap: clamp(10px, 1.5vw, 16px); grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); } /* two a row on a phone */
+.ov-stat { display: flex; flex-direction: column; gap: 6px; min-height: 112px; color: inherit; text-decoration: none; transition: border-color var(--t-med), box-shadow var(--t-med); }
+.ov-stat:hover { border-color: var(--primary-200); box-shadow: var(--shadow-md); }
+.ov-stat-head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
+.ov-stat-value { font-size: clamp(1.4rem, 1.2rem + 0.6vw, 1.8rem); font-weight: 700; color: var(--ink); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ov-stat-sub { color: var(--muted); font-size: var(--fs-sm); }
+.ov-stat.is-alert .ov-stat-sub { color: var(--warning-ink, #b45309); }
+/* the day's table beside the to-dos; one column below 1100px, or when the member has no appointments block */
+.ov-main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1100px) { .ov-main { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); } .ov-main.is-single { grid-template-columns: minmax(0, 1fr); } }
+.ov-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ov-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ov-section-head h2 { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); font-weight: 700; }
+.ov-attention h2 { font-size: var(--fs-lg); font-weight: 700; }
+.ov-attention ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ov-attention-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); color: var(--ink); text-decoration: none; }
+.ov-attention-item:hover { background: var(--primary-50); border-color: var(--primary-200); }
+.ov-attention-n { display: inline-grid; place-items: center; min-width: 32px; height: 32px; padding-inline: 8px; border-radius: var(--r-pill); background: var(--warning-bg, #fffbeb); color: var(--warning-ink, #b45309); font-weight: 700; font-variant-numeric: tabular-nums; }

@@ -75,9 +75,10 @@ export function useInvalidate(clinicId: string) {
 
 /** One day of appointments; the key extends the clinic key so one invalidation refreshes every day and branch. */
 /** `mine`: only the signed-in doctor's own appointments (SRS APPT-004). */
-export const useAppointments = (clinicId: string, date: string, branchId?: string, mine = false) =>
+export const useAppointments = (clinicId: string, date: string, branchId?: string, mine = false, enabled = true) =>
   useQuery({
     queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all', mine ? 'mine' : 'clinic'] as const,
+    enabled, // the overview asks only when the member reads appointments
     queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }), ...(mine && { mine: 'true' }) })}`),
     refetchInterval: 30_000, // reception keeps the day open; website bookings appear without a reload
   });
@@ -328,8 +329,8 @@ export function useBillingMutation<V, R = unknown>(clinicId: string, fn: (v: V) 
   });
 }
 
-export const usePendingDiscounts = (clinicId: string) =>
-  useQuery({ queryKey: [...billingKeys.all(clinicId), 'discounts', 'pending'] as const, queryFn: () => api<InvoiceRow[]>('/discounts/pending') });
+export const usePendingDiscounts = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: [...billingKeys.all(clinicId), 'discounts', 'pending'] as const, queryFn: () => api<InvoiceRow[]>('/discounts/pending'), enabled });
 export const useDiscountLimits = (clinicId: string) =>
   useQuery({ queryKey: [...billingKeys.all(clinicId), 'discounts', 'limits'] as const, queryFn: () => api<RoleLimit[]>('/discounts/limits') });
 export const useOverdueInstallments = (clinicId: string, enabled = true) =>

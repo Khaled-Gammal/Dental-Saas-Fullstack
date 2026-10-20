@@ -1,6 +1,7 @@
 import {
-  attendanceFigures, expensesReport, homeSections, outstandingReport, performanceReport, reportAccess, resolvePeriod, revenueReport,
-  type AttendanceRow, type MoneyRow, type OutstandingRow,
+  attendanceFigures, bucketKeys, expensesReport, homeSections, outstandingReport, performanceReport, previousPeriod, reportAccess, resolvePeriod, revenueReport,
+  statsBucket, statsReport,
+  type AttendanceRow, type ExpenseRow, type MoneyRow, type OutstandingRow,
 } from '../reports-rules';
 
 const today = '2026-10-19';
@@ -153,5 +154,60 @@ describe('home screen per role (REPORT-006)', () => {
   });
   it('an assistant sees the day, nothing financial', () => {
     expect(homeSections(roles.assistant)).toEqual({ appointments: 'all', followUps: 'all', cash: false, todayMoney: false, finance: false });
+  });
+});
+
+describe('statistics (owner 2026-10-21)', () => {
+  it('only reports:read opens them (owner and accountant)', () => {
+    expect(reportAccess(['reports:read'], 'stats', null, today)).toEqual({ scope: 'all' });
+    expect(reportAccess(['reports:read:daily'], 'stats', null, today)).toEqual({ error: 'missing_permission' });
+    expect(reportAccess(['reports:read:own'], 'stats', null, today)).toEqual({ error: 'missing_permission' });
+  });
+
+  it('this month so far is compared with the same days of last month, cut at the end of that month', () => {
+    expect(previousPeriod({ from: '2026-10-01', to: '2026-10-21' })).toEqual({ from: '2026-09-01', to: '2026-09-21' });
+    expect(previousPeriod({ from: '2026-03-01', to: '2026-03-31' })).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(previousPeriod({ from: '2028-03-01', to: '2028-03-31' })).toEqual({ from: '2028-02-01', to: '2028-02-29' });
+    expect(previousPeriod({ from: '2026-01-01', to: '2026-01-15' })).toEqual({ from: '2025-12-01', to: '2025-12-15' });
+  });
+
+  it('any other period is compared with as many days just before it', () => {
+    expect(previousPeriod({ from: '2026-10-10', to: '2026-10-19' })).toEqual({ from: '2026-09-30', to: '2026-10-09' });
+    expect(previousPeriod({ from: '2026-09-01', to: '2026-10-21' })).toEqual({ from: '2026-07-12', to: '2026-08-31' });
+    expect(previousPeriod({ from: today, to: today })).toEqual({ from: '2026-10-18', to: '2026-10-18' });
+  });
+
+  it('the chart goes by day up to 62 days, by month beyond, with every bucket present', () => {
+    expect(statsBucket({ from: '2026-09-01', to: '2026-10-31' })).toBe('day'); // 61 days
+    expect(statsBucket({ from: '2026-08-01', to: '2026-10-31' })).toBe('month');
+    expect(bucketKeys({ from: '2026-10-30', to: '2026-11-02' }, 'day')).toEqual(['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']);
+    expect(bucketKeys({ from: '2025-11-15', to: '2026-02-03' }, 'month')).toEqual(['2025-11', '2025-12', '2026-01', '2026-02']);
+  });
+
+  it('every figure comes from its own report, and the series adds up to the totals', () => {
+    const money: MoneyRow[] = [
+      { branch_id: 'a', day: '2026-10-02', kind: 'invoiced', method: null, amount: 50000, n: 1 },
+      { branch_id: 'a', day: '2026-10-02', kind: 'payment', method: 'cash', amount: 30000, n: 1 },
+      { branch_id: 'a', day: '2026-10-03', kind: 'refund', method: 'cash', amount: 5000, n: 1 },
+    ];
+    const expenses: ExpenseRow[] = [
+      { branch_id: 'a', day: '2026-10-03', category_id: 'c', method: 'cash', status: 'approved', amount: 8000, n: 1 },
+      { branch_id: 'a', day: '2026-10-03', category_id: 'c', method: 'cash', status: 'rejected', amount: 9999, n: 1 },
+    ];
+    const attendance: AttendanceRow[] = [{ branch_id: 'a', doctor_id: 'd', status: 'completed', n: 3 }, { branch_id: 'a', doctor_id: 'd', status: 'no_show', n: 1 }];
+    const empty = { money: [], expenses: [], attendance: [], newPatients: [] };
+    const period = { from: '2026-10-01', to: '2026-10-03' };
+    const r = statsReport({ money, expenses, attendance, newPatients: [{ branch_id: 'a', day: '2026-10-02', n: 2 }] }, empty, period, previousPeriod(period));
+
+    const rev = revenueReport(money).totals;
+    expect(r.totals).toMatchObject({ invoiced: rev.invoiced, collections_net: rev.net, expenses: 8000, result: expensesReport(expenses, rev.net).totals.result, new_patients: 2 });
+    expect(r.totals.result).toBe(25000 - 8000); // the expenses report's result: net collections − counted expenses
+    expect(r.totals.appointments).toEqual(attendanceFigures(attendance));
+    expect(r.previous).toMatchObject({ invoiced: 0, collections_net: 0, expenses: 0, result: 0, new_patients: 0 });
+    expect(r).toMatchObject({ bucket: 'day', previous_period: { from: '2026-09-01', to: '2026-09-03' } });
+    expect(r.series.map((x) => x.key)).toEqual(['2026-10-01', '2026-10-02', '2026-10-03']);
+    for (const k of ['invoiced', 'collections_net', 'expenses', 'result', 'new_patients'] as const) {
+      expect(r.series.reduce((t, x) => t + x[k], 0)).toBe(r.totals[k]);
+    }
   });
 });

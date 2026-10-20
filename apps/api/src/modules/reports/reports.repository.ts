@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { sql, type Tx } from '@dental/db';
-import type { AttendanceRow, ExpenseRow, MoneyRow, OutstandingRow, OverdueRow, Period, ProcedureRow } from './reports-rules';
+import type { AttendanceRow, ExpenseRow, MoneyRow, NewPatientRow, OutstandingRow, OverdueRow, Period, ProcedureRow } from './reports-rules';
 
 const visible = sql<boolean>`((select member_branch_ids()) is null or b.id = any((select member_branch_ids())::uuid[]))`;
 
@@ -44,6 +44,13 @@ export class ReportsRepository {
     const r = await sql<{ branch_id: string; day: string; category_id: string; method: string | null; status: ExpenseRow['status']; amount: string; n: string }>`
       select branch_id, to_char(day, 'YYYY-MM-DD') as day, category_id, method, status, amount, n from report_expenses(${p.from}::date, ${p.to}::date, ${branchId}::uuid)`.execute(tx);
     return r.rows.map((x) => ({ ...x, amount: Number(x.amount), n: Number(x.n) }));
+  }
+
+  /** patients whose first visit falls in the period, by that visit's branch and day (statistics, 2026-10-21) */
+  async newPatients(tx: Tx, p: Period, branchId: string | null): Promise<NewPatientRow[]> {
+    const r = await sql<{ branch_id: string; day: string; n: string }>`
+      select branch_id, to_char(day, 'YYYY-MM-DD') as day, n from report_new_patients(${p.from}::date, ${p.to}::date, ${branchId}::uuid)`.execute(tx);
+    return r.rows.map((x) => ({ ...x, n: Number(x.n) }));
   }
 
   async attendance(tx: Tx, p: Period, branchId: string | null, doctorId: string | null): Promise<AttendanceRow[]> {
