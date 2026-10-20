@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 import { Upload } from 'lucide-react';
-import { t } from '../i18n';
 import { Button, LinkButton } from '../ui/components';
 
 /**
@@ -22,12 +21,12 @@ export function FilePicker({ id, describedBy, accept, file, onChange, disabled }
       <input ref={input} type="file" accept={accept} hidden tabIndex={-1}
         onChange={(e) => { onChange(e.target.files?.[0] ?? null); e.target.value = ''; }} />
       <Button id={id} aria-describedby={describedBy} variant="secondary" disabled={disabled} onClick={() => input.current?.click()}>
-        <Upload size={16} aria-hidden />{t(file ? 'changeFile' : 'pickFile')}
+        <Upload size={16} aria-hidden />{file ? 'تغيير الملف' : 'اختر ملفًا'}
       </Button>
       {file
         ? <span className="file-picker-name"><bdi dir="auto">{file.name}</bdi></span>
-        : <span className="muted small">{t('noFileChosen')}</span>}
-      {file && !disabled && <LinkButton onClick={() => onChange(null)}>{t('remove')}</LinkButton>}
+        : <span className="muted small">لم يُختر ملف بعد</span>}
+      {file && !disabled && <LinkButton onClick={() => onChange(null)}>إزالة</LinkButton>}
     </div>
   );
 }

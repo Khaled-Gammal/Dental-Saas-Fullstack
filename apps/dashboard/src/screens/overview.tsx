@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { can, type Session } from '../api';
 import { siteUrl } from '../config';
-import { roleLabel, t, type Key } from '../i18n';
+import { roleLabel } from '../labels';
 import { navigate } from '../hooks';
 import { useHome, useOnboarding, usePublish } from '../queries';
 import { to, type Page } from '../router';
@@ -12,7 +12,7 @@ import { StatsControls, type StatsFilters } from './overview-stats';
 
 const COPIED_MS = 1800;
 
-type Step = { key: Key; done: boolean; action?: { label: Key; go: () => void; busy?: boolean } };
+type Step = { key: string; done: boolean; action?: { label: string; go: () => void; busy?: boolean } };
 
 /**
  * The home screen (SRS REPORT-006): a welcome, the member's own figures (HomeFigures), and — for the owner until it
@@ -26,14 +26,14 @@ export function Overview({ session }: { session: Session }) {
   const site = siteUrl(session.clinic.slug);
 
   const steps: Step[] = [
-    { key: 'stepAccount', done: true },
-    { key: 'stepProfile', done: !!status?.profile, action: { label: 'goProfile', go: () => go('profile') } },
-    { key: 'stepBranch', done: !!status?.branches, action: { label: 'goBranches', go: () => go('branches') } },
-    { key: 'stepHours', done: !!status?.hours, action: { label: 'goHours', go: () => go('branches') } },
-    { key: 'stepDoctors', done: !!status?.doctors, action: { label: 'goDoctors', go: () => go('doctors') } },
-    { key: 'stepServices', done: !!status?.services, action: { label: 'goServices', go: () => go('services') } },
+    { key: 'إنشاء الحساب وتأكيد الموبايل', done: true },
+    { key: 'إكمال ملف العيادة (رقم الحجز والنبذة)', done: !!status?.profile, action: { label: 'إكمال الملف', go: () => go('profile') } },
+    { key: 'إضافة فرع واحد على الأقل', done: !!status?.branches, action: { label: 'إدارة الفروع', go: () => go('branches') } },
+    { key: 'تحديد مواعيد العمل', done: !!status?.hours, action: { label: 'تحديد المواعيد', go: () => go('branches') } },
+    { key: 'إضافة الأطباء', done: !!status?.doctors, action: { label: 'إضافة الأطباء', go: () => go('doctors') } },
+    { key: 'إضافة الخدمات والأسعار', done: !!status?.services, action: { label: 'إضافة الخدمات', go: () => go('services') } },
     // "published" also means "nothing waiting": a pending draft re-opens the step
-    { key: 'stepPublish', done: !!status?.published && !status?.pendingChanges, action: { label: 'goPublish', go: () => publish.mutate(), busy: publish.isPending } },
+    { key: 'نشر الموقع', done: !!status?.published && !status?.pendingChanges, action: { label: 'نشر الموقع', go: () => publish.mutate(), busy: publish.isPending } },
   ];
   const done = steps.filter((s) => s.done).length;
   const next = steps.find((s) => !s.done);
@@ -49,9 +49,9 @@ export function Overview({ session }: { session: Session }) {
     <>
       {/* a compact header (overview redesign 2026-10-21): what changes the page (period, branch) is its action; the
           website link is a quiet line under the greeting */}
-      <PageHeader title={<>{t('welcome')}{'، '}<bdi>{session.user.name}</bdi></>}
+      <PageHeader title={<>أهلًا{'، '}<bdi>{session.user.name}</bdi></>}
         sub={<>
-          {roleLabel(session.clinic.role, session.clinic.roleName)} — {t(setup ? 'overviewSub' : 'homeSub')}
+          {roleLabel(session.clinic.role, session.clinic.roleName)} — {setup ? 'هذا ملخص عيادتك وخطوات تجهيزها' : 'ملخص يومك في العيادة'}
           {can(session, 'website:write') && <SiteLink url={site} />}
         </>}
         action={stats && statsFilters ? <StatsControls clinicId={clinicId} value={statsFilters} onChange={setFilters} /> : undefined} />
@@ -60,11 +60,11 @@ export function Overview({ session }: { session: Session }) {
       {setup && <Card className="setup">
         <div className="setup-head">
           <div>
-            <h2>{t('setupTitle')}</h2>
-            <p className="muted">{t('setupSub')}</p>
+            <h2>جهّز عيادتك</h2>
+            <p className="muted">أكمل الخطوات لنشر موقعك واستقبال الحجوزات</p>
           </div>
           <div className="progress-ring" style={{ ['--p' as string]: `${(done / steps.length) * 100}` }}
-            role="img" aria-label={`${done}/${steps.length} ${t('stepsDone')}`}>
+            role="img" aria-label={`${done}/${steps.length} ${'خطوات مكتملة'}`}>
             <span><bdi>{done}/{steps.length}</bdi></span>
           </div>
         </div>
@@ -72,10 +72,10 @@ export function Overview({ session }: { session: Session }) {
           {steps.map((s, i) => (
             <li key={s.key} className={`step${s.done ? ' done' : ''}${s === next ? ' current' : ''}`}>
               <span className="step-dot">{s.done ? <CheckIcon size={14} /> : i + 1}</span>
-              <span className="step-label">{t(s.key)}</span>
+              <span className="step-label">{s.key}</span>
               {!s.done && (s.action
-                ? <Button variant={s === next ? 'primary' : 'secondary'} onClick={s.action.go} loading={s.action.busy}>{t(s.action.label)}</Button>
-                : <Badge>{t('soon')}</Badge>)}
+                ? <Button variant={s === next ? 'primary' : 'secondary'} onClick={s.action.go} loading={s.action.busy}>{s.action.label}</Button>
+                : <Badge>قريبًا</Badge>)}
             </li>
           ))}
         </ol>
@@ -100,12 +100,12 @@ function SiteLink({ url }: { url: string }) {
   };
   return (
     <span className="ov-site">
-      <span className="muted">{t('ovYourSite')}</span>
+      <span className="muted">موقعك:</span>
       <a href={url} target="_blank" rel="noreferrer" dir="ltr" className="ov-site-url">{url.replace(/^https?:\/\//, '')}<ExternalIcon size={14} aria-hidden /></a>
-      <button type="button" className="ov-site-copy" onClick={() => void copy()} aria-label={t('copy')}>
-        {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}{copied ? t('copied') : t('copy')}
+      <button type="button" className="ov-site-copy" onClick={() => void copy()} aria-label="نسخ">
+        {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}{copied ? 'تم النسخ' : 'نسخ'}
       </button>
-      <span role="status" className="sr-only">{copied ? t('copiedAnnounce') : ''}</span>
+      <span role="status" className="sr-only">{copied ? 'تم نسخ رابط الموقع' : ''}</span>
     </span>
   );
 }

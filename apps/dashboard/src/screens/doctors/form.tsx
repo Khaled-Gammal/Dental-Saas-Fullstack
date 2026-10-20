@@ -5,7 +5,6 @@ import { api } from '../../api';
 import { ImageField } from '../../components/image-field';
 import { useLeave, useUnsavedChanges } from '../../hooks';
 import { imageFieldValue } from '../../media-model';
-import { t } from '../../i18n';
 import { useBranches, useDoctors, useInvalidate, useOne } from '../../queries';
 import { to } from '../../router';
 import type { Branch, Doctor, MediaImage } from '../../types';
@@ -47,8 +46,8 @@ export function DoctorForm({ clinicId, id }: { clinicId: string; id?: string }) 
   const branches = useBranches(clinicId);
   const one = useOne(useDoctors(clinicId), id);
   const active = branches.data?.filter((b) => b.is_active);
-  if (!active) return <ResourceState isLoading={branches.isLoading} isError={branches.isError} error={branches.error} notFound={false} refetch={() => void branches.refetch()} back={to.list('doctors')} backLabel={t('navDoctors')} />;
-  if (id && !one.data) return <ResourceState {...one} back={to.list('doctors')} backLabel={t('navDoctors')} />;
+  if (!active) return <ResourceState isLoading={branches.isLoading} isError={branches.isError} error={branches.error} notFound={false} refetch={() => void branches.refetch()} back={to.list('doctors')} backLabel="الأطباء" />;
+  if (id && !one.data) return <ResourceState {...one} back={to.list('doctors')} backLabel="الأطباء" />;
   return <DoctorFormBody key={id ?? 'new'} clinicId={clinicId} branches={active} doctor={one.data} />;
 }
 
@@ -63,7 +62,7 @@ function DoctorFormBody({ clinicId, branches, doctor }: { clinicId: string; bran
   const hasName = form.nameAr.trim().length >= 2 || form.nameEn.trim().length >= 2; // DisplayName min(2) on the API
   const dirty = orig ? Object.keys(body).length > 0 : JSON.stringify(form) !== JSON.stringify(start);
   const canSave = hasName && form.branchIds.length > 0 && dirty;
-  useUnsavedChanges(dirty, t('leaveUnsaved'));
+  useUnsavedChanges(dirty, 'لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟');
 
   const save = useMutation({
     mutationFn: () => (doctor
@@ -71,63 +70,63 @@ function DoctorFormBody({ clinicId, branches, doctor }: { clinicId: string; bran
       : api<Doctor>('/doctors', { method: 'POST', body: JSON.stringify(body) })),
     onSuccess: () => invalidate('doctors'),
   });
-  const submit = (e: FormEvent) => { e.preventDefault(); if (canSave) save.mutate(undefined, { onSuccess: () => leave(t('doctorSaved')) }); };
+  const submit = (e: FormEvent) => { e.preventDefault(); if (canSave) save.mutate(undefined, { onSuccess: () => leave('تم حفظ بيانات الطبيب') }); };
   const set = <K extends keyof Form>(k: K) => (v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const text = (k: (typeof TEXT)[number] | 'specialties') => (e: { target: { value: string } }) => set(k)(e.target.value);
   const toggleBranch = (bid: string, on: boolean) => set('branchIds')(on ? [...form.branchIds, bid] : form.branchIds.filter((x) => x !== bid));
   const setActive = (on: boolean) => (on ? set('isActive')(true) : setConfirmOff(true));
 
-  const crumbs = [{ label: t('navOverview'), route: to.list('overview') }, { label: t('navDoctors'), route: to.list('doctors') }, { label: doctor ? arName(doctor.name_ar, doctor.name_en, '—') : t('addDoctor') }];
+  const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'الأطباء', route: to.list('doctors') }, { label: doctor ? arName(doctor.name_ar, doctor.name_en, '—') : 'إضافة طبيب' }];
   return (
-    <FormPage title={t(doctor ? 'editDoctor' : 'addDoctor')} crumbs={crumbs} back={to.list('doctors')} onSubmit={submit}
+    <FormPage title={doctor ? 'تعديل بيانات الطبيب' : 'إضافة طبيب'} crumbs={crumbs} back={to.list('doctors')} onSubmit={submit}
       saving={save.isPending} canSave={canSave} error={save.error}
-      notice={!hasName && dirty && <p className="field-error">{t('needName')}</p>}>
+      notice={!hasName && dirty && <p className="field-error">أدخل الاسم بالعربية أو الإنجليزية</p>}>
       <Card>
-        <h2>{t('secBasics')}</h2>
+        <h2>البيانات الأساسية</h2>
         <div className="mt">
-          <ImageField purpose="photo" shape="circle" value={form.photo} onChange={set('photo')} label={t('doctorPhoto')} hint={t('doctorPhotoHint')}
+          <ImageField purpose="photo" shape="circle" value={form.photo} onChange={set('photo')} label="صورة الطبيب" hint="صورة شخصية واضحة للوجه، تُعرض في دائرة. تظهر على الموقع إذا كان الطبيب ظاهرًا."
             placeholder={initials(form.nameAr || form.nameEn) || undefined} />
         </div>
         <div className="grid-2 mt">
-          <Field label={t('doctorNameAr')}>{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!doctor} />}</Field>
-          <Field label={t('titleAr')} optional={t('optional')} hint={t('titleHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.titleAr} onChange={text('titleAr')} dir="rtl" maxLength={120} />}</Field>
+          <Field label="اسم الطبيب">{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!doctor} />}</Field>
+          <Field label="اللقب" optional="اختياري" hint="مثل: استشاري تقويم الأسنان">{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.titleAr} onChange={text('titleAr')} dir="rtl" maxLength={120} />}</Field>
         </div>
         <div className="stack mt">
-          <Field label={t('specialties')} optional={t('optional')} hint={t('specialtiesHint')}>
+          <Field label="التخصصات" optional="اختياري" hint="افصل بينها بفاصلة، مثل: تقويم، زراعة">
             {(a) => <Input id={a.id} describedBy={a.describedBy} value={form.specialties} onChange={text('specialties')} maxLength={300} />}
           </Field>
-          <Field label={t('bioAr')} optional={t('optional')}>{(a) => <TextArea id={a.id} value={form.bioAr} onChange={text('bioAr')} dir="rtl" maxLength={1000} />}</Field>
+          <Field label="نبذة بالعربية" optional="اختياري">{(a) => <TextArea id={a.id} value={form.bioAr} onChange={text('bioAr')} dir="rtl" maxLength={1000} />}</Field>
         </div>
       </Card>
 
       <Card>
         <fieldset className="check-group">
-          <legend>{t('worksAt')}</legend>
-          <p className="muted small">{t('worksAtHint')}</p>
+          <legend>يعمل في</legend>
+          <p className="muted small">اختر الفروع التي يستقبل فيها الطبيب المرضى</p>
           <div className="branch-checks">
             {branches.map((b) => (
               <label key={b.id} className="check">
                 <Checkbox checked={form.branchIds.includes(b.id)} onCheckedChange={(v) => toggleBranch(b.id, v === true)} />
-                <bdi>{arName(b.name_ar, b.name_en, b.slug)}</bdi>{b.is_main && <Badge tone="primary">{t('main')}</Badge>}
+                <bdi>{arName(b.name_ar, b.name_en, b.slug)}</bdi>{b.is_main && <Badge tone="primary">رئيسي</Badge>}
               </label>
             ))}
           </div>
-          {form.branchIds.length === 0 && <p className="field-error">{t('needBranch')}</p>}
+          {form.branchIds.length === 0 && <p className="field-error">اختر فرعًا واحدًا على الأقل</p>}
         </fieldset>
       </Card>
 
       <Card>
-        <h2>{t('secVisibility')}</h2>
+        <h2>الظهور والحجز</h2>
         <div className="switch-row mt">
-          <Switch checked={form.showOnWebsite} onChange={set('showOnWebsite')} label={t('showOnWebsite')} />
-          <Switch checked={form.acceptsOnlineBooking} onChange={set('acceptsOnlineBooking')} label={t('acceptsOnline')} />
-          {doctor && <Switch checked={form.isActive} onChange={setActive} label={t('isActive')} />}
+          <Switch checked={form.showOnWebsite} onChange={set('showOnWebsite')} label="يظهر على الموقع" />
+          <Switch checked={form.acceptsOnlineBooking} onChange={set('acceptsOnlineBooking')} label="يقبل الحجز أونلاين" />
+          {doctor && <Switch checked={form.isActive} onChange={setActive} label="نشط" />}
         </div>
       </Card>
 
-      <ConfirmDialog open={confirmOff} title={t('deactivateDoctor')} confirmLabel={t('deactivate')} danger
+      <ConfirmDialog open={confirmOff} title="إيقاف الطبيب؟" confirmLabel="إيقاف" danger
         onConfirm={() => { set('isActive')(false); setConfirmOff(false); }} onCancel={() => setConfirmOff(false)}>
-        {t('deactivateDoctorText')}
+        سيختفي الطبيب من موقعك ولن يمكن حجز مواعيد معه فور الحفظ. يمكنك إعادة تفعيله لاحقًا.
       </ConfirmDialog>
     </FormPage>
   );

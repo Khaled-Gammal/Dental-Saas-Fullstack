@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { arName } from '@dental/ui/text';
 import { navigate } from '../../hooks';
-import { t } from '../../i18n';
 import { money } from '../../money';
 import { send, useBillingMutation, useDiscountLimits, useOverdueInstallments, usePendingDiscounts } from '../../queries';
 import { to } from '../../router';
@@ -23,29 +22,29 @@ export function Discounts({ clinicId, canSetLimits }: { clinicId: string; canSet
   const limits = useDiscountLimits(clinicId);
   return (
     <>
-      <PageHeader title={t('navDiscounts')} sub={t('discountsSub')} />
+      <PageHeader title="الخصومات" sub="خصومات تنتظر موافقتك، وحد الخصم لكل دور." />
       <Card>
-        <h2>{t('awaitingApproval')}</h2>
+        <h2>بانتظار الموافقة</h2>
         {pending.isError ? <ErrorText error={pending.error} onRetry={() => void pending.refetch()} />
           : pending.isLoading ? <Skeleton h={48} count={2} />
-          : !pending.data?.length ? <EmptyState icon={<ReceiptIcon size={28} />} title={t('noPendingDiscounts')} text={t('noPendingDiscountsText')} />
+          : !pending.data?.length ? <EmptyState icon={<ReceiptIcon size={28} />} title="لا خصومات بانتظار الموافقة." text="الخصم داخل حد الدور يُطبق مباشرة." />
           : (
             <ul className="line-list mt">
               {pending.data.map((i) => (
                 <li key={i.id}>
                   <span>
                     <RouteLink route={to.invoice(i.id)}><strong><bdi>{i.patient.full_name}</bdi></strong></RouteLink>
-                    <span className="muted small"> · {t('requestedBy')} <bdi>{i.discount_requested_by_name}</bdi></span>
+                    <span className="muted small"> · طلبه <bdi>{i.discount_requested_by_name}</bdi></span>
                   </span>
-                  <span className="line-end"><bdi>{money(i.subtotal_minor - i.discount_minor, i.currency)}</bdi><RouteLink route={to.invoice(i.id)} className="btn btn-secondary">{t('review')}</RouteLink></span>
+                  <span className="line-end"><bdi>{money(i.subtotal_minor - i.discount_minor, i.currency)}</bdi><RouteLink route={to.invoice(i.id)} className="btn btn-secondary">مراجعة</RouteLink></span>
                 </li>
               ))}
             </ul>
           )}
       </Card>
       <Card>
-        <h2>{t('roleLimits')}</h2>
-        <p className="muted small">{t('roleLimitsSub')}</p>
+        <h2>حد الخصم لكل دور</h2>
+        <p className="muted small">نسبة من إجمالي الفاتورة قبل الخصم، ومبلغ أقصى اختياري. ما يزيد ينتظر موافقة المالك.</p>
         {limits.isError ? <ErrorText error={limits.error} /> : !limits.data ? <Skeleton h={48} count={3} /> : (
           <ul className="line-list mt">
             {limits.data.map((r) => <LimitRow key={r.id} clinicId={clinicId} r={r} canEdit={canSetLimits && !r.unlimited} />)}
@@ -66,12 +65,12 @@ function LimitRow({ clinicId, r, canEdit }: { clinicId: string; r: RoleLimit; ca
   const valid = Number.isFinite(bp) && bp >= 0 && bp <= 10000 && (!cap.trim() || capMinor !== null);
   return (
     <li>
-      <span><strong>{arName(r.name_ar, r.name_en)}</strong>{r.unlimited && <> <Badge tone="primary">{t('noLimit')}</Badge></>}</span>
+      <span><strong>{arName(r.name_ar, r.name_en)}</strong>{r.unlimited && <> <Badge tone="primary">بلا حد</Badge></>}</span>
       {r.unlimited ? <span className="muted small">—</span> : canEdit ? (
         <span className="line-end">
-          <label className="small">{t('maxPercent')} <Input className="input-sm" dir="ltr" inputMode="decimal" value={pct} onChange={(e) => setPct(e.target.value)} aria-label={t('maxPercent')} /></label>
-          <label className="small">{t('maxAmount')} <Input className="input-sm" dir="ltr" inputMode="decimal" value={cap} onChange={(e) => setCap(e.target.value)} placeholder={t('noCap')} aria-label={t('maxAmount')} /></label>
-          <Button variant="secondary" disabled={!dirty || !valid} loading={save.isPending} onClick={() => save.mutate(undefined)}>{t('save')}</Button>
+          <label className="small">أقصى نسبة % <Input className="input-sm" dir="ltr" inputMode="decimal" value={pct} onChange={(e) => setPct(e.target.value)} aria-label="أقصى نسبة %" /></label>
+          <label className="small">أقصى مبلغ <Input className="input-sm" dir="ltr" inputMode="decimal" value={cap} onChange={(e) => setCap(e.target.value)} placeholder="بدون" aria-label="أقصى مبلغ" /></label>
+          <Button variant="secondary" disabled={!dirty || !valid} loading={save.isPending} onClick={() => save.mutate(undefined)}>حفظ</Button>
           <ErrorText error={save.error} />
         </span>
       ) : (
@@ -87,17 +86,17 @@ const installmentLeft = (i: OverdueInstallment) => i.amount_minor - i.paid_minor
 
 const OVERDUE_COLUMNS: Column<OverdueInstallment>[] = [
   {
-    id: 'patient', header: t('invColPatient'), sortValue: (i) => i.patient.full_name,
+    id: 'patient', header: 'المريض', sortValue: (i) => i.patient.full_name,
     cell: (i) => <RouteLink route={to.invoice(i.invoice_id)} className="font-semibold no-underline hover:underline"><bdi>{i.patient.full_name}</bdi></RouteLink>,
   },
-  { id: 'phone', header: t('phone'), hideOnMobile: true, cell: (i) => <bdi dir="ltr" className="tabular-nums">{i.patient.phone}</bdi> },
-  { id: 'invoice', header: t('invColNumber'), hideOnMobile: true, sortValue: (i) => i.number, cell: (i) => <bdi dir="ltr" className="whitespace-nowrap">{i.number}</bdi> },
-  { id: 'seq', header: t('installment'), numeric: true, sortValue: (i) => i.seq, cell: (i) => fmtNumber(i.seq) },
+  { id: 'phone', header: 'رقم الموبايل', hideOnMobile: true, cell: (i) => <bdi dir="ltr" className="tabular-nums">{i.patient.phone}</bdi> },
+  { id: 'invoice', header: 'رقم الفاتورة', hideOnMobile: true, sortValue: (i) => i.number, cell: (i) => <bdi dir="ltr" className="whitespace-nowrap">{i.number}</bdi> },
+  { id: 'seq', header: 'القسط', numeric: true, sortValue: (i) => i.seq, cell: (i) => fmtNumber(i.seq) },
   {
-    id: 'due', header: t('dueDate'), sortValue: (i) => i.due_date,
-    cell: (i) => <span className="whitespace-nowrap"><span className="tabular-nums">{i.due_date}</span> <Badge tone="danger" dot>{t('overdue')}</Badge></span>,
+    id: 'due', header: 'موعد الاستحقاق', sortValue: (i) => i.due_date,
+    cell: (i) => <span className="whitespace-nowrap"><span className="tabular-nums">{i.due_date}</span> <Badge tone="danger" dot>متأخرة</Badge></span>,
   },
-  { id: 'left', header: t('invColBalance'), numeric: true, sortValue: installmentLeft, cell: (i) => <bdi className="text-owed font-semibold">{money(installmentLeft(i), i.currency)}</bdi> },
+  { id: 'left', header: 'المتبقي', numeric: true, sortValue: installmentLeft, cell: (i) => <bdi className="text-owed font-semibold">{money(installmentLeft(i), i.currency)}</bdi> },
 ];
 
 /** The invoices page's «أقساط متأخرة» tab: installments past their date and not paid, oldest first (redesign R4: DataTable). */
@@ -105,7 +104,7 @@ export function OverdueInstallments({ clinicId }: { clinicId: string }) {
   const overdue = useOverdueInstallments(clinicId);
   return (
     <DataTable
-      label={t('invf_overdue')}
+      label="أقساط متأخرة"
       rows={overdue.data?.items}
       columns={OVERDUE_COLUMNS}
       rowKey={(i) => i.id}
@@ -113,17 +112,17 @@ export function OverdueInstallments({ clinicId }: { clinicId: string }) {
       isFetching={overdue.isFetching}
       error={overdue.isError ? overdue.error : undefined}
       onRetry={() => void overdue.refetch()}
-      search={{ placeholder: t('invoiceSearchHint'), text: (i) => `${i.patient.full_name} ${i.patient.phone} ${i.number ?? ''} ${i.patient.file_no}` }}
+      search={{ placeholder: 'ابحث برقم الفاتورة أو اسم المريض', text: (i) => `${i.patient.full_name} ${i.patient.phone} ${i.number ?? ''} ${i.patient.file_no}` }}
       defaultSort={{ id: 'due', dir: 'asc' }}
       pageSize={20}
       onRowClick={(i) => navigate(to.invoice(i.invoice_id))}
       actions={(i) => (
         <RowMenu label={i.patient.full_name} actions={[
-          { label: t('rowOpenInvoice'), icon: <ReceiptIcon size={16} />, route: to.invoice(i.invoice_id) },
-          { label: t('rowOpenFile'), icon: <UsersIcon size={16} />, route: to.view('patients', i.patient.id) },
+          { label: 'فتح الفاتورة', icon: <ReceiptIcon size={16} />, route: to.invoice(i.invoice_id) },
+          { label: 'ملف المريض', icon: <UsersIcon size={16} />, route: to.view('patients', i.patient.id) },
         ]} />
       )}
-      empty={{ icon: <ReceiptIcon size={28} />, title: t('noOverdue'), text: t('noOverdueText') }}
+      empty={{ icon: <ReceiptIcon size={28} />, title: 'لا أقساط متأخرة.', text: 'القسط يظهر هنا من اليوم التالي لتاريخه إن لم يُدفع.' }}
     />
   );
 }

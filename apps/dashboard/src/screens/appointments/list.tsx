@@ -3,7 +3,7 @@ import { arName } from '@dental/ui/text';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
-import { t, type Key } from '../../i18n';
+import { appointmentActionLabel, appointmentSourceLabel, appointmentStatusLabel } from '../../labels';
 import { waitingList } from '../../calendar-model';
 import { send, useAppointmentAction, useAppointments, useBalances, useBranches, useCheckIn, useClinicalMutation, type AppointmentAction } from '../../queries';
 import { to } from '../../router';
@@ -33,7 +33,7 @@ const OWN_ACTIONS: AppointmentAction[] = ['start', 'complete']; // a doctor with
 function BranchSelect({ branches, value, onChange, allLabel, className }: { branches: Branch[]; value: string; onChange: (id: string) => void; allLabel?: string; className?: string }) {
   return (
     <Select value={value} onValueChange={onChange} dir={'rtl'}>
-      <SelectTrigger className={className ?? 'h-10 min-w-48'} aria-label={t('branch')}><SelectValue /></SelectTrigger>
+      <SelectTrigger className={className ?? 'h-10 min-w-48'} aria-label="الفرع"><SelectValue /></SelectTrigger>
       <SelectContent>
         {allLabel && <SelectItem value={ALL}>{allLabel}</SelectItem>}
         {branches.map((b) => <SelectItem key={b.id} value={b.id}>{arName(b.name_ar, b.name_en, b.slug)}</SelectItem>)}
@@ -47,7 +47,7 @@ function BranchSelect({ branches, value, onChange, allLabel, className }: { bran
  * so the screen can be reloaded or shared. `canWrite` = appointments:write, `canOwn` = appointments:write:own.
  */
 type View = 'all' | 'waiting' | 'mine';
-const VIEWS: { v: View; key: Key }[] = [{ v: 'all', key: 'viewAll' }, { v: 'waiting', key: 'viewWaiting' }, { v: 'mine', key: 'viewMine' }];
+const VIEWS: { v: View; key: string }[] = [{ v: 'all', key: 'كل المواعيد' }, { v: 'waiting', key: 'قائمة الانتظار' }, { v: 'mine', key: 'مواعيدي' }];
 /** What "Change" can do per status: move while pending/confirmed, set the chair until the visit ends. */
 const CHANGEABLE: AppointmentStatus[] = ['pending', 'confirmed', 'checked_in', 'in_progress'];
 /** A visit is opened once the patient has arrived (VISIT-001). */
@@ -58,7 +58,7 @@ function OpenVisitButton({ clinicId, appointmentId }: { clinicId: string; appoin
   const open = useClinicalMutation(clinicId, () => send<{ id: string }>('/visits', 'POST', { appointmentId }));
   return (
     <>
-      <Button variant="secondary" loading={open.isPending} onClick={() => open.mutate(undefined, { onSuccess: (v) => navigate(to.visit(v.id)) })}>{t('openVisit')}</Button>
+      <Button variant="secondary" loading={open.isPending} onClick={() => open.mutate(undefined, { onSuccess: (v) => navigate(to.visit(v.id)) })}>فتح الزيارة</Button>
       <ErrorText error={open.error} />
     </>
   );
@@ -109,21 +109,21 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
 
   return (
     <>
-      <PageHeader title={t('navAppointments')} sub={t('appointmentsSub')} />
+      <PageHeader title="المواعيد" sub="مواعيد اليوم، تسجيل حضور المرضى، ومتابعة حالة كل زيارة" />
       <div className="day-toolbar">
         <div className="day-nav">
-          <Button variant="secondary" onClick={() => go({ date: shiftDate(date, -1) })}>{t('prevDay')}</Button>
-          <DatePicker value={date} onChange={(d) => go({ date: d })} label={t('date')} />
-          <Button variant="secondary" onClick={() => go({ date: shiftDate(date, 1) })}>{t('nextDay')}</Button>
-          <Button variant="ghost" onClick={() => go({ date: isoDate(new Date()) })}>{t('today')}</Button>
+          <Button variant="secondary" onClick={() => go({ date: shiftDate(date, -1) })}>السابق</Button>
+          <DatePicker value={date} onChange={(d) => go({ date: d })} label="التاريخ" />
+          <Button variant="secondary" onClick={() => go({ date: shiftDate(date, 1) })}>التالي</Button>
+          <Button variant="ghost" onClick={() => go({ date: isoDate(new Date()) })}>اليوم</Button>
         </div>
-        <BranchSelect branches={branches.data ?? []} value={branchId ?? ALL} onChange={(v) => go({ branch: v === ALL ? null : v })} allLabel={t('allBranches')} />
+        <BranchSelect branches={branches.data ?? []} value={branchId ?? ALL} onChange={(v) => go({ branch: v === ALL ? null : v })} allLabel="كل الفروع" />
       </div>
 
-      <div className="seg mt" role="group" aria-label={t('navAppointments')}>
+      <div className="seg mt" role="group" aria-label="المواعيد">
         {VIEWS.filter((x) => x.v !== 'mine' || canOwn).map((x) => (
           <button key={x.v} type="button" aria-pressed={view === x.v} className={`seg-btn${view === x.v ? ' is-on' : ''}`} onClick={() => go({ view: x.v })}>
-            {t(x.key)}{x.v === 'waiting' && queue.waiting.length > 0 && <Badge tone="warning">{fmtNumber(queue.waiting.length)}</Badge>}
+            {x.key}{x.v === 'waiting' && queue.waiting.length > 0 && <Badge tone="warning">{fmtNumber(queue.waiting.length)}</Badge>}
           </button>
         ))}
       </div>
@@ -139,7 +139,7 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
       ) : view === 'waiting' ? (
         <WaitingView queue={queue} time={time} canStart={canWrite} onStart={(a) => run(a, 'start')} balances={balances} />
       ) : !day.data?.appointments.length ? (
-        <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noAppointments')} text={t('noAppointmentsText')} /></Card>
+        <Card><EmptyState icon={<CalendarIcon size={28} />} title="لا توجد مواعيد في هذا اليوم" text="المواعيد المحجوزة من الموقع تظهر هنا تلقائيًا." /></Card>
       ) : (
         <ul className="appts" aria-busy={day.isFetching || undefined}>
           {day.data.appointments.map((a) => {
@@ -153,30 +153,30 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
                 <div className="appt-main">
                   <div className="appt-head">
                     <strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong>
-                    <Badge tone={TONE[a.status]}>{t(`status_${a.status}` as Key)}</Badge>
+                    <Badge tone={TONE[a.status]}>{appointmentStatusLabel[a.status]}</Badge>
                     <Owes balance={a.patient ? balances[a.patient.id] : undefined} />
                   </div>
                   <div className="appt-meta">
                     {a.patient && <span dir="ltr">{a.patient.phone}</span>}
                     <span><bdi>{arName(a.doctor.name_ar, a.doctor.name_en)}</bdi></span>
                     {a.service && <span><bdi>{arName(a.service.name_ar, a.service.name_en)}</bdi></span>}
-                    <span className="muted">{t(`source_${a.source}` as Key)}</span>
-                    {a.room && <span>{t('roomLabel')}: <bdi>{a.room.name}</bdi></span>}
+                    <span className="muted">{appointmentSourceLabel[a.source]}</span>
+                    {a.room && <span>الكرسي: <bdi>{a.room.name}</bdi></span>}
                   </div>
                   {a.patient_notes && <p className="appt-notes">{a.patient_notes}</p>}
                   {a.cancel_reason && <p className="appt-notes muted">{a.cancel_reason}</p>}
                 </div>
                 {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status)) || (a.visit_id && canReadVisit) || (canVisit && (canWrite || own) && VISITABLE.includes(a.status))) && (
                   <div className="appt-actions">
-                    {a.visit_id && canReadVisit ? <RouteLink route={to.visit(a.visit_id)} className="btn btn-secondary">{t('openVisit')}</RouteLink>
+                    {a.visit_id && canReadVisit ? <RouteLink route={to.visit(a.visit_id)} className="btn btn-secondary">فتح الزيارة</RouteLink>
                       : canVisit && (canWrite || own) && VISITABLE.includes(a.status) && <OpenVisitButton clinicId={clinicId} appointmentId={a.id} />}
                     {canWrite && CHANGEABLE.includes(a.status) && (
-                      <RouteLink route={to.edit('appointments', a.id)} className="btn btn-ghost"><EditIcon size={16} />{t('editAppointment')}</RouteLink>
+                      <RouteLink route={to.edit('appointments', a.id)} className="btn btn-ghost"><EditIcon size={16} />تغيير</RouteLink>
                     )}
                     {actions.map((x) => (
                       <Button key={x} variant={x === 'cancel' || x === 'noShow' ? 'ghost' : x === 'confirm' || x === 'complete' ? 'primary' : 'secondary'}
                         onClick={() => run(a, x)} loading={act.isPending && act.variables?.id === a.id && act.variables.action === x}>
-                        {t(`act_${x}` as Key)}
+                        {appointmentActionLabel[x]}
                       </Button>
                     ))}
                   </div>
@@ -187,15 +187,15 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
         </ul>
       )}
 
-      <ConfirmDialog open={!!arriving} title={t('arriveWithoutCode')} confirmLabel={t('act_arrive')}
+      <ConfirmDialog open={!!arriving} title="تسجيل الوصول بدون رمز" confirmLabel="وصل المريض"
         onConfirm={() => { if (arriving && note.trim().length >= 3) act.mutate({ id: arriving.id, action: 'arrive', note: note.trim() }, { onError: setActionError, onSettled: () => setArriving(null) }); }}
         onCancel={() => setArriving(null)}>
-        <p>{t('arriveWithoutCodeText')}</p>
-        <Field label={t('arriveNote')}>{(f) => <Input id={f.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder={t('arriveNoteExample')} />}</Field>
+        <p>هذا الحجز من الموقع وله رمز حضور. إن لم يكن مع المريض، اكتب كيف تحققت من هويته.</p>
+        <Field label="سبب التسجيل بدون رمز">{(f) => <Input id={f.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="مثال: تم التحقق من البطاقة، الهاتف مفقود" />}</Field>
       </ConfirmDialog>
-      <ConfirmDialog open={!!cancelling} title={t('cancelAppointment')} confirmLabel={t('act_cancel')} danger onConfirm={confirmCancel} onCancel={() => setCancelling(null)}>
-        <p>{t('cancelAppointmentText')}</p>
-        <Field label={t('cancelReason')} optional={t('optional')}>{(f) => <Input id={f.id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
+      <ConfirmDialog open={!!cancelling} title="إلغاء الموعد" confirmLabel="إلغاء الموعد" danger onConfirm={confirmCancel} onCancel={() => setCancelling(null)}>
+        <p>سيُفرَّغ هذا الوقت ويمكن حجزه من جديد.</p>
+        <Field label="سبب الإلغاء" optional="اختياري">{(f) => <Input id={f.id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
       </ConfirmDialog>
     </>
   );
@@ -220,19 +220,19 @@ function CheckInPanel({ clinicId, branches, defaultBranch, canSeeBalances }: { c
       <form onSubmit={submit} className="checkin-form">
         <div className="checkin-head">
           <span className="checkin-icon"><CheckIcon /></span>
-          <div><h2>{t('checkInTitle')}</h2><p className="muted">{t('checkInHint')}</p></div>
+          <div><h2>تسجيل الحضور</h2><p className="muted">أدخل رمز الحضور الذي يظهره المريض (6 أرقام)</p></div>
         </div>
         <div className="checkin-row">
-          <OtpInput id="checkin-code" value={code} onChange={setCode} label={t('bookingCode')} invalid={checkIn.isError} />
+          <OtpInput id="checkin-code" value={code} onChange={setCode} label="رمز الحضور" invalid={checkIn.isError} />
           {branches.length > 1 && <BranchSelect branches={branches} value={branchId} onChange={setBranch} />}
-          <Button type="submit" loading={checkIn.isPending} disabled={digits.length !== 6 || !branchId}>{t('checkInBtn')}</Button>
+          <Button type="submit" loading={checkIn.isPending} disabled={digits.length !== 6 || !branchId}>تسجيل الحضور</Button>
         </div>
         {checkIn.isError && <ErrorText error={checkIn.error} />}
         {checkIn.isSuccess && (
           <Alert tone="success">
-            {t('checkedInOk')}: <strong><bdi>{checkIn.data.appointment.patient?.full_name}</bdi></strong>
-            {' · '}{t('amountDue')}: <strong>{money(checkIn.data.result.amount_due_minor)}</strong>
-            {owed > 0 && <>{' · '}{t('balanceOwed')}: <strong><bdi>{money(owed)}</bdi></strong></>}
+            تم تسجيل الحضور: <strong><bdi>{checkIn.data.appointment.patient?.full_name}</bdi></strong>
+            {' · '}المطلوب سداده: <strong>{money(checkIn.data.result.amount_due_minor)}</strong>
+            {owed > 0 && <>{' · '}رصيد مستحق من فواتير سابقة: <strong><bdi>{money(owed)}</bdi></strong></>}
           </Alert>
         )}
       </form>
@@ -242,7 +242,7 @@ function CheckInPanel({ clinicId, branches, defaultBranch, canSeeBalances }: { c
 
 /** BILLING-005: a patient with an outstanding balance from earlier invoices shows it where reception sees them. */
 function Owes({ balance }: { balance: number | undefined }) {
-  return balance && balance > 0 ? <Badge tone="warning">{t('owes')} <bdi>{money(balance)}</bdi></Badge> : null;
+  return balance && balance > 0 ? <Badge tone="warning">عليه <bdi>{money(balance)}</bdi></Badge> : null;
 }
 
 /** Reception's waiting list (SRS APPT-003): arrival order, minutes waited, who is with the doctor. Refreshes with the day. */
@@ -250,7 +250,7 @@ function WaitingView({ queue, time, canStart, onStart, balances }: {
   queue: ReturnType<typeof waitingList>; time: (iso: string) => string; canStart: boolean; onStart: (a: Appointment) => void; balances: Record<string, number>;
 }) {
   if (!queue.waiting.length && !queue.withDoctor.length) {
-    return <Card><EmptyState icon={<CheckIcon size={28} />} title={t('noWaiting')} text={t('noWaitingText')} /></Card>;
+    return <Card><EmptyState icon={<CheckIcon size={28} />} title="لا يوجد مرضى في الانتظار" text="يظهر هنا من سُجّل حضوره، بترتيب الوصول." /></Card>;
   }
   return (
     <ul className="appts">
@@ -259,22 +259,22 @@ function WaitingView({ queue, time, canStart, onStart, balances }: {
           <div className="appt-time"><strong>{fmtNumber(i + 1)}</strong><span className="muted"><bdi dir="ltr">{time(a.starts_at)}</bdi></span></div>
           <div className="appt-main">
             <div className="appt-head"><strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong>
-              <Badge tone={waitedMinutes >= 20 ? 'warning' : 'neutral'}>{t('waitingFor')} {fmtNumber(waitedMinutes)} {t('minutesShort')}</Badge>
+              <Badge tone={waitedMinutes >= 20 ? 'warning' : 'neutral'}>ينتظر منذ {fmtNumber(waitedMinutes)} دقيقة</Badge>
               <Owes balance={a.patient ? balances[a.patient.id] : undefined} /></div>
             <div className="appt-meta">
               <span><bdi>{arName(a.doctor.name_ar, a.doctor.name_en)}</bdi></span>
               {a.service && <span><bdi>{arName(a.service.name_ar, a.service.name_en)}</bdi></span>}
-              {a.room && <span>{t('roomLabel')}: <bdi>{a.room.name}</bdi></span>}
+              {a.room && <span>الكرسي: <bdi>{a.room.name}</bdi></span>}
             </div>
           </div>
-          {canStart && <div className="appt-actions"><Button onClick={() => onStart(a)}>{t('callIn')}</Button></div>}
+          {canStart && <div className="appt-actions"><Button onClick={() => onStart(a)}>دخول للطبيب</Button></div>}
         </Card>
       ))}
       {queue.withDoctor.map((a) => (
         <Card as="li" key={a.id} className="appt is-in_progress">
           <div className="appt-time"><strong><bdi dir="ltr">{time(a.starts_at)}</bdi></strong></div>
           <div className="appt-main">
-            <div className="appt-head"><strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong><Badge tone="success">{t('withDoctor')}</Badge></div>
+            <div className="appt-head"><strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong><Badge tone="success">مع الطبيب الآن</Badge></div>
             <div className="appt-meta"><span><bdi>{arName(a.doctor.name_ar, a.doctor.name_en)}</bdi></span></div>
           </div>
         </Card>

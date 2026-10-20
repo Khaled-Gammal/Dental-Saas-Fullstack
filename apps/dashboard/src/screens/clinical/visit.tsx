@@ -4,7 +4,7 @@ import { addMonths, nextBookingQuery, planOpen, SURFACES, toMinor } from '../../
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
-import { t, type Key } from '../../i18n';
+import { inMonthsLabel, recallReasonLabel, toothSurfaceLabel } from '../../labels';
 import { ageOn } from '../../patient-model';
 import { missingConsents } from '../../consents-model';
 import { send, useClinicalMutation, usePatientPlans, usePlan, useServices, useVisit } from '../../queries';
@@ -20,9 +20,9 @@ import { money } from './money';
 import { currencyLabel } from '../../money';
 import { useCan } from '../../can';
 
-const FIELDS: { f: NoteField; key: Key; rows: number }[] = [
-  { f: 'chief_complaint', key: 'chiefComplaint', rows: 2 }, { f: 'diagnosis', key: 'diagnosis', rows: 2 },
-  { f: 'clinical_notes', key: 'clinicalNotes', rows: 5 }, { f: 'next_visit_note', key: 'nextVisitNote', rows: 2 },
+const FIELDS: { f: NoteField; key: string; rows: number }[] = [
+  { f: 'chief_complaint', key: 'الشكوى الرئيسية', rows: 2 }, { f: 'diagnosis', key: 'التشخيص', rows: 2 },
+  { f: 'clinical_notes', key: 'الملاحظات السريرية', rows: 5 }, { f: 'next_visit_note', key: 'ملاحظة للزيارة القادمة', rows: 2 },
 ];
 const CAMEL: Record<NoteField, string> = { chief_complaint: 'chiefComplaint', diagnosis: 'diagnosis', clinical_notes: 'clinicalNotes', next_visit_note: 'nextVisitNote' };
 const REASONS: RecallReason[] = ['checkup', 'cleaning', 'ortho_adjustment', 'post_op', 'implant_followup', 'other'];
@@ -36,7 +36,7 @@ const todayIso = () => new Date().toLocaleDateString('en-CA');
 export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: string; id?: string; canInvoice?: boolean }) {
   const visit = useVisit(clinicId, id);
   if (!visit.data) {
-    return <ResourceState isLoading={visit.isLoading} isError={visit.isError} error={visit.error} notFound={false} refetch={() => void visit.refetch()} back={to.list('appointments')} backLabel={t('navAppointments')} />;
+    return <ResourceState isLoading={visit.isLoading} isError={visit.isError} error={visit.error} notFound={false} refetch={() => void visit.refetch()} back={to.list('appointments')} backLabel="المواعيد" />;
   }
   const v = visit.data;
   const p = v.patient;
@@ -45,29 +45,29 @@ export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: stri
   const when = new Intl.DateTimeFormat(loc(), { dateStyle: 'full', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(v.visit_at));
   return (
     <>
-      <Breadcrumbs items={[{ label: t('navPatients'), route: to.list('patients') }, ...(p ? [{ label: p.full_name, route: to.view('patients', p.id) }] : []), { label: t('visit') }]} />
+      <Breadcrumbs items={[{ label: 'المرضى', route: to.list('patients') }, ...(p ? [{ label: p.full_name, route: to.view('patients', p.id) }] : []), { label: 'الزيارة' }]} />
       <PageHeader
-        title={p ? p.full_name : t('visit')}
-        sub={[p && `${t('fileNo')} ${fmtNumber(p.file_no)}`, age !== null && `${fmtNumber(age)} ${t('years')}`, arName(v.doctor.name_ar, v.doctor.name_en), arName(v.branch.name_ar, v.branch.name_en), when].filter(Boolean).join(' · ')}
-        action={<Badge tone={v.status === 'final' ? 'neutral' : 'warning'}>{t(v.status === 'final' ? 'visitFinal' : 'visitDraft')}</Badge>}
+        title={p ? p.full_name : 'الزيارة'}
+        sub={[p && `${'ملف رقم'} ${fmtNumber(p.file_no)}`, age !== null && `${fmtNumber(age)} ${'سنة'}`, arName(v.doctor.name_ar, v.doctor.name_en), arName(v.branch.name_ar, v.branch.name_en), when].filter(Boolean).join(' · ')}
+        action={<Badge tone={v.status === 'final' ? 'neutral' : 'warning'}>{v.status === 'final' ? 'نهائية' : 'مسودة'}</Badge>}
       />
       {h && (h.allergies.length > 0 || h.is_pregnant || h.conditions.length > 0) && (
         <Alert tone="danger">
-          <AlertIcon size={16} /> <strong>{t('alerts')}:</strong>{' '}
-          {[...h.allergies.map((a) => `${t('allergyTo')} ${a}`), ...(h.is_pregnant ? [t('pregnant')] : []), ...h.conditions].join(' · ')}
-          {h.medications.length > 0 && <div className="small mt-sm">{t('medications')}: <bdi>{h.medications.join('، ')}</bdi></div>}
+          <AlertIcon size={16} /> <strong>تنبيهات:</strong>{' '}
+          {[...h.allergies.map((a) => `${'حساسية من'} ${a}`), ...(h.is_pregnant ? ['حامل'] : []), ...h.conditions].join(' · ')}
+          {h.medications.length > 0 && <div className="small mt-sm">الأدوية الحالية: <bdi>{h.medications.join('، ')}</bdi></div>}
         </Alert>
       )}
       {missingConsents(v.consents).length > 0 && (
         <Alert tone="danger">
-          <AlertIcon size={16} /> <strong>{t('consentMissing')}:</strong>{' '}
+          <AlertIcon size={16} /> <strong>موافقة غير موقّعة:</strong>{' '}
           {missingConsents(v.consents).map((c, i) => (
             <span key={c.key}>
               {i > 0 && ' · '}<bdi>{c.title ?? c.key}</bdi>{' '}
-              <RouteLink route={{ page: 'patients', id: v.patient_id, action: 'sign', query: { consent: c.key, visit: v.id } }} className="btn btn-secondary btn-sm">{t('consentSignNow')}</RouteLink>
+              <RouteLink route={{ page: 'patients', id: v.patient_id, action: 'sign', query: { consent: c.key, visit: v.id } }} className="btn btn-secondary btn-sm">وقّع الآن</RouteLink>
             </span>
           ))}
-          <div className="small mt-sm">{t('consentMissingNote')}</div>
+          <div className="small mt-sm">العلاج مسجّل؛ هذا تنبيه فقط حتى يوقّع المريض.</div>
         </Alert>
       )}
       <div className="profile-grid">
@@ -104,22 +104,22 @@ function NotesCard({ clinicId, v }: { clinicId: string; v: Visit }) {
   if (v.status === 'draft' && v.can.writeNotes) {
     return (
       <Card>
-        <h2>{t('visitNotes')}</h2>
+        <h2>ملاحظات الزيارة</h2>
         <form className="stack mt" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined); }}>
           {FIELDS.map(({ f, key, rows }) => (
-            <Field key={f} label={t(key)} optional={t('optional')}>
+            <Field key={f} label={key} optional="اختياري">
               {(a) => <TextArea id={a.id} rows={rows} value={form[f]} onChange={(e) => setForm((x) => ({ ...x, [f]: e.target.value }))} maxLength={f === 'clinical_notes' ? 10000 : 2000} />}
             </Field>
           ))}
           <ErrorText error={save.error ?? finalize.error} />
           <div className="row-end">
-            <Button variant="secondary" onClick={() => setFinalizing(true)}>{t('finalizeVisit')}</Button>
-            <Button type="submit" loading={save.isPending} disabled={!dirty}>{t('save')}</Button>
+            <Button variant="secondary" onClick={() => setFinalizing(true)}>اعتماد الملاحظات</Button>
+            <Button type="submit" loading={save.isPending} disabled={!dirty}>حفظ</Button>
           </div>
         </form>
-        <ConfirmDialog open={finalizing} title={t('finalizeVisit')} confirmLabel={t('finalizeVisit')}
+        <ConfirmDialog open={finalizing} title="اعتماد الملاحظات" confirmLabel="اعتماد الملاحظات"
           onConfirm={() => finalize.mutate(undefined, { onSettled: () => setFinalizing(false) })} onCancel={() => setFinalizing(false)}>
-          <p>{t('finalizeText')}</p>
+          <p>بعد الاعتماد لا تُعدَّل الملاحظات؛ أي تغيير يُضاف كتعديل له سبب ويبقى الأصل ظاهرًا.</p>
         </ConfirmDialog>
       </Card>
     );
@@ -127,8 +127,8 @@ function NotesCard({ clinicId, v }: { clinicId: string; v: Visit }) {
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('visitNotes')}</h2>
-        {v.finalized_at && <span className="muted small">{t('finalizedAt')} {fmt.format(new Date(v.finalized_at))}{v.finalized_by_name && <> · <bdi>{v.finalized_by_name}</bdi></>}</span>}
+        <h2>ملاحظات الزيارة</h2>
+        {v.finalized_at && <span className="muted small">اعتُمدت {fmt.format(new Date(v.finalized_at))}{v.finalized_by_name && <> · <bdi>{v.finalized_by_name}</bdi></>}</span>}
       </div>
       <dl className="detail-list mt">
         {FIELDS.map(({ f, key }) => {
@@ -136,16 +136,16 @@ function NotesCard({ clinicId, v }: { clinicId: string; v: Visit }) {
           if (!v[f] && !changes.length && !(v.can.amend)) return null;
           return (
             <div key={f}>
-              <dt>{t(key)}</dt>
+              <dt>{key}</dt>
               <dd>
                 {v[f] ? <p className="note-text">{v[f]}</p> : <span className="muted">—</span>}
                 {changes.map((a) => (
                   <div key={a.id} className="amendment">
-                    <span className="muted small">{t('amendedAt')} {fmt.format(new Date(a.created_at))}{a.author_name && <> · <bdi>{a.author_name}</bdi></>} · {t('reason')}: <bdi>{a.reason}</bdi></span>
+                    <span className="muted small">تعديل {fmt.format(new Date(a.created_at))}{a.author_name && <> · <bdi>{a.author_name}</bdi></>} · السبب: <bdi>{a.reason}</bdi></span>
                     <p className="note-text">{a.new_text}</p>
                   </div>
                 ))}
-                {v.can.amend && <LinkButton onClick={() => setAmending(f)}>{t('amend')}</LinkButton>}
+                {v.can.amend && <LinkButton onClick={() => setAmending(f)}>إضافة تعديل</LinkButton>}
               </dd>
             </div>
           );
@@ -162,11 +162,11 @@ function AmendDialog({ clinicId, visitId, field, onClose }: { clinicId: string; 
   const amend = useClinicalMutation(clinicId, () => send(`/visits/${visitId}/amendments`, 'POST', { field, text: text.trim(), reason: reason.trim() }));
   const label = FIELDS.find((x) => x.f === field)!.key;
   return (
-    <ConfirmDialog open title={`${t('amend')}: ${t(label)}`} confirmLabel={t('saveAmendment')}
+    <ConfirmDialog open title={`${'إضافة تعديل'}: ${label}`} confirmLabel="حفظ التعديل"
       onConfirm={() => { if (text.trim() && reason.trim().length >= 3) amend.mutate(undefined, { onSuccess: onClose }); }} onCancel={onClose}>
-      <p className="small muted">{t('amendText')}</p>
-      <Field label={t('amendmentText')}>{(a) => <TextArea id={a.id} rows={4} value={text} onChange={(e) => setText(e.target.value)} maxLength={10000} />}</Field>
-      <Field label={t('amendmentReason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
+      <p className="small muted">يُحفظ النص الجديد بجانب الأصل، ولا يُحذف شيء.</p>
+      <Field label="النص الجديد">{(a) => <TextArea id={a.id} rows={4} value={text} onChange={(e) => setText(e.target.value)} maxLength={10000} />}</Field>
+      <Field label="سبب التعديل" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
       <ErrorText error={amend.error} />
     </ConfirmDialog>
   );
@@ -180,30 +180,30 @@ function ProceduresCard({ clinicId, v, canInvoice }: { clinicId: string; v: Visi
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('procedures')}</h2>
+        <h2>الإجراءات المنفذة</h2>
         <div className="row-end">
-          {canInvoice && v.procedures.some((p) => !p.billed) && <RouteLink route={to.create('invoices', { patient: v.patient_id, visit: v.id })} className="btn btn-ghost">{t('invoiceThisVisit')}</RouteLink>}
-          {v.can.procedures && !adding && <Button variant="secondary" onClick={() => setAdding(true)}><PlusIcon size={16} />{t('addProcedure')}</Button>}
+          {canInvoice && v.procedures.some((p) => !p.billed) && <RouteLink route={to.create('invoices', { patient: v.patient_id, visit: v.id })} className="btn btn-ghost">فاتورة لهذه الزيارة</RouteLink>}
+          {v.can.procedures && !adding && <Button variant="secondary" onClick={() => setAdding(true)}><PlusIcon size={16} />إضافة إجراء</Button>}
         </div>
       </div>
-      {v.procedures.length === 0 ? <p className="muted small mt-sm">{t('noProcedures')}</p> : (
+      {v.procedures.length === 0 ? <p className="muted small mt-sm">لم يُسجَّل إجراء بعد.</p> : (
         <ul className="line-list mt">
           {v.procedures.map((p) => (
             <li key={p.id}>
               <span><strong><bdi>{arName(p.service_ar, p.service_en)}</bdi></strong>
-                {p.tooth_code && <> · {t('tooth')} <bdi dir="ltr">{p.tooth_code}{p.surfaces.length ? ` ${p.surfaces.join('')}` : ''}</bdi></>}
-                {p.plan_item_id && <Badge tone="primary">{t('fromPlan')}</Badge>}
+                {p.tooth_code && <> · سن <bdi dir="ltr">{p.tooth_code}{p.surfaces.length ? ` ${p.surfaces.join('')}` : ''}</bdi></>}
+                {p.plan_item_id && <Badge tone="primary">من الخطة</Badge>}
                 {p.notes && <span className="muted small"> — <bdi>{p.notes}</bdi></span>}
               </span>
               <span className="line-end">
                 <bdi>{money(p.price_minor)}</bdi>
                 {v.can.procedures && v.status === 'draft' && !p.billed && (
-                  <LinkButton onClick={() => remove.mutate(p.id)} aria-label={`${t('remove')} ${arName(p.service_ar, p.service_en)}`}>{t('remove')}</LinkButton>
+                  <LinkButton onClick={() => remove.mutate(p.id)} aria-label={`${'إزالة'} ${arName(p.service_ar, p.service_en)}`}>إزالة</LinkButton>
                 )}
               </span>
             </li>
           ))}
-          <li className="line-total"><span>{t('total')}</span><strong><bdi>{money(total)}</bdi></strong></li>
+          <li className="line-total"><span>الإجمالي</span><strong><bdi>{money(total)}</bdi></strong></li>
         </ul>
       )}
       <ErrorText error={remove.error} />
@@ -239,51 +239,51 @@ function ProcedureForm({ clinicId, v, onDone }: { clinicId: string; v: Visit; on
       {openPlans.length > 0 && (
         <div className="grid-2">
           {openPlans.length > 1 && (
-            <Field label={t('plan')}>
+            <Field label="الخطة">
               {(a) => <Choice id={a.id} value={planId || openPlans[0].id} onChange={(x) => { setPlanId(x); setItemId(''); }} options={openPlans.map((p) => ({ value: p.id, label: p.title }))} />}
             </Field>
           )}
-          <Field label={t('planItem')} optional={t('optional')}>
-            {(a) => <Choice id={a.id} value={itemId} onChange={(x) => { setItemId(x); setPrice(''); }} noneLabel={t('notFromPlan')}
+          <Field label="بند من خطة العلاج" optional="اختياري">
+            {(a) => <Choice id={a.id} value={itemId} onChange={(x) => { setItemId(x); setPrice(''); }} noneLabel="ليس من الخطة"
               options={items.map((i) => ({ value: i.id, label: `${arName(i.service_ar, i.service_en)}${i.tooth_code ? ` · ${i.tooth_code}` : ''} · ${money(i.price_minor)}` }))} />}
           </Field>
         </div>
       )}
       <div className="grid-2">
         {!item && (
-          <Field label={t('service')}>
-            {(a) => <Choice id={a.id} value={serviceId} onChange={(x) => { setServiceId(x); setPrice(''); }} placeholder={t('pickService')}
+          <Field label="الخدمة">
+            {(a) => <Choice id={a.id} value={serviceId} onChange={(x) => { setServiceId(x); setPrice(''); }} placeholder="اختر خدمة"
               options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: arName(s.name_ar, s.name_en) }))} />}
           </Field>
         )}
-        <Field label={t('toothFdi')} optional={t('optional')}>
+        <Field label="رقم السن (FDI)" optional="اختياري">
           {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={tooth || (item?.tooth_code ? String(item.tooth_code) : '')} onChange={(e) => setTooth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="36" />}
         </Field>
-        <Field label={`${t('price')} (${currencyLabel()})`} hint={service ? priceHint(service) : undefined}>
+        <Field label={`${'السعر'} (${currencyLabel()})`} hint={service ? priceHint(service) : undefined}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)}
             placeholder={item ? String(item.price_minor / 100) : service && service.price_minor ? String(service.price_minor / 100) : ''} />}
         </Field>
-        <Field label={t('notes')} optional={t('optional')}>{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={300} />}</Field>
+        <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={300} />}</Field>
       </div>
-      <div className="chips" dir="ltr" role="group" aria-label={t('surfaces')}>
+      <div className="chips" dir="ltr" role="group" aria-label="الأسطح">
         {SURFACES.map((s) => (
-          <button key={s} type="button" className={`chip-toggle${surfaces.includes(s) ? ' is-on' : ''}`} aria-pressed={surfaces.includes(s)} title={t(`surf_${s}` as Key)}
+          <button key={s} type="button" className={`chip-toggle${surfaces.includes(s) ? ' is-on' : ''}`} aria-pressed={surfaces.includes(s)} title={toothSurfaceLabel[s]}
             onClick={() => setSurfaces((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]))}>{s}</button>
         ))}
       </div>
       <ErrorText error={add.error} />
       <div className="row-end">
-        <Button variant="ghost" onClick={onDone}>{t('cancel')}</Button>
-        <Button type="submit" loading={add.isPending} disabled={!ready}>{t('addProcedure')}</Button>
+        <Button variant="ghost" onClick={onDone}>إلغاء</Button>
+        <Button type="submit" loading={add.isPending} disabled={!ready}>إضافة إجراء</Button>
       </div>
     </form>
   );
 }
 
 function priceHint(s: { price_minor: number; price_max_minor: number | null }): string {
-  if (!s.price_minor) return t('priceOnConsultation');
-  if (s.price_max_minor && s.price_max_minor > s.price_minor) return `${t('priceRange')} ${money(s.price_minor)} – ${money(s.price_max_minor)}`;
-  return `${t('servicePrice')} ${money(s.price_minor)}`;
+  if (!s.price_minor) return 'السعر حسب الكشف: أدخل السعر';
+  if (s.price_max_minor && s.price_max_minor > s.price_minor) return `${'نطاق السعر'} ${money(s.price_minor)} – ${money(s.price_max_minor)}`;
+  return `${'سعر الخدمة'} ${money(s.price_minor)}`;
 }
 
 /** VISIT-004: issued at once and never edited; a correction is a new prescription and the old one stays, marked replaced. */
@@ -293,20 +293,20 @@ function PrescriptionsCard({ clinicId, v }: { clinicId: string; v: Visit }) {
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('prescriptions')}</h2>
-        {v.can.prescribe && !writing && <Button variant="secondary" onClick={() => setWriting({})}><PlusIcon size={16} />{t('newPrescription')}</Button>}
+        <h2>الروشتات</h2>
+        {v.can.prescribe && !writing && <Button variant="secondary" onClick={() => setWriting({})}><PlusIcon size={16} />روشتة جديدة</Button>}
       </div>
-      {v.prescriptions.length === 0 ? <p className="muted small mt-sm">{t('noPrescriptions')}</p> : (
+      {v.prescriptions.length === 0 ? <p className="muted small mt-sm">لا توجد روشتات لهذه الزيارة.</p> : (
         <ul className="stack mt">
           {v.prescriptions.map((rx) => (
             <li key={rx.id} className={`rx-item${rx.replaced_by_id ? ' is-replaced' : ''}`}>
               <div className="row-between">
-                <span className="muted small">{fmt.format(new Date(rx.issued_at))}{rx.replaces_id && <> · {t('correction')}</>}</span>
+                <span className="muted small">{fmt.format(new Date(rx.issued_at))}{rx.replaces_id && <> · تصحيح</>}</span>
                 <span className="row-end">
-                  {rx.replaced_by_id ? <Badge>{t('replaced')}</Badge> : (
+                  {rx.replaced_by_id ? <Badge>استُبدلت</Badge> : (
                     <>
-                      <RouteLink route={to.printPrescription(rx.id)} className="btn btn-ghost">{t('print')}</RouteLink>
-                      {v.can.prescribe && <LinkButton onClick={() => setWriting({ replaces: rx })}>{t('correct')}</LinkButton>}
+                      <RouteLink route={to.printPrescription(rx.id)} className="btn btn-ghost">طباعة</RouteLink>
+                      {v.can.prescribe && <LinkButton onClick={() => setWriting({ replaces: rx })}>تصحيح</LinkButton>}
                     </>
                   )}
                 </span>
@@ -342,26 +342,26 @@ function PrescriptionForm({ clinicId, visitId, replaces, onDone }: { clinicId: s
   const ready = lines.some((l) => l.drugName.trim());
   return (
     <form className="stack mt tooth-panel" onSubmit={(e) => { e.preventDefault(); if (ready) issue.mutate(undefined, { onSuccess: (rx) => onDone(rx.id) }); }}>
-      {replaces && <Alert tone="info">{t('correctionText')}</Alert>}
+      {replaces && <Alert tone="info">تُصدر روشتة جديدة بدل هذه، وتبقى القديمة محفوظة ومعلَّمة بأنها استُبدلت.</Alert>}
       {lines.map((l, i) => (
         <fieldset key={i} className="rx-line-form">
-          <legend className="small">{t('drug')} {fmtNumber(i + 1)}</legend>
+          <legend className="small">الدواء {fmtNumber(i + 1)}</legend>
           <div className="grid-2">
-            <Field label={t('drugName')}>{(a) => <Input id={a.id} dir="auto" value={l.drugName} onChange={(e) => set(i, 'drugName', e.target.value)} maxLength={200} placeholder="Amoxicillin 500mg" />}</Field>
-            <Field label={t('dose')} optional={t('optional')}>{(a) => <Input id={a.id} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} maxLength={100} />}</Field>
-            <Field label={t('frequency')} optional={t('optional')}>{(a) => <Input id={a.id} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} maxLength={100} />}</Field>
-            <Field label={t('duration')} optional={t('optional')}>{(a) => <Input id={a.id} value={l.duration} onChange={(e) => set(i, 'duration', e.target.value)} maxLength={100} />}</Field>
+            <Field label="اسم الدواء">{(a) => <Input id={a.id} dir="auto" value={l.drugName} onChange={(e) => set(i, 'drugName', e.target.value)} maxLength={200} placeholder="Amoxicillin 500mg" />}</Field>
+            <Field label="الجرعة" optional="اختياري">{(a) => <Input id={a.id} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} maxLength={100} />}</Field>
+            <Field label="عدد المرات" optional="اختياري">{(a) => <Input id={a.id} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} maxLength={100} />}</Field>
+            <Field label="المدة" optional="اختياري">{(a) => <Input id={a.id} value={l.duration} onChange={(e) => set(i, 'duration', e.target.value)} maxLength={100} />}</Field>
           </div>
-          <Field label={t('instructions')} optional={t('optional')}>{(a) => <Input id={a.id} value={l.instructions} onChange={(e) => set(i, 'instructions', e.target.value)} maxLength={500} />}</Field>
-          {lines.length > 1 && <LinkButton onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>{t('remove')}</LinkButton>}
+          <Field label="تعليمات" optional="اختياري">{(a) => <Input id={a.id} value={l.instructions} onChange={(e) => set(i, 'instructions', e.target.value)} maxLength={500} />}</Field>
+          {lines.length > 1 && <LinkButton onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>إزالة</LinkButton>}
         </fieldset>
       ))}
-      {lines.length < 20 && <LinkButton onClick={() => setLines((ls) => [...ls, { ...EMPTY_LINE }])}><PlusIcon size={14} /> {t('addDrug')}</LinkButton>}
-      <Field label={t('notes')} optional={t('optional')}>{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
+      {lines.length < 20 && <LinkButton onClick={() => setLines((ls) => [...ls, { ...EMPTY_LINE }])}><PlusIcon size={14} /> إضافة دواء</LinkButton>}
+      <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
       <ErrorText error={issue.error} />
       <div className="row-end">
-        <Button variant="ghost" onClick={() => onDone()}>{t('cancel')}</Button>
-        <Button type="submit" loading={issue.isPending} disabled={!ready}>{t(replaces ? 'issueCorrection' : 'issuePrescription')}</Button>
+        <Button variant="ghost" onClick={() => onDone()}>إلغاء</Button>
+        <Button type="submit" loading={issue.isPending} disabled={!ready}>{replaces ? 'إصدار التصحيح' : 'إصدار الروشتة'}</Button>
       </div>
     </form>
   );
@@ -382,29 +382,29 @@ function NextVisitCard({ clinicId, v }: { clinicId: string; v: Visit }) {
   const add = useClinicalMutation(clinicId, () => send(`/patients/${v.patient_id}/recalls`, 'POST', { reason, dueDate: due, sourceVisitId: v.id, ...(note.trim() && { notes: note.trim() }) }));
   return (
     <Card>
-      <h2>{t('nextVisit')}</h2>
+      <h2>الزيارة القادمة</h2>
       {v.next_visit_note && <p className="history-notes mt-sm">{v.next_visit_note}</p>}
-      {next && <p className="small mt-sm">{t('nextPlannedItem')}: <strong><bdi>{arName(next.service_ar, next.service_en)}</bdi></strong>{next.tooth_code && <> · <bdi dir="ltr">{next.tooth_code}</bdi></>}</p>}
+      {next && <p className="small mt-sm">البند التالي في الخطة: <strong><bdi>{arName(next.service_ar, next.service_en)}</bdi></strong>{next.tooth_code && <> · <bdi dir="ltr">{next.tooth_code}</bdi></>}</p>}
       {has('appointments:write') && (
         <div className="row-end mt">
-          <RouteLink route={to.create('appointments', nextBookingQuery(v, plan.data))} className="btn btn-primary"><CalendarIcon size={16} />{t('bookNext')}</RouteLink>
+          <RouteLink route={to.create('appointments', nextBookingQuery(v, plan.data))} className="btn btn-primary"><CalendarIcon size={16} />حجز الموعد القادم</RouteLink>
         </div>
       )}
       {has('patients:write') && <form className="stack mt" onSubmit={(e) => { e.preventDefault(); add.mutate(undefined, { onSuccess: () => { setAdded(true); setNote(''); } }); }}>
-        <h3>{t('addFollowUp')}</h3>
+        <h3>إضافة متابعة</h3>
         <div className="grid-2">
-          <Field label={t('followUpReason')}>
-            {(a) => <Choice id={a.id} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((r) => ({ value: r, label: t(`recall_${r}` as Key) }))} />}
+          <Field label="سبب المتابعة">
+            {(a) => <Choice id={a.id} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((r) => ({ value: r, label: recallReasonLabel[r] }))} />}
           </Field>
-          <Field label={t('dueDate')}>{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={todayIso()} />}</Field>
+          <Field label="موعد الاستحقاق">{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={todayIso()} />}</Field>
         </div>
         <div className="chips">
-          {[1, 3, 6, 12].map((m) => <button key={m} type="button" className={`chip-toggle${due === addMonths(todayIso(), m) ? ' is-on' : ''}`} onClick={() => setDue(addMonths(todayIso(), m))}>{t(`in${m}Months` as Key)}</button>)}
+          {[1, 3, 6, 12].map((m) => <button key={m} type="button" className={`chip-toggle${due === addMonths(todayIso(), m) ? ' is-on' : ''}`} onClick={() => setDue(addMonths(todayIso(), m))}>{inMonthsLabel[m]}</button>)}
         </div>
-        <Field label={t('notes')} optional={t('optional')}>{(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />}</Field>
-        {added && <Alert tone="success">{t('followUpAdded')}</Alert>}
+        <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />}</Field>
+        {added && <Alert tone="success">أُضيفت المتابعة إلى قائمة المتابعات.</Alert>}
         <ErrorText error={add.error} />
-        <div className="row-end"><Button type="submit" variant="secondary" loading={add.isPending}>{t('addFollowUp')}</Button></div>
+        <div className="row-end"><Button type="submit" variant="secondary" loading={add.isPending}>إضافة متابعة</Button></div>
       </form>}
     </Card>
   );

@@ -4,7 +4,6 @@ import { api } from '../../api';
 import { bookingPatch, MAX_REMINDERS, REMINDER_CHOICES, toggleReminder } from '../../calendar-model';
 import { Choice } from '../../components/choice';
 import { useFlash, useUnsavedChanges } from '../../hooks';
-import { t, type Key } from '../../i18n';
 import { calendarKeys, useBookingSettings } from '../../queries';
 import type { BookingSettings } from '../../types';
 import { Alert, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, Switch } from '../../ui/components';
@@ -15,8 +14,8 @@ const STEPS = [5, 10, 15, 20, 30, 60];
 /** One reminder offset as words: the fixed choices have exact Arabic wording, anything else falls back to minutes. */
 export function reminderLabel(minutes: number): string {
   const key = `rem_${minutes}`;
-  if ((REMINDER_CHOICES as readonly number[]).includes(minutes)) return t(key as Key);
-  return t('remMinutes').replace('{n}', String(minutes));
+  if ((REMINDER_CHOICES as readonly number[]).includes(minutes)) return key;
+  return 'قبلها بـ {n} دقيقة'.replace('{n}', String(minutes));
 }
 
 /** `#/booking`: the website booking rules and email reminders (SRS APPT-009). Read by every member; edited by the owner. */
@@ -34,7 +33,7 @@ function RulesForm({ clinicId, orig, canWrite }: { clinicId: string; orig: Booki
   const qc = useQueryClient();
   const patch = bookingPatch(orig, form);
   const dirty = Object.keys(patch).length > 0;
-  useUnsavedChanges(dirty, t('leaveUnsaved'));
+  useUnsavedChanges(dirty, 'لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟');
   const set = <K extends keyof BookingSettings>(k: K) => (v: BookingSettings[K]) => { setSaved(false); setForm((f) => ({ ...f, [k]: v })); };
   const save = useMutation({
     mutationFn: () => api<BookingSettings>('/clinic/booking-settings', { method: 'PATCH', body: JSON.stringify(patch) }),
@@ -47,35 +46,35 @@ function RulesForm({ clinicId, orig, canWrite }: { clinicId: string; orig: Booki
 
   return (
     <form onSubmit={submit} className="stack"> {/* header, notices and cards spaced like any page (the form wraps them all) */}
-      <PageHeader title={t('bookingTitle')} sub={t('bookingSub')}
-        action={canWrite ? <Button type="submit" loading={save.isPending} disabled={!dirty}>{t('save')}</Button> : undefined} />
-      {(saved || flash) && <Alert tone="success">{saved ? t('bookingSaved') : flash}</Alert>}
+      <PageHeader title="قواعد الحجز" sub="تُطبَّق على الحجز من موقع العيادة وعلى تذكيرات البريد."
+        action={canWrite ? <Button type="submit" loading={save.isPending} disabled={!dirty}>حفظ</Button> : undefined} />
+      {(saved || flash) && <Alert tone="success">{saved ? 'حُفظت قواعد الحجز.' : flash}</Alert>}
       <ErrorText error={save.error} />
       <fieldset disabled={!canWrite} className="stack">
         <Card>
           <div className="switch-row">
-            <Switch checked={form.autoConfirm} onChange={set('autoConfirm')} label={t('autoConfirmLabel')} />
-            <Switch checked={form.otpRequired} onChange={set('otpRequired')} label={t('otpLabel')} />
+            <Switch checked={form.autoConfirm} onChange={set('autoConfirm')} label="تأكيد حجوزات الموقع تلقائيًا" />
+            <Switch checked={form.otpRequired} onChange={set('otpRequired')} label="التحقق من بريد المريض برمز قبل الحجز" />
           </div>
         </Card>
         <Card>
           <div className="grid-2">
-            <Field label={t('minNoticeLabel')}>
+            <Field label="أقل وقت قبل الموعد (بالساعات)">
               {(a) => <Input id={a.id} type="number" dir="ltr" min={0} max={168} value={hours} onChange={(e) => set('minNoticeMinutes')(Math.max(0, Math.min(168, Number(e.target.value) || 0)) * 60)} />}
             </Field>
-            <Field label={t('maxDaysLabel')}>
+            <Field label="أقصى مدة للحجز مقدمًا (بالأيام)">
               {(a) => <Input id={a.id} type="number" dir="ltr" min={1} max={365} value={form.maxDaysAhead} onChange={(e) => set('maxDaysAhead')(Math.max(1, Math.min(365, Number(e.target.value) || 1)))} />}
             </Field>
-            <Field label={t('slotStepLabel')}>
+            <Field label="تبدأ المواعيد كل">
               {(a) => <Choice id={a.id} value={String(form.slotStepMinutes)} onChange={(v) => set('slotStepMinutes')(Number(v))}
-                options={STEPS.map((s) => ({ value: String(s), label: `${s} ${t('minutes')}` }))} />}
+                options={STEPS.map((s) => ({ value: String(s), label: `${s} ${'دقيقة'}` }))} />}
             </Field>
           </div>
         </Card>
         <Card>
           <fieldset className="check-group">
-            <legend>{t('remindersLabel')}</legend>
-            <p className="muted small">{t('remindersHint')}</p>
+            <legend>التذكير قبل الموعد</legend>
+            <p className="muted small">حتى 4 تذكيرات بالبريد الإلكتروني. التغيير يسري على الحجوزات الجديدة.</p>
             <div className="branch-checks">
               {choices.map((m) => {
                 const on = form.reminderOffsetsMinutes.includes(m);

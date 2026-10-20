@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { navigate, useDebounced, useFlash } from '../../hooks';
-import { t } from '../../i18n';
 import { ageOn } from '../../patient-model';
 import { usePatients } from '../../queries';
 import { to } from '../../router';
@@ -25,33 +24,33 @@ export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string
   const search = useDebounced(q.trim(), 250);
   const list = usePatients(clinicId, search);
   const rows = list.data?.pages.flatMap((p) => p.items);
-  const add = canWrite && <Button onClick={() => navigate(to.create('patients'))}><PlusIcon size={18} />{t('addPatient')}</Button>;
+  const add = canWrite && <Button onClick={() => navigate(to.create('patients'))}><PlusIcon size={18} />مريض جديد</Button>;
 
   const columns: Column<PatientRow>[] = [
     {
-      id: 'name', header: t('patientColName'),
+      id: 'name', header: 'المريض',
       cell: (p) => (
         <RouteLink route={to.view('patients', p.id)} className="patient-main">
           <span className="patient-avatar" aria-hidden>{p.full_name.trim().slice(0, 1)}</span>
           <span className="patient-text">
             <strong><bdi>{p.full_name}</bdi></strong>
-            <span className="muted small">{t('fileNo')} <bdi dir="ltr">{fmtNumber(p.file_no)}</bdi></span>
+            <span className="muted small">ملف رقم <bdi dir="ltr">{fmtNumber(p.file_no)}</bdi></span>
           </span>
         </RouteLink>
       ),
     },
-    { id: 'phone', header: t('phone'), cell: (p) => <bdi dir="ltr" className="tabular-nums">{p.phone}</bdi> },
+    { id: 'phone', header: 'رقم الموبايل', cell: (p) => <bdi dir="ltr" className="tabular-nums">{p.phone}</bdi> },
     {
-      id: 'age', header: t('patientColAge'), hideOnMobile: true,
-      cell: (p) => { const age = ageOn(p.date_of_birth ?? '', today()); return age === null ? <span className="muted">—</span> : `${fmtNumber(age)} ${t('years')}`; },
+      id: 'age', header: 'السن', hideOnMobile: true,
+      cell: (p) => { const age = ageOn(p.date_of_birth ?? '', today()); return age === null ? <span className="muted">—</span> : `${fmtNumber(age)} ${'سنة'}`; },
     },
-    { id: 'gender', header: t('gender'), hideOnMobile: true, cell: (p) => (p.gender ? t(p.gender === 'male' ? 'male' : 'female') : <span className="muted">—</span>) },
+    { id: 'gender', header: 'النوع', hideOnMobile: true, cell: (p) => (p.gender ? p.gender === 'male' ? 'ذكر' : 'أنثى' : <span className="muted">—</span>) },
     {
-      id: 'status', header: t('status'), hideOnMobile: true,
+      id: 'status', header: 'الحالة', hideOnMobile: true,
       cell: (p) => (
         <span className="patient-badges">
-          {p.tags.includes('needs_review') && <Badge tone="warning" dot>{t('needsReview')}</Badge>}
-          {p.is_blocked && <Badge tone="danger" dot>{t('blocked')}</Badge>}
+          {p.tags.includes('needs_review') && <Badge tone="warning" dot>يحتاج مراجعة</Badge>}
+          {p.is_blocked && <Badge tone="danger" dot>محظور</Badge>}
           {p.tags.filter((x) => x !== 'needs_review').slice(0, 2).map((x) => <Badge key={x}><bdi>{x}</bdi></Badge>)}
         </span>
       ),
@@ -60,10 +59,10 @@ export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string
 
   return (
     <>
-      <PageHeader title={t('navPatients')} sub={t('patientsSub')} action={add || undefined} />
+      <PageHeader title="المرضى" sub="ملفات المرضى: البحث بالاسم أو الموبايل أو رقم الملف" action={add || undefined} />
       {flash && <Alert tone="success">{flash}</Alert>}
       <DataTable
-        label={t('navPatients')}
+        label="المرضى"
         rows={rows}
         columns={columns}
         rowKey={(p) => p.id}
@@ -71,21 +70,21 @@ export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string
         isFetching={list.isFetching}
         error={list.isError ? list.error : undefined}
         onRetry={() => void list.refetch()}
-        search={{ placeholder: t('patientSearchHint'), value: q, onChange: setQ, autoFocus: true }}
+        search={{ placeholder: 'الاسم أو رقم الموبايل أو رقم الملف', value: q, onChange: setQ, autoFocus: true }}
         onRowClick={(p) => navigate(to.view('patients', p.id))}
         actions={(p) => (
           <RowMenu label={p.full_name} actions={[
-            { label: t('rowOpenFile'), icon: <UsersIcon size={16} />, route: to.view('patients', p.id) },
-            { label: t('book'), icon: <CalendarIcon size={16} />, route: to.create('appointments', { patient: p.id }), hidden: !canBook || p.is_blocked },
-            { label: t('edit'), icon: <EditIcon size={16} />, route: to.edit('patients', p.id), hidden: !canWrite },
+            { label: 'ملف المريض', icon: <UsersIcon size={16} />, route: to.view('patients', p.id) },
+            { label: 'حجز موعد', icon: <CalendarIcon size={16} />, route: to.create('appointments', { patient: p.id }), hidden: !canBook || p.is_blocked },
+            { label: 'تعديل', icon: <EditIcon size={16} />, route: to.edit('patients', p.id), hidden: !canWrite },
           ]} />
         )}
         empty={{
-          icon: <UsersIcon size={28} />, title: t(search ? 'noPatientMatch' : 'noPatients'), text: t(search ? 'noPatientMatchText' : 'noPatientsText'),
+          icon: <UsersIcon size={28} />, title: search ? 'لا يوجد مريض مطابق' : 'لا يوجد مرضى بعد', text: search ? 'جرّب جزءًا من الاسم أو آخر أرقام الموبايل.' : 'سجّل أول مريض، أو سيُضاف المرضى تلقائيًا عند الحجز من الموقع.',
           action: search ? undefined : add || undefined,
         }}
         footer={list.hasNextPage && (
-          <div className="row-center"><Button variant="secondary" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('loadMore')}</Button></div>
+          <div className="row-center"><Button variant="secondary" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>عرض المزيد</Button></div>
         )}
       />
     </>

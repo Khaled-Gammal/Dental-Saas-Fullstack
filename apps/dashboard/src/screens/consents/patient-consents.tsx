@@ -4,7 +4,7 @@ import { api, uploadFile } from '../../api';
 import { Choice } from '../../components/choice';
 import { FilePicker } from '../../components/file-picker';
 import { consentState, defaultSigner, signable, SIGNER_RELATIONS, type PatientConsent, type SignerRelation } from '../../consents-model';
-import { t, type Key } from '../../i18n';
+import { signerRelationLabel } from '../../labels';
 import { usePatient } from '../../queries';
 import type { PatientDetail } from '../../types';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, Skeleton } from '../../ui/components';
@@ -40,39 +40,39 @@ export function PatientConsentsCard({ clinicId, patient, canSign }: { clinicId: 
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('consentsTitle')}</h2>
+        <h2>الموافقات</h2>
         {canSign && (
           <div className="row-end">
-            <Button variant="ghost" onClick={() => setPaper(true)}>{t('consentPaper')}</Button>
-            <RouteLink route={{ page: 'patients', id: patient.id, action: 'sign' }} className="btn btn-secondary">{t('consentSign')}</RouteLink>
+            <Button variant="ghost" onClick={() => setPaper(true)}>موافقة ورقية</Button>
+            <RouteLink route={{ page: 'patients', id: patient.id, action: 'sign' }} className="btn btn-secondary">توقيع موافقة</RouteLink>
           </div>
         )}
       </div>
       {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
         : !list.data ? <Skeleton h={40} count={2} />
-        : !rows.length ? <EmptyState icon={<ShieldIcon size={24} />} title={t('noConsents')} text={t('noConsentsText')} />
+        : !rows.length ? <EmptyState icon={<ShieldIcon size={24} />} title="لا توجد موافقات" text="يوقّع المريض على الشاشة، أو ترفع صورة من نموذج وقّعه على الورق." />
         : (
           <ul className="line-list mt-sm">
             {rows.map((c) => (
               <li key={c.id} className={c.revoked_at ? 'is-cancelled' : undefined}>
                 <span>
                   <RouteLink route={{ page: 'patients', id: patient.id, action: 'consent', query: { c: c.id } }}><bdi>{c.title}</bdi></RouteLink>{' '}
-                  {consentState(c) === 'revoked' ? <Badge tone="warning">{t('consentWithdrawn')}</Badge> : <Badge tone="success">{t(c.method === 'paper' ? 'consentOnPaper' : 'consentOnScreen')}</Badge>}
+                  {consentState(c) === 'revoked' ? <Badge tone="warning">مسحوبة</Badge> : <Badge tone="success">{c.method === 'paper' ? 'ورقية' : 'على الشاشة'}</Badge>}
                   <span className="muted small block">
-                    {when(c.signed_at)} · <bdi>{c.signer_name}</bdi>{c.signer_relation !== 'self' && <> ({t(`rel_${c.signer_relation}` as Key)})</>}
-                    {c.revoked_at && <> · {t('consentWithdrawnOn').replace('{date}', when(c.revoked_at))}: <bdi>{c.revoke_reason}</bdi></>}
+                    {when(c.signed_at)} · <bdi>{c.signer_name}</bdi>{c.signer_relation !== 'self' && <> ({signerRelationLabel[c.signer_relation]})</>}
+                    {c.revoked_at && <> · {'سُحبت في {date}'.replace('{date}', when(c.revoked_at))}: <bdi>{c.revoke_reason}</bdi></>}
                   </span>
                 </span>
-                {canSign && !c.revoked_at && <span className="line-end"><Button variant="ghost" onClick={() => setWithdrawing(c)}>{t('consentWithdraw')}</Button></span>}
+                {canSign && !c.revoked_at && <span className="line-end"><Button variant="ghost" onClick={() => setWithdrawing(c)}>سحب الموافقة</Button></span>}
               </li>
             ))}
           </ul>
         )}
       {paper && <PaperConsentDialog clinicId={clinicId} patient={patient} onClose={() => setPaper(false)} />}
-      <ConfirmDialog open={!!withdrawing} title={t('consentWithdraw')} confirmLabel={t('consentWithdraw')} danger
+      <ConfirmDialog open={!!withdrawing} title="سحب الموافقة" confirmLabel="سحب الموافقة" danger
         onConfirm={() => { if (withdrawing && reason.trim().length >= 3) withdraw.mutate(withdrawing); }} onCancel={() => { setWithdrawing(null); setReason(''); }}>
-        <p>{t('consentWithdrawText')}</p>
-        <Field label={t('reason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />}</Field>
+        <p>تبقى الموافقة في الملف كما وُقّعت، مع سبب سحبها وتاريخه.</p>
+        <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />}</Field>
         <ErrorText error={withdraw.error} />
       </ConfirmDialog>
     </Card>
@@ -98,20 +98,20 @@ function PaperConsentDialog({ clinicId, patient, onClose }: { clinicId: string; 
   const ready = !!key && name.trim().length >= 2 && !!file && !tooBig && !(start.minor && relation === 'self');
 
   return (
-    <ConfirmDialog open title={t('consentPaper')} confirmLabel={send.isPending ? `${t('uploading')} ${Math.round(progress * 100)}%` : t('save')}
+    <ConfirmDialog open title="موافقة ورقية" confirmLabel={send.isPending ? `${'جارٍ رفع'} ${Math.round(progress * 100)}%` : 'حفظ'}
       onConfirm={() => { if (ready && !send.isPending) send.mutate(); }} onCancel={onClose}>
-      <p className="muted small">{t('consentPaperText')}</p>
-      {!texts.length && <Alert tone="info">{t('consentNoneSignable')}</Alert>}
-      <Field label={t('consentWhich')}>
-        {(a) => <Choice id={a.id} value={key} onChange={setKey} placeholder={t('consentPick')} options={texts.map((x) => ({ value: x.key, label: x.title_ar }))} />}
+      <p className="muted small">المريض وقّع النموذج على الورق: اختر النموذج، واكتب من وقّع، وارفع صورة أو ملف PDF للنموذج الموقّع.</p>
+      {!texts.length && <Alert tone="info">لا توجد نماذج معتمدة. يراجع مالك العيادة النماذج ويعتمدها من «نماذج الموافقات».</Alert>}
+      <Field label="النموذج">
+        {(a) => <Choice id={a.id} value={key} onChange={setKey} placeholder="اختر النموذج" options={texts.map((x) => ({ value: x.key, label: x.title_ar }))} />}
       </Field>
       <div className="grid-2">
-        <Field label={t('consentSignerName')}>{(a) => <Input id={a.id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />}</Field>
-        <Field label={t('consentSignerRelation')} error={start.minor && relation === 'self' ? t('consentMinorNeedsGuardian') : undefined}>
-          {(a) => <Choice id={a.id} value={relation} onChange={(v) => setRelation(v as SignerRelation)} options={SIGNER_RELATIONS.map((r) => ({ value: r, label: t(`rel_${r}` as Key) }))} />}
+        <Field label="اسم من يوقّع">{(a) => <Input id={a.id} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />}</Field>
+        <Field label="صفته" error={start.minor && relation === 'self' ? 'المريض قاصر: يوقّع ولي الأمر.' : undefined}>
+          {(a) => <Choice id={a.id} value={relation} onChange={(v) => setRelation(v as SignerRelation)} options={SIGNER_RELATIONS.map((r) => ({ value: r, label: signerRelationLabel[r] }))} />}
         </Field>
       </div>
-      <Field label={t('consentScan')} error={tooBig ? t('fileTooBig') : undefined}>
+      <Field label="صورة النموذج الموقّع" error={tooBig ? 'الملف أكبر من 20 ميجابايت.' : undefined}>
         {(a) => <FilePicker id={a.id} describedBy={a.describedBy} accept={ACCEPT} file={file} onChange={setFile} disabled={send.isPending} />}
       </Field>
       <ErrorText error={send.error} />
@@ -129,25 +129,25 @@ export function ConsentView({ clinicId, patientId, consentId }: { clinicId: stri
   return (
     <>
       <div className="no-print">
-        <Breadcrumbs items={[{ label: t('navPatients'), route: { page: 'patients' } }, { label: patient.data.full_name, route: { page: 'patients', id: patientId, action: 'view' } }, { label: d.title }]} />
-        <div className="row-end mt-sm"><Button onClick={() => window.print()}>{t('print')}</Button></div>
+        <Breadcrumbs items={[{ label: 'المرضى', route: { page: 'patients' } }, { label: patient.data.full_name, route: { page: 'patients', id: patientId, action: 'view' } }, { label: d.title }]} />
+        <div className="row-end mt-sm"><Button onClick={() => window.print()}>طباعة</Button></div>
       </div>
       <Card className="consent-sheet">
         <h1><bdi>{d.title}</bdi></h1>
-        {d.revoked_at && <Alert tone="danger">{t('consentWithdrawnOn').replace('{date}', when(d.revoked_at))}: <bdi>{d.revoke_reason}</bdi>{d.revoked_by_name && <> — {d.revoked_by_name}</>}</Alert>}
+        {d.revoked_at && <Alert tone="danger">{'سُحبت في {date}'.replace('{date}', when(d.revoked_at))}: <bdi>{d.revoke_reason}</bdi>{d.revoked_by_name && <> — {d.revoked_by_name}</>}</Alert>}
         <dl className="detail-list mt-sm">
-          <div><dt>{t('consentPatient')}</dt><dd><bdi>{patient.data.full_name}</bdi></dd></div>
-          <div><dt>{t('consentSignerName')}</dt><dd><bdi>{d.signer_name}</bdi>{d.signer_relation !== 'self' && <> ({t(`rel_${d.signer_relation}` as Key)})</>}</dd></div>
-          <div><dt>{t('consentSignedAt')}</dt><dd>{when(d.signed_at)}</dd></div>
-          {d.recorded_by_name && <div><dt>{t('consentRecordedBy')}</dt><dd>{d.recorded_by_name}</dd></div>}
-          <div><dt>{t('consentVersionLabel')}</dt><dd>{d.version}</dd></div>
+          <div><dt>المريض</dt><dd><bdi>{patient.data.full_name}</bdi></dd></div>
+          <div><dt>اسم من يوقّع</dt><dd><bdi>{d.signer_name}</bdi>{d.signer_relation !== 'self' && <> ({signerRelationLabel[d.signer_relation]})</>}</dd></div>
+          <div><dt>وقت التوقيع</dt><dd>{when(d.signed_at)}</dd></div>
+          {d.recorded_by_name && <div><dt>سجّلها</dt><dd>{d.recorded_by_name}</dd></div>}
+          <div><dt>إصدار النص</dt><dd>{d.version}</dd></div>
         </dl>
         <div className="consent-text mt">{d.body_snapshot}</div>
         <div className="mt">
-          <h2>{t(d.method === 'paper' ? 'consentScan' : 'consentSignature')}</h2>
+          <h2>{d.method === 'paper' ? 'صورة النموذج الموقّع' : 'التوقيع'}</h2>
           {d.method === 'screen'
-            ? <img className="consent-signature" src={d.file_url} alt={t('consentSignature')} />
-            : <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary no-print">{t('consentOpenScan')}</a>}
+            ? <img className="consent-signature" src={d.file_url} alt="التوقيع" />
+            : <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary no-print">فتح صورة النموذج</a>}
         </div>
       </Card>
     </>

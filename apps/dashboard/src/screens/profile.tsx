@@ -4,7 +4,6 @@ import { onColor, arName, readableOnWhite } from '@dental/ui/text';
 import { api } from '../api';
 import { ImageField } from '../components/image-field';
 import { imageFieldValue } from '../media-model';
-import { t } from '../i18n';
 import { keys, useInvalidate, useOnboarding, useProfile, usePublish } from '../queries';
 import type { ClinicProfile, MediaImage } from '../types';
 import { Choice } from '../components/choice';
@@ -66,65 +65,65 @@ export function Profile({ clinicId, canEdit }: { clinicId: string; canEdit: bool
   };
 
   if (profile.isError) return <ErrorText error={profile.error} onRetry={() => void profile.refetch()} />;
-  if (!form) return <><PageHeader title={t('navProfile')} sub={t('profileSub')} /><Skeleton h={120} count={3} /></>;
+  if (!form) return <><PageHeader title="ملف العيادة" sub="هذه البيانات تظهر لمرضاك على موقع عيادتك" /><Skeleton h={120} count={3} /></>;
 
   return (
     <>
-      <PageHeader title={t('navProfile')} sub={t('profileSub')} />
+      <PageHeader title="ملف العيادة" sub="هذه البيانات تظهر لمرضاك على موقع عيادتك" />
       {canEdit && onboarding?.pendingChanges && !dirty && (
         <div className="publish-banner" role="status">
           <GlobeIcon />
-          <div className="publish-text"><strong>{t('publishBanner')}</strong><span className="muted small">{t('publishHint')}</span></div>
-          <Button onClick={() => publish.mutate()} loading={publish.isPending}>{t('publish')}</Button>
+          <div className="publish-text"><strong>لديك تغييرات لم تُنشر بعد على موقعك</strong><span className="muted small">الزوار يرون آخر نسخة منشورة فقط</span></div>
+          <Button onClick={() => publish.mutate()} loading={publish.isPending}>نشر على الموقع</Button>
         </div>
       )}
-      {publish.isSuccess && !onboarding?.pendingChanges && <Alert tone="success">{t('published')}</Alert>}
+      {publish.isSuccess && !onboarding?.pendingChanges && <Alert tone="success">تم النشر، موقعك محدّث</Alert>}
       <ErrorText error={publish.error} />
       <form onSubmit={submit} className="profile-grid">
         <fieldset disabled={!canEdit} className="contents">
         <div className="stack">
           <Card>
-            <h2>{t('secNames')}</h2>
+            <h2>اسم العيادة</h2>
             <div className="grid-2 mt">
-              <Field label={t('clinicNameAr')} hint={t('brandNameHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.nameAr} onChange={set('nameAr')} dir="auto" maxLength={120} />}</Field>
+              <Field label="اسم العيادة" hint="بالعربية، أو بالإنجليزية إن كان اسم علامتك التجارية مكتوبًا بها.">{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.nameAr} onChange={set('nameAr')} dir="auto" maxLength={120} />}</Field>
             </div>
           </Card>
 
           <Card>
-            <h2>{t('secAbout')}</h2>
-            <p className="muted small">{t('aboutHint')}</p>
+            <h2>نبذة عن العيادة</h2>
+            <p className="muted small">جملتان أو ثلاث عن خبرتكم وما يميز عيادتكم</p>
             <div className="stack mt">
-              <Field label={t('aboutAr')}>{(a) => <TextArea id={a.id} value={form.aboutAr} onChange={set('aboutAr')} dir="rtl" maxLength={1000} />}</Field>
+              <Field label="النبذة">{(a) => <TextArea id={a.id} value={form.aboutAr} onChange={set('aboutAr')} dir="rtl" maxLength={1000} />}</Field>
             </div>
           </Card>
 
           <Card>
-            <h2>{t('secContact')}</h2>
+            <h2>التواصل</h2>
             <div className="grid-2 mt">
-              <Field label={t('primaryPhone')}>{(a) => <Input id={a.id} type="tel" value={form.primaryPhone} onChange={set('primaryPhone')} dir="ltr" placeholder="01012345678" />}</Field>
-              <Field label={t('whatsapp')} optional={t('optional')}>{(a) => <Input id={a.id} type="tel" value={form.whatsapp} onChange={set('whatsapp')} dir="ltr" placeholder="01012345678" />}</Field>
-              <Field label={t('clinicEmail')} optional={t('optional')}>{(a) => <Input id={a.id} type="email" value={form.email} onChange={set('email')} dir="ltr" />}</Field>
+              <Field label="رقم الحجز">{(a) => <Input id={a.id} type="tel" value={form.primaryPhone} onChange={set('primaryPhone')} dir="ltr" placeholder="01012345678" />}</Field>
+              <Field label="واتساب" optional="اختياري">{(a) => <Input id={a.id} type="tel" value={form.whatsapp} onChange={set('whatsapp')} dir="ltr" placeholder="01012345678" />}</Field>
+              <Field label="بريد العيادة" optional="اختياري">{(a) => <Input id={a.id} type="email" value={form.email} onChange={set('email')} dir="ltr" />}</Field>
             </div>
           </Card>
         </div>
 
         <aside className="stack profile-side">
           <Card>
-            <ImageField purpose="logo" shape="logo" value={form.logo} label={t('clinicLogo')} disabled={!canEdit}
+            <ImageField purpose="logo" shape="logo" value={form.logo} label="شعار العيادة" disabled={!canEdit}
               onChange={(logo) => { setForm((f) => (f ? { ...f, logo } : f)); if (save.isSuccess || save.isError) save.reset(); }} />
           </Card>
           <Card>
-            <h2>{t('secBrand')}</h2>
-            <p className="muted small">{t('brandHint')}</p>
-            <div className="swatches mt" role="group" aria-label={t('secBrand')}>
+            <h2>لون العلامة</h2>
+            <p className="muted small">يُستخدم في أزرار موقعك وعناوينه</p>
+            <div className="swatches mt" role="group" aria-label="لون العلامة">
               {PRESETS.map((c) => (
                 <button key={c} type="button" aria-pressed={form.brandColor === c} aria-label={c} className="swatch"
                   style={{ background: c }} onClick={() => set('brandColor')({ target: { value: c } })}>
                   {form.brandColor === c && <CheckIcon size={16} color={onColor(c)} />}
                 </button>
               ))}
-              <label className="swatch swatch-custom" title={t('customColor')}>
-                <input type="color" value={form.brandColor} onChange={set('brandColor')} aria-label={t('customColor')} />
+              <label className="swatch swatch-custom" title="لون مخصص">
+                <input type="color" value={form.brandColor} onChange={set('brandColor')} aria-label="لون مخصص" />
               </label>
             </div>
             <BrandPreview form={form} />
@@ -134,10 +133,10 @@ export function Profile({ clinicId, canEdit }: { clinicId: string; canEdit: bool
 
           {canEdit && (
             <div className="save-bar">
-              {save.isSuccess && !dirty && <Alert tone="success">{t('saved')}</Alert>}
+              {save.isSuccess && !dirty && <Alert tone="success">تم الحفظ</Alert>}
               <ErrorText error={save.error} />
-              <Button type="submit" block loading={save.isPending} disabled={!dirty}>{dirty ? t('save') : t('saved')}</Button>
-              {dirty && <p className="muted small center">{t('unsaved')}</p>}
+              <Button type="submit" block loading={save.isPending} disabled={!dirty}>{dirty ? 'حفظ' : 'تم الحفظ'}</Button>
+              {dirty && <p className="muted small center">تغييرات غير محفوظة</p>}
             </div>
           )}
         </aside>
@@ -155,16 +154,16 @@ function BrandPreview({ form }: { form: Form }) {
   const light = onColor(brand) !== '#ffffff';
   return (
     <div className="mt">
-      <span className="eyebrow-label">{t('preview')}</span>
+      <span className="eyebrow-label">معاينة</span>
       <div className="brand-preview" style={style} aria-hidden>
         <div className="bp-nav">{form.logo ? <img className="bp-logo" src={form.logo.thumbUrl} alt="" /> : <span className="bp-mark"><ToothIcon size={14} /></span>}<bdi>{name}</bdi></div>
         <div className="bp-body">
           <strong><bdi>{name}</bdi></strong>
           <p>{(form.aboutAr || form.aboutEn).slice(0, 90) || '…'}</p>
-          <span className="bp-btn"><PhoneIcon size={14} />{t('previewBook')}</span>
+          <span className="bp-btn"><PhoneIcon size={14} />احجز الآن</span>
         </div>
       </div>
-      {light && <p className="muted small mt-sm">{t('lightColorNote')}</p>}
+      {light && <p className="muted small mt-sm">لون فاتح: سيُكتب نص الأزرار بلون داكن ليبقى مقروءًا</p>}
     </div>
   );
 }
@@ -181,12 +180,12 @@ function CurrencyCard({ clinicId, current, canEdit }: { clinicId: string; curren
   });
   return (
     <Card>
-      <h2>{t('currency')}</h2>
-      <p className="muted small">{t('currencyHint')}</p>
+      <h2>العملة</h2>
+      <p className="muted small">عملة الفواتير والأسعار. تثبت بعد إصدار أول فاتورة.</p>
       <div className="row-end mt-sm">
-        <Choice value={value} onChange={setValue} disabled={!canEdit} label={t('currency')} className="h-10 w-56 bg-card"
-          options={(CURRENCIES.includes(current) ? CURRENCIES : [current, ...CURRENCIES]).map((c) => ({ value: c, label: c === 'EGP' ? `${t('egpName')} (EGP)` : c }))} />
-        {canEdit && <Button variant="secondary" loading={save.isPending} disabled={value === current} onClick={() => save.mutate()}>{t('save')}</Button>}
+        <Choice value={value} onChange={setValue} disabled={!canEdit} label="العملة" className="h-10 w-56 bg-card"
+          options={(CURRENCIES.includes(current) ? CURRENCIES : [current, ...CURRENCIES]).map((c) => ({ value: c, label: c === 'EGP' ? `${'جنيه مصري'} (EGP)` : c }))} />
+        {canEdit && <Button variant="secondary" loading={save.isPending} disabled={value === current} onClick={() => save.mutate()}>حفظ</Button>}
       </div>
       <ErrorText error={save.error} />
     </Card>

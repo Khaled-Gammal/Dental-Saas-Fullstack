@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { can, logout, refreshSession, subscribeSession, takeLoginNotice, type Session } from './api';
-import { t } from './i18n';
 import { AuthLayout, Forgot, Login, ResetPassword, Signup, Verify, type AuthScreen } from './screens/auth';
 import { AcceptInvite } from './screens/accept-invite';
 import { navigate, useRoute } from './hooks';
@@ -102,7 +101,7 @@ export function App() {
 
   useEffect(() => {
     // index.html already says lang="ar" dir="rtl"; no language is stored or offered (L10N-001/002)
-    document.title = `${t('title')} · ${t('brand')}`;
+    document.title = `${'لوحة العيادة'} · ${'منصة الأسنان'}`;
     try { localStorage.removeItem('lang'); } catch { /* storage blocked: nothing was saved either */ }
   }, []);
 
@@ -116,8 +115,8 @@ export function App() {
     view = <ScreenBoundary resetKey="platform"><PlatformApp route={platformRoute} /></ScreenBoundary>;
   } else if (booting) {
     view = (
-      <div className="boot" role="status" aria-label={t('loading')}>
-        <Logo name={t('brand')} />
+      <div className="boot" role="status" aria-label="جارٍ التحميل…">
+        <Logo name="منصة الأسنان" />
         <Spinner />
       </div>
     );
@@ -161,7 +160,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
   const has = (p: string) => can(session, p);
   const settings = has('settings:write');
   const { page, id, action } = route;
-  if (!canOpen(has, route)) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+  if (!canOpen(has, route)) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
   switch (page) {
     case 'overview': return <Overview session={session} />;
     case 'profile': return <Profile clinicId={clinicId} canEdit={settings} />;
@@ -176,33 +175,33 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action === 'edit' && w) return <BranchForm clinicId={clinicId} id={id} />;
       if (action === 'hours' && w) return <BranchHours clinicId={clinicId} id={id} />;
       if (action === 'rooms') return <BranchRooms clinicId={clinicId} id={id} canWrite={settings} />;
-      if (action) return <NotFound text={t('noPermissionPage')} back={to.list('branches')} backLabel={t('branches')} />;
+      if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('branches')} backLabel="الفروع" />;
       return <BranchesList clinicId={clinicId} canWrite={w} />;
     }
     case 'appointments':
       if (action === 'new' && can(session, 'appointments:write')) return <NewAppointment clinicId={clinicId} patientId={route.query?.patient} prefill={route.query} canOverride={can(session, 'appointments:override')} />;
       if (action === 'edit' && can(session, 'appointments:write')) return <MoveAppointment clinicId={clinicId} id={id} canOverride={can(session, 'appointments:override')} />;
-      if (action) return <NotFound text={t('noPermissionPage')} back={to.list('appointments')} backLabel={t('navAppointments')} />;
+      if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('appointments')} backLabel="المواعيد" />;
       return <Appointments clinicId={clinicId} canWrite={can(session, 'appointments:write')} canOwn={can(session, 'appointments:write:own')} query={route.query}
         canVisit={can(session, 'clinical:write')} canSeeBalances={has('patients:read') && (has('invoices:read') || has('invoices:read:own'))} canReadVisit={can(session, 'clinical:read') || can(session, 'clinical:write')}
         defaultView={has('appointments:write:own') && !has('appointments:write') ? 'mine' : 'all'} />; // a doctor opens on their own day (APPT-004)
     case 'gallery': {
       // website content is the owner's (SRS 2.2: Website & content)
-      if (!can(session, 'website:write')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (!can(session, 'website:write')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       if (action === 'new') return <GalleryUpload clinicId={clinicId} query={route.query} />;
       if (action === 'edit') return <GalleryForm clinicId={clinicId} id={id} />;
       return <GalleryList clinicId={clinicId} query={route.query} />;
     }
     case 'patients': {
       const write = can(session, 'patients:write');
-      if (!can(session, 'patients:read')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (!can(session, 'patients:read')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       if (action === 'new' && write) return <PatientForm clinicId={clinicId} />;
       if (action === 'edit' && write) return <PatientForm clinicId={clinicId} id={id} />;
       if (action === 'view') return <PatientProfile clinicId={clinicId} id={id} session={session} />;
       if (action === 'merge' && can(session, 'patients:merge')) return <PatientMerge clinicId={clinicId} id={id} />;
       if (action === 'sign' && canOpen(has, route)) return <SignConsent clinicId={clinicId} patientId={id} query={route.query} />;
       if (action === 'consent' && route.query?.c) return <ConsentView clinicId={clinicId} patientId={id} consentId={route.query.c} />;
-      if (action) return <NotFound text={t('noPermissionPage')} back={to.list('patients')} backLabel={t('navPatients')} />;
+      if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('patients')} backLabel="المرضى" />;
       return <PatientsList clinicId={clinicId} canWrite={write} canBook={can(session, 'appointments:write')} />;
     }
     case 'doctors':
@@ -210,15 +209,15 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action === 'edit' && settings) return <DoctorForm clinicId={clinicId} id={id} />;
       if (action === 'schedule' && settings) return <DoctorSchedule clinicId={clinicId} id={id} />;
       if (action === 'timeoff') return <DoctorTimeOff clinicId={clinicId} id={id} canWrite={settings} />;
-      if (action) return <NotFound text={t('noPermissionPage')} back={to.list('doctors')} backLabel={t('navDoctors')} />;
+      if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('doctors')} backLabel="الأطباء" />;
       return <DoctorsList clinicId={clinicId} canWrite={settings} />;
     case 'services':
       if (action === 'new' && settings) return <ServiceFormPage clinicId={clinicId} catalogCode={route.query?.catalog} />;
       if (action === 'edit' && settings) return <ServiceFormPage clinicId={clinicId} id={id} />;
-      if (action) return <NotFound text={t('noPermissionPage')} back={to.list('services')} backLabel={t('navServices')} />;
+      if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('services')} backLabel="الخدمات والأسعار" />;
       return <ServicesList clinicId={clinicId} canWrite={settings} />;
     case 'visits':
-      if (!can(session, 'clinical:read') && !can(session, 'clinical:write')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (!can(session, 'clinical:read') && !can(session, 'clinical:write')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       return <VisitPage clinicId={clinicId} id={id} canInvoice={can(session, 'invoices:write')} />;
     case 'plans': return <PlanPage clinicId={clinicId} id={id} />;
     case 'prescriptions': return <PrescriptionPrint clinicId={clinicId} id={id} />;
@@ -228,20 +227,20 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action === 'new' && can(session, 'invoices:write')) return <NewInvoice clinicId={clinicId} query={route.query} />;
       if (action === 'view') return <InvoicePage clinicId={clinicId} id={id} />;
       if (action === 'print') return <InvoicePrint clinicId={clinicId} id={id} />;
-      if (action || !can(session, 'invoices:read')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (action || !can(session, 'invoices:read')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       return <InvoicesList clinicId={clinicId} query={route.query} />;
     case 'discounts':
-      if (!can(session, 'discounts:approve')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (!can(session, 'discounts:approve')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       return <Discounts clinicId={clinicId} canSetLimits={can(session, 'staff:manage')} />;
     case 'expenses': {
       const rights = { all: can(session, 'expenses:write'), read: can(session, 'expenses:read'), approve: can(session, 'expenses:approve') };
-      if (!rights.read) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (!rights.read) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       if (action === 'new' && rights.all) return <NewExpense clinicId={clinicId} />;
-      if (action) return <NotFound text={t('noPermissionPage')} back={to.list('expenses')} backLabel={t('navExpenses')} />;
+      if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('expenses')} backLabel="المصروفات" />;
       return <Expenses clinicId={clinicId} rights={rights} />;
     }
     case 'cash':
-      if (!can(session, 'cash:operate')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (!can(session, 'cash:operate')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       return <CashBox clinicId={clinicId} />;
     case 'reports':
       return <Reports clinicId={clinicId} session={session} query={route.query} />;
@@ -251,7 +250,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
     case 'booking': return <BookingRules clinicId={clinicId} canWrite={settings} />;
     case 'staff':
       // staff & roles are the owner's (SRS 2.2)
-      if (!can(session, 'staff:manage')) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (!can(session, 'staff:manage')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       if (action === 'new') return <StaffInvite clinicId={clinicId} has={has} />;
       if (action === 'edit') return <StaffEdit clinicId={clinicId} id={id} has={has} />;
       return <StaffList clinicId={clinicId} session={session} />;
@@ -262,6 +261,6 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action === 'view') return <RoleForm clinicId={clinicId} has={has} id={id} readOnly />;
       return <RolesList clinicId={clinicId} />;
     default:
-      return <NotFound text={t('notFoundText')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      return <NotFound text="الصفحة غير موجودة" back={to.list('overview')} backLabel="نظرة عامة" />;
   }
 }

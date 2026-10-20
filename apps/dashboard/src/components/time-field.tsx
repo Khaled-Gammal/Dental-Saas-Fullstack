@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { t } from '../i18n';
 import { timeOptions } from '../time-model';
 import { Choice } from './choice';
 
@@ -20,6 +19,6 @@ export function TimeField({ id, describedBy, value, onChange, label, step = 5, i
   const options = useMemo(() => timeOptions(step, value), [step, value]);
   return (
     <Choice id={id} describedBy={describedBy} value={value} onChange={onChange} options={options} label={label} invalid={invalid}
-      placeholder={t('pickTime')} className={className ?? 'h-10 w-36 bg-card tabular-nums'} />
+      placeholder="اختر الوقت" className={className ?? 'h-10 w-36 bg-card tabular-nums'} />
   );
 }

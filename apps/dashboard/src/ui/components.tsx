@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type ButtonHTMLAttributes, type ComponentProps, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import type { ApiError } from '../api';
-import { errorText, t } from '../i18n';
+import { errorText } from '../labels';
 import { fieldIssueText } from '../validation-text';
 import { AlertIcon, CheckIcon, EyeIcon, EyeOffIcon, ToothIcon } from './icons';
 export { initials } from '@dental/ui/text';
@@ -127,7 +127,7 @@ export function ErrorText({ error, onRetry }: { error: unknown; onRetry?: () => 
     <Alert>
       {errorText(code, typeof e.status === 'number' ? e.status : undefined)}
       {e.errors?.length ? <ul>{e.errors.map((x, i) => <li key={`${x.path}-${i}`}>{fieldIssueText(x)}</li>)}</ul> : null}
-      {onRetry && <div><LinkButton onClick={onRetry} className="alert-action">{t('retry')}</LinkButton></div>}
+      {onRetry && <div><LinkButton onClick={onRetry} className="alert-action">إعادة المحاولة</LinkButton></div>}
     </Alert>
   );
 }

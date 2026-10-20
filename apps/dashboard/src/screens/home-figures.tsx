@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { arName } from '@dental/ui/text';
 import { can, type Session } from '../api';
-import { t, type Key } from '../i18n';
+import { appointmentStatusLabel } from '../labels';
 import { money } from '../money';
 import { attentionItems, remainingToday, type AttentionItem } from '../overview-model';
 import { useAppointments, useHome, usePendingDiscounts, usePendingExpenses } from '../queries';
@@ -52,7 +52,7 @@ export function HomeFigures({ session, filters }: { session: Session; filters: S
 
   return (
     <>
-      {h.linked_doctor === false && <Alert tone="info">{t('homeNotLinked')}</Alert>}
+      {h.linked_doctor === false && <Alert tone="info">حسابك غير مرتبط بطبيب، لذلك لا يظهر يومك هنا. اطلب من صاحب العيادة ربطه من صفحة الأطباء.</Alert>}
       <AttentionStrip items={todo} />
       {/* owner and accountant: the period's figures and the one chart (statistics, 2026-10-21); everyone else: today's */}
       {stats ? <StatsKpis clinicId={clinicId} filters={filters} /> : <Stats h={h} mine={mine} />}
@@ -62,13 +62,13 @@ export function HomeFigures({ session, filters }: { session: Session; filters: S
         <Card className="ov-table-card">
           <div className="ov-table-head">
             <div>
-              <h2 id="ov-upcoming">{t(mine ? 'ovUpcomingMine' : 'ovUpcoming')}{day.data && <span className="page-count">{fmtNumber(upcoming.total)}</span>}</h2>
-              <p className="muted small">{t('ovUpcomingSub')}</p>
+              <h2 id="ov-upcoming">{mine ? 'مواعيدي المتبقية اليوم' : 'مواعيد اليوم المتبقية'}{day.data && <span className="page-count">{fmtNumber(upcoming.total)}</span>}</h2>
+              <p className="muted small">من في العيادة الآن ومن لم يحن موعده، بالترتيب.</p>
             </div>
-            <RouteLink route={to.list('appointments')} className="btn btn-secondary btn-sm">{t('ovAllAppointments')}</RouteLink>
+            <RouteLink route={to.list('appointments')} className="btn btn-secondary btn-sm">كل المواعيد</RouteLink>
           </div>
           <DataTable
-            label={t('ovUpcoming')}
+            label="مواعيد اليوم المتبقية"
             rows={day.data ? upcoming.rows : undefined}
             columns={upcomingColumns(tz, mine)}
             rowKey={(a) => a.id}
@@ -78,13 +78,13 @@ export function HomeFigures({ session, filters }: { session: Session; filters: S
             onRetry={() => void day.refetch()}
             pageSize={6}
             actions={(a) => (
-              <RowMenu label={a.patient?.full_name ?? t('time')} actions={[
-                { label: t('rowOpenFile'), icon: <UsersIcon size={16} />, route: a.patient ? to.view('patients', a.patient.id) : undefined, hidden: !a.patient || !has('patients:read') },
-                { label: t('openVisit'), icon: <ReceiptIcon size={16} />, route: a.visit_id ? to.visit(a.visit_id) : undefined, hidden: !a.visit_id || !(has('clinical:read') || has('clinical:write')) },
-                { label: t('editAppointment'), icon: <EditIcon size={16} />, route: to.edit('appointments', a.id), hidden: !has('appointments:write') },
+              <RowMenu label={a.patient?.full_name ?? 'الوقت'} actions={[
+                { label: 'ملف المريض', icon: <UsersIcon size={16} />, route: a.patient ? to.view('patients', a.patient.id) : undefined, hidden: !a.patient || !has('patients:read') },
+                { label: 'فتح الزيارة', icon: <ReceiptIcon size={16} />, route: a.visit_id ? to.visit(a.visit_id) : undefined, hidden: !a.visit_id || !(has('clinical:read') || has('clinical:write')) },
+                { label: 'تغيير', icon: <EditIcon size={16} />, route: to.edit('appointments', a.id), hidden: !has('appointments:write') },
               ]} />
             )}
-            empty={{ icon: <CalendarIcon size={28} />, title: t('ovNoUpcoming'), text: t('ovNoUpcomingText') }}
+            empty={{ icon: <CalendarIcon size={28} />, title: 'لا مواعيد متبقية اليوم.', text: 'المواعيد الجديدة تظهر هنا فور حجزها.' }}
           />
         </Card>
       )}
@@ -101,24 +101,24 @@ function Stats({ h, mine }: { h: HomeData; mine: boolean }) {
   const cards: { key: string; icon: ReactNode; label: string; value: string; sub: ReactNode; route: Route; alert?: boolean }[] = [];
   if (h.appointments) {
     cards.push({
-      key: 'appointments', icon: <CalendarIcon size={16} />, label: t(mine ? 'homeMyDay' : 'homeTodayAppointments'), value: n(h.appointments.booked), route: to.list('appointments'),
-      sub: t('ovApptSub').replace('{w}', n(h.appointments.waiting)).replace('{p}', n(h.appointments.in_progress)).replace('{u}', n(h.appointments.upcoming)),
+      key: 'appointments', icon: <CalendarIcon size={16} />, label: mine ? 'يومي' : 'مواعيد اليوم', value: n(h.appointments.booked), route: to.list('appointments'),
+      sub: 'في الانتظار {w} · مع الطبيب {p} · لم يحن {u}'.replace('{w}', n(h.appointments.waiting)).replace('{p}', n(h.appointments.in_progress)).replace('{u}', n(h.appointments.upcoming)),
     });
   }
   if (h.finance) {
-    cards.push({ key: 'today', icon: <ReceiptIcon size={16} />, label: t('ovTodayNet'), value: m(h.finance.today.collections_net), route: to.list('reports'),
-      sub: <>{t('repInvoiced')} <bdi>{m(h.finance.today.invoiced)}</bdi></> });
-    cards.push({ key: 'month', icon: <ChartIcon size={16} />, label: t('ovMonthNet'), value: m(h.finance.month.collections_net), route: to.list('reports'),
-      sub: <>{t('repInvoiced')} <bdi>{m(h.finance.month.invoiced)}</bdi></> });
-    cards.push({ key: 'owed', icon: <CashIcon size={16} />, label: t('repOwed'), value: m(h.finance.outstanding.balance), route: { page: 'invoices', query: { status: 'open' } },
-      sub: <>{t('repOverdue')} <bdi>{m(h.finance.outstanding.overdue)}</bdi></>, alert: h.finance.outstanding.overdue > 0 });
+    cards.push({ key: 'today', icon: <ReceiptIcon size={16} />, label: 'صافي تحصيل اليوم', value: m(h.finance.today.collections_net), route: to.list('reports'),
+      sub: <>الفواتير الصادرة <bdi>{m(h.finance.today.invoiced)}</bdi></> });
+    cards.push({ key: 'month', icon: <ChartIcon size={16} />, label: 'صافي تحصيل الشهر', value: m(h.finance.month.collections_net), route: to.list('reports'),
+      sub: <>الفواتير الصادرة <bdi>{m(h.finance.month.invoiced)}</bdi></> });
+    cards.push({ key: 'owed', icon: <CashIcon size={16} />, label: 'إجمالي المستحق على المرضى', value: m(h.finance.outstanding.balance), route: { page: 'invoices', query: { status: 'open' } },
+      sub: <>أقساط متأخرة <bdi>{m(h.finance.outstanding.overdue)}</bdi></>, alert: h.finance.outstanding.overdue > 0 });
   } else if (h.today_money) {
-    cards.push({ key: 'today', icon: <ReceiptIcon size={16} />, label: t('ovTodayNet'), value: m(h.today_money.net), route: to.list('reports'),
-      sub: t('repPaymentsCount').replace('{n}', n(h.today_money.payments)) });
+    cards.push({ key: 'today', icon: <ReceiptIcon size={16} />, label: 'صافي تحصيل اليوم', value: m(h.today_money.net), route: to.list('reports'),
+      sub: '{n} دفعة'.replace('{n}', n(h.today_money.payments)) });
   }
   if (h.follow_ups && cards.length < 4) {
-    cards.push({ key: 'followups', icon: <PhoneIcon size={16} />, label: t('navFollowUps'), value: n(h.follow_ups.due), route: to.list('followups'),
-      sub: t(h.follow_ups.due ? 'homeFollowUpsDue' : 'homeFollowUpsNone') });
+    cards.push({ key: 'followups', icon: <PhoneIcon size={16} />, label: 'المتابعات', value: n(h.follow_ups.due), route: to.list('followups'),
+      sub: h.follow_ups.due ? 'متابعات حان موعدها؛ اتصل بالمرضى أو احجز لهم.' : 'لا متابعات مستحقة اليوم.' });
   }
   if (!cards.length) return null;
   return (
@@ -132,37 +132,37 @@ function Stats({ h, mine }: { h: HomeData; mine: boolean }) {
 function upcomingColumns(tz: string, mine: boolean): Column<Appointment>[] {
   const time = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
   return [
-    { id: 'time', header: t('time'), sortValue: (a) => a.starts_at, cell: (a) => <strong className="whitespace-nowrap">{time(a.starts_at)}</strong> },
+    { id: 'time', header: 'الوقت', sortValue: (a) => a.starts_at, cell: (a) => <strong className="whitespace-nowrap">{time(a.starts_at)}</strong> },
     {
-      id: 'patient', header: t('patientColName'), sortValue: (a) => a.patient?.full_name ?? '',
+      id: 'patient', header: 'المريض', sortValue: (a) => a.patient?.full_name ?? '',
       cell: (a) => (a.patient ? <><bdi className="font-semibold">{a.patient.full_name}</bdi><bdi dir="ltr" className="muted small block tabular-nums">{a.patient.phone}</bdi></> : <span className="muted">—</span>),
     },
-    ...(mine ? [] : [{ id: 'doctor', header: t('doctor'), hideOnMobile: true, cell: (a: Appointment) => <bdi>{arName(a.doctor.name_ar, a.doctor.name_en, '—')}</bdi> }]),
-    { id: 'service', header: t('service'), hideOnMobile: true, cell: (a) => (a.service ? <bdi>{arName(a.service.name_ar, a.service.name_en, '—')}</bdi> : <span className="muted">—</span>) },
-    { id: 'status', header: t('status'), cell: (a) => <Badge tone={STATUS_TONE[a.status]} dot>{t(`status_${a.status}` as Key)}</Badge> },
+    ...(mine ? [] : [{ id: 'doctor', header: 'الطبيب', hideOnMobile: true, cell: (a: Appointment) => <bdi>{arName(a.doctor.name_ar, a.doctor.name_en, '—')}</bdi> }]),
+    { id: 'service', header: 'الخدمة', hideOnMobile: true, cell: (a) => (a.service ? <bdi>{arName(a.service.name_ar, a.service.name_en, '—')}</bdi> : <span className="muted">—</span>) },
+    { id: 'status', header: 'الحالة', cell: (a) => <Badge tone={STATUS_TONE[a.status]} dot>{appointmentStatusLabel[a.status]}</Badge> },
   ];
 }
 
-const ATTENTION: Record<AttentionItem['key'], { text: Key; route: Route }> = {
-  waiting: { text: 'ovWaiting', route: { page: 'appointments', query: { view: 'waiting' } } },
-  unconfirmed: { text: 'ovUnconfirmed', route: { page: 'appointments' } },
-  followUps: { text: 'ovFollowUps', route: { page: 'followups' } },
-  overdue: { text: 'ovOverdue', route: { page: 'invoices', query: { status: 'overdue' } } },
-  discounts: { text: 'ovDiscounts', route: { page: 'discounts' } },
-  expenses: { text: 'ovExpenses', route: { page: 'expenses' } },
-  cash: { text: 'ovCashClosed', route: { page: 'cash' } },
+const ATTENTION: Record<AttentionItem['key'], { text: string; route: Route }> = {
+  waiting: { text: 'مرضى في الانتظار', route: { page: 'appointments', query: { view: 'waiting' } } },
+  unconfirmed: { text: 'حجوزات بانتظار التأكيد', route: { page: 'appointments' } },
+  followUps: { text: 'متابعات حان موعدها', route: { page: 'followups' } },
+  overdue: { text: 'أقساط متأخرة', route: { page: 'invoices', query: { status: 'overdue' } } },
+  discounts: { text: 'خصومات بانتظار موافقتك', route: { page: 'discounts' } },
+  expenses: { text: 'مصروفات بانتظار موافقتك', route: { page: 'expenses' } },
+  cash: { text: 'خزائن لم تُفتح اليوم: {branch}', route: { page: 'cash' } },
 };
 
 /** What is waiting for someone: one quiet line of links under the header, each opening its page (none: no line). */
 function AttentionStrip({ items }: { items: AttentionItem[] }) {
   if (!items.length) return null;
   return (
-    <nav className="ov-attention-strip" aria-label={t('ovAttention')}>
-      <span className="ov-attention-title">{t('ovAttention')}</span>
+    <nav className="ov-attention-strip" aria-label="يحتاج انتباهك">
+      <span className="ov-attention-title">يحتاج انتباهك</span>
       {items.map((i) => (
         <RouteLink key={i.key} route={ATTENTION[i.key].route} className="ov-attention-link">
           <span className="ov-attention-n"><bdi>{fmtNumber(i.n)}</bdi></span>
-          {t(ATTENTION[i.key].text).replace('{branch}', (i.branches ?? []).map((b) => arName(b.name_ar, b.name_en)).join('، '))}
+          {ATTENTION[i.key].text.replace('{branch}', (i.branches ?? []).map((b) => arName(b.name_ar, b.name_en)).join('، '))}
         </RouteLink>
       ))}
     </nav>
@@ -178,19 +178,19 @@ function Finance({ h }: { h: HomeData }) {
     <Card>
       <div className="ov-section-head">
         <div>
-          <h2>{t('homeMoney')}</h2>
-          <p className="muted small">{t('ovFinanceSub')}</p>
+          <h2>الإيرادات والمصروفات</h2>
+          <p className="muted small">اليوم وهذا الشهر، بالأرقام نفسها التي تحسبها التقارير.</p>
         </div>
-        <RouteLink route={to.list('reports')} className="btn btn-secondary btn-sm">{t('navReports')}</RouteLink>
+        <RouteLink route={to.list('reports')} className="btn btn-secondary btn-sm">التقارير</RouteLink>
       </div>
       <div className="table-wrap mt-sm">
         <table className="report-table">
-          <thead><tr><th scope="col" /><th scope="col" className="num">{t('preset_today')}</th><th scope="col" className="num">{t('preset_thisMonth')}</th></tr></thead>
+          <thead><tr><th scope="col" /><th scope="col" className="num">اليوم</th><th scope="col" className="num">هذا الشهر</th></tr></thead>
           <tbody>
-            <tr><th scope="row">{t('repInvoiced')}</th><td className="num">{m(f.today.invoiced)}</td><td className="num">{m(f.month.invoiced)}</td></tr>
-            <tr><th scope="row">{t('repNet')}</th><td className="num">{m(f.today.collections_net)}</td><td className="num">{m(f.month.collections_net)}</td></tr>
-            <tr><th scope="row">{t('repExpensesTotal')}</th><td className="num">{m(f.today.expenses)}</td><td className="num">{m(f.month.expenses)}</td></tr>
-            <tr><th scope="row">{t('status_no_show')}</th>
+            <tr><th scope="row">الفواتير الصادرة</th><td className="num">{m(f.today.invoiced)}</td><td className="num">{m(f.month.invoiced)}</td></tr>
+            <tr><th scope="row">صافي التحصيل</th><td className="num">{m(f.today.collections_net)}</td><td className="num">{m(f.month.collections_net)}</td></tr>
+            <tr><th scope="row">إجمالي المصروفات</th><td className="num">{m(f.today.expenses)}</td><td className="num">{m(f.month.expenses)}</td></tr>
+            <tr><th scope="row">لم يحضر</th>
               <td className="num">{n(f.today.no_show)} <span className="muted small">({percent(f.today.no_show_rate)})</span></td>
               <td className="num">{n(f.month.no_show)} <span className="muted small">({percent(f.month.no_show_rate)})</span></td></tr>
           </tbody>

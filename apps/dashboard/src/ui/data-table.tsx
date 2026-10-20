@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from 'lucide-react';
-import { t } from '../i18n';
 import { paginate, searchRows, sortRows, nextSort, type SortState, type SortValue } from '../table-model';
 import { fmtNumber } from '../util';
 import { Button, EmptyState, ErrorText } from './components';
@@ -105,7 +104,7 @@ export function DataTable<T>({
                   </TableHead>
                 );
               })}
-              {actions && <TableHead className="w-0 px-3"><span className="sr-only">{t('actions')}</span></TableHead>}
+              {actions && <TableHead className="w-0 px-3"><span className="sr-only">إجراءات</span></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -118,7 +117,7 @@ export function DataTable<T>({
             ) : !view.rows.length ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={cols} className="whitespace-normal p-0">
-                  {query && !controlled ? <p className="data-table-none">{t('noSearchResults')}</p> : <EmptyState {...empty} />}
+                  {query && !controlled ? <p className="data-table-none">لا توجد نتائج مطابقة.</p> : <EmptyState {...empty} />}
                 </TableCell>
               </TableRow>
             ) : view.rows.map((r) => (
@@ -135,13 +134,13 @@ export function DataTable<T>({
       )}
       {footer}
       {pageSize && view.pages > 1 && (
-        <nav className="data-table-pager" aria-label={t('pagination')}>
-          <Button variant="secondary" disabled={view.page <= 1} onClick={() => setPage(view.page - 1)}>{t('previous')}</Button>
+        <nav className="data-table-pager" aria-label="التنقل بين الصفحات">
+          <Button variant="secondary" disabled={view.page <= 1} onClick={() => setPage(view.page - 1)}>السابق</Button>
           <span className="muted small">
-            {t('pageOf').replace('{page}', fmtNumber(view.page)).replace('{pages}', fmtNumber(view.pages))}
-            {' · '}{t('rowsRange').replace('{from}', fmtNumber(view.from)).replace('{to}', fmtNumber(view.to)).replace('{total}', fmtNumber(view.total))}
+            {'صفحة {page} من {pages}'.replace('{page}', fmtNumber(view.page)).replace('{pages}', fmtNumber(view.pages))}
+            {' · '}{'{from}–{to} من {total}'.replace('{from}', fmtNumber(view.from)).replace('{to}', fmtNumber(view.to)).replace('{total}', fmtNumber(view.total))}
           </span>
-          <Button variant="secondary" disabled={view.page >= view.pages} onClick={() => setPage(view.page + 1)}>{t('next')}</Button>
+          <Button variant="secondary" disabled={view.page >= view.pages} onClick={() => setPage(view.page + 1)}>التالي</Button>
         </nav>
       )}
     </div>

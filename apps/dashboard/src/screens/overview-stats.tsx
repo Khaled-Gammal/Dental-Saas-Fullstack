@@ -2,7 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { arName } from '@dental/ui/text';
 import { Choice } from '../components/choice';
 import { csvFileName, downloadCsv, pounds, toCsv } from '../csv';
-import { t, type Key } from '../i18n';
+import { periodPresetLabel } from '../labels';
 import { money } from '../money';
 import { change } from '../overview-model';
 import { useReport, useReportBranches } from '../queries';
@@ -35,20 +35,20 @@ export function StatsControls({ clinicId, value, onChange }: { clinicId: string;
   const stats = useReport<StatsReport>(clinicId, 'stats', query(value)).data; // the figures' own request (one cache)
   const exportCsv = () => {
     if (!stats) return;
-    const head = [t(stats.bucket === 'day' ? 'date' : 'ovMonth'), t('repInvoiced'), t('repNet'), t('repExpensesTotal'), t('ovNetIncome'), t('ovNewPatients')];
+    const head = [stats.bucket === 'day' ? 'التاريخ' : 'الشهر', 'الفواتير الصادرة', 'صافي التحصيل', 'إجمالي المصروفات', 'صافي الدخل', 'مرضى جدد'];
     const rows = stats.series.map((p) => [p.key, pounds(p.invoiced), pounds(p.collections_net), pounds(p.expenses), pounds(p.result), p.new_patients]);
-    const foot = [t('total'), pounds(stats.totals.invoiced), pounds(stats.totals.collections_net), pounds(stats.totals.expenses), pounds(stats.totals.result), stats.totals.new_patients];
+    const foot = ['الإجمالي', pounds(stats.totals.invoiced), pounds(stats.totals.collections_net), pounds(stats.totals.expenses), pounds(stats.totals.result), stats.totals.new_patients];
     downloadCsv(csvFileName('stats', stats.period?.from, stats.period?.to), toCsv(head, rows, foot));
   };
   return (
     <div className="ov-toolbar">
-      <Choice value={value.preset} onChange={(v) => onChange({ ...value, preset: v as Preset })} label={t('period')} className="h-10 w-40 bg-card"
-        options={PRESETS.map((p) => ({ value: p, label: t(`preset_${p}` as Key) }))} />
+      <Choice value={value.preset} onChange={(v) => onChange({ ...value, preset: v as Preset })} label="الفترة" className="h-10 w-40 bg-card"
+        options={PRESETS.map((p) => ({ value: p, label: periodPresetLabel[p] }))} />
       {branches.length > 1 && (
-        <Choice value={value.branchId} onChange={(branchId) => onChange({ ...value, branchId })} label={t('branch')} noneLabel={t('allBranches')} className="h-10 w-44 bg-card"
+        <Choice value={value.branchId} onChange={(branchId) => onChange({ ...value, branchId })} label="الفرع" noneLabel="كل الفروع" className="h-10 w-44 bg-card"
           options={branches.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en) }))} />
       )}
-      <Button variant="secondary" onClick={exportCsv} disabled={!stats}>{t('ovExport')}</Button>
+      <Button variant="secondary" onClick={exportCsv} disabled={!stats}>تصدير</Button>
     </div>
   );
 }
@@ -63,15 +63,15 @@ export function StatsKpis({ clinicId, filters }: { clinicId: string; filters: St
   const a = s.totals.appointments;
   return (
     <div className="ov-stats" aria-busy={stats.isFetching || undefined}>
-      <KpiCard icon={<ReceiptIcon size={16} />} label={t('repNet')} value={m(s.totals.collections_net)} route={to.list('reports')}
+      <KpiCard icon={<ReceiptIcon size={16} />} label="صافي التحصيل" value={m(s.totals.collections_net)} route={to.list('reports')}
         delta={{ cur: s.totals.collections_net, prev: s.previous.collections_net }} spark={{ values: s.series.map((p) => p.collections_net), color: 'var(--chart-1)' }} />
-      <KpiCard icon={<ChartIcon size={16} />} label={t('ovNetIncome')} value={m(s.totals.result)} negative={s.totals.result < 0} route={{ page: 'reports', query: { tab: 'expenses' } }}
+      <KpiCard icon={<ChartIcon size={16} />} label="صافي الدخل" value={m(s.totals.result)} negative={s.totals.result < 0} route={{ page: 'reports', query: { tab: 'expenses' } }}
         delta={{ cur: s.totals.result, prev: s.previous.result }} spark={{ values: s.series.map((p) => p.result), color: 'var(--chart-3)' }} />
-      <KpiCard icon={<UsersIcon size={16} />} label={t('ovNewPatients')} value={fmtNumber(s.totals.new_patients)} route={to.list('patients')}
+      <KpiCard icon={<UsersIcon size={16} />} label="مرضى جدد" value={fmtNumber(s.totals.new_patients)} route={to.list('patients')}
         delta={{ cur: s.totals.new_patients, prev: s.previous.new_patients }} spark={{ values: s.series.map((p) => p.new_patients), color: 'var(--chart-5)' }} />
-      <KpiCard icon={<CalendarIcon size={16} />} label={t('ovAppointments')} value={fmtNumber(a.booked)} route={{ page: 'reports', query: { tab: 'attendance' } }}
+      <KpiCard icon={<CalendarIcon size={16} />} label="المواعيد" value={fmtNumber(a.booked)} route={{ page: 'reports', query: { tab: 'attendance' } }}
         delta={{ cur: a.booked, prev: s.previous.appointments.booked }}
-        foot={t('ovAttendedSub').replace('{a}', fmtNumber(a.attended)).replace('{n}', fmtNumber(a.no_show))} />
+        foot={'حضر {a} · لم يحضر {n}'.replace('{a}', fmtNumber(a.attended)).replace('{n}', fmtNumber(a.no_show))} />
     </div>
   );
 }
@@ -85,13 +85,13 @@ export function StatsTrend({ clinicId, filters }: { clinicId: string; filters: S
     <Card className="ov-card">
       <div className="ov-section-head">
         <div>
-          <h2>{t('homeMoney')}</h2>
-          <p className="muted small">{t('ovTrendSub')}</p>
+          <h2>الإيرادات والمصروفات</h2>
+          <p className="muted small">صافي التحصيل والمصروفات على مدار الفترة.</p>
         </div>
-        <RouteLink route={to.list('reports')} className="btn btn-secondary btn-sm">{t('navReports')}</RouteLink>
+        <RouteLink route={to.list('reports')} className="btn btn-secondary btn-sm">التقارير</RouteLink>
       </div>
       <Suspense fallback={<Skeleton h={300} count={1} />}>
-        <MoneyTrend labels={{ collections: t('repNet'), expenses: t('repExpensesTotal'), title: t('homeMoney') }}
+        <MoneyTrend labels={{ collections: 'صافي التحصيل', expenses: 'إجمالي المصروفات', title: 'الإيرادات والمصروفات' }}
           points={s.series.map((p) => ({ key: p.key, label: s.bucket === 'day' ? dayLabel(p.key) : monthLabel(p.key), collections: p.collections_net, expenses: p.expenses }))}
           format={m} axisFormat={(v) => compact.format(v / 100)} />
       </Suspense>
@@ -117,13 +117,13 @@ export function KpiCard({ icon, label, value, route, delta, spark, foot, negativ
       <span className="ov-kpi-bottom">
         <span className="ov-kpi-delta">
           {c !== undefined && (c === null
-            ? <span className="ov-delta" title={t('ovNoCompare')}>—</span>
+            ? <span className="ov-delta" title="لا شيء في الفترة السابقة للمقارنة">—</span>
             : (
-              <span className={`ov-delta${c > 0 ? ' is-up' : c < 0 ? ' is-down' : ''}`} aria-label={t(c > 0 ? 'ovUpBy' : c < 0 ? 'ovDownBy' : 'ovSame').replace('{p}', pct ?? '')}>
+              <span className={`ov-delta${c > 0 ? ' is-up' : c < 0 ? ' is-down' : ''}`} aria-label={c > 0 ? 'ارتفع {p}' : c < 0 ? 'انخفض {p}' : 'لم يتغير'.replace('{p}', pct ?? '')}>
                 <span aria-hidden>{c > 0 ? '↑' : c < 0 ? '↓' : '='}</span><bdi>{pct}</bdi>
               </span>
             ))}
-          {c !== undefined && <span className="muted small">{c === null ? t('ovNoCompareShort') : t('ovVsLast')}</span>}
+          {c !== undefined && <span className="muted small">{c === null ? 'لا مقارنة' : 'عن الفترة السابقة'}</span>}
           {foot && <span className="muted small ov-kpi-foot">{foot}</span>}
         </span>
         {spark && spark.values.length > 1 && (

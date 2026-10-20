@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, logout, setLoginNotice, type Session } from '../api';
 import { confirmsClinic, downloadable, EXPORT_TONE, exportBusy, sizeText, type ExportRow } from '../clinic-data-model';
-import { t, type Key } from '../i18n';
+import { exportStatusLabel } from '../labels';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, PasswordInput, Skeleton } from '../ui/components';
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import { AlertIcon, ShieldIcon } from '../ui/icons';
@@ -18,7 +18,7 @@ const day = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateSt
 export function ClinicData({ session }: { session: Session }) {
   return (
     <>
-      <PageHeader title={t('navData')} sub={t('dataSub')} />
+      <PageHeader title="بيانات العيادة" sub="تصدير كل بيانات العيادة، وحذف العيادة. لمالك العيادة فقط." />
       <ExportCard />
       <DeleteCard session={session} />
     </>
@@ -45,38 +45,38 @@ function ExportCard() {
 
   return (
     <Card>
-      <h2>{t('exportTitle')}</h2>
-      <p className="muted">{t('exportText')}</p>
+      <h2>تصدير البيانات</h2>
+      <p className="muted">ملف ZIP واحد فيه كل بيانات العيادة: ملف يفتح في Excel (CSV) لكل نوع من البيانات، ونسخة JSON لنقلها إلى نظام آخر، وكل الملفات المرفوعة. يُجهَّز في الخلفية ويصلك بريد عند جاهزيته، ويبقى متاحًا للتنزيل 7 أيام.</p>
       <form className="row-form mt" onSubmit={(e) => { e.preventDefault(); if (password) request.mutate(); }}>
-        <Field label={t('passwordAgain')} hint={t('exportPasswordHint')}>
+        <Field label="كلمة المرور" hint="نطلبها مرة أخرى لأن الملف يحتوي على بيانات كل المرضى.">
           {(a) => <PasswordInput id={a.id} describedBy={a.describedBy} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password"
-            showLabel={t('showPw')} hideLabel={t('hidePw')} required maxLength={128} disabled={busy} />}
+            showLabel="إظهار كلمة المرور" hideLabel="إخفاء كلمة المرور" required maxLength={128} disabled={busy} />}
         </Field>
-        <Button type="submit" loading={request.isPending} disabled={busy || !password}>{busy ? t('exportPreparing') : t('exportRequest')}</Button>
+        <Button type="submit" loading={request.isPending} disabled={busy || !password}>{busy ? 'جارٍ التجهيز…' : 'جهّز نسخة من البيانات'}</Button>
       </form>
       <ErrorText error={request.error} />
       <ErrorText error={link.error} />
       {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
         : !list.data ? <Skeleton h={48} count={2} />
-        : !rows.length ? <EmptyState icon={<ShieldIcon size={28} />} title={t('noExports')} text={t('noExportsText')} />
+        : !rows.length ? <EmptyState icon={<ShieldIcon size={28} />} title="لا توجد نسخ بعد" text="جهّز نسخة لتحفظ بيانات عيادتك عندك." />
         : (
           <ul className="line-list mt">
             {rows.map((r) => (
               <li key={r.id}>
                 <span>
-                  <Badge tone={EXPORT_TONE[r.status]}>{t(`export_${r.status}` as Key)}</Badge>{' '}
+                  <Badge tone={EXPORT_TONE[r.status]}>{exportStatusLabel[r.status]}</Badge>{' '}
                   <span className="small">{when(r.created_at)}</span>
                   {r.status === 'ready' && (
                     <span className="muted small block">
-                      {sizeText(r.size_bytes)} · {t('exportFiles').replace('{n}', String(r.files_count ?? 0))}
-                      {r.expires_at && <> · {t('exportUntil').replace('{date}', day(r.expires_at))}</>}
+                      {sizeText(r.size_bytes)} · {'{n} ملف'.replace('{n}', String(r.files_count ?? 0))}
+                      {r.expires_at && <> · {'متاحة حتى {date}'.replace('{date}', day(r.expires_at))}</>}
                     </span>
                   )}
-                  {r.status === 'failed' && <span className="muted small block">{t('exportFailedText')}</span>}
+                  {r.status === 'failed' && <span className="muted small block">حاول مرة أخرى؛ إن تكرر ذلك فتواصل مع إدارة المنصة.</span>}
                 </span>
                 {downloadable(r) && (
                   <span className="line-end">
-                    <Button variant="secondary" loading={link.isPending && link.variables === r.id} onClick={() => link.mutate(r.id)}>{t('download')}</Button>
+                    <Button variant="secondary" loading={link.isPending && link.variables === r.id} onClick={() => link.mutate(r.id)}>تنزيل</Button>
                   </span>
                 )}
               </li>
@@ -95,7 +95,7 @@ function DeleteCard({ session }: { session: Session }) {
   const del = useMutation({
     mutationFn: () => api<{ deleteAfter: string }>('/clinic/data/delete', { method: 'POST', body: JSON.stringify({ password, confirmName: name }) }),
     onSuccess: async ({ deleteAfter }) => {
-      setLoginNotice(t('clinicDeletedNotice').replace('{date}', day(deleteAfter)));
+      setLoginNotice('أُغلقت العيادة. ستُمحى بياناتها نهائيًا في {date}، وحتى ذلك اليوم يمكن استعادتها بالتواصل مع إدارة المنصة.'.replace('{date}', day(deleteAfter)));
       await logout();
     },
   });
@@ -103,30 +103,30 @@ function DeleteCard({ session }: { session: Session }) {
 
   return (
     <Card className="card-danger">
-      <h2>{t('deleteClinicTitle')}</h2>
+      <h2>حذف العيادة</h2>
       <Alert tone="danger">
-        <strong>{t('deleteClinicWarn')}</strong>
+        <strong>الحذف يغلق العيادة فورًا:</strong>
         <ul className="mt-sm">
-          <li>{t('deleteClinicNow')}</li>
-          <li>{t('deleteClinicKept')}</li>
-          <li>{t('deleteClinicGone')}</li>
+          <li>لا يستطيع أحد من فريقك الدخول، ويتوقف موقع العيادة الإلكتروني.</li>
+          <li>تبقى البيانات محفوظة 90 يومًا، ويمكن استعادتها كما هي بالتواصل مع إدارة المنصة.</li>
+          <li>بعد 90 يومًا تُمحى كل البيانات والملفات نهائيًا ولا يمكن استرجاعها.</li>
         </ul>
       </Alert>
-      <p className="muted mt-sm">{t('deleteClinicExportFirst')}</p>
+      <p className="muted mt-sm">جهّز نسخة من البيانات ونزّلها قبل الحذف: بعد الحذف لن تستطيع الدخول لتنزيلها.</p>
       <form className="stack mt" onSubmit={(e) => { e.preventDefault(); if (ready) setConfirming(true); }}>
-        <Field label={t('deleteClinicTypeName').replace('{name}', clinic.nameAr || clinic.nameEn || clinic.slug)}>
+        <Field label={'للتأكيد اكتب اسم العيادة: «{name}»'.replace('{name}', clinic.nameAr || clinic.nameEn || clinic.slug)}>
           {(a) => <Input id={a.id} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" dir="auto" maxLength={200} />}
         </Field>
-        <Field label={t('passwordAgain')}>
+        <Field label="كلمة المرور">
           {(a) => <PasswordInput id={a.id} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password"
-            showLabel={t('showPw')} hideLabel={t('hidePw')} maxLength={128} />}
+            showLabel="إظهار كلمة المرور" hideLabel="إخفاء كلمة المرور" maxLength={128} />}
         </Field>
         <ErrorText error={del.error} />
-        <div><Button type="submit" variant="danger" disabled={!ready} loading={del.isPending}><AlertIcon size={16} /> {t('deleteClinic')}</Button></div>
+        <div><Button type="submit" variant="danger" disabled={!ready} loading={del.isPending}><AlertIcon size={16} /> حذف العيادة</Button></div>
       </form>
-      <ConfirmDialog open={confirming} title={t('deleteClinic')} confirmLabel={t('deleteClinicConfirm')} danger
+      <ConfirmDialog open={confirming} title="حذف العيادة" confirmLabel="نعم، احذف العيادة" danger
         onConfirm={() => { setConfirming(false); del.mutate(); }} onCancel={() => setConfirming(false)}>
-        <p>{t('deleteClinicLast')}</p>
+        <p>ستُغلق العيادة الآن لكل فريقها، وتُمحى بياناتها بعد 90 يومًا. هل أنت متأكد؟</p>
       </ConfirmDialog>
     </Card>
   );

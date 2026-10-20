@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import type { ConsentText, ConsentTextDetail } from '../../consents-model';
 import { navigate, useFlash, useLeave, useUnsavedChanges } from '../../hooks';
-import { t } from '../../i18n';
 import { to } from '../../router';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
@@ -25,19 +24,19 @@ const day = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateSt
 /** The consent texts table (U2): the text and where it stands, its version, who reviewed it and how often it was signed. */
 const CONSENT_COLUMNS: Column<ConsentText>[] = [
   {
-    id: 'title', header: t('consentColTitle'), sortValue: (x) => x.title_ar,
+    id: 'title', header: 'النموذج', sortValue: (x) => x.title_ar,
     cell: (x) => <strong className={x.is_active ? undefined : 'muted'}><bdi>{x.title_ar}</bdi></strong>,
   },
   {
-    id: 'state', header: t('status'),
-    cell: (x) => (!x.is_active ? <Badge dot>{t('consentArchived')}</Badge> : x.is_draft ? <Badge tone="warning" dot>{t('consentDraft')}</Badge> : <Badge tone="success" dot>{t('consentReviewed')}</Badge>),
+    id: 'state', header: 'الحالة',
+    cell: (x) => (!x.is_active ? <Badge dot>مؤرشف</Badge> : x.is_draft ? <Badge tone="warning" dot>مسودة</Badge> : <Badge tone="success" dot>معتمد</Badge>),
   },
-  { id: 'version', header: t('consentColVersion'), numeric: true, sortValue: (x) => x.version, cell: (x) => x.version },
+  { id: 'version', header: 'الإصدار', numeric: true, sortValue: (x) => x.version, cell: (x) => x.version },
   {
-    id: 'reviewed', header: t('consentColReviewed'), hideOnMobile: true, sortValue: (x) => x.reviewed_at ?? '',
+    id: 'reviewed', header: 'راجعه', hideOnMobile: true, sortValue: (x) => x.reviewed_at ?? '',
     cell: (x) => (x.reviewed_at ? <><bdi>{x.reviewed_by_name ?? '—'}</bdi><span className="muted small block">{day(x.reviewed_at)}</span></> : <span className="muted">—</span>),
   },
-  { id: 'signed', header: t('consentColSigned'), numeric: true, sortValue: (x) => x.signed ?? 0, cell: (x) => x.signed ?? 0 },
+  { id: 'signed', header: 'مرات التوقيع', numeric: true, sortValue: (x) => x.signed ?? 0, cell: (x) => x.signed ?? 0 },
 ];
 
 /**
@@ -50,12 +49,12 @@ export function ConsentTexts({ clinicId, canWrite }: { clinicId: string; canWrit
   const texts = list.data ?? [];
   return (
     <>
-      <PageHeader title={t('navConsents')} sub={t('consentsSub')}
-        action={canWrite && <RouteLink route={to.create('consents')} className="btn btn-primary">{t('newConsentText')}</RouteLink>} />
+      <PageHeader title="نماذج الموافقات" sub="نصوص الموافقات التي يوقّعها المرضى قبل العلاج. كل حفظ إصدار جديد، والموافقات الموقّعة تحتفظ بالنص الذي وُقّع."
+        action={canWrite && <RouteLink route={to.create('consents')} className="btn btn-primary">نموذج جديد</RouteLink>} />
       {flash && <Alert tone="success">{flash}</Alert>}
-      {texts.some((x) => x.is_draft && x.is_active) && <Alert tone="info">{t('consentDraftsNote')}</Alert>}
+      {texts.some((x) => x.is_draft && x.is_active) && <Alert tone="info">بدأت عيادتك بمسودات مقترحة. راجع كل مسودة وعدّلها بما يناسب عيادتك ثم احفظها، ولا يمكن توقيعها قبل ذلك.</Alert>}
       <DataTable
-        label={t('navConsents')}
+        label="نماذج الموافقات"
         rows={list.data}
         columns={CONSENT_COLUMNS}
         rowKey={(x) => x.key}
@@ -63,9 +62,9 @@ export function ConsentTexts({ clinicId, canWrite }: { clinicId: string; canWrit
         isFetching={list.isFetching}
         error={list.isError ? list.error : undefined}
         onRetry={() => void list.refetch()}
-        actions={canWrite ? (x) => <RowMenu label={x.title_ar} actions={[{ label: x.is_draft ? t('consentReview') : t('edit'), icon: <EditIcon size={16} />, route: to.edit('consents', x.key) }]} /> : undefined}
+        actions={canWrite ? (x) => <RowMenu label={x.title_ar} actions={[{ label: x.is_draft ? 'راجع واعتمد' : 'تعديل', icon: <EditIcon size={16} />, route: to.edit('consents', x.key) }]} /> : undefined}
         onRowClick={canWrite ? (x) => navigate(to.edit('consents', x.key)) : undefined}
-        empty={{ icon: <ShieldIcon size={28} />, title: t('noConsentTexts'), text: t('noConsentTextsText') }}
+        empty={{ icon: <ShieldIcon size={28} />, title: 'لا توجد نماذج موافقات', text: 'أضف نموذجًا لكل علاج يحتاج إلى موافقة المريض.' }}
       />
     </>
   );
@@ -89,61 +88,61 @@ function TextEditor({ clinicId, detail }: { clinicId: string; detail?: ConsentTe
   const qc = useQueryClient();
   const leave = useLeave(to.list('consents'));
   const dirty = title !== (current?.title_ar ?? '') || body !== (current?.body_ar ?? '');
-  useUnsavedChanges(dirty, t('leaveUnsaved'));
+  useUnsavedChanges(dirty, 'لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟');
   const refresh = () => qc.invalidateQueries({ queryKey: ['consents', clinicId] });
   const save = useMutation({
     mutationFn: () => api<ConsentTextDetail>(detail ? `/consents/templates/${detail.key}` : '/consents/templates', {
       method: detail ? 'PUT' : 'POST', body: JSON.stringify({ titleAr: title.trim(), bodyAr: body.trim() }),
     }),
-    onSuccess: () => { void refresh(); leave(t('consentSaved')); },
+    onSuccess: () => { void refresh(); leave('حُفظ النموذج.'); },
   });
   const archive = useMutation({
     mutationFn: (active: boolean) => api<ConsentTextDetail>(`/consents/templates/${detail!.key}/active`, { method: 'POST', body: JSON.stringify({ active }) }),
-    onSuccess: () => { void refresh(); leave(t('consentSaved')); },
+    onSuccess: () => { void refresh(); leave('حُفظ النموذج.'); },
   });
   const ok = title.trim().length >= 2 && body.trim().length >= 20 && reviewed;
   // a draft can be approved as it is; a reviewed text is saved only when it changed
   const canSave = ok && (dirty || !!current?.is_draft || !detail) && !save.isPending;
   const submit = (e: FormEvent) => { e.preventDefault(); setTried(true); if (canSave) save.mutate(); };
-  const heading = detail ? current!.title_ar : t('newConsentText');
-  const crumbs = [{ label: t('navOverview'), route: to.list('overview') }, { label: t('navConsents'), route: to.list('consents') }, { label: heading }];
+  const heading = detail ? current!.title_ar : 'نموذج جديد';
+  const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'نماذج الموافقات', route: to.list('consents') }, { label: heading }];
 
   return (
-    <FormPage title={heading} sub={t('consentFormSub')} crumbs={crumbs} back={to.list('consents')} onSubmit={submit} saving={save.isPending} canSave={canSave}
+    <FormPage title={heading} sub="اكتب النص كما سيقرؤه المريض. الحفظ يصنع إصدارًا جديدًا، وتبقى الإصدارات السابقة كما هي." crumbs={crumbs} back={to.list('consents')} onSubmit={submit} saving={save.isPending} canSave={canSave}
       error={save.error ?? archive.error}
-      notice={current?.is_draft ? <Alert tone="info">{t('consentDraftBanner')}</Alert> : !current?.is_active && detail ? <Alert tone="info">{t('consentArchivedBanner')}</Alert> : undefined}
+      notice={current?.is_draft ? <Alert tone="info">هذه مسودة مقترحة من المنصة وليست استشارة قانونية. راجعها وعدّلها بما يناسب عيادتك، ثم احفظها ليصبح توقيعها ممكنًا.</Alert> : !current?.is_active && detail ? <Alert tone="info">هذا النموذج مؤرشف: لا يمكن توقيعه حتى تعيده.</Alert> : undefined}
       extra={detail && (
         <Button variant="ghost" loading={archive.isPending} onClick={() => archive.mutate(!current!.is_active)}>
-          {current!.is_active ? t('consentArchive') : t('consentRestore')}
+          {current!.is_active ? 'أرشفة النموذج' : 'إعادة النموذج'}
         </Button>
       )}>
       <Card>
-        <Field label={t('consentTitle')} error={tried && title.trim().length < 2 ? t('consentTitleNeeded') : undefined}>
+        <Field label="عنوان الموافقة" error={tried && title.trim().length < 2 ? 'اكتب العنوان.' : undefined}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} required />}
         </Field>
-        <Field label={t('consentBody')} hint={t('consentBodyHint')} error={tried && body.trim().length < 20 ? t('consentBodyNeeded') : undefined}>
+        <Field label="نص الموافقة" hint="سطر فارغ بين الفقرات. 20 حرفًا على الأقل." error={tried && body.trim().length < 20 ? 'اكتب نص الموافقة (20 حرفًا على الأقل).' : undefined}>
           {(a) => <TextArea id={a.id} describedBy={a.describedBy} value={body} onChange={(e) => setBody(e.target.value)} rows={14} maxLength={20_000} required />}
         </Field>
         <label className="check-row mt">
           <Checkbox checked={reviewed} onCheckedChange={(v) => setReviewed(v === true)} />
-          <span>{t('consentReviewedCheck')}</span>
+          <span>راجعت هذا النص وأعتمده ليوقّعه المرضى.</span>
         </label>
-        {tried && !reviewed && <p className="field-error">{t('consentReviewedNeeded')}</p>}
+        {tried && !reviewed && <p className="field-error">أكّد أنك راجعت النص.</p>}
       </Card>
       {detail && detail.versions.length > 1 && (
         <Card>
-          <h2>{t('consentVersions')}</h2>
+          <h2>الإصدارات</h2>
           <ul className="line-list mt-sm">
             {detail.versions.map((v) => (
               <li key={v.id}>
                 <span>
-                  {t('consentVersion').replace('{n}', String(v.version))} · {day(v.created_at)}
-                  {v.is_draft ? <> · <Badge tone="warning">{t('consentDraft')}</Badge></> : v.reviewed_by_name && <span className="muted small"> · {v.reviewed_by_name}</span>}
+                  {'الإصدار {n}'.replace('{n}', String(v.version))} · {day(v.created_at)}
+                  {v.is_draft ? <> · <Badge tone="warning">مسودة</Badge></> : v.reviewed_by_name && <span className="muted small"> · {v.reviewed_by_name}</span>}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="muted small mt-sm">{t('consentVersionsNote')}</p>
+          <p className="muted small mt-sm">كل موافقة موقّعة تحتفظ بنص الإصدار الذي وُقّع.</p>
         </Card>
       )}
     </FormPage>

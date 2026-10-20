@@ -3,7 +3,7 @@ import { arName } from '@dental/ui/text';
 import { addMonths } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
-import { t, type Key } from '../../i18n';
+import { followUpStatusLabel, followUpViewLabel, noFollowUpsText, recallReasonLabel } from '../../labels';
 import { send, useClinicalMutation, usePatientRecalls, useRecalls } from '../../queries';
 import { to } from '../../router';
 import type { Recall, RecallReason } from '../../types';
@@ -31,16 +31,16 @@ export function FollowUps({ clinicId, canWrite, canBook, query }: { clinicId: st
   const list = useRecalls(clinicId, view);
   return (
     <>
-      <PageHeader title={t('navFollowUps')} sub={t('followUpsSub')} />
-      <div className="seg" role="group" aria-label={t('navFollowUps')}>
+      <PageHeader title="المتابعات" sub="مرضى حان موعد متابعتهم. التواصل يتم يدويًا من الاستقبال، ولا تُرسل رسائل تلقائية." />
+      <div className="seg" role="group" aria-label="المتابعات">
         {VIEWS.map((v) => (
-          <RouteLink key={v} route={{ page: 'followups', query: { view: v } }} className={`seg-btn${v === view ? ' is-on' : ''}`} aria-current={v === view ? 'page' : undefined}>{t(`fu_${v}` as Key)}</RouteLink>
+          <RouteLink key={v} route={{ page: 'followups', query: { view: v } }} className={`seg-btn${v === view ? ' is-on' : ''}`} aria-current={v === view ? 'page' : undefined}>{followUpViewLabel[v]}</RouteLink>
         ))}
       </div>
       {/* the view tabs ask the API; the table searches and sorts what it returned (redesign R4) */}
       <DataTable
         key={view}
-        label={t('navFollowUps')}
+        label="المتابعات"
         rows={list.data?.items}
         columns={recallColumns(list.data?.today ?? todayIso())}
         rowKey={(r) => r.id}
@@ -48,11 +48,11 @@ export function FollowUps({ clinicId, canWrite, canBook, query }: { clinicId: st
         isFetching={list.isFetching}
         error={list.isError ? list.error : undefined}
         onRetry={() => void list.refetch()}
-        search={{ placeholder: t('followUpSearchHint'), text: (r) => `${r.patient.full_name} ${r.patient.phone} ${t(`recall_${r.reason}` as Key)}` }}
+        search={{ placeholder: 'ابحث باسم المريض أو رقمه أو السبب', text: (r) => `${r.patient.full_name} ${r.patient.phone} ${recallReasonLabel[r.reason]}` }}
         defaultSort={{ id: 'due', dir: view === 'closed' ? 'desc' : 'asc' }}
         pageSize={25}
         actions={canWrite || canBook ? (r) => <RecallRowActions clinicId={clinicId} r={r} canWrite={canWrite} canBook={canBook} /> : undefined}
-        empty={{ icon: <CalendarIcon size={28} />, title: t('noFollowUps'), text: t(`noFollowUps_${view}` as Key) }}
+        empty={{ icon: <CalendarIcon size={28} />, title: 'لا توجد متابعات.', text: noFollowUpsText[view] }}
       />
     </>
   );
@@ -64,7 +64,7 @@ const isOpen = (r: Recall) => r.status === 'pending' || r.status === 'contacted'
 function recallColumns(today: string): Column<Recall>[] {
   return [
     {
-      id: 'patient', header: t('patientColName'), sortValue: (r) => r.patient.full_name,
+      id: 'patient', header: 'المريض', sortValue: (r) => r.patient.full_name,
       cell: (r) => (
         <>
           <RouteLink route={to.view('patients', r.patient.id)} className="font-semibold no-underline hover:underline"><bdi>{r.patient.full_name}</bdi></RouteLink>
@@ -77,17 +77,17 @@ function recallColumns(today: string): Column<Recall>[] {
         </>
       ),
     },
-    { id: 'phone', header: t('phone'), hideOnMobile: true, cell: (r) => <a href={`tel:${r.patient.phone}`} dir="ltr" className="link-plain tabular-nums"><PhoneIcon size={14} /> {r.patient.phone}</a> },
-    { id: 'reason', header: t('recallReason'), hideOnMobile: true, sortValue: (r) => t(`recall_${r.reason}` as Key), cell: (r) => t(`recall_${r.reason}` as Key) },
+    { id: 'phone', header: 'رقم الموبايل', hideOnMobile: true, cell: (r) => <a href={`tel:${r.patient.phone}`} dir="ltr" className="link-plain tabular-nums"><PhoneIcon size={14} /> {r.patient.phone}</a> },
+    { id: 'reason', header: 'السبب', hideOnMobile: true, sortValue: (r) => recallReasonLabel[r.reason], cell: (r) => recallReasonLabel[r.reason] },
     {
-      id: 'due', header: t('dueDate'), hideOnMobile: true, sortValue: (r) => r.due_date, cell: (r) => <RecallDue r={r} today={today} />,
+      id: 'due', header: 'موعد الاستحقاق', hideOnMobile: true, sortValue: (r) => r.due_date, cell: (r) => <RecallDue r={r} today={today} />,
     },
     {
-      id: 'doctor', header: t('doctor'), hideOnMobile: true, sortValue: (r) => (r.doctor ? arName(r.doctor.name_ar, r.doctor.name_en) : ''),
+      id: 'doctor', header: 'الطبيب', hideOnMobile: true, sortValue: (r) => (r.doctor ? arName(r.doctor.name_ar, r.doctor.name_en) : ''),
       cell: (r) => (
         <>
           {r.doctor ? <bdi>{arName(r.doctor.name_ar, r.doctor.name_en)}</bdi> : <span className="muted">—</span>}
-          {r.contact_attempts > 0 && <span className="muted small block">{fmtNumber(r.contact_attempts)} {t('callAttempts')}</span>}
+          {r.contact_attempts > 0 && <span className="muted small block">{fmtNumber(r.contact_attempts)} محاولة اتصال</span>}
           {r.notes && <span className="small block call-log">{r.notes}</span>}
         </>
       ),
@@ -101,7 +101,7 @@ function RecallDue({ r, today }: { r: Recall; today: string }) {
   return (
     <span className="flex flex-wrap items-center gap-2">
       <span className="whitespace-nowrap">{fmtDate(r.due_date)}</span>
-      <Badge tone={overdue ? 'danger' : STATUS_TONE[r.status]} dot>{overdue ? t('overdue') : t(`fus_${r.status}` as Key)}</Badge>
+      <Badge tone={overdue ? 'danger' : STATUS_TONE[r.status]} dot>{overdue ? 'متأخرة' : followUpStatusLabel[r.status]}</Badge>
     </span>
   );
 }
@@ -117,19 +117,19 @@ function RecallRowActions({ clinicId, r, canWrite, canBook }: { clinicId: string
     <div className="flex items-center justify-end gap-2">
       {canBook && (
         <RouteLink route={to.create('appointments', { patient: r.patient.id, recall: r.id, ...(r.doctor_id && { doctor: r.doctor_id }) })} className="btn btn-secondary btn-sm whitespace-nowrap">
-          <CalendarIcon size={16} />{t('book')}
+          <CalendarIcon size={16} />حجز موعد
         </RouteLink>
       )}
       <RowMenu label={r.patient.full_name} actions={[
-        { label: t('logCall'), icon: <PhoneIcon size={16} />, onSelect: () => { setNote(''); setDialog('contact'); }, hidden: !canWrite },
-        { label: t('dismiss'), destructive: true, onSelect: () => { setNote(''); setDialog('dismiss'); }, hidden: !canWrite },
+        { label: 'تسجيل مكالمة', icon: <PhoneIcon size={16} />, onSelect: () => { setNote(''); setDialog('contact'); }, hidden: !canWrite },
+        { label: 'إلغاء المتابعة', destructive: true, onSelect: () => { setNote(''); setDialog('dismiss'); }, hidden: !canWrite },
       ]} />
       <ErrorText error={act.error} />
-      <ConfirmDialog open={!!dialog} title={t(dialog === 'dismiss' ? 'dismissFollowUp' : 'logCall')} confirmLabel={t(dialog === 'dismiss' ? 'dismiss' : 'save')} danger={dialog === 'dismiss'}
+      <ConfirmDialog open={!!dialog} title={dialog === 'dismiss' ? 'إلغاء المتابعة' : 'تسجيل مكالمة'} confirmLabel={dialog === 'dismiss' ? 'إلغاء المتابعة' : 'حفظ'} danger={dialog === 'dismiss'}
         onConfirm={() => { if (dialog && (dialog === 'dismiss' || note.trim())) act.mutate({ op: dialog, text: note.trim() }, { onSettled: () => setDialog(null) }); }}
         onCancel={() => setDialog(null)}>
-        <Field label={t(dialog === 'dismiss' ? 'dismissReason' : 'callNote')} optional={dialog === 'dismiss' ? t('optional') : undefined}>
-          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? t('callNoteExample') : undefined} />}
+        <Field label={dialog === 'dismiss' ? 'السبب' : 'ما تم في المكالمة'} optional={dialog === 'dismiss' ? 'اختياري' : undefined}>
+          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? 'مثال: لم يرد، سيتصل غدًا' : undefined} />}
         </Field>
       </ConfirmDialog>
     </div>
@@ -147,17 +147,17 @@ function RecallActions({ clinicId, r, canWrite, canBook }: { clinicId: string; r
     <div className="appt-actions">
       {canBook && (
         <RouteLink route={to.create('appointments', { patient: r.patient.id, recall: r.id, ...(r.doctor_id && { doctor: r.doctor_id }) })} className="btn btn-primary">
-          <CalendarIcon size={16} />{t('book')}
+          <CalendarIcon size={16} />حجز موعد
         </RouteLink>
       )}
-      {canWrite && <Button variant="secondary" onClick={() => { setNote(''); setDialog('contact'); }}><PhoneIcon size={16} />{t('logCall')}</Button>}
-      {canWrite && <LinkButton onClick={() => { setNote(''); setDialog('dismiss'); }}>{t('dismiss')}</LinkButton>}
+      {canWrite && <Button variant="secondary" onClick={() => { setNote(''); setDialog('contact'); }}><PhoneIcon size={16} />تسجيل مكالمة</Button>}
+      {canWrite && <LinkButton onClick={() => { setNote(''); setDialog('dismiss'); }}>إلغاء المتابعة</LinkButton>}
       <ErrorText error={act.error} />
-      <ConfirmDialog open={!!dialog} title={t(dialog === 'dismiss' ? 'dismissFollowUp' : 'logCall')} confirmLabel={t(dialog === 'dismiss' ? 'dismiss' : 'save')} danger={dialog === 'dismiss'}
+      <ConfirmDialog open={!!dialog} title={dialog === 'dismiss' ? 'إلغاء المتابعة' : 'تسجيل مكالمة'} confirmLabel={dialog === 'dismiss' ? 'إلغاء المتابعة' : 'حفظ'} danger={dialog === 'dismiss'}
         onConfirm={() => { if (dialog && (dialog === 'dismiss' || note.trim())) act.mutate({ op: dialog, text: note.trim() }, { onSettled: () => setDialog(null) }); }}
         onCancel={() => setDialog(null)}>
-        <Field label={t(dialog === 'dismiss' ? 'dismissReason' : 'callNote')} optional={dialog === 'dismiss' ? t('optional') : undefined}>
-          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? t('callNoteExample') : undefined} />}
+        <Field label={dialog === 'dismiss' ? 'السبب' : 'ما تم في المكالمة'} optional={dialog === 'dismiss' ? 'اختياري' : undefined}>
+          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? 'مثال: لم يرد، سيتصل غدًا' : undefined} />}
         </Field>
       </ConfirmDialog>
     </div>
@@ -171,15 +171,15 @@ function RecallRow({ clinicId, r, today, canWrite, canBook, compact }: { clinicI
     <Card as="li" className="appt">
       <div className="appt-main">
         <div className="appt-head">
-          {compact ? <strong>{t(`recall_${r.reason}` as Key)}</strong> : <RouteLink route={to.view('patients', r.patient.id)}><strong><bdi>{r.patient.full_name}</bdi></strong></RouteLink>}
-          <Badge tone={overdue ? 'warning' : STATUS_TONE[r.status]}>{overdue ? t('overdue') : t(`fus_${r.status}` as Key)}</Badge>
+          {compact ? <strong>{recallReasonLabel[r.reason]}</strong> : <RouteLink route={to.view('patients', r.patient.id)}><strong><bdi>{r.patient.full_name}</bdi></strong></RouteLink>}
+          <Badge tone={overdue ? 'warning' : STATUS_TONE[r.status]}>{overdue ? 'متأخرة' : followUpStatusLabel[r.status]}</Badge>
         </div>
         <div className="appt-meta">
           {!compact && <a href={`tel:${r.patient.phone}`} dir="ltr" className="link-plain"><PhoneIcon size={14} /> {r.patient.phone}</a>}
-          {!compact && <span>{t(`recall_${r.reason}` as Key)}</span>}
-          <span>{t('dueDate')}: {fmtDate(r.due_date)}</span>
+          {!compact && <span>{recallReasonLabel[r.reason]}</span>}
+          <span>موعد الاستحقاق: {fmtDate(r.due_date)}</span>
           {r.doctor && <span><bdi>{arName(r.doctor.name_ar, r.doctor.name_en)}</bdi></span>}
-          {r.contact_attempts > 0 && <span className="muted">{fmtNumber(r.contact_attempts)} {t('callAttempts')}</span>}
+          {r.contact_attempts > 0 && <span className="muted">{fmtNumber(r.contact_attempts)} محاولة اتصال</span>}
         </div>
         {r.notes && <p className="appt-notes call-log">{r.notes}</p>}
       </div>
@@ -198,21 +198,21 @@ export function PatientFollowUpsCard({ clinicId, patientId, canWrite, canBook }:
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('followUps')}</h2>
-        {canWrite && !adding && <Button variant="secondary" onClick={() => setAdding(true)}>{t('addFollowUp')}</Button>}
+        <h2>المتابعات</h2>
+        {canWrite && !adding && <Button variant="secondary" onClick={() => setAdding(true)}>إضافة متابعة</Button>}
       </div>
       {adding && (
         <form className="grid-2 mt" onSubmit={(e) => { e.preventDefault(); add.mutate(undefined, { onSuccess: () => setAdding(false) }); }}>
-          <Field label={t('followUpReason')}>
-            {(a) => <Choice id={a.id} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((x) => ({ value: x, label: t(`recall_${x}` as Key) }))} />}
+          <Field label="سبب المتابعة">
+            {(a) => <Choice id={a.id} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((x) => ({ value: x, label: recallReasonLabel[x] }))} />}
           </Field>
-          <Field label={t('dueDate')}>{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={todayIso()} />}</Field>
+          <Field label="موعد الاستحقاق">{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={todayIso()} />}</Field>
           <ErrorText error={add.error} />
-          <div className="row-end"><Button variant="ghost" onClick={() => setAdding(false)}>{t('cancel')}</Button><Button type="submit" loading={add.isPending}>{t('save')}</Button></div>
+          <div className="row-end"><Button variant="ghost" onClick={() => setAdding(false)}>إلغاء</Button><Button type="submit" loading={add.isPending}>حفظ</Button></div>
         </form>
       )}
       {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
-        : !list.data?.length ? <p className="muted small mt-sm">{t('noFollowUps')}</p>
+        : !list.data?.length ? <p className="muted small mt-sm">لا توجد متابعات.</p>
         : <ul className="stack mt">{list.data.map((r) => <RecallRow key={r.id} clinicId={clinicId} r={r} today={todayIso()} canWrite={canWrite} canBook={canBook} compact />)}</ul>}
     </Card>
   );

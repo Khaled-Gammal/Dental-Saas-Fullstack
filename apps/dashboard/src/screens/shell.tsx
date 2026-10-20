@@ -5,7 +5,7 @@ import {
   Stethoscope, Tag, Banknote, UserCog, Users, Wallet, type LucideIcon,
 } from 'lucide-react';
 import { can, logout, type Session } from '../api';
-import { roleLabel, t } from '../i18n';
+import { roleLabel } from '../labels';
 import { Badge, initials } from '../ui/components';
 import { ToothIcon } from '../ui/icons';
 import { setClinicCurrency } from '../money';
@@ -63,14 +63,14 @@ export function AppShell({ session, page, children }: { session: Session; page: 
 
   return (
     <SidebarProvider defaultOpen={startOpen()}>
-      <a href="#main" className="skip" onClick={skipToMain}>{t('skipToContent')}</a>
+      <a href="#main" className="skip" onClick={skipToMain}>انتقل للمحتوى</a>
       <AppSidebar session={session} page={page} clinic={name} />
       <SidebarInset className="min-w-0 bg-surface">
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
-          <SidebarTrigger className="-ms-1 size-9" aria-label={t('menu')} />
+          <SidebarTrigger className="-ms-1 size-9" aria-label="القائمة" />
           <Separator orientation="vertical" className="h-5" />
           <span className="truncate font-semibold text-ink"><bdi>{name}</bdi></span>
-          {session.clinic.status === 'trialing' && <Badge tone="warning">{t('trial')}</Badge>}
+          {session.clinic.status === 'trialing' && <Badge tone="warning">فترة تجريبية</Badge>}
         </header>
         <div id="main" className={`content${NARROW_PAGES.has(page) ? ' content-narrow' : ''}`} tabIndex={-1}>{children}</div>
       </SidebarInset>
@@ -81,15 +81,15 @@ export function AppShell({ session, page, children }: { session: Session; page: 
 function AppSidebar({ session, page, clinic }: { session: Session; page: Page | 'not-found'; clinic: string }) {
   const has = (p: string) => can(session, p);
   const groups = visibleNav(NAV_GROUPS, (p) => canSee(has, p), has);
-  const foot = visibleNav([{ key: null, items: NAV_FOOT }], (p) => canSee(has, p), has)[0]?.items ?? [];
+  const foot = visibleNav([{ id: null, label: null, items: NAV_FOOT }], (p) => canSee(has, p), has)[0]?.items ?? [];
   const current = navPageOf(page);
 
   return (
-    <Sidebar side="right" collapsible="icon" aria-label={t('mainNav')}>
+    <Sidebar side="right" collapsible="icon" aria-label="القائمة الرئيسية">
       <SidebarHeader className="gap-3 p-3">
         <div className="flex items-center gap-2.5 px-1 pt-1">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-accent text-white"><ToothIcon size={18} /></span>
-          <span className="truncate text-base font-bold text-ink group-data-[collapsible=icon]:hidden">{t('brand')}</span>
+          <span className="truncate text-base font-bold text-ink group-data-[collapsible=icon]:hidden">منصة الأسنان</span>
         </div>
         <div className="flex items-center gap-2.5 rounded-lg border bg-surface p-2 group-data-[collapsible=icon]:hidden">
           <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary-50 text-xs font-bold text-primary-700">{initials(clinic)}</span>
@@ -100,8 +100,8 @@ function AppSidebar({ session, page, clinic }: { session: Session; page: Page | 
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-0">
-        {groups.map((g) => (g.key
-          ? <NavGroupSection key={g.key} id={g.key} label={t(g.key)} items={g.items} current={current} open={activeGroup(groups, page) === g.key} />
+        {groups.map((g) => (g.id && g.label
+          ? <NavGroupSection key={g.id} id={g.id} label={g.label} items={g.items} current={current} open={activeGroup(groups, page) === g.id} />
           : (
             <SidebarGroup key="main">
               <SidebarGroupContent><NavItems items={g.items} current={current} /></SidebarGroupContent>
@@ -165,20 +165,20 @@ function NavItems({ items, current }: { items: NavItem[]; current: Page | null }
     <SidebarMenu>
       {items.map((i) => {
         const Icon = ICONS[i.icon];
-        const label = t(i.key);
+        const label = i.label;
         if (!i.page) {
           return (
-            <SidebarMenuItem key={i.key}>
-              <SidebarMenuButton aria-disabled="true" tooltip={`${label} · ${t('soon')}`} className="opacity-60">
+            <SidebarMenuItem key={i.label}>
+              <SidebarMenuButton aria-disabled="true" tooltip={`${label} · ${'قريبًا'}`} className="opacity-60">
                 <Icon /><span>{label}</span>
               </SidebarMenuButton>
-              <SidebarMenuBadge className="rounded-full bg-sidebar-accent px-2 text-[0.6875rem] text-muted-foreground">{t('soon')}</SidebarMenuBadge>
+              <SidebarMenuBadge className="rounded-full bg-sidebar-accent px-2 text-[0.6875rem] text-muted-foreground">قريبًا</SidebarMenuBadge>
             </SidebarMenuItem>
           );
         }
         const active = current === i.page;
         return (
-          <SidebarMenuItem key={i.key}>
+          <SidebarMenuItem key={i.page}>
             <SidebarMenuButton asChild isActive={active} tooltip={label} className={`h-9 text-[0.9375rem] text-sidebar-foreground ${ACTIVE}`}>
               <a href={href(to.list(i.page))} aria-current={active ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
                 <Icon /><span>{label}</span>
@@ -214,7 +214,7 @@ function UserMenu({ session }: { session: Session }) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => void logout()} className="text-destructive focus:text-destructive">
-              <LogOut className="text-destructive" />{t('signOut')}
+              <LogOut className="text-destructive" />خروج
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

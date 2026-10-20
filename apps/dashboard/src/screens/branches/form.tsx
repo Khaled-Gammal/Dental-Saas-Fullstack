@@ -5,7 +5,6 @@ import { ImageField } from '../../components/image-field';
 import { useCan } from '../../can';
 import { useLeave, useUnsavedChanges } from '../../hooks';
 import { imageFieldValue } from '../../media-model';
-import { t } from '../../i18n';
 import { useBranches, useInvalidate, useOne } from '../../queries';
 import { to } from '../../router';
 import type { Branch, MediaImage } from '../../types';
@@ -28,7 +27,7 @@ const toForm = (b: Branch): Form => ({
 export function BranchForm({ clinicId, id }: { clinicId: string; id?: string }) {
   const list = useBranches(clinicId);
   const one = useOne(list, id);
-  if (id && !one.data) return <ResourceState {...one} back={to.list('branches')} backLabel={t('branches')} />;
+  if (id && !one.data) return <ResourceState {...one} back={to.list('branches')} backLabel="الفروع" />;
   return <BranchFormBody key={id ?? 'new'} clinicId={clinicId} branch={one.data} />;
 }
 
@@ -54,7 +53,7 @@ function BranchFormBody({ clinicId, branch }: { clinicId: string; branch?: Branc
   const slugBad = !orig && !SLUG_RE.test(form.slug);
   const hasName = form.nameAr.trim().length >= 2 || form.nameEn.trim().length >= 2;
   const canSave = hasName && !slugBad && dirty;
-  useUnsavedChanges(dirty, t('leaveUnsaved'));
+  useUnsavedChanges(dirty, 'لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟');
 
   const save = useMutation({
     mutationFn: () => (branch
@@ -62,63 +61,63 @@ function BranchFormBody({ clinicId, branch }: { clinicId: string; branch?: Branc
       : api<Branch>('/branches', { method: 'POST', body: JSON.stringify(body) })),
     onSuccess: () => invalidate('branches'),
   });
-  const submit = (e: FormEvent) => { e.preventDefault(); if (canSave) save.mutate(undefined, { onSuccess: () => leave(t('branchSaved')) }); };
+  const submit = (e: FormEvent) => { e.preventDefault(); if (canSave) save.mutate(undefined, { onSuccess: () => leave('تم حفظ الفرع') }); };
   const text = (k: keyof Form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setActive = (on: boolean) => (on ? setForm((f) => ({ ...f, isActive: true })) : setConfirmOff(true));
 
-  const crumbs = [{ label: t('navOverview'), route: to.list('overview') }, { label: t('branches'), route: to.list('branches') }, { label: t(branch ? 'edit' : 'addBranch') }];
+  const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'الفروع', route: to.list('branches') }, { label: branch ? 'تعديل' : 'إضافة فرع' }];
   return (
-    <FormPage title={branch ? t('editBranch') : t('addBranch')} crumbs={crumbs} back={to.list('branches')} onSubmit={submit}
+    <FormPage title={branch ? 'تعديل الفرع' : 'إضافة فرع'} crumbs={crumbs} back={to.list('branches')} onSubmit={submit}
       saving={save.isPending} canSave={canSave} error={save.error}>
       <Card>
-        <h2>{t('secBasics')}</h2>
+        <h2>البيانات الأساسية</h2>
         <div className="grid-2 mt">
-          <Field label={t('nameAr')}>{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!branch} />}</Field>
+          <Field label="الاسم">{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!branch} />}</Field>
           {branch ? (
-            <Field label={t('branchSlug')} hint={t('slugLocked')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.slug} readOnly dir="ltr" />}</Field>
+            <Field label="المعرّف (بالإنجليزية)" hint="المعرّف جزء من روابط موقعك ولا يتغير">{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.slug} readOnly dir="ltr" />}</Field>
           ) : (
-            <Field label={t('branchSlug')} hint={t('branchSlugHint')} error={form.slug && slugBad ? t('branchSlugHint') : undefined}>
+            <Field label="المعرّف (بالإنجليزية)" hint="حروف إنجليزية صغيرة وأرقام وشرطة، مثل nasr-city" error={form.slug && slugBad ? 'حروف إنجليزية صغيرة وأرقام وشرطة، مثل nasr-city' : undefined}>
               {(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.slug} dir="ltr" required maxLength={60} placeholder="nasr-city" spellCheck={false}
                 onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))} />}
             </Field>
           )}
-          <Field label={t('city')} optional={t('optional')}>{(a) => <Input id={a.id} value={form.city} onChange={text('city')} maxLength={80} />}</Field>
+          <Field label="المدينة" optional="اختياري">{(a) => <Input id={a.id} value={form.city} onChange={text('city')} maxLength={80} />}</Field>
         </div>
       </Card>
 
       {branch && canPhoto && (
         <Card>
           <ImageField purpose="photo" shape="wide" value={form.photo} onChange={(photo) => setForm((f) => ({ ...f, photo }))}
-            label={t('branchPhoto')} hint={t('branchPhotoHint')} />
+            label="صورة الفرع" hint="واجهة الفرع أو الاستقبال، تظهر أعلى بطاقة الفرع على الموقع." />
         </Card>
       )}
 
       {branch && (
         <Card>
-          <h2>{t('secAddress')}</h2>
+          <h2>العنوان</h2>
           <div className="grid-2 mt">
-            <Field label={t('addressAr')} optional={t('optional')}>{(a) => <Input id={a.id} value={form.addressAr} onChange={text('addressAr')} dir="rtl" maxLength={300} />}</Field>
+            <Field label="العنوان" optional="اختياري">{(a) => <Input id={a.id} value={form.addressAr} onChange={text('addressAr')} dir="rtl" maxLength={300} />}</Field>
           </div>
         </Card>
       )}
 
       <Card>
-        <h2>{t('secContact')}</h2>
+        <h2>التواصل</h2>
         <div className="grid-2 mt">
-          <Field label={t('branchPhone')} optional={t('optional')}>{(a) => <Input id={a.id} type="tel" value={form.phone} onChange={text('phone')} dir="ltr" placeholder="01012345678" />}</Field>
-          {branch && <Field label={t('whatsapp')} optional={t('optional')}>{(a) => <Input id={a.id} type="tel" value={form.whatsapp} onChange={text('whatsapp')} dir="ltr" placeholder="01012345678" />}</Field>}
+          <Field label="هاتف الفرع" optional="اختياري">{(a) => <Input id={a.id} type="tel" value={form.phone} onChange={text('phone')} dir="ltr" placeholder="01012345678" />}</Field>
+          {branch && <Field label="واتساب" optional="اختياري">{(a) => <Input id={a.id} type="tel" value={form.whatsapp} onChange={text('whatsapp')} dir="ltr" placeholder="01012345678" />}</Field>}
         </div>
         {branch && !branch.is_main && (
           <div className="mt">
-            <Switch checked={form.isActive} onChange={setActive} label={t('isActive')} />
-            <p className="muted small">{t('branchInactiveHint')}</p>
+            <Switch checked={form.isActive} onChange={setActive} label="نشط" />
+            <p className="muted small">الفرع الموقوف يختفي من الموقع ولا يستقبل حجوزات</p>
           </div>
         )}
       </Card>
 
-      <ConfirmDialog open={confirmOff} title={t('deactivateBranch')} confirmLabel={t('deactivate')} danger
+      <ConfirmDialog open={confirmOff} title="إيقاف الفرع؟" confirmLabel="إيقاف" danger
         onConfirm={() => { setForm((f) => ({ ...f, isActive: false })); setConfirmOff(false); }} onCancel={() => setConfirmOff(false)}>
-        {t('deactivateBranchText')}
+        سيختفي الفرع من موقعك فور الحفظ. يمكنك إعادة تفعيله لاحقًا.
       </ConfirmDialog>
     </FormPage>
   );
