@@ -36,22 +36,34 @@ database access — `pnpm --filter @dental/db platform:admin <email>` (and `--re
   notes, action history), **الخطط** (name, monthly and yearly price, trial days, limits — empty = unlimited — features,
   shown on the pricing page or not), **السجل** (everything platform admins did). Arabic throughout.
 
+## Follow-up asked by the owner (same day, same branch)
+
+- **A suspended clinic sends no automatic emails.** The worker cancels (not delays) any queued email of a suspended
+  clinic, so a reactivated clinic gets no stale reminders.
+- **A trial that ends without activation suspends the clinic automatically.** `expire_trials()` runs in the worker
+  every 15 minutes; the clinic shows as «انتهت التجربة» in the panel and its staff are cut off at their next request.
+- **«تفعيل الاشتراك» (activate subscription)** on the clinic page, for a clinic that paid (outside the system for now):
+  the subscription becomes active for a month or a year from today. Activating, or extending the trial, lifts a
+  trial-ended suspension; a manual suspension is lifted only by «إعادة تفعيل». Reactivating a clinic whose trial has
+  ended is refused (it would be suspended again within 15 minutes): extend or activate instead.
+
 ## Not done in this phase
 
-- "Add credits" (ADM-02): SMS credits do not exist (no SMS, D-01).
+- "Add credits" (ADM-02): later, by the owner's choice (no SMS yet, D-01).
 - Impersonating a clinic user (ADM-03), platform metrics (ADM-05), support tickets (ADM-06): deferred as before.
-- Automatic trial expiry and payment states (BIL-04/05): the panel changes status by hand; nothing ends a trial on its
-  own yet.
-- Emails a suspended clinic would still send (e.g. appointment reminders by the worker) are not stopped yet.
+- Payment gateway, grace period, renewal at the end of a paid period, past-due handling (BIL-03/04/05): an active
+  subscription stays active until the admin changes it.
+- The email cancellation runs in the worker and is not covered by an automated test (the API tests do not run the
+  worker; running the email job on the shared test database would send other suites' queued reminders).
 
 ## Tests (run 2026-10-20)
 
 | Check | Result |
 | --- | --- |
 | `typecheck`, `lint` (API, dashboard), dashboard build | passed |
-| Database tests (`pnpm db:test`) | **485 checks passed** (21 new in `29_platform_admin.sql`: only admins call the functions; counts; suspension cuts off the owner's token and the website; reactivation restores; trial range; plan change; audit rows; notes and plans only through the functions) |
+| Database tests (`pnpm db:test`) | **495 checks passed** (31 in `29_platform_admin.sql`: only admins call the functions; counts; suspension cuts off the owner's token and the website; reactivation restores; trial range; plan change; audit rows; notes and plans only through the functions; an ended trial suspends once, reactivation is then refused, extending or activating lifts it, activation for a year, only the worker runs the trial job) |
 | Migration 0031 down and up again on the test database | passed |
-| API unit + e2e on the fresh test database | 33 suites, **320 tests passed** (new `platform.e2e-spec.ts`: two-step sign-in with the emailed code and the cookie's flags; tokens of one kind never open the other's routes; the clinics list; suspension cutting off a signed-in owner, refusing sign-in and taking the site offline, then reactivation; trial, plan, notes and history; plan edits merging limits and refusing unknown keys) |
+| API unit + e2e on the fresh test database | 33 suites, **321 tests passed** (new `platform.e2e-spec.ts`, 8 cases: two-step sign-in with the emailed code and the cookie's flags; tokens of one kind never open the other's routes; the clinics list; suspension cutting off a signed-in owner, refusing sign-in and taking the site offline, then reactivation; trial, plan, notes and history; plan edits merging limits and refusing unknown keys; activation for a month, refused twice, no trial extension once active) |
 | Dashboard unit | 20 files, **90 passed** (new `platform-model.test.ts`: routes, trial days left, search and status filter) |
 
 Not checked in a browser: the extension's browsers cannot reach `localhost:5173`. To try it: open

@@ -4,7 +4,9 @@ import { TenantDb } from '../../shared/database/tenant-db.service';
 
 export interface ClinicRow {
   id: string; slug: string; name_ar: string | null; name_en: string | null; status: string; created_at: Date; suspended_at: Date | null;
+  suspension_reason: string | null; suspension_kind: 'manual' | 'trial_ended' | null;
   plan_code: string | null; plan_name_ar: string | null; subscription_status: string | null; trial_ends_at: Date | null;
+  billing_cycle: string | null; current_period_end: Date | null;
   members: number; branches: number; patients: number; appointments_30d: number; last_login_at: Date | null; owner_email: string | null;
 }
 
@@ -55,6 +57,10 @@ export class PlatformRepository {
 
   reactivate(actor: string, tenantId: string) {
     return sql`select platform_reactivate(${actor}::uuid, ${tenantId}::uuid)`.execute(this.db);
+  }
+
+  activate(actor: string, tenantId: string, cycle: 'monthly' | 'yearly') {
+    return sql`select platform_activate(${actor}::uuid, ${tenantId}::uuid, ${cycle})`.execute(this.db);
   }
 
   changePlan(actor: string, tenantId: string, planId: string) {

@@ -14,7 +14,9 @@ import { AuthLayout } from '../auth';
 interface Me { id: string; name: string; email: string }
 interface Clinic {
   id: string; slug: string; name_ar: string | null; name_en: string | null; status: string; created_at: string; suspended_at: string | null;
+  suspension_reason: string | null; suspension_kind: 'manual' | 'trial_ended' | null;
   plan_code: string | null; plan_name_ar: string | null; subscription_status: string | null; trial_ends_at: string | null;
+  billing_cycle: string | null; current_period_end: string | null;
   members: number; branches: number; patients: number; appointments_30d: number; last_login_at: string | null; owner_email: string | null;
 }
 interface AuditRow { id: string; action: string; tenant_id: string | null; details: Record<string, unknown>; created_at: string; actor: string | null }
@@ -166,7 +168,7 @@ function ClinicsPage() {
                     return (
                       <tr key={c.id}>
                         <td><a href={platformHref({ page: 'clinic', id: c.id })}><bdi>{clinicName(c)}</bdi></a><span className="muted small block" dir="ltr">{c.slug}</span></td>
-                        <td><Badge tone={STATUS_TONE[c.status] ?? 'neutral'}>{t(`pl_status_${c.status}` as Key)}</Badge></td>
+                        <td><Badge tone={STATUS_TONE[c.status] ?? 'neutral'}>{t(c.suspension_kind === 'trial_ended' ? 'pl_trialEnded' : (`pl_status_${c.status}` as Key))}</Badge></td>
                         <td>{c.plan_name_ar ?? '—'}</td>
                         <td>{left === null ? '—' : left >= 0 ? t('pl_daysLeft').replace('{n}', String(left)) : t('pl_trialEnded')}</td>
                         <td className="num">{c.members}</td><td className="num">{c.patients}</td><td className="num">{c.appointments_30d}</td>
@@ -194,6 +196,7 @@ function ClinicPage({ id }: { id: string }) {
   });
   const [until, setUntil] = useState('');
   const [planId, setPlanId] = useState('');
+  const [cycle, setCycle] = useState('monthly');
   const [suspending, setSuspending] = useState(false);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
@@ -224,6 +227,8 @@ function ClinicPage({ id }: { id: string }) {
         <h2>{t('pl_subscription')}</h2>
         <dl className="detail-list mt-sm">
           <div><dt>{t('pl_plan')}</dt><dd>{d.plan_name_ar ?? '—'}</dd></div>
+          <div><dt>{t('pl_subStatus')}</dt><dd>{d.subscription_status ? t(`pl_status_${d.subscription_status}` as Key) : '—'}</dd></div>
+          {d.subscription_status === 'active' && <div><dt>{t('pl_periodEnd')}</dt><dd>{date(d.current_period_end)} ({t(`pl_cycle_${d.billing_cycle ?? 'monthly'}` as Key)})</dd></div>}
           <div><dt>{t('pl_trial')}</dt><dd>{d.trial_ends_at ? `${date(d.trial_ends_at)}${left !== null ? ` (${left >= 0 ? t('pl_daysLeft').replace('{n}', String(left)) : t('pl_trialEnded')})` : ''}` : '—'}</dd></div>
           <div><dt>{t('pl_signedUp')}</dt><dd>{date(d.created_at)}</dd></div>
           <div><dt>{t('pl_lastLogin')}</dt><dd>{date(d.last_login_at)}</dd></div>
@@ -236,6 +241,16 @@ function ClinicPage({ id }: { id: string }) {
                   <DatePicker id={a.id} value={until} onChange={setUntil} min={today} placeholder={t('pickDate')} />
                   <Button variant="secondary" disabled={!until} loading={act.isPending && act.variables?.path === 'trial'}
                     onClick={() => act.mutate({ path: 'trial', body: { until } })}>{t('save')}</Button>
+                </div>
+              )}
+            </Field>
+          )}
+          {(d.subscription_status === 'trialing' || d.subscription_status === 'past_due' || d.subscription_status === 'suspended') && (
+            <Field label={t('pl_activate')} hint={t('pl_activateHint')}>
+              {(a) => (
+                <div className="row-start">
+                  <Choice id={a.id} value={cycle} onChange={setCycle} options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: t(`pl_cycle_${c}` as Key) }))} />
+                  <Button loading={act.isPending && act.variables?.path === 'activate'} onClick={() => act.mutate({ path: 'activate', body: { cycle } })}>{t('pl_activateBtn')}</Button>
                 </div>
               )}
             </Field>
@@ -253,10 +268,15 @@ function ClinicPage({ id }: { id: string }) {
         </div>
         <div className="row-end mt">
           {d.status === 'suspended'
-            ? <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>{t('pl_reactivate')}</Button>
+            ? d.suspension_kind !== 'trial_ended' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>{t('pl_reactivate')}</Button>
             : d.status !== 'cancelled' && <Button variant="secondary" onClick={() => { setReason(''); setSuspending(true); }}>{t('pl_suspend')}</Button>}
         </div>
-        {d.status === 'suspended' && <Alert tone="info">{t('pl_suspendedNote')}</Alert>}
+        {d.status === 'suspended' && (
+          <Alert tone="info">
+            {t(d.suspension_kind === 'trial_ended' ? 'pl_trialEndedNote' : 'pl_suspendedNote')}
+            {d.suspension_kind === 'manual' && d.suspension_reason && <> {t('pl_suspendReason')}: <bdi>{d.suspension_reason}</bdi></>}
+          </Alert>
+        )}
         <ErrorText error={act.error} />
       </Card>
       <Card>
@@ -293,7 +313,7 @@ function AuditList({ rows }: { rows: AuditRow[] }) {
           <span>
             <strong>{t(`pl_action_${r.action.replace('.', '_')}` as Key)}</strong>
             {typeof r.details?.reason === 'string' && <> — <bdi>{r.details.reason}</bdi></>}
-            <span className="muted small block">{r.actor ?? '—'} · {when(r.created_at)}</span>
+            <span className="muted small block">{r.actor ?? t('pl_system')} · {when(r.created_at)}</span>
           </span>
           {r.tenant_id && <span className="line-end"><a href={platformHref({ page: 'clinic', id: r.tenant_id })}>{t('pl_openClinic')}</a></span>}
         </li>

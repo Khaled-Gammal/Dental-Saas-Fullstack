@@ -162,6 +162,8 @@ export const WORKER_POLICY = {
   notificationsEveryMs: 30_000,
   releaseHoldsEveryMs: 60_000,
   noShowEveryMs: 5 * 60_000,
+  /** H5: a trial that ended without activation suspends the clinic (owner 2026-10-20) */
+  expireTrialsEveryMs: 15 * 60_000,
   purgeAuthCron: '15 3 * * *',
   purgeImagesCron: '45 3 * * *',
   timezone: 'Africa/Cairo',

@@ -1077,6 +1077,7 @@ export interface Tenants {
   status: Generated<string>;
   status_before_suspension: string | null;
   suspended_at: Timestamp | null;
+  suspension_kind: string | null;
   suspension_reason: string | null;
   timezone: Generated<string>;
   updated_at: Generated<Timestamp>;

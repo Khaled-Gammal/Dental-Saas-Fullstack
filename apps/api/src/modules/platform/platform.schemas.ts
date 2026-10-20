@@ -10,6 +10,7 @@ export const PlatformVerify = z.object({ email: Email, code: Code }).strict();
 export const ExtendTrial = z.object({ until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD') }).strict();
 export const Suspend = z.object({ reason: z.string().trim().min(3).max(300) }).strict();
 export const ChangePlan = z.object({ planId: z.string().uuid() }).strict();
+export const Activate = z.object({ cycle: z.enum(['monthly', 'yearly']) }).strict();
 export const NewNote = z.object({ body: z.string().trim().min(1).max(2000) }).strict();
 
 /** ADM-04: prices in minor units; limits and features are the plan's known keys only */

@@ -59,6 +59,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-20 | Owner asked for CSV export of the reports (was deferred as "Excel export") | DSH-11 (part), L10N-007; H3 |
 | 2026-10-20 | Owner: no fixed roles but the owner. Sign-up creates the owner role only (every permission); the owner creates, changes and deletes every other role and its permissions. `staff:manage` may be given to a role (with anti-escalation guards); mixing clinical and money writing only warns. The B.1 role columns become starting suggestions, no longer created at sign-up | ACCESS-006, B.1, AUTH-03; H4 |
 | 2026-10-20 | Owner: build the platform admin panel now (reverses the CLR-14 default "defer ADM"). Suspending a clinic blocks its staff's sign-in and takes its website offline (not read-only); platform admins sign in with a password and an emailed code every time | ADM-01, ADM-02, ADM-04; H5 |
+| 2026-10-20 | Owner: a suspended clinic sends no automatic emails; a trial that ends without the clinic being activated on a plan suspends it automatically; SMS/WhatsApp credits (ADM-02 "add credits") later | BIL-04 (part), ADM-02, NTF-04; H5 |
 
 ---
 
@@ -192,9 +193,9 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | BIL-01 | M | PARTIALLY_IMPLEMENTED | Plans with prices, limits and features seeded; no management |
 | BIL-02 | M | IMPLEMENTED | — |
 | BIL-03 | V1 | DEFERRED (paid gateway) | — |
-| BIL-04 … BIL-07 | V1 | NOT_IMPLEMENTED | Not in v4 |
+| BIL-04 … BIL-07 | V1 | NOT_IMPLEMENTED (BIL-04 in part) | Not in v4. H5 (owner 2026-10-20): a trial that ends without activation suspends the clinic (worker, every 15 minutes); the platform admin activates a paid clinic for a month or a year. No payment gateway, grace period or automatic renewal yet |
 | BIL-08 | M | IMPLEMENTED | — |
-| ADM-01, 02, 04 | M | IMPLEMENTED (2026-10-20, H5) | `#/platform`: clinics list, clinic detail (extend trial, suspend/reactivate, change plan, notes, history), plans; owner's choice reversing CLR-14 for ADM. "Add credits" (SMS) not built: no SMS (D-01) |
+| ADM-01, 02, 04 | M | IMPLEMENTED (2026-10-20, H5) | `#/platform`: clinics list, clinic detail (extend trial, suspend/reactivate, change plan, notes, history), plans; owner's choice reversing CLR-14 for ADM. "Add credits" (SMS) later, by the owner's choice: no SMS yet (D-01). Trial end suspends automatically; "activate subscription" after payment |
 | ADM-03, 05 | V1 | DEFERRED | — |
 | ADM-06 | V2 | DEFERRED | — |
 | NFR-01 | — | IMPLEMENTED | 19 DB isolation checks + cross-clinic e2e cases pass (2026-10-17) |

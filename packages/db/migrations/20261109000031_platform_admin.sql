@@ -6,13 +6,19 @@
 -- functions owned by app_definer (BYPASSRLS). Each checks that the acting user is an active platform admin and writes
 -- platform_audit_log. They return figures, never patient records.
 -- Suspension (owner's choice): staff of a suspended clinic cannot sign in or use the API; its website is offline
--- (resolve_tenant_by_host already skips it). Data is kept; reactivation restores the status it had.
+-- (resolve_tenant_by_host already skips it) and its queued emails are cancelled by the worker. Data is kept;
+-- reactivation restores the status it had.
+-- Trials (owner's choice): when a trial ends and the clinic was not activated on a plan, expire_trials() (worker,
+-- every 15 minutes) suspends it ('trial_ended'). Activating the subscription after payment, or extending the trial,
+-- lifts such a suspension; a manual one is lifted only by reactivating.
 
 ALTER TABLE tenants
   ADD COLUMN suspended_at       timestamptz,
   ADD COLUMN suspension_reason  text CONSTRAINT tenants_suspension_reason CHECK (char_length(suspension_reason) BETWEEN 3 AND 300),
+  ADD COLUMN suspension_kind    text CONSTRAINT tenants_suspension_kind CHECK (suspension_kind IN ('manual', 'trial_ended')),
   ADD COLUMN status_before_suspension text,
-  ADD CONSTRAINT tenants_suspension_complete CHECK ((status = 'suspended') = (suspended_at IS NOT NULL AND suspension_reason IS NOT NULL AND status_before_suspension IS NOT NULL)) NOT VALID;
+  ADD CONSTRAINT tenants_suspension_complete CHECK ((status = 'suspended') = (suspended_at IS NOT NULL AND suspension_reason IS NOT NULL
+    AND suspension_kind IS NOT NULL AND status_before_suspension IS NOT NULL)) NOT VALID;
 
 -- private notes the platform team keeps on a clinic (platform data: like plans and the platform audit log since 0004,
 -- the API role neither reads nor writes it directly — only through the platform functions below)
@@ -28,8 +34,8 @@ REVOKE ALL ON platform_tenant_notes FROM app_user, app_worker;
 
 -- (users, patients and appointments are readable by app_definer since earlier phases)
 GRANT SELECT ON subscriptions, plans, branches, platform_tenant_notes, platform_audit_log TO app_definer;
-GRANT UPDATE (status, suspended_at, suspension_reason, status_before_suspension, updated_at) ON tenants TO app_definer;
-GRANT UPDATE (status, plan_id, trial_ends_at, updated_at) ON subscriptions TO app_definer;
+GRANT UPDATE (status, suspended_at, suspension_reason, suspension_kind, status_before_suspension, updated_at) ON tenants TO app_definer;
+GRANT UPDATE (status, plan_id, trial_ends_at, billing_cycle, current_period_start, current_period_end, updated_at) ON subscriptions TO app_definer;
 GRANT UPDATE (name_ar, price_monthly_minor, price_yearly_minor, trial_days, limits, features, is_public, updated_at) ON plans TO app_definer;
 GRANT INSERT ON platform_audit_log, platform_tenant_notes TO app_definer;
 GRANT UPDATE ON tenant_members TO app_definer;   -- access_version, so a suspension cuts off sessions at once
@@ -46,14 +52,15 @@ END $$;
 -- ADM-01: every clinic with its plan and figures (counts only)
 CREATE OR REPLACE FUNCTION platform_clinics(p_actor uuid)
 RETURNS TABLE (id uuid, slug text, name_ar text, name_en text, status text, created_at timestamptz, suspended_at timestamptz,
-               plan_code text, plan_name_ar text, subscription_status text, trial_ends_at timestamptz,
+               suspension_reason text, suspension_kind text,
+               plan_code text, plan_name_ar text, subscription_status text, trial_ends_at timestamptz, billing_cycle text, current_period_end timestamptz,
                members int, branches int, patients int, appointments_30d int, last_login_at timestamptz, owner_email text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   PERFORM platform_assert_admin(p_actor);
   RETURN QUERY
-  SELECT t.id, t.slug::text, t.name_ar, t.name_en, t.status, t.created_at, t.suspended_at,
-         p.code, p.name_ar, s.status, s.trial_ends_at,
+  SELECT t.id, t.slug::text, t.name_ar, t.name_en, t.status, t.created_at, t.suspended_at, t.suspension_reason, t.suspension_kind,
+         p.code, p.name_ar, s.status, s.trial_ends_at, s.billing_cycle, s.current_period_end,
          (SELECT count(*)::int FROM tenant_members m WHERE m.tenant_id = t.id AND m.status = 'active'),
          (SELECT count(*)::int FROM branches b WHERE b.tenant_id = t.id AND b.is_active),
          (SELECT count(*)::int FROM patients pa WHERE pa.tenant_id = t.id AND pa.deleted_at IS NULL),
@@ -82,8 +89,58 @@ BEGIN
     RAISE EXCEPTION 'the clinic is not on a trial' USING ERRCODE = 'check_violation', CONSTRAINT = 'platform_not_trialing';
   END IF;
   UPDATE subscriptions SET trial_ends_at = p_until, updated_at = now() WHERE tenant_id = p_tenant AND status = 'trialing';
+  -- a clinic the trial's end suspended opens again (a manual suspension stays)
+  UPDATE tenants SET status = status_before_suspension, suspended_at = NULL, suspension_reason = NULL, suspension_kind = NULL,
+         status_before_suspension = NULL, updated_at = now()
+   WHERE id = p_tenant AND status = 'suspended' AND suspension_kind = 'trial_ended';
   INSERT INTO platform_audit_log (actor_user_id, action, tenant_id, details)
   VALUES (p_actor, 'tenant.trial_extended', p_tenant, jsonb_build_object('from', v_before, 'to', p_until));
+END $$;
+
+-- ADM-02 (owner 2026-10-20): the clinic paid, outside the system for now — its trial becomes an active subscription for a
+-- month or a year. A suspension by the trial's end is lifted; a manual one stays.
+CREATE OR REPLACE FUNCTION platform_activate(p_actor uuid, p_tenant uuid, p_cycle text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_sub text;
+BEGIN
+  PERFORM platform_assert_admin(p_actor);
+  IF p_cycle NOT IN ('monthly', 'yearly') THEN
+    RAISE EXCEPTION 'a subscription is monthly or yearly' USING ERRCODE = 'check_violation', CONSTRAINT = 'platform_cycle';
+  END IF;
+  SELECT status INTO v_sub FROM subscriptions WHERE tenant_id = p_tenant AND status <> 'cancelled' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'clinic not found' USING ERRCODE = 'no_data_found', CONSTRAINT = 'platform_clinic_missing'; END IF;
+  IF v_sub NOT IN ('trialing', 'past_due', 'suspended') THEN
+    RAISE EXCEPTION 'the subscription is already %', v_sub USING ERRCODE = 'check_violation', CONSTRAINT = 'platform_already_active';
+  END IF;
+  UPDATE subscriptions SET status = 'active', billing_cycle = p_cycle, current_period_start = now(),
+         current_period_end = now() + CASE p_cycle WHEN 'yearly' THEN interval '1 year' ELSE interval '1 month' END, updated_at = now()
+   WHERE tenant_id = p_tenant AND status <> 'cancelled';
+  UPDATE tenants SET status = 'active', suspended_at = NULL, suspension_reason = NULL, suspension_kind = NULL, status_before_suspension = NULL, updated_at = now()
+   WHERE id = p_tenant AND (status IN ('onboarding', 'trialing', 'past_due') OR (status = 'suspended' AND suspension_kind = 'trial_ended'));
+  -- a manually suspended clinic stays suspended, but returns as active when reactivated
+  UPDATE tenants SET status_before_suspension = 'active', updated_at = now() WHERE id = p_tenant AND status = 'suspended';
+  INSERT INTO platform_audit_log (actor_user_id, action, tenant_id, details)
+  VALUES (p_actor, 'tenant.activated', p_tenant, jsonb_build_object('cycle', p_cycle, 'from', v_sub));
+END $$;
+
+-- Worker (every 15 minutes, owner 2026-10-20): a trial that ended without activation suspends the clinic. Returns how many.
+CREATE OR REPLACE FUNCTION expire_trials() RETURNS int
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_ids uuid[];
+BEGIN
+  WITH due AS (
+    SELECT t.id, t.status FROM tenants t JOIN subscriptions s ON s.tenant_id = t.id AND s.status = 'trialing'
+     WHERE s.trial_ends_at <= now() AND t.status NOT IN ('suspended', 'cancelled') AND t.deleted_at IS NULL
+     FOR UPDATE OF t SKIP LOCKED),
+  done AS (
+    UPDATE tenants t SET status = 'suspended', suspended_at = now(), suspension_reason = 'انتهت الفترة التجريبية دون تفعيل خطة',
+           suspension_kind = 'trial_ended', status_before_suspension = due.status, updated_at = now()
+      FROM due WHERE t.id = due.id RETURNING t.id)
+  SELECT array_agg(id) INTO v_ids FROM done;
+  IF v_ids IS NULL THEN RETURN 0; END IF;
+  UPDATE tenant_members SET access_version = access_version + 1 WHERE tenant_id = ANY (v_ids);
+  INSERT INTO platform_audit_log (actor_user_id, action, tenant_id) SELECT NULL, 'tenant.trial_expired', unnest(v_ids);
+  RETURN cardinality(v_ids);
 END $$;
 
 -- ADM-02: suspend (staff cut off at their next request, website offline) and reactivate (the status it had)
@@ -97,7 +154,8 @@ BEGIN
   IF v_status IN ('suspended', 'cancelled') THEN
     RAISE EXCEPTION 'the clinic is already %', v_status USING ERRCODE = 'check_violation', CONSTRAINT = 'platform_status';
   END IF;
-  UPDATE tenants SET status = 'suspended', suspended_at = now(), suspension_reason = btrim(p_reason), status_before_suspension = v_status, updated_at = now()
+  UPDATE tenants SET status = 'suspended', suspended_at = now(), suspension_reason = btrim(p_reason), suspension_kind = 'manual',
+         status_before_suspension = v_status, updated_at = now()
    WHERE id = p_tenant;
   UPDATE tenant_members SET access_version = access_version + 1 WHERE tenant_id = p_tenant;
   INSERT INTO platform_audit_log (actor_user_id, action, tenant_id, details)
@@ -113,7 +171,11 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'the clinic is not suspended' USING ERRCODE = 'check_violation', CONSTRAINT = 'platform_status';
   END IF;
-  UPDATE tenants SET status = v_back, suspended_at = NULL, suspension_reason = NULL, status_before_suspension = NULL, updated_at = now()
+  -- a trial that has ended would be suspended again at once: extend it or activate the subscription instead
+  IF EXISTS (SELECT 1 FROM subscriptions WHERE tenant_id = p_tenant AND status = 'trialing' AND trial_ends_at <= now()) THEN
+    RAISE EXCEPTION 'the trial has ended' USING ERRCODE = 'check_violation', CONSTRAINT = 'platform_trial_ended';
+  END IF;
+  UPDATE tenants SET status = v_back, suspended_at = NULL, suspension_reason = NULL, suspension_kind = NULL, status_before_suspension = NULL, updated_at = now()
    WHERE id = p_tenant;
   INSERT INTO platform_audit_log (actor_user_id, action, tenant_id, details)
   VALUES (p_actor, 'tenant.reactivated', p_tenant, jsonb_build_object('to', v_back));
@@ -198,6 +260,11 @@ GRANT EXECUTE ON FUNCTION platform_record(uuid, text, uuid, jsonb, inet), platfo
 ALTER FUNCTION platform_assert_admin(uuid) OWNER TO app_definer;
 ALTER FUNCTION platform_clinics(uuid) OWNER TO app_definer;
 ALTER FUNCTION platform_extend_trial(uuid, uuid, timestamptz) OWNER TO app_definer;
+ALTER FUNCTION platform_activate(uuid, uuid, text) OWNER TO app_definer;
+ALTER FUNCTION expire_trials() OWNER TO app_definer;
+REVOKE EXECUTE ON FUNCTION platform_activate(uuid, uuid, text), expire_trials() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION platform_activate(uuid, uuid, text) TO app_user;
+GRANT EXECUTE ON FUNCTION expire_trials() TO app_worker;
 ALTER FUNCTION platform_suspend(uuid, uuid, text) OWNER TO app_definer;
 ALTER FUNCTION platform_reactivate(uuid, uuid) OWNER TO app_definer;
 ALTER FUNCTION platform_change_plan(uuid, uuid, uuid) OWNER TO app_definer;
@@ -231,6 +298,8 @@ DROP FUNCTION IF EXISTS platform_update_plan(uuid, uuid, jsonb, inet);
 DROP FUNCTION IF EXISTS platform_add_note(uuid, uuid, text);
 DROP FUNCTION IF EXISTS platform_notes(uuid, uuid);
 DROP FUNCTION IF EXISTS platform_record(uuid, text, uuid, jsonb, inet);
+DROP FUNCTION IF EXISTS expire_trials();
+DROP FUNCTION IF EXISTS platform_activate(uuid, uuid, text);
 DROP FUNCTION IF EXISTS platform_change_plan(uuid, uuid, uuid);
 DROP FUNCTION IF EXISTS platform_reactivate(uuid, uuid);
 DROP FUNCTION IF EXISTS platform_suspend(uuid, uuid, text);
@@ -240,11 +309,11 @@ DROP FUNCTION IF EXISTS platform_assert_admin(uuid);
 REVOKE UPDATE ON tenant_members FROM app_definer;
 REVOKE INSERT ON platform_audit_log FROM app_definer;
 REVOKE UPDATE (name_ar, price_monthly_minor, price_yearly_minor, trial_days, limits, features, is_public, updated_at) ON plans FROM app_definer;
-REVOKE UPDATE (status, plan_id, trial_ends_at, updated_at) ON subscriptions FROM app_definer;
-REVOKE UPDATE (status, suspended_at, suspension_reason, status_before_suspension, updated_at) ON tenants FROM app_definer;
+REVOKE UPDATE (status, plan_id, trial_ends_at, billing_cycle, current_period_start, current_period_end, updated_at) ON subscriptions FROM app_definer;
+REVOKE UPDATE (status, suspended_at, suspension_reason, suspension_kind, status_before_suspension, updated_at) ON tenants FROM app_definer;
 REVOKE SELECT ON subscriptions, plans, branches, platform_audit_log FROM app_definer;
 DROP TABLE IF EXISTS platform_tenant_notes;
 -- a clinic suspended from the panel goes back to the status it had
 UPDATE tenants SET status = coalesce(status_before_suspension, status) WHERE status = 'suspended' AND status_before_suspension IS NOT NULL;
 ALTER TABLE tenants DROP CONSTRAINT IF EXISTS tenants_suspension_complete,
-  DROP COLUMN IF EXISTS status_before_suspension, DROP COLUMN IF EXISTS suspension_reason, DROP COLUMN IF EXISTS suspended_at;
+  DROP COLUMN IF EXISTS status_before_suspension, DROP COLUMN IF EXISTS suspension_kind, DROP COLUMN IF EXISTS suspension_reason, DROP COLUMN IF EXISTS suspended_at;

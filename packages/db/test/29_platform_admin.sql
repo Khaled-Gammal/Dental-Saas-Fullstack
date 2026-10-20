@@ -54,6 +54,36 @@ SELECT test.ok((SELECT array_agg(action ORDER BY id) = '{tenant.suspended,tenant
   FROM platform_audit_log WHERE tenant_id = '22222222-2222-2222-2222-222222222222' AND actor_user_id = 'b0000000-0000-0000-0000-0000000000f1'),
   'every action is in the platform audit log, with who did it');
 
+-- trials (owner 2026-10-20): an ended trial suspends the clinic; extending or activating lifts it, a manual suspension stays
+RESET ROLE;
+UPDATE subscriptions SET trial_ends_at = now() - interval '1 hour' WHERE tenant_id = '22222222-2222-2222-2222-222222222222' AND status = 'trialing';
+SET LOCAL ROLE app_worker;
+SELECT test.ok(expire_trials() >= 1, 'the worker suspends a clinic whose trial ended');
+SELECT test.ok(expire_trials() = 0, 'and only once');
+RESET ROLE;
+SELECT test.ok((SELECT status = 'suspended' AND suspension_kind = 'trial_ended' FROM tenants WHERE id = '22222222-2222-2222-2222-222222222222'), 'as "trial ended"');
+SET LOCAL ROLE app_user;
+SELECT test.throws($$SELECT platform_reactivate('b0000000-0000-0000-0000-0000000000f1', '22222222-2222-2222-2222-222222222222')$$,
+  'trial has ended', 'reactivating would only suspend it again: extend or activate instead');
+SELECT platform_extend_trial('b0000000-0000-0000-0000-0000000000f1', '22222222-2222-2222-2222-222222222222', now() + interval '7 days');
+RESET ROLE;
+SELECT test.ok((SELECT status <> 'suspended' AND suspension_kind IS NULL FROM tenants WHERE id = '22222222-2222-2222-2222-222222222222'), 'extending the trial opens the clinic again');
+UPDATE subscriptions SET trial_ends_at = now() - interval '1 hour' WHERE tenant_id = '22222222-2222-2222-2222-222222222222' AND status = 'trialing';
+SET LOCAL ROLE app_worker;
+SELECT expire_trials();
+SET LOCAL ROLE app_user;
+SELECT test.throws($$SELECT platform_activate('b0000000-0000-0000-0000-0000000000f1', '22222222-2222-2222-2222-222222222222', 'weekly')$$, 'monthly or yearly', 'a subscription is monthly or yearly');
+SELECT platform_activate('b0000000-0000-0000-0000-0000000000f1', '22222222-2222-2222-2222-222222222222', 'yearly');
+RESET ROLE;
+SELECT test.ok((SELECT t.status = 'active' AND t.suspended_at IS NULL AND s.status = 'active' AND s.billing_cycle = 'yearly' AND s.current_period_end > now() + interval '364 days'
+  FROM tenants t JOIN subscriptions s ON s.tenant_id = t.id AND s.status <> 'cancelled' WHERE t.id = '22222222-2222-2222-2222-222222222222'),
+  'activating after payment makes the clinic active for the year and lifts the trial suspension');
+SET LOCAL ROLE app_worker;
+SELECT test.ok(expire_trials() = 0, 'an active clinic is not touched by the trial job');
+SET LOCAL ROLE app_user;
+SELECT test.throws($$SELECT platform_activate('b0000000-0000-0000-0000-0000000000f1', '22222222-2222-2222-2222-222222222222', 'monthly')$$, 'already active', 'an active subscription is not activated again');
+SELECT test.throws($$SELECT expire_trials()$$, 'permission denied', 'only the worker runs the trial job');
+
 -- notes and plans: only through the platform functions (since 0004 the API role writes no platform table)
 SET LOCAL ROLE app_user;
 SELECT test.throws($$SELECT * FROM platform_tenant_notes$$, 'permission denied', 'the API role does not read notes directly');

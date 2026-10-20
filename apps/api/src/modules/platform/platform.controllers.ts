@@ -7,7 +7,7 @@ import { AUTH_POLICY } from '../../config';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { requestMeta } from '../identity/session-cookie';
-import { ChangePlan, EditPlan, ExtendTrial, NewNote, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
+import { Activate, ChangePlan, EditPlan, ExtendTrial, NewNote, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
 import { PlatformCookie, PlatformGuard } from './platform-session';
 import { PlatformService } from './platform.service';
 
@@ -75,6 +75,11 @@ export class PlatformController {
 
   @Post('clinics/:id/reactivate') @HttpCode(200)
   reactivate(@Param('id', id) clinicId: string) { return this.platform.reactivate(clinicId); }
+
+  @Post('clinics/:id/activate') @HttpCode(200)
+  activate(@Param('id', id) clinicId: string, @Body(new ZodBody(Activate)) b: Body<typeof Activate>) {
+    return this.platform.activate(clinicId, b.cycle);
+  }
 
   @Post('clinics/:id/plan') @HttpCode(200)
   changePlan(@Param('id', id) clinicId: string, @Body(new ZodBody(ChangePlan)) b: Body<typeof ChangePlan>) {

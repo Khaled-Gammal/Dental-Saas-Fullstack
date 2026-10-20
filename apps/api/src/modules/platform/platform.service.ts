@@ -95,6 +95,12 @@ export class PlatformService {
     return this.clinic(id);
   }
 
+  /** The clinic paid (outside the system for now): its subscription is active for a month or a year; a trial-ended suspension is lifted. */
+  async activate(id: string, cycle: 'monthly' | 'yearly') {
+    await this.repo.activate(this.admin(), id, cycle);
+    return this.clinic(id);
+  }
+
   async changePlan(id: string, planId: string) {
     await this.repo.changePlan(this.admin(), id, planId);
     return this.clinic(id);

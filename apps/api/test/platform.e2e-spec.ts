@@ -113,6 +113,18 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
     expect(audit).toEqual(expect.arrayContaining(['plan.updated', 'platform.sign_in']));
   });
 
+  it('activates a paid clinic for a month or a year (owner 2026-10-20: trials end in suspension otherwise)', async () => {
+    expect((await http().post(`/platform/clinics/${CLINIC_B}/activate`).set(admin()).send({ cycle: 'weekly' }).expect(400)).body.code).toBe('validation_failed');
+    const a = (await http().post(`/platform/clinics/${CLINIC_B}/activate`).set(admin()).send({ cycle: 'monthly' }).expect(200)).body;
+    expect(a).toMatchObject({ status: 'active', subscription_status: 'active', billing_cycle: 'monthly', suspension_kind: null });
+    expect(new Date(a.current_period_end).getTime()).toBeGreaterThan(Date.now() + 27 * 86_400_000);
+    expect((await http().post(`/platform/clinics/${CLINIC_B}/activate`).set(admin()).send({ cycle: 'yearly' }).expect(409)).body.code).toBe('already_active');
+    expect((await http().post(`/platform/clinics/${CLINIC_B}/trial`).set(admin()).send({ until: new Date(Date.now() + 9 * 86_400_000).toISOString().slice(0, 10) }).expect(409)).body.code)
+      .toBe('not_trialing');
+    const history = (await http().get(`/platform/clinics/${CLINIC_B}`).set(admin()).expect(200)).body.history.map((h: { action: string }) => h.action);
+    expect(history).toContain('tenant.activated');
+  });
+
   it('signs out', async () => {
     await http().post('/platform/auth/logout').expect(204);
   });
