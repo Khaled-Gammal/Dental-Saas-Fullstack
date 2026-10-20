@@ -7,6 +7,7 @@ import { roleLabel, t } from '../../i18n';
 import { keys, useBranches, useInvitations, useMembers } from '../../queries';
 import { to } from '../../router';
 import type { Branch, StaffInvitation, StaffMember } from '../../types';
+import { DataTable, type Column } from '../../ui/data-table';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, LinkButton, PageHeader, Skeleton } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { EditIcon, PlusIcon, ShieldIcon } from '../../ui/icons';
@@ -30,13 +31,20 @@ export function StaffList({ clinicId, session }: { clinicId: string; session: Se
       {(flash || notice) && <Alert tone="success">{notice ?? flash}</Alert>}
 
       <h2 className="section-title">{t('members')}</h2>
-      {members.isError ? <ErrorText error={members.error} onRetry={() => void members.refetch()} />
-        : members.isLoading ? <Skeleton h={72} count={3} />
-        : (
-          <ul className="patient-rows" aria-busy={members.isFetching || undefined}>
-            {members.data?.map((m) => <MemberRow key={m.id} m={m} branches={branches} isYou={m.user.email === session.user.email} />)}
-          </ul>
-        )}
+      <DataTable
+        label={t('members')}
+        rows={members.data}
+        columns={memberColumns(branches, session.user.email)}
+        rowKey={(m) => m.id}
+        isLoading={members.isLoading}
+        isFetching={members.isFetching}
+        error={members.isError ? members.error : undefined}
+        onRetry={() => void members.refetch()}
+        search={{ placeholder: t('staffSearchHint'), text: (m) => [m.user.full_name, m.user.email, m.job_title, roleLabel(m.role.key, m.role.name_ar)].filter(Boolean).join(' ') }}
+        actions={(m) => <RouteLink route={to.edit('staff', m.id)} className="btn btn-secondary btn-sm"><EditIcon size={16} />{t('edit')}</RouteLink>}
+        onRowClick={(m) => navigate(to.edit('staff', m.id))}
+        empty={{ icon: <ShieldIcon size={28} />, title: t('members'), text: t('staffSub') }}
+      />
 
       <h2 className="section-title mt">{t('pendingInvites')}</h2>
       {invitations.isError ? <ErrorText error={invitations.error} onRetry={() => void invitations.refetch()} />
@@ -51,28 +59,41 @@ export function StaffList({ clinicId, session }: { clinicId: string; session: Se
   );
 }
 
-function MemberRow({ m, branches, isYou }: { m: StaffMember; branches: Branch[] | undefined; isYou: boolean }) {
-  return (
-    <Card as="li" className="patient-row">
-      <span className="patient-main">
-        <span className="patient-avatar" aria-hidden>{m.user.full_name.trim().slice(0, 1)}</span>
-        <span className="patient-text">
-          <strong><bdi>{m.user.full_name}</bdi>{isYou && <> · <span className="muted">{t('you')}</span></>}</strong>
-          <span className="muted small">
-            <bdi dir="ltr">{m.user.email}</bdi>
-            {m.job_title && <> · <bdi>{m.job_title}</bdi></>}
-            {' · '}{m.all_branches ? t('allBranchesLabel') : <bdi>{branchNames(m.branch_ids, branches)}</bdi>}
-            {m.doctor && <> · {t('doctorPrefix')} <bdi>{arName(m.doctor.name_ar, m.doctor.name_en, '')}</bdi></>}
+/** The members table (redesign R4): who, what they do, where, their role and whether they can sign in. */
+function memberColumns(branches: Branch[] | undefined, myEmail: string | null): Column<StaffMember>[] {
+  return [
+    {
+      id: 'member', header: t('staffColMember'), sortValue: (m) => m.user.full_name,
+      cell: (m) => (
+        <span className="patient-main">
+          <span className="patient-avatar" aria-hidden>{m.user.full_name.trim().slice(0, 1)}</span>
+          <span className="patient-text">
+            <strong><bdi>{m.user.full_name}</bdi>{m.user.email === myEmail && <> · <span className="muted">{t('you')}</span></>}</strong>
+            <bdi dir="ltr" className="muted small">{m.user.email}</bdi>
           </span>
         </span>
-      </span>
-      <span className="patient-badges">
-        <Badge tone={m.role.key === 'owner' ? 'primary' : 'neutral'}>{roleLabel(m.role.key, m.role.name_ar)}</Badge>
-        {m.status === 'disabled' && <Badge tone="warning">{t('memberDisabled')}</Badge>}
-      </span>
-      <RouteLink route={to.edit('staff', m.id)} className="btn btn-secondary btn-sm"><EditIcon size={16} />{t('edit')}</RouteLink>
-    </Card>
-  );
+      ),
+    },
+    {
+      id: 'job', header: t('staffColJob'), hideOnMobile: true,
+      cell: (m) => (
+        <>
+          {m.job_title ? <bdi>{m.job_title}</bdi> : <span className="muted">—</span>}
+          {m.doctor && <span className="muted small block">{t('doctorPrefix')} <bdi>{arName(m.doctor.name_ar, m.doctor.name_en, '')}</bdi></span>}
+        </>
+      ),
+    },
+    { id: 'branches', header: t('staffColBranches'), hideOnMobile: true, cell: (m) => (m.all_branches ? t('allBranchesLabel') : <bdi>{branchNames(m.branch_ids, branches)}</bdi>) },
+    {
+      id: 'role', header: t('staffColRole'), sortValue: (m) => roleLabel(m.role.key, m.role.name_ar),
+      cell: (m) => (
+        <span className="patient-badges">
+          <Badge tone={m.role.key === 'owner' ? 'primary' : 'neutral'}>{roleLabel(m.role.key, m.role.name_ar)}</Badge>
+          {m.status === 'disabled' && <Badge tone="warning" dot>{t('memberDisabled')}</Badge>}
+        </span>
+      ),
+    },
+  ];
 }
 
 function InvitationRow({ inv, clinicId, branches, onDone }: {

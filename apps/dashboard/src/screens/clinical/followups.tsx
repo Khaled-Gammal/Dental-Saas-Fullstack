@@ -7,9 +7,10 @@ import { t, type Key } from '../../i18n';
 import { send, useClinicalMutation, usePatientRecalls, useRecalls } from '../../queries';
 import { to } from '../../router';
 import type { Recall, RecallReason } from '../../types';
-import { Badge, Button, Card, EmptyState, ErrorText, Field, Input, LinkButton, PageHeader, Skeleton } from '../../ui/components';
+import { Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { CalendarIcon, PhoneIcon } from '../../ui/icons';
+import { DataTable, type Column } from '../../ui/data-table';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 
@@ -35,25 +36,95 @@ export function FollowUps({ clinicId, canWrite, canBook, query }: { clinicId: st
           <RouteLink key={v} route={{ page: 'followups', query: { view: v } }} className={`seg-btn${v === view ? ' is-on' : ''}`} role="tab" aria-selected={v === view}>{t(`fu_${v}` as Key)}</RouteLink>
         ))}
       </div>
-      {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
-        : list.isLoading ? <Skeleton h={72} count={3} />
-        : !list.data?.items.length ? <Card><EmptyState icon={<CalendarIcon size={28} />} title={t('noFollowUps')} text={t(`noFollowUps_${view}` as Key)} /></Card>
-        : (
-          <ul className="appts">
-            {list.data.items.map((r) => <RecallRow key={r.id} clinicId={clinicId} r={r} today={list.data.today} canWrite={canWrite} canBook={canBook} />)}
-          </ul>
-        )}
+      {/* the view tabs ask the API; the table searches and sorts what it returned (redesign R4) */}
+      <DataTable
+        key={view}
+        label={t('navFollowUps')}
+        rows={list.data?.items}
+        columns={recallColumns(list.data?.today ?? todayIso())}
+        rowKey={(r) => r.id}
+        isLoading={list.isLoading}
+        isFetching={list.isFetching}
+        error={list.isError ? list.error : undefined}
+        onRetry={() => void list.refetch()}
+        search={{ placeholder: t('followUpSearchHint'), text: (r) => `${r.patient.full_name} ${r.patient.phone} ${t(`recall_${r.reason}` as Key)}` }}
+        defaultSort={{ id: 'due', dir: view === 'closed' ? 'desc' : 'asc' }}
+        pageSize={25}
+        actions={canWrite || canBook ? (r) => <RecallActions clinicId={clinicId} r={r} canWrite={canWrite} canBook={canBook} inTable /> : undefined}
+        empty={{ icon: <CalendarIcon size={28} />, title: t('noFollowUps'), text: t(`noFollowUps_${view}` as Key) }}
+      />
     </>
   );
 }
 
-function RecallRow({ clinicId, r, today, canWrite, canBook, compact }: { clinicId: string; r: Recall; today: string; canWrite: boolean; canBook: boolean; compact?: boolean }) {
+const isOpen = (r: Recall) => r.status === 'pending' || r.status === 'contacted';
+
+/** The follow-ups table (redesign R4): who, why, when, and where the follow-up stands. */
+function recallColumns(today: string): Column<Recall>[] {
+  return [
+    {
+      id: 'patient', header: t('patientColName'), sortValue: (r) => r.patient.full_name,
+      cell: (r) => <RouteLink route={to.view('patients', r.patient.id)} className="font-semibold no-underline hover:underline"><bdi>{r.patient.full_name}</bdi></RouteLink>,
+    },
+    { id: 'phone', header: t('phone'), cell: (r) => <a href={`tel:${r.patient.phone}`} dir="ltr" className="link-plain tabular-nums"><PhoneIcon size={14} /> {r.patient.phone}</a> },
+    { id: 'reason', header: t('recallReason'), hideOnMobile: true, sortValue: (r) => t(`recall_${r.reason}` as Key), cell: (r) => t(`recall_${r.reason}` as Key) },
+    {
+      id: 'due', header: t('dueDate'), sortValue: (r) => r.due_date,
+      cell: (r) => {
+        const overdue = isOpen(r) && r.due_date < today;
+        return (
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="whitespace-nowrap">{fmtDate(r.due_date)}</span>
+            <Badge tone={overdue ? 'danger' : STATUS_TONE[r.status]} dot>{overdue ? t('overdue') : t(`fus_${r.status}` as Key)}</Badge>
+          </span>
+        );
+      },
+    },
+    {
+      id: 'doctor', header: t('doctor'), hideOnMobile: true, sortValue: (r) => (r.doctor ? arName(r.doctor.name_ar, r.doctor.name_en) : ''),
+      cell: (r) => (
+        <>
+          {r.doctor ? <bdi>{arName(r.doctor.name_ar, r.doctor.name_en)}</bdi> : <span className="muted">—</span>}
+          {r.contact_attempts > 0 && <span className="muted small block">{fmtNumber(r.contact_attempts)} {t('callAttempts')}</span>}
+          {r.notes && <span className="small block call-log">{r.notes}</span>}
+        </>
+      ),
+    },
+  ];
+}
+
+/** An open follow-up's work: book it (the appointment is linked), log a call, or dismiss it. */
+function RecallActions({ clinicId, r, canWrite, canBook, inTable }: { clinicId: string; r: Recall; canWrite: boolean; canBook: boolean; inTable?: boolean }) {
   const [dialog, setDialog] = useState<'contact' | 'dismiss' | null>(null);
   const [note, setNote] = useState('');
   const act = useClinicalMutation(clinicId, (a: { op: 'contact' | 'dismiss'; text: string }) =>
     send(`/recalls/${r.id}/${a.op}`, 'POST', a.op === 'contact' ? { note: a.text } : { reason: a.text || null }));
-  const open = r.status === 'pending' || r.status === 'contacted';
-  const overdue = open && r.due_date < today;
+  if (!isOpen(r) || !(canWrite || canBook)) return null;
+  return (
+    // in the table the three stay on one line, the column takes their width
+    <div className={inTable ? 'flex flex-nowrap items-center justify-end gap-2' : 'appt-actions'}>
+      {canBook && (
+        <RouteLink route={to.create('appointments', { patient: r.patient.id, recall: r.id, ...(r.doctor_id && { doctor: r.doctor_id }) })} className="btn btn-primary">
+          <CalendarIcon size={16} />{t('book')}
+        </RouteLink>
+      )}
+      {canWrite && <Button variant="secondary" onClick={() => { setNote(''); setDialog('contact'); }}><PhoneIcon size={16} />{t('logCall')}</Button>}
+      {canWrite && <LinkButton onClick={() => { setNote(''); setDialog('dismiss'); }}>{t('dismiss')}</LinkButton>}
+      <ErrorText error={act.error} />
+      <ConfirmDialog open={!!dialog} title={t(dialog === 'dismiss' ? 'dismissFollowUp' : 'logCall')} confirmLabel={t(dialog === 'dismiss' ? 'dismiss' : 'save')} danger={dialog === 'dismiss'}
+        onConfirm={() => { if (dialog && (dialog === 'dismiss' || note.trim())) act.mutate({ op: dialog, text: note.trim() }, { onSettled: () => setDialog(null) }); }}
+        onCancel={() => setDialog(null)}>
+        <Field label={t(dialog === 'dismiss' ? 'dismissReason' : 'callNote')} optional={dialog === 'dismiss' ? t('optional') : undefined}>
+          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? t('callNoteExample') : undefined} />}
+        </Field>
+      </ConfirmDialog>
+    </div>
+  );
+}
+
+/** One follow-up as a card: the patient's page lists theirs this way (compact: no name or phone, it is their page). */
+function RecallRow({ clinicId, r, today, canWrite, canBook, compact }: { clinicId: string; r: Recall; today: string; canWrite: boolean; canBook: boolean; compact?: boolean }) {
+  const overdue = isOpen(r) && r.due_date < today;
   return (
     <Card as="li" className="appt">
       <div className="appt-main">
@@ -70,25 +141,7 @@ function RecallRow({ clinicId, r, today, canWrite, canBook, compact }: { clinicI
         </div>
         {r.notes && <p className="appt-notes call-log">{r.notes}</p>}
       </div>
-      {open && (canWrite || canBook) && (
-        <div className="appt-actions">
-          {canBook && (
-            <RouteLink route={to.create('appointments', { patient: r.patient.id, recall: r.id, ...(r.doctor_id && { doctor: r.doctor_id }) })} className="btn btn-primary">
-              <CalendarIcon size={16} />{t('book')}
-            </RouteLink>
-          )}
-          {canWrite && <Button variant="secondary" onClick={() => { setNote(''); setDialog('contact'); }}><PhoneIcon size={16} />{t('logCall')}</Button>}
-          {canWrite && <LinkButton onClick={() => { setNote(''); setDialog('dismiss'); }}>{t('dismiss')}</LinkButton>}
-        </div>
-      )}
-      <ErrorText error={act.error} />
-      <ConfirmDialog open={!!dialog} title={t(dialog === 'dismiss' ? 'dismissFollowUp' : 'logCall')} confirmLabel={t(dialog === 'dismiss' ? 'dismiss' : 'save')} danger={dialog === 'dismiss'}
-        onConfirm={() => { if (dialog && (dialog === 'dismiss' || note.trim())) act.mutate({ op: dialog, text: note.trim() }, { onSettled: () => setDialog(null) }); }}
-        onCancel={() => setDialog(null)}>
-        <Field label={t(dialog === 'dismiss' ? 'dismissReason' : 'callNote')} optional={dialog === 'dismiss' ? t('optional') : undefined}>
-          {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={dialog === 'dismiss' ? 300 : 500} placeholder={dialog === 'contact' ? t('callNoteExample') : undefined} />}
-        </Field>
-      </ConfirmDialog>
+      <RecallActions clinicId={clinicId} r={r} canWrite={canWrite} canBook={canBook} />
     </Card>
   );
 }

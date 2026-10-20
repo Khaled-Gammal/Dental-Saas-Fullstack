@@ -6,8 +6,9 @@ import { DatePicker } from '../../components/date-picker';
 import { t, type Key } from '../../i18n';
 import { money } from '../../money';
 import { filterClinics, filterLeads, LEAD_STATUSES, papi, platformHref, trialDaysLeft, type LeadStatus, type PlatformRoute } from '../../platform-model';
-import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, OtpInput, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
+import { Alert, Badge, Button, Card, ErrorText, Field, Input, OtpInput, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
+import { DataTable, type Column } from '../../ui/data-table';
 import { ShieldIcon } from '../../ui/icons';
 import { AuthLayout } from '../auth';
 
@@ -133,13 +134,37 @@ function PlatformShell({ me, route, children }: { me: Me; route: PlatformRoute; 
 // ---------- ADM-01 the clinics ----------
 function ClinicsPage() {
   const clinics = useQuery({ queryKey: [...KEY, 'clinics'], queryFn: () => papi<Clinic[]>('/platform/clinics') });
-  const [q, setQ] = useState('');
   const [status, setStatus] = useState('all');
-  const rows = filterClinics(clinics.data ?? [], q, status);
+  // the status filter is the panel's own (filterClinics); the table searches, sorts and pages what is left (redesign R4)
+  const rows = clinics.data ? filterClinics(clinics.data, '', status) : undefined;
   const count = (s: string) => clinics.data?.filter((c) => c.status === s).length ?? 0;
+  const columns: Column<Clinic>[] = [
+    {
+      id: 'clinic', header: t('pl_clinic'), sortValue: (c) => clinicName(c),
+      cell: (c) => <><a href={platformHref({ page: 'clinic', id: c.id })} className="font-semibold no-underline hover:underline"><bdi>{clinicName(c)}</bdi></a><span className="muted small block" dir="ltr">{c.slug}</span></>,
+    },
+    {
+      id: 'status', header: t('status'), sortValue: (c) => c.status,
+      cell: (c) => (
+        <>
+          <Badge tone={STATUS_TONE[c.status] ?? 'neutral'} dot>{t(c.deletion ? 'pl_deletionPending' : c.suspension_kind === 'trial_ended' ? 'pl_trialEnded' : (`pl_status_${c.status}` as Key))}</Badge>
+          {c.deletion && <span className="muted small block">{date(c.deletion.delete_after)}</span>}
+        </>
+      ),
+    },
+    { id: 'plan', header: t('pl_plan'), hideOnMobile: true, sortValue: (c) => c.plan_name_ar, cell: (c) => c.plan_name_ar ?? '—' },
+    {
+      id: 'trial', header: t('pl_trial'), hideOnMobile: true, sortValue: (c) => trialDaysLeft(c.trial_ends_at, c.subscription_status),
+      cell: (c) => { const left = trialDaysLeft(c.trial_ends_at, c.subscription_status); return left === null ? '—' : left >= 0 ? t('pl_daysLeft').replace('{n}', String(left)) : t('pl_trialEnded'); },
+    },
+    { id: 'members', header: t('pl_members'), numeric: true, hideOnMobile: true, sortValue: (c) => c.members, cell: (c) => c.members },
+    { id: 'patients', header: t('pl_patients'), numeric: true, sortValue: (c) => c.patients, cell: (c) => c.patients },
+    { id: 'appointments', header: t('pl_appointments30'), numeric: true, hideOnMobile: true, sortValue: (c) => c.appointments_30d, cell: (c) => c.appointments_30d },
+    { id: 'login', header: t('pl_lastLogin'), hideOnMobile: true, sortValue: (c) => c.last_login_at, cell: (c) => date(c.last_login_at) },
+  ];
   return (
     <>
-      <div className="page-head"><div><h1>{t('pl_clinics')}</h1><p>{t('pl_clinicsSub')}</p></div></div>
+      <div className="page-head"><div className="page-head-text"><h1>{t('pl_clinics')}{clinics.data && <span className="page-count">{clinics.data.length}</span>}</h1><p>{t('pl_clinicsSub')}</p></div></div>
       {clinics.data && (
         <div className="stats">
           {(['trialing', 'active', 'past_due', 'suspended'] as const).map((s) => (
@@ -147,47 +172,23 @@ function ClinicsPage() {
           ))}
         </div>
       )}
-      <Card>
-        <div className="report-filters">
-          <Field label={t('pl_search')}>{(a) => <Input id={a.id} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('pl_searchHint')} />}</Field>
-          <Field label={t('status')}>
-            {(a) => <Choice id={a.id} value={status} onChange={setStatus}
-              options={['all', 'onboarding', 'trialing', 'active', 'past_due', 'suspended', 'cancelled'].map((s) => ({ value: s, label: t(s === 'all' ? 'pl_allStatuses' : (`pl_status_${s}` as Key)) }))} />}
-          </Field>
-        </div>
-        {clinics.isError ? <ErrorText error={clinics.error} onRetry={() => void clinics.refetch()} />
-          : !clinics.data ? <Skeleton h={56} count={4} />
-          : !rows.length ? <EmptyState icon={<ShieldIcon size={28} />} title={t('pl_noClinics')} text={t('pl_noClinicsText')} />
-          : (
-            <div className="table-wrap mt">
-              <table className="report-table">
-                <thead><tr>
-                  <th scope="col">{t('pl_clinic')}</th><th scope="col">{t('status')}</th><th scope="col">{t('pl_plan')}</th><th scope="col">{t('pl_trial')}</th>
-                  <th scope="col" className="num">{t('pl_members')}</th><th scope="col" className="num">{t('pl_patients')}</th>
-                  <th scope="col" className="num">{t('pl_appointments30')}</th><th scope="col">{t('pl_lastLogin')}</th>
-                </tr></thead>
-                <tbody>
-                  {rows.map((c) => {
-                    const left = trialDaysLeft(c.trial_ends_at, c.subscription_status);
-                    return (
-                      <tr key={c.id}>
-                        <td><a href={platformHref({ page: 'clinic', id: c.id })}><bdi>{clinicName(c)}</bdi></a><span className="muted small block" dir="ltr">{c.slug}</span></td>
-                        <td>
-                          <Badge tone={STATUS_TONE[c.status] ?? 'neutral'}>{t(c.deletion ? 'pl_deletionPending' : c.suspension_kind === 'trial_ended' ? 'pl_trialEnded' : (`pl_status_${c.status}` as Key))}</Badge>
-                          {c.deletion && <span className="muted small block">{date(c.deletion.delete_after)}</span>}
-                        </td>
-                        <td>{c.plan_name_ar ?? '—'}</td>
-                        <td>{left === null ? '—' : left >= 0 ? t('pl_daysLeft').replace('{n}', String(left)) : t('pl_trialEnded')}</td>
-                        <td className="num">{c.members}</td><td className="num">{c.patients}</td><td className="num">{c.appointments_30d}</td>
-                        <td>{date(c.last_login_at)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-      </Card>
+      <DataTable
+        label={t('pl_clinics')}
+        rows={rows}
+        columns={columns}
+        rowKey={(c) => c.id}
+        isLoading={clinics.isLoading}
+        error={clinics.isError ? clinics.error : undefined}
+        onRetry={() => void clinics.refetch()}
+        search={{ placeholder: t('pl_searchHint'), text: (c) => [c.slug, c.name_ar, c.name_en, c.owner_email].filter(Boolean).join(' ') }}
+        toolbar={(
+          <Choice value={status} onChange={setStatus} label={t('status')} className="h-10 w-48 bg-card"
+            options={['all', 'onboarding', 'trialing', 'active', 'past_due', 'suspended', 'cancelled'].map((s) => ({ value: s, label: t(s === 'all' ? 'pl_allStatuses' : (`pl_status_${s}` as Key)) }))} />
+        )}
+        pageSize={25}
+        onRowClick={(c) => { window.location.hash = platformHref({ page: 'clinic', id: c.id }); }}
+        empty={{ icon: <ShieldIcon size={28} />, title: t('pl_noClinics'), text: t('pl_noClinicsText') }}
+      />
     </>
   );
 }
@@ -365,11 +366,53 @@ function LeadsPage() {
     mutationFn: ({ id, to }: { id: string; to: LeadStatus }) => papi<Lead[]>(`/platform/leads/${id}/status`, { method: 'POST', body: JSON.stringify({ status: to }) }),
     onSuccess: (rows) => qc.setQueryData([...KEY, 'leads'], rows),
   });
-  const rows = filterLeads(leads.data ?? [], q, status);
+  // search and status are the panel's own filter (it also matches phone numbers written either way); the table sorts and pages
+  const rows = leads.data ? filterLeads(leads.data, q, status) : undefined;
   const count = (s: LeadStatus) => leads.data?.filter((l) => l.status === s).length ?? 0;
+  const columns: Column<Lead>[] = [
+    { id: 'received', header: t('pl_leadReceived'), sortValue: (l) => l.created_at, cell: (l) => <span className="whitespace-nowrap">{when(l.created_at)}</span> },
+    {
+      id: 'person', header: t('pl_leadPerson'), sortValue: (l) => l.full_name,
+      cell: (l) => (
+        <>
+          <strong><bdi>{l.full_name}</bdi></strong>
+          <span className="block">
+            <Badge tone={l.kind === 'subscribe' ? 'success' : 'neutral'}>
+              {l.kind === 'subscribe' ? t('pl_leadKind_subscribe').replace('{cycle}', t(l.billing_cycle === 'yearly' ? 'cycleYearly' : 'cycleMonthly')) : t('pl_leadKind_call')}
+            </Badge>
+            {l.clinic_id && <> <a className="small" href={platformHref({ page: 'clinic', id: l.clinic_id })}>{t('pl_openNewClinic')}</a></>}
+          </span>
+          {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
+          {l.message && <span className="small block" style={{ whiteSpace: 'pre-wrap', maxWidth: 420 }}><bdi>{l.message}</bdi></span>}
+        </>
+      ),
+    },
+    {
+      id: 'contact', header: t('pl_leadContact'),
+      cell: (l) => (
+        <>
+          <a href={`tel:${l.phone}`} dir="ltr">{l.phone}</a>
+          {l.email && <a className="small block" href={`mailto:${l.email}`} dir="ltr">{l.email}</a>}
+        </>
+      ),
+    },
+    { id: 'plan', header: t('pl_plan'), hideOnMobile: true, sortValue: (l) => l.plan_name_ar, cell: (l) => l.plan_name_ar ?? '—' },
+    {
+      id: 'status', header: t('status'), sortValue: (l) => LEAD_STATUSES.indexOf(l.status),
+      cell: (l) => (
+        <>
+          <Badge tone={LEAD_TONE[l.status]} dot>{t(`pl_lead_status_${l.status}` as Key)}</Badge>
+          <Choice value={l.status} label={t('status')} className="h-9 w-full min-w-36 bg-card mt-sm" disabled={move.isPending}
+            onChange={(v) => { if (v !== l.status) move.mutate({ id: l.id, to: v as LeadStatus }); }}
+            options={LEAD_STATUSES.map((s) => ({ value: s, label: t(`pl_lead_status_${s}` as Key) }))} />
+          {l.updated_by_name && <span className="muted small block">{t('pl_leadUpdatedBy').replace('{name}', l.updated_by_name)}</span>}
+        </>
+      ),
+    },
+  ];
   return (
     <>
-      <div className="page-head"><div><h1>{t('pl_leads')}</h1><p>{t('pl_leadsSub')}</p></div></div>
+      <div className="page-head"><div className="page-head-text"><h1>{t('pl_leads')}</h1><p>{t('pl_leadsSub')}</p></div></div>
       {leads.data && (
         <div className="stats">
           {LEAD_STATUSES.map((s) => (
@@ -377,59 +420,23 @@ function LeadsPage() {
           ))}
         </div>
       )}
-      <Card>
-        <div className="report-filters">
-          <Field label={t('pl_search')}>{(a) => <Input id={a.id} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('pl_leadSearchHint')} />}</Field>
-          <Field label={t('status')}>
-            {(a) => <Choice id={a.id} value={status} onChange={setStatus}
-              options={['all', ...LEAD_STATUSES].map((s) => ({ value: s, label: t(s === 'all' ? 'pl_allStatuses' : (`pl_lead_status_${s}` as Key)) }))} />}
-          </Field>
-        </div>
-        {move.isError && <ErrorText error={move.error} />}
-        {leads.isError ? <ErrorText error={leads.error} onRetry={() => void leads.refetch()} />
-          : !leads.data ? <Skeleton h={56} count={4} />
-          : !rows.length ? <EmptyState icon={<ShieldIcon size={28} />} title={t('pl_noLeads')} text={t('pl_noLeadsText')} />
-          : (
-            <div className="table-wrap mt">
-              <table className="report-table">
-                <thead><tr>
-                  <th scope="col">{t('pl_leadReceived')}</th><th scope="col">{t('pl_leadPerson')}</th><th scope="col">{t('pl_leadContact')}</th>
-                  <th scope="col">{t('pl_plan')}</th><th scope="col">{t('status')}</th>
-                </tr></thead>
-                <tbody>
-                  {rows.map((l) => (
-                    <tr key={l.id}>
-                      <td>{when(l.created_at)}</td>
-                      <td>
-                        <strong><bdi>{l.full_name}</bdi></strong>
-                        <span className="block">
-                          <Badge tone={l.kind === 'subscribe' ? 'success' : 'neutral'}>
-                            {l.kind === 'subscribe' ? t('pl_leadKind_subscribe').replace('{cycle}', t(l.billing_cycle === 'yearly' ? 'cycleYearly' : 'cycleMonthly')) : t('pl_leadKind_call')}
-                          </Badge>
-                          {l.clinic_id && <> <a className="small" href={platformHref({ page: 'clinic', id: l.clinic_id })}>{t('pl_openNewClinic')}</a></>}
-                        </span>
-                        {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
-                        {l.message && <span className="small block" style={{ whiteSpace: 'pre-wrap', maxWidth: 420 }}><bdi>{l.message}</bdi></span>}
-                      </td>
-                      <td>
-                        <a href={`tel:${l.phone}`} dir="ltr">{l.phone}</a>
-                        {l.email && <a className="small block" href={`mailto:${l.email}`} dir="ltr">{l.email}</a>}
-                      </td>
-                      <td>{l.plan_name_ar ?? '—'}</td>
-                      <td>
-                        <Badge tone={LEAD_TONE[l.status]}>{t(`pl_lead_status_${l.status}` as Key)}</Badge>
-                        <Choice value={l.status} label={t('status')} className="h-9 w-full min-w-36 bg-card mt-sm" disabled={move.isPending}
-                          onChange={(v) => { if (v !== l.status) move.mutate({ id: l.id, to: v as LeadStatus }); }}
-                          options={LEAD_STATUSES.map((s) => ({ value: s, label: t(`pl_lead_status_${s}` as Key) }))} />
-                        {l.updated_by_name && <span className="muted small block">{t('pl_leadUpdatedBy').replace('{name}', l.updated_by_name)}</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-      </Card>
+      {move.isError && <ErrorText error={move.error} />}
+      <DataTable
+        label={t('pl_leads')}
+        rows={rows}
+        columns={columns}
+        rowKey={(l) => l.id}
+        isLoading={leads.isLoading}
+        error={leads.isError ? leads.error : undefined}
+        onRetry={() => void leads.refetch()}
+        search={{ placeholder: t('pl_leadSearchHint'), value: q, onChange: setQ }}
+        toolbar={(
+          <Choice value={status} onChange={setStatus} label={t('status')} className="h-10 w-48 bg-card"
+            options={['all', ...LEAD_STATUSES].map((s) => ({ value: s, label: t(s === 'all' ? 'pl_allStatuses' : (`pl_lead_status_${s}` as Key)) }))} />
+        )}
+        pageSize={25}
+        empty={{ icon: <ShieldIcon size={28} />, title: t('pl_noLeads'), text: t('pl_noLeadsText') }}
+      />
     </>
   );
 }

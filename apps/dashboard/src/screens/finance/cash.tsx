@@ -8,6 +8,7 @@ import { money } from '../../money';
 import { send, useCashBranches, useCashDay, useCashHistory, useFinanceMutation } from '../../queries';
 import type { CashSession, DayTotals } from '../../types';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../../ui/components';
+import { DataTable, type Column } from '../../ui/data-table';
 import { CashIcon } from '../../ui/icons';
 
 /**
@@ -198,26 +199,42 @@ function ReopenForm({ clinicId, s }: { clinicId: string; s: CashSession }) {
   );
 }
 
+/** The closed days (redesign R4: a table). Every figure is the one the API stored when the day was closed. */
+const HISTORY_COLUMNS: Column<CashSession>[] = [
+  {
+    id: 'date', header: t('cashColDay'), sortValue: (s) => s.business_date,
+    cell: (s) => (
+      <>
+        <strong className="whitespace-nowrap tabular-nums">{s.business_date}</strong>
+        {s.reopen_count > 0 && <span className="muted small block">{t('reopenedTimes').replace('{n}', String(s.reopen_count))}</span>}
+      </>
+    ),
+  },
+  { id: 'closedBy', header: t('closedBy'), hideOnMobile: true, cell: (s) => <><bdi>{s.closed_by_name}</bdi>{s.note && <span className="muted small block"><bdi>{s.note}</bdi></span>}</> },
+  { id: 'expected', header: t('expectedCash'), numeric: true, hideOnMobile: true, cell: (s) => <bdi>{money(s.expected_minor ?? 0, s.currency)}</bdi> },
+  { id: 'counted', header: t('countedCash'), numeric: true, cell: (s) => <bdi className="font-semibold">{money(s.counted_minor ?? 0, s.currency)}</bdi> },
+  { id: 'difference', header: t('cashDifference'), sortValue: (s) => s.difference_minor ?? 0, cell: (s) => <DiffBadge diff={s.difference_minor ?? 0} currency={s.currency} /> },
+];
+
 function History({ clinicId, branchId }: { clinicId: string; branchId: string }) {
   const history = useCashHistory(clinicId, branchId);
   const past = (history.data ?? []).filter((s) => s.status === 'closed');
   if (history.isError) return <Card><ErrorText error={history.error} onRetry={() => void history.refetch()} /></Card>;
   if (!past.length) return null;
   return (
-    <Card>
-      <h2>{t('cashHistory')}</h2>
-      <ul className="line-list mt-sm">
-        {past.map((s) => (
-          <li key={s.id}>
-            <span><strong>{s.business_date}</strong>{s.reopen_count > 0 && <span className="muted small"> · {t('reopenedTimes').replace('{n}', String(s.reopen_count))}</span>}
-              <span className="muted small block">{t('closedBy')} <bdi>{s.closed_by_name}</bdi>{s.note && <> — <bdi>{s.note}</bdi></>}</span></span>
-            <span className="line-end small">
-              {t('expectedCash')} <bdi>{money(s.expected_minor ?? 0, s.currency)}</bdi> · {t('countedCash')} <bdi>{money(s.counted_minor ?? 0, s.currency)}</bdi>
-              <DiffBadge diff={s.difference_minor ?? 0} currency={s.currency} />
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Card>
+    <section>
+      <h2 className="section-title">{t('cashHistory')}</h2>
+      <DataTable
+        key={branchId}
+        label={t('cashHistory')}
+        rows={past}
+        columns={HISTORY_COLUMNS}
+        rowKey={(s) => s.id}
+        isFetching={history.isFetching}
+        defaultSort={{ id: 'date', dir: 'desc' }}
+        pageSize={15}
+        empty={{ icon: <CashIcon size={28} />, title: t('cashHistory'), text: '' }}
+      />
+    </section>
   );
 }
