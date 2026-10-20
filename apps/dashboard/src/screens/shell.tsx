@@ -1,128 +1,218 @@
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { arName } from '@dental/ui/text';
+import {
+  Building2, CalendarDays, ChartColumn, ChevronDown, ChevronsUpDown, Database, Globe, Home, Image, List, LogOut, MapPin, PenLine, Phone, Receipt, ShieldCheck,
+  Stethoscope, Tag, Banknote, UserCog, Users, Wallet, type LucideIcon,
+} from 'lucide-react';
 import { can, logout, type Session } from '../api';
-import { roleLabel, t, type Key } from '../i18n';
-import { Badge, Logo, initials } from '../ui/components';
-import { CalendarIcon, CloseIcon, GlobeIcon, HomeIcon, ImageIcon, ListIcon, LogoutIcon, MenuIcon, PhoneIcon, PinIcon, ReceiptIcon, ShieldIcon, StethoscopeIcon, TagIcon, CashIcon, ChartIcon, WalletIcon, ToothIcon, UsersIcon, EditIcon } from '../ui/icons';
+import { roleLabel, t } from '../i18n';
+import { Badge, initials } from '../ui/components';
+import { ToothIcon } from '../ui/icons';
 import { setClinicCurrency } from '../money';
 import { useProfile } from '../queries';
 import { canSee } from '../access';
-import { useMediaQuery } from '../hooks';
-import { to, type Page } from '../router';
-import { RouteLink } from '../ui/page';
+import { href, to, type Page } from '../router';
+import { activeGroup, NAV_FOOT, NAV_GROUPS, navPageOf, visibleNav, type NavIcon, type NavItem } from '../nav';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Separator } from '@/components/ui/separator';
+import {
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
+  SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar,
+} from '@/components/ui/sidebar';
 
-/** A page shows when the member may open it (`access.ts`); the disabled website item shows to who will edit the site. */
-type NavItem = { key: Key; icon: ReactNode; page?: Page; perm?: string };
-const NAV: NavItem[] = [
-  { key: 'navOverview', icon: <HomeIcon />, page: 'overview' },
-  { key: 'navProfile', icon: <ToothIcon />, page: 'profile' },
-  { key: 'navBranches', icon: <PinIcon />, page: 'branches' },
-  { key: 'navAppointments', icon: <CalendarIcon />, page: 'appointments' },
-  { key: 'navPatients', icon: <UsersIcon />, page: 'patients' },
-  { key: 'navFollowUps', icon: <PhoneIcon />, page: 'followups' },
-  { key: 'navDoctors', icon: <StethoscopeIcon />, page: 'doctors' },
-  { key: 'navServices', icon: <ListIcon />, page: 'services' },
-  { key: 'navStaff', icon: <ShieldIcon />, page: 'staff' },
-  { key: 'navRoles', icon: <ShieldIcon />, page: 'roles' },
-  { key: 'navBilling', icon: <ReceiptIcon />, page: 'invoices' },
-  { key: 'navDiscounts', icon: <TagIcon />, page: 'discounts' },
-  { key: 'navCash', icon: <CashIcon />, page: 'cash' },
-  { key: 'navExpenses', icon: <WalletIcon />, page: 'expenses' },
-  { key: 'navReports', icon: <ChartIcon />, page: 'reports' },
-  { key: 'navGallery', icon: <ImageIcon />, page: 'gallery' },
-  { key: 'navConsents', icon: <EditIcon />, page: 'consents' },
-  { key: 'navData', icon: <ShieldIcon />, page: 'data' },
-  { key: 'navWebsite', icon: <GlobeIcon />, perm: 'website:write' },
-];
+const ICONS: Record<NavIcon, LucideIcon> = {
+  home: Home, calendar: CalendarDays, users: Users, phone: Phone, clinic: Building2, team: UserCog, pin: MapPin, stethoscope: Stethoscope, list: List,
+  edit: PenLine, receipt: Receipt, tag: Tag, cash: Banknote, wallet: Wallet, chart: ChartColumn, image: Image, globe: Globe, shield: ShieldCheck,
+  database: Database,
+};
 
 export const clinicName = (session: Session) => arName(session.clinic.nameAr, session.clinic.nameEn, session.clinic.slug);
 
-export function AppShell({ session, page, children }: {
-  session: Session; page: Page | 'not-found'; children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const isDrawer = useMediaQuery('(max-width: 960px)'); // must match the drawer breakpoint in styles.css
-  const menuBtn = useRef<HTMLButtonElement>(null);
-  const closeBtn = useRef<HTMLButtonElement>(null);
-  const wasOpen = useRef(false);
+/**
+ * Whether the sidebar starts expanded: the member's last choice (shadcn's SidebarProvider keeps it in a cookie, so a
+ * reload keeps it); with no choice yet, expanded on wide screens and icons only on tablets, where the page needs room.
+ */
+function startOpen(): boolean {
+  const saved = /(?:^|;\s*)sidebar_state=(true|false)/.exec(document.cookie)?.[1];
+  return saved ? saved === 'true' : !window.matchMedia('(max-width: 1023px)').matches;
+}
 
-  useEffect(() => {
-    // move focus into the drawer when it opens and back to the menu button when it closes
-    if (open) closeBtn.current?.focus();
-    else if (wasOpen.current) menuBtn.current?.focus();
-    wasOpen.current = open;
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
-
+/**
+ * The dashboard shell (redesign R1): shadcn/ui's Sidebar on the right (the dashboard is right-to-left), collapsible to
+ * icons on desktop and a sheet on phones, grouped by module; the header with the sidebar toggle and the clinic; the
+ * page in `children`. The member sees only the pages they may open (access.ts); the API checks every request anyway.
+ */
+export function AppShell({ session, page, children }: { session: Session; page: Page | 'not-found'; children: ReactNode }) {
+  // the profile query is updated on save, so a renamed clinic shows everywhere at once
+  const profile = useProfile(session.clinic.id).data;
+  setClinicCurrency(profile?.currency); // before the screens below render their amounts (idempotent)
+  const name = profile ? arName(profile.nameAr, profile.nameEn, session.clinic.slug) : clinicName(session);
   const skipToMain = (e: MouseEvent) => {
     e.preventDefault(); // a plain #main link would change the hash route
     document.getElementById('main')?.focus();
   };
 
-  // the profile query is updated on save, so a renamed clinic shows everywhere at once
-  const profile = useProfile(session.clinic.id).data;
-  setClinicCurrency(profile?.currency); // before the screens below render their amounts (idempotent)
-  const name = profile ? arName(profile.nameAr, profile.nameEn, session.clinic.slug) : clinicName(session);
   return (
-    <div className={`app${open ? ' nav-open' : ''}`}>
+    <SidebarProvider defaultOpen={startOpen()}>
       <a href="#main" className="skip" onClick={skipToMain}>{t('skipToContent')}</a>
-      {/* a closed drawer is inert: hidden off screen, so it must not be reachable with Tab either */}
-      <aside className="sidebar" id="sidebar" inert={isDrawer && !open} aria-modal={isDrawer && open ? true : undefined} role={isDrawer && open ? 'dialog' : undefined}
-        aria-label={isDrawer && open ? t('menu') : undefined}>
-        <div className="sidebar-head">
-          <Logo name={t('brand')} light />
-          <button ref={closeBtn} className="icon-btn sidebar-close" onClick={() => setOpen(false)} aria-label={t('closeMenu')}><CloseIcon /></button>
+      <AppSidebar session={session} page={page} clinic={name} />
+      <SidebarInset className="min-w-0 bg-surface">
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
+          <SidebarTrigger className="-ms-1 size-9" aria-label={t('menu')} />
+          <Separator orientation="vertical" className="h-5" />
+          <span className="truncate font-semibold text-ink"><bdi>{name}</bdi></span>
+          {session.clinic.status === 'trialing' && <Badge tone="warning">{t('trial')}</Badge>}
+        </header>
+        <div id="main" className="content" tabIndex={-1}>{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
+
+function AppSidebar({ session, page, clinic }: { session: Session; page: Page | 'not-found'; clinic: string }) {
+  const has = (p: string) => can(session, p);
+  const groups = visibleNav(NAV_GROUPS, (p) => canSee(has, p), has);
+  const foot = visibleNav([{ key: null, items: NAV_FOOT }], (p) => canSee(has, p), has)[0]?.items ?? [];
+  const current = navPageOf(page);
+
+  return (
+    <Sidebar side="right" collapsible="icon" aria-label={t('mainNav')}>
+      <SidebarHeader className="gap-3 p-3">
+        <div className="flex items-center gap-2.5 px-1 pt-1">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-accent text-white"><ToothIcon size={18} /></span>
+          <span className="truncate text-base font-bold text-ink group-data-[collapsible=icon]:hidden">{t('brand')}</span>
         </div>
-        <div className="clinic-chip">
-          <span className="avatar avatar-sq">{initials(name)}</span>
-          <span className="clinic-chip-text">
-            <strong><bdi>{name}</bdi></strong>
-            <small dir="ltr">{session.clinic.slug}</small>
+        <div className="flex items-center gap-2.5 rounded-lg border bg-surface p-2 group-data-[collapsible=icon]:hidden">
+          <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary-50 text-xs font-bold text-primary-700">{initials(clinic)}</span>
+          <span className="flex min-w-0 flex-col leading-tight">
+            <strong className="truncate text-sm text-ink"><bdi>{clinic}</bdi></strong>
+            <small className="truncate text-xs text-muted-foreground" dir="ltr">{session.clinic.slug}</small>
           </span>
         </div>
-        <nav aria-label={t('mainNav')}>
-          <ul className="nav">
-            {NAV.filter((n) => (n.page ? canSee((p) => can(session, p), n.page) : !n.perm || can(session, n.perm))).map((n) => (
-              <li key={n.key}>
-                {n.page ? (
-                  <RouteLink route={to.list(n.page)} className={`nav-item${page === n.page ? ' active' : ''}`} aria-current={page === n.page ? 'page' : undefined}
-                    onClick={() => setOpen(false)}>
-                    {n.icon}<span>{t(n.key)}</span>
-                  </RouteLink>
-                ) : (
-                  <span className="nav-item disabled" aria-disabled="true">
-                    {n.icon}<span>{t(n.key)}</span><span className="nav-soon">{t('soon')}</span>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="sidebar-foot">
-          <button className="nav-item" onClick={() => void logout()}><LogoutIcon /><span>{t('signOut')}</span></button>
-        </div>
-      </aside>
-      <div className="scrim" onClick={() => setOpen(false)} aria-hidden />
+      </SidebarHeader>
+      <SidebarContent className="gap-0">
+        {groups.map((g) => (g.key
+          ? <NavGroupSection key={g.key} id={g.key} label={t(g.key)} items={g.items} current={current} open={activeGroup(groups, page) === g.key} />
+          : (
+            <SidebarGroup key="main">
+              <SidebarGroupContent><NavItems items={g.items} current={current} /></SidebarGroupContent>
+            </SidebarGroup>
+          )))}
+      </SidebarContent>
+      <SidebarFooter className="gap-2">
+        {foot.length > 0 && <NavItems items={foot} current={current} />}
+        <UserMenu session={session} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+}
 
-      <div className="main-col">
-        <header className="topbar">
-          <button ref={menuBtn} className="icon-btn menu-btn" onClick={() => setOpen(true)} aria-label={t('menu')} aria-controls="sidebar" aria-expanded={open}><MenuIcon /></button>
-          <span className="topbar-title"><bdi>{name}</bdi></span>
-          {session.clinic.status === 'trialing' && <Badge tone="warning">{t('trial')}</Badge>}
-          <span className="spacer" />
-          <div className="user">
-            <span className="avatar">{initials(session.user.name)}</span>
-            <span className="user-text hide-sm">
-              <strong><bdi>{session.user.name}</bdi></strong>
-              <small>{roleLabel(session.clinic.role, session.clinic.roleName)}</small>
-            </span>
-          </div>
-        </header>
-        <main id="main" className="content" tabIndex={-1}>{children}</main>
-      </div>
-    </div>
+/** Which groups this browser keeps open (a convenience only: storage may be blocked, and then groups start folded). */
+const GROUPS_KEY = 'nav-open-groups';
+function readOpenGroups(): string[] {
+  try { return JSON.parse(localStorage.getItem(GROUPS_KEY) ?? '[]') as string[]; } catch { return []; }
+}
+function saveOpenGroup(key: string, open: boolean) {
+  try {
+    const now = new Set(readOpenGroups());
+    if (open) now.add(key); else now.delete(key);
+    localStorage.setItem(GROUPS_KEY, JSON.stringify([...now]));
+  } catch { /* not saved: nothing else depends on it */ }
+}
+
+/**
+ * A module's links under a heading that folds. It opens by itself when the current page is inside it (a link, the back
+ * button, a reload), remembers what the member opened or folded, and never folds in icon mode.
+ */
+function NavGroupSection({ id, label, items, current, open: hasActive }: { id: string; label: string; items: NavItem[]; current: Page | null; open: boolean }) {
+  const { state, isMobile } = useSidebar();
+  const [open, setOpenState] = useState(() => hasActive || readOpenGroups().includes(id));
+  const setOpen = (v: boolean) => { setOpenState(v); saveOpenGroup(id, v); };
+  useEffect(() => { if (hasActive) setOpenState(true); }, [hasActive]);
+  const iconsOnly = state === 'collapsed' && !isMobile;
+  return (
+    <Collapsible open={open || iconsOnly} onOpenChange={setOpen} className="group/collapsible">
+      <SidebarGroup className="py-1">
+        <SidebarGroupLabel asChild className="text-xs font-semibold text-muted-foreground hover:bg-sidebar-accent hover:text-ink">
+          <CollapsibleTrigger className="w-full">
+            {label}
+            <ChevronDown className="ms-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+          </CollapsibleTrigger>
+        </SidebarGroupLabel>
+        <CollapsibleContent>
+          <SidebarGroupContent><NavItems items={items} current={current} /></SidebarGroupContent>
+        </CollapsibleContent>
+      </SidebarGroup>
+    </Collapsible>
+  );
+}
+
+const ACTIVE = 'data-[active=true]:bg-primary-50 data-[active=true]:text-primary-700 data-[active=true]:font-semibold data-[active=true]:[&>svg]:text-primary-500';
+
+function NavItems({ items, current }: { items: NavItem[]; current: Page | null }) {
+  const { setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenu>
+      {items.map((i) => {
+        const Icon = ICONS[i.icon];
+        const label = t(i.key);
+        if (!i.page) {
+          return (
+            <SidebarMenuItem key={i.key}>
+              <SidebarMenuButton aria-disabled="true" tooltip={`${label} · ${t('soon')}`} className="opacity-60">
+                <Icon /><span>{label}</span>
+              </SidebarMenuButton>
+              <SidebarMenuBadge className="rounded-full bg-sidebar-accent px-2 text-[0.6875rem] text-muted-foreground">{t('soon')}</SidebarMenuBadge>
+            </SidebarMenuItem>
+          );
+        }
+        const active = current === i.page;
+        return (
+          <SidebarMenuItem key={i.key}>
+            <SidebarMenuButton asChild isActive={active} tooltip={label} className={`h-9 text-[0.9375rem] text-sidebar-foreground ${ACTIVE}`}>
+              <a href={href(to.list(i.page))} aria-current={active ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
+                <Icon /><span>{label}</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
+  );
+}
+
+/** The member and their role at the foot; signing out from its menu. */
+function UserMenu({ session }: { session: Session }) {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu dir="rtl">
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton size="lg" tooltip={session.user.name} className="data-[state=open]:bg-sidebar-accent">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">{initials(session.user.name)}</span>
+              <span className="flex min-w-0 flex-1 flex-col text-start leading-tight">
+                <strong className="truncate text-sm text-ink"><bdi>{session.user.name}</bdi></strong>
+                <small className="truncate text-xs text-muted-foreground">{roleLabel(session.clinic.role, session.clinic.roleName)}</small>
+              </span>
+              <ChevronsUpDown className="ms-auto size-4 text-muted-foreground" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="end" className="w-(--radix-dropdown-menu-trigger-width) min-w-56">
+            <DropdownMenuLabel className="flex flex-col">
+              <span className="truncate"><bdi>{session.user.name}</bdi></span>
+              {session.user.email && <span className="truncate text-xs font-normal text-muted-foreground" dir="ltr">{session.user.email}</span>}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => void logout()} className="text-destructive focus:text-destructive">
+              <LogOut className="text-destructive" />{t('signOut')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 }

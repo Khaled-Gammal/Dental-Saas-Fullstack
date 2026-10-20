@@ -9,6 +9,7 @@ import '@fontsource/ibm-plex-sans-arabic/500.css';
 import '@fontsource/ibm-plex-sans-arabic/600.css';
 import '@fontsource/ibm-plex-sans-arabic/700.css';
 import '@dental/ui/tokens.css';
+import './theme.css'; // the dashboard's healthcare palette over the shared tokens (the clinic websites keep theirs)
 import './styles.css';
 import './shadcn.css'; // Tailwind utilities + theme for the shadcn/ui components (no preflight)
 
