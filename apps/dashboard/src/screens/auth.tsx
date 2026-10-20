@@ -8,10 +8,11 @@ import { LegalConsent, useLegalDocs } from '../components/legal';
 import { CalendarIcon, CheckIcon, GlobeIcon, PhoneIcon, ShieldIcon } from '../ui/icons';
 import { DentalArch, SmileCanvas } from '../ui/illustrations';
 import { useDebounced } from '../hooks';
+import type { SubscribeIntent } from '../router';
 import { passwordChecks, toAsciiDigits } from '../util';
 
 /** Sign-up is confirmed by an email code (SRS AUTH-101; no SMS). */
-export type AuthScreen = { name: 'login'; notice?: string } | { name: 'signup' } | { name: 'verify'; email: string; maskedEmail: string; justSent: boolean }
+export type AuthScreen = { name: 'login'; notice?: string } | { name: 'signup'; subscribe?: SubscribeIntent } | { name: 'verify'; email: string; maskedEmail: string; justSent: boolean }
   | { name: 'forgot' } | { name: 'reset'; email: string };
 
 const RESEND_COOLDOWN_S = 30;
@@ -104,7 +105,19 @@ function DevQuickLogin() {
   );
 }
 
-export function Signup({ go }: { go: (s: AuthScreen) => void }) {
+/** H7 «اشترك الآن»: the plan's Arabic name, read from the public plans (the link carries only its code). */
+function SubscribeNotice({ intent }: { intent: SubscribeIntent }) {
+  const plans = useQuery({ queryKey: ['public-plans'], queryFn: () => api<{ code: string; name_ar: string }[]>('/public/plans'), staleTime: 300_000 });
+  const name = plans.data?.find((p) => p.code === intent.planCode)?.name_ar;
+  if (plans.isLoading) return null;
+  return (
+    <Alert tone="info">
+      {t('subscribeNotice').replace('{plan}', name ?? intent.planCode).replace('{cycle}', t(intent.cycle === 'yearly' ? 'cycleYearly' : 'cycleMonthly'))}
+    </Alert>
+  );
+}
+
+export function Signup({ go, subscribe }: { go: (s: AuthScreen) => void; subscribe?: SubscribeIntent }) {
   const [f, setF] = useState({ fullName: '', email: '', phone: '', password: '', clinicNameAr: '', slug: '' });
   type Form = typeof f;
   // functional update: never reads a stale `f`; `clean` lets a field normalise its value (e.g. the slug)
@@ -129,7 +142,7 @@ export function Signup({ go }: { go: (s: AuthScreen) => void }) {
   const signup = useMutation({
     mutationFn: () => api<{ email: string; website: string }>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ ...f, phone: toAsciiDigits(f.phone), slug: typedSlug, locale: 'ar', acceptedDocuments: agreed ? legalDocs.map((d) => d.id) : [] }),
+      body: JSON.stringify({ ...f, phone: toAsciiDigits(f.phone), slug: typedSlug, locale: 'ar', acceptedDocuments: agreed ? legalDocs.map((d) => d.id) : [], subscribe }),
     }),
     onSuccess: (r) => go({ name: 'verify', email: f.email.trim().toLowerCase(), maskedEmail: r.email, justSent: true }),
   });
@@ -141,6 +154,7 @@ export function Signup({ go }: { go: (s: AuthScreen) => void }) {
         <h2>{t('signUp')}</h2>
         <p>{t('signUpSub')}</p>
       </header>
+      {subscribe && <SubscribeNotice intent={subscribe} />}
       <form onSubmit={submit} className="stack">
         <fieldset className="group">
           <legend>{t('aboutYou')}</legend>

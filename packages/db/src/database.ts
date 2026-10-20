@@ -527,16 +527,24 @@ export interface Labs {
 }
 
 export interface Leads {
+  billing_cycle: string | null;
   city: string | null;
+  clinic_id: string | null;
   clinic_name: string | null;
   created_at: Generated<Timestamp>;
   email: string | null;
   full_name: string;
   id: Generated<string>;
+  ip: string | null;
+  kind: Generated<string>;
   message: string | null;
   phone: string;
+  plan_id: string | null;
   source: string | null;
   status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+  user_agent: string | null;
 }
 
 export interface LegalAcceptances {

@@ -13,6 +13,7 @@ import { ReportsModule } from './modules/reports';
 import { ClinicalModule } from './modules/clinical';
 import { IdentityModule } from './modules/identity/identity.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
+import { LandingModule } from './modules/landing/landing.module';
 import { MediaModule } from './modules/media';
 import { PatientsModule } from './modules/patients';
 import { PlatformModule } from './modules/platform/platform.module';
@@ -73,6 +74,7 @@ class ConfigModule {}
     GalleryModule,
     StaffModule,
     PlatformModule,
+    LandingModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemDetailsFilter }],
 })

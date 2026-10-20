@@ -118,6 +118,17 @@ export const PLATFORM_POLICY = {
   codeSubject: 'رمز الدخول إلى لوحة إدارة المنصة',
 } as const;
 
+/**
+ * The platform landing page (H7; LND-02, LND-04): the public plans are cached briefly, and the contact form is
+ * throttled per visitor address and per phone number. Platform admins get an email for each new request.
+ */
+export const LANDING_POLICY = {
+  plansCacheSeconds: 300,
+  throttle: { leadIp: [5, 60 * 60], leadPhone: [3, 24 * 60 * 60] },
+  notifySubject: 'طلب تواصل جديد من عيادة',
+  subscribeSubject: 'طلب اشتراك من عيادة جديدة',
+} as const;
+
 /** Image uploads: what is accepted and what is produced. */
 export const MEDIA_POLICY = {
   maxUploadBytes: 10 * 1024 * 1024,

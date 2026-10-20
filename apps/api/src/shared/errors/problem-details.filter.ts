@@ -107,6 +107,7 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   platform_already_active: { status: 409, code: 'already_active', title: 'The subscription is already active' },
   platform_cycle: { status: 400, code: 'validation_failed', title: 'A subscription is monthly or yearly' },
   platform_plan_missing: { status: 404, code: 'subscription_plan_not_found', title: 'Plan not found' },
+  lead_not_found: { status: 404, code: 'lead_not_found', title: 'Request not found' },
   tenants_suspension_reason: { status: 400, code: 'reason_required', title: 'Give the reason (3 characters at least)' },
   // custom roles (Phase H4): the service checks these first; the database is the last word
   roles_owner_fixed: { status: 409, code: 'owner_role_fixed', title: 'The owner role keeps every permission' },

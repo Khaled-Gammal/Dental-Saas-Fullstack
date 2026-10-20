@@ -11,7 +11,8 @@ export type PlatformRoute =
   | { page: 'clinic'; id: string }
   | { page: 'plans' }
   | { page: 'activity' }
-  | { page: 'legal' };
+  | { page: 'legal' }
+  | { page: 'leads' };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -24,6 +25,7 @@ export function parsePlatformRoute(hash: string): PlatformRoute | null {
   if (parts[1] === 'plans' && parts.length === 2) return { page: 'plans' };
   if (parts[1] === 'activity' && parts.length === 2) return { page: 'activity' };
   if (parts[1] === 'legal' && parts.length === 2) return { page: 'legal' };
+  if (parts[1] === 'leads' && parts.length === 2) return { page: 'leads' };
   return { page: 'clinics' };
 }
 
@@ -58,4 +60,20 @@ export function filterClinics<T extends { slug: string; name_ar: string | null; 
   const needle = q.trim().toLowerCase();
   return clinics.filter((c) => (status === 'all' || c.status === status)
     && (!needle || [c.slug, c.name_ar, c.name_en, c.owner_email].some((v) => v?.toLowerCase().includes(needle))));
+}
+
+/** H7: a request from the landing page's contact form moves new → contacted → converted or lost. */
+export const LEAD_STATUSES = ['new', 'contacted', 'converted', 'lost'] as const;
+export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+/** Search by name, clinic, city, phone or email; filter by status ('all' = any). Digits are matched whatever their script. */
+export function filterLeads<T extends { full_name: string; clinic_name: string | null; city: string | null; phone: string; email: string | null; status: string }>(
+  leads: readonly T[], q: string, status: string,
+): T[] {
+  const needle = q.trim().toLowerCase().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+  const digits = needle.replace(/\D/g, '');
+  return leads.filter((l) => (status === 'all' || l.status === status)
+    && (!needle
+      || [l.full_name, l.clinic_name, l.city, l.email].some((v) => v?.toLowerCase().includes(needle))
+      || (digits.length >= 3 && (l.phone.includes(digits) || l.phone.replace(/^\+20/, '0').includes(digits)))));
 }

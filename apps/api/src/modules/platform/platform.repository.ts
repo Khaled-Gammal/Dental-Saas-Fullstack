@@ -10,6 +10,12 @@ export interface ClinicRow {
   members: number; branches: number; patients: number; appointments_30d: number; last_login_at: Date | null; owner_email: string | null;
 }
 
+export interface LeadView {
+  id: string; kind: 'call' | 'subscribe'; billing_cycle: 'monthly' | 'yearly' | null; clinic_id: string | null; full_name: string; phone: string; email: string | null; clinic_name: string | null; city: string | null; message: string | null;
+  source: string | null; status: 'new' | 'contacted' | 'converted' | 'lost'; plan_code: string | null; plan_name_ar: string | null;
+  created_at: Date; updated_at: Date; updated_by_name: string | null;
+}
+
 /**
  * All SQL of the platform admin panel (H5). Cross-clinic reads and the writes the API role may not do go through the
  * SECURITY DEFINER `platform_*()` functions, which check the admin and write the platform audit log themselves. Since
@@ -101,6 +107,16 @@ export class PlatformRepository {
   async publishLegal(actor: string, kind: string, title: string, body: string, reaccept: boolean): Promise<string> {
     const { rows } = await sql<{ id: string }>`select platform_publish_legal(${actor}::uuid, ${kind}, ${title}, ${body}, ${reaccept}) as id`.execute(this.db);
     return rows[0].id;
+  }
+
+  // ---------- landing-page requests (H7, LND-04): the API role cannot read leads, the definer functions can ----------
+  async leads(actor: string): Promise<LeadView[]> {
+    const { rows } = await sql<LeadView>`select * from platform_leads(${actor}::uuid)`.execute(this.db);
+    return rows;
+  }
+
+  setLeadStatus(actor: string, id: string, status: string) {
+    return sql`select platform_set_lead_status(${actor}::uuid, ${id}::uuid, ${status})`.execute(this.db);
   }
 
   // ---------- plans (ADM-04) ----------

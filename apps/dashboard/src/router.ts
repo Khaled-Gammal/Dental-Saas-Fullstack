@@ -48,6 +48,22 @@ export function invitationToken(hash: string): string | null {
   const m = /^#\/invite\/([A-Za-z0-9_-]{32,64})$/.exec(hash);
   return m ? m[1] : null;
 }
+/** H7 «اشترك الآن»: the plan and billing cycle picked on the landing page's pricing table. */
+export interface SubscribeIntent { planCode: string; cycle: 'monthly' | 'yearly' }
+
+/**
+ * The landing page's links into sign-up (H7): `#/signup` ("start free") and `#/signup?plan=<code>&cycle=monthly|yearly`
+ * («اشترك الآن»). Returns what the sign-up form needs, or null for any other hash. A malformed plan or cycle is dropped
+ * and the link opens a plain sign-up.
+ */
+export function signupLink(hash: string): { subscribe?: SubscribeIntent } | null {
+  const m = /^#\/signup(?:\?(.*))?$/.exec(hash);
+  if (!m) return null;
+  const q = new URLSearchParams(m[1] ?? '');
+  const planCode = q.get('plan') ?? '';
+  const cycle = q.get('cycle');
+  return /^[a-z0-9_-]{1,40}$/.test(planCode) && (cycle === 'monthly' || cycle === 'yearly') ? { subscribe: { planCode, cycle } } : {};
+}
 const isPage = (s: string): s is Page => s in ACTIONS;
 const NOT_FOUND: Route = { page: 'not-found' };
 

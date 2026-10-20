@@ -21,6 +21,9 @@ export const PublishLegal = z.object({
   requiresReacceptance: z.boolean(),
 }).strict();
 
+/** H7: a landing-page request moves along */
+export const LeadStatus = z.object({ status: z.enum(['new', 'contacted', 'converted', 'lost']) }).strict();
+
 /** ADM-04: prices in minor units; limits and features are the plan's known keys only */
 const Limit = z.number().int().min(0).max(1_000_000).nullable();
 export const EditPlan = z.object({

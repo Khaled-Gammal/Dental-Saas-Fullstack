@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { href, invitationToken, parseRoute, to } from '../router';
+import { href, invitationToken, parseRoute, signupLink, to } from '../router';
 
 describe('parseRoute', () => {
   it('maps hashes to routes', () => {
@@ -82,5 +82,19 @@ describe('clinical routes (Phase D4)', () => {
     expect(parseRoute('#/payments/p1/view')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/discounts')).toEqual({ page: 'discounts' });
     expect(parseRoute('#/invoices?status=overdue')).toEqual({ page: 'invoices', query: { status: 'overdue' } });
+  });
+});
+
+describe('the landing page sign-up link (H7)', () => {
+  it('opens the sign-up form for #/signup only', () => {
+    expect(signupLink('#/signup')).toEqual({});
+    expect(signupLink('#/signup/x')).toBeNull();
+    expect(signupLink('#/')).toBeNull();
+  });
+  it('«اشترك الآن» carries the plan and the billing cycle; anything malformed opens a plain sign-up', () => {
+    expect(signupLink('#/signup?plan=pro&cycle=yearly')).toEqual({ subscribe: { planCode: 'pro', cycle: 'yearly' } });
+    expect(signupLink('#/signup?plan=pro&cycle=weekly')).toEqual({});
+    expect(signupLink('#/signup?plan=<b>&cycle=monthly')).toEqual({});
+    expect(signupLink('#/signup?cycle=monthly')).toEqual({});
   });
 });

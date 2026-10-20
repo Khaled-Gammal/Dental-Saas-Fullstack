@@ -7,6 +7,7 @@ import { normalizePhone } from '../../shared/phone';
 import { hashPassword, passwordProblem } from './crypto';
 import { IdentityRepository } from './identity.repository';
 import type { RequestMeta, Session, SignupInput } from './identity.types';
+import { LandingService } from '../landing/landing.service';
 import { kindsFor, LegalService } from '../legal/legal.service';
 import { OtpService } from './otp.service';
 import { SessionService } from './session.service';
@@ -27,6 +28,7 @@ export class SignupService {
     private readonly otp: OtpService,
     private readonly sessions: SessionService,
     private readonly legal: LegalService,
+    private readonly landing: LandingService,
   ) {}
 
   slugAvailable(slug: string): Promise<boolean> {
@@ -59,6 +61,11 @@ export class SignupService {
       (tx, newUserId) => this.legal.record(tx, newUserId, tenantId, legalDocs, meta),
     );
 
+    if (input.subscribe) {
+      await this.landing.subscribeRequest({
+        clinicId: tenantId, clinicName: input.clinicNameAr, fullName: input.fullName.trim(), phone, email, ...input.subscribe,
+      }, meta);
+    }
     await this.otp.sendByEmail(email, 'verify_email', meta, VERIFY_EMAIL_SUBJECT, userId);
     return { userId, email: maskEmail(email), website: `http://${hostname}`, next: 'verify_email' as const };
   }
