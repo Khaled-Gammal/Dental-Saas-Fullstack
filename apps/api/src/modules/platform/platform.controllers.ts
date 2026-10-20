@@ -7,7 +7,7 @@ import { AUTH_POLICY } from '../../config';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { requestMeta } from '../identity/session-cookie';
-import { Activate, ChangePlan, EditPlan, PublishLegal, ExtendTrial, NewNote, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
+import { Activate, ChangePlan, EditPlan, PublishLegal, ExtendTrial, LeadStatus, NewNote, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
 import { PlatformCookie, PlatformGuard } from './platform-session';
 import { PlatformService } from './platform.service';
 
@@ -100,6 +100,14 @@ export class PlatformController {
   @Post('legal')
   publishLegal(@Body(new ZodBody(PublishLegal)) b: Body<typeof PublishLegal>) {
     return this.platform.publishLegal(b.kind, b.titleAr, b.bodyAr, b.requiresReacceptance);
+  }
+
+  @Get('leads')
+  leads() { return this.platform.leads(); }
+
+  @Post('leads/:id/status') @HttpCode(200)
+  setLeadStatus(@Param('id', id) leadId: string, @Body(new ZodBody(LeadStatus)) b: Body<typeof LeadStatus>) {
+    return this.platform.setLeadStatus(leadId, b.status);
   }
 
   @Get('plans')

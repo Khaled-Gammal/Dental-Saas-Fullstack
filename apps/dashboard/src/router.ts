@@ -48,6 +48,8 @@ export function invitationToken(hash: string): string | null {
   const m = /^#\/invite\/([A-Za-z0-9_-]{32,64})$/.exec(hash);
   return m ? m[1] : null;
 }
+/** : the landing page's "start free" link opens the sign-up form instead of sign-in (H7). */
+export const isSignupLink = (hash: string) => hash === '#/signup';
 const isPage = (s: string): s is Page => s in ACTIONS;
 const NOT_FOUND: Route = { page: 'not-found' };
 

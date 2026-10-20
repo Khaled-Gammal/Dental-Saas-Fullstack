@@ -5,7 +5,7 @@ import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { t, type Key } from '../../i18n';
 import { money } from '../../money';
-import { filterClinics, papi, platformHref, trialDaysLeft, type PlatformRoute } from '../../platform-model';
+import { filterClinics, filterLeads, LEAD_STATUSES, papi, platformHref, trialDaysLeft, type LeadStatus, type PlatformRoute } from '../../platform-model';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, OtpInput, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { ShieldIcon } from '../../ui/icons';
@@ -54,6 +54,7 @@ export function PlatformApp({ route }: { route: PlatformRoute }) {
       {route.page === 'plans' && <PlansPage />}
       {route.page === 'activity' && <ActivityPage />}
       {route.page === 'legal' && <LegalAdminPage />}
+      {route.page === 'leads' && <LeadsPage />}
     </PlatformShell>
   );
 }
@@ -115,7 +116,7 @@ function PlatformShell({ me, route, children }: { me: Me; route: PlatformRoute; 
       <header className="platform-bar">
         <strong><ShieldIcon size={18} /> {t('pl_title')}</strong>
         <nav className="seg" aria-label={t('pl_title')}>
-          {tab({ page: 'clinics' }, 'pl_clinics')}{tab({ page: 'plans' }, 'pl_plans')}{tab({ page: 'legal' }, 'pl_legal')}{tab({ page: 'activity' }, 'pl_activity')}
+          {tab({ page: 'clinics' }, 'pl_clinics')}{tab({ page: 'leads' }, 'pl_leads')}{tab({ page: 'plans' }, 'pl_plans')}{tab({ page: 'legal' }, 'pl_legal')}{tab({ page: 'activity' }, 'pl_activity')}
         </nav>
         <span className="row-end">
           <span className="muted small"><bdi>{me.name}</bdi></span>
@@ -329,6 +330,86 @@ function ActivityPage() {
     <>
       <div className="page-head"><div><h1>{t('pl_activity')}</h1><p>{t('pl_activitySub')}</p></div></div>
       <Card>{audit.isError ? <ErrorText error={audit.error} /> : !audit.data ? <Skeleton h={48} count={4} /> : <AuditList rows={audit.data} />}</Card>
+    </>
+  );
+}
+
+// ---------- H7 requests from the landing page's contact form (LND-04) ----------
+interface Lead {
+  id: string; full_name: string; phone: string; email: string | null; clinic_name: string | null; city: string | null; message: string | null;
+  source: string | null; status: LeadStatus; plan_code: string | null; plan_name_ar: string | null; created_at: string; updated_at: string;
+  updated_by_name: string | null;
+}
+const LEAD_TONE: Record<LeadStatus, 'neutral' | 'primary' | 'success' | 'warning'> = { new: 'primary', contacted: 'warning', converted: 'success', lost: 'neutral' };
+
+function LeadsPage() {
+  const qc = useQueryClient();
+  const leads = useQuery({ queryKey: [...KEY, 'leads'], queryFn: () => papi<Lead[]>('/platform/leads') });
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('all');
+  const move = useMutation({
+    mutationFn: ({ id, to }: { id: string; to: LeadStatus }) => papi<Lead[]>(`/platform/leads/${id}/status`, { method: 'POST', body: JSON.stringify({ status: to }) }),
+    onSuccess: (rows) => qc.setQueryData([...KEY, 'leads'], rows),
+  });
+  const rows = filterLeads(leads.data ?? [], q, status);
+  const count = (s: LeadStatus) => leads.data?.filter((l) => l.status === s).length ?? 0;
+  return (
+    <>
+      <div className="page-head"><div><h1>{t('pl_leads')}</h1><p>{t('pl_leadsSub')}</p></div></div>
+      {leads.data && (
+        <div className="stats">
+          {LEAD_STATUSES.map((s) => (
+            <div key={s} className="stat"><span className="stat-text"><small>{t(`pl_lead_status_${s}` as Key)}</small><strong>{count(s)}</strong></span></div>
+          ))}
+        </div>
+      )}
+      <Card>
+        <div className="report-filters">
+          <Field label={t('pl_search')}>{(a) => <Input id={a.id} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('pl_leadSearchHint')} />}</Field>
+          <Field label={t('status')}>
+            {(a) => <Choice id={a.id} value={status} onChange={setStatus}
+              options={['all', ...LEAD_STATUSES].map((s) => ({ value: s, label: t(s === 'all' ? 'pl_allStatuses' : (`pl_lead_status_${s}` as Key)) }))} />}
+          </Field>
+        </div>
+        {move.isError && <ErrorText error={move.error} />}
+        {leads.isError ? <ErrorText error={leads.error} onRetry={() => void leads.refetch()} />
+          : !leads.data ? <Skeleton h={56} count={4} />
+          : !rows.length ? <EmptyState icon={<ShieldIcon size={28} />} title={t('pl_noLeads')} text={t('pl_noLeadsText')} />
+          : (
+            <div className="table-wrap mt">
+              <table className="report-table">
+                <thead><tr>
+                  <th scope="col">{t('pl_leadReceived')}</th><th scope="col">{t('pl_leadPerson')}</th><th scope="col">{t('pl_leadContact')}</th>
+                  <th scope="col">{t('pl_plan')}</th><th scope="col">{t('status')}</th>
+                </tr></thead>
+                <tbody>
+                  {rows.map((l) => (
+                    <tr key={l.id}>
+                      <td>{when(l.created_at)}</td>
+                      <td>
+                        <strong><bdi>{l.full_name}</bdi></strong>
+                        {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
+                        {l.message && <span className="small block" style={{ whiteSpace: 'pre-wrap', maxWidth: 420 }}><bdi>{l.message}</bdi></span>}
+                      </td>
+                      <td>
+                        <a href={`tel:${l.phone}`} dir="ltr">{l.phone}</a>
+                        {l.email && <a className="small block" href={`mailto:${l.email}`} dir="ltr">{l.email}</a>}
+                      </td>
+                      <td>{l.plan_name_ar ?? '—'}</td>
+                      <td>
+                        <Badge tone={LEAD_TONE[l.status]}>{t(`pl_lead_status_${l.status}` as Key)}</Badge>
+                        <Choice value={l.status} label={t('status')} className="h-9 w-full min-w-36 bg-card mt-sm" disabled={move.isPending}
+                          onChange={(v) => { if (v !== l.status) move.mutate({ id: l.id, to: v as LeadStatus }); }}
+                          options={LEAD_STATUSES.map((s) => ({ value: s, label: t(`pl_lead_status_${s}` as Key) }))} />
+                        {l.updated_by_name && <span className="muted small block">{t('pl_leadUpdatedBy').replace('{name}', l.updated_by_name)}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+      </Card>
     </>
   );
 }

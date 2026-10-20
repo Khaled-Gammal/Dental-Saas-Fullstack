@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { href, invitationToken, parseRoute, to } from '../router';
+import { href, invitationToken, isSignupLink, parseRoute, to } from '../router';
 
 describe('parseRoute', () => {
   it('maps hashes to routes', () => {
@@ -82,5 +82,13 @@ describe('clinical routes (Phase D4)', () => {
     expect(parseRoute('#/payments/p1/view')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/discounts')).toEqual({ page: 'discounts' });
     expect(parseRoute('#/invoices?status=overdue')).toEqual({ page: 'invoices', query: { status: 'overdue' } });
+  });
+});
+
+describe('the landing page sign-up link (H7)', () => {
+  it('opens the sign-up form for #/signup only', () => {
+    expect(isSignupLink('#/signup')).toBe(true);
+    expect(isSignupLink('#/signup/x')).toBe(false);
+    expect(isSignupLink('#/')).toBe(false);
   });
 });

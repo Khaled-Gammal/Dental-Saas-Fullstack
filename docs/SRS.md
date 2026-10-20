@@ -133,10 +133,10 @@ The original text follows in A.1 unchanged. This table is the only place where i
 
 | ID | Pri. | Status | Change / note |
 | --- | --- | --- | --- |
-| LND-01 | M | NOT_IMPLEMENTED | Only a development placeholder page exists. *Bilingual* superseded by L10N-001 (Arabic only) |
-| LND-02 | M | NOT_IMPLEMENTED | — |
+| LND-01 | M | PARTIALLY_IMPLEMENTED | H7: Arabic landing on the root domain — hero, features, clinic-website section, pricing, FAQ, contact form; links to sign-up, sign-in and the legal documents. *Bilingual* superseded by L10N-001. Not yet: template gallery (one template exists) and testimonials (none until real ones exist; none are invented) |
+| LND-02 | M | IMPLEMENTED | H7: `GET /public/plans` (public plans in the panel's order, cached 5 min); monthly/yearly switch with the saving; the limits the system enforces, in Arabic. Plan features are not shown: none is enforced yet |
 | LND-03 | V1 | NOT_IMPLEMENTED | — |
-| LND-04 | M | NOT_IMPLEMENTED | `leads` table and insert grant only |
+| LND-04 | M | IMPLEMENTED | H7: contact form → `POST /public/leads` (through the website's same-origin `/api/leads`; throttled per address and per phone; honeypot); stored in `leads`, which the API role can add to but not read; platform admins get an email (clinic name and city only) and work the list in the panel «طلبات التواصل» (new → contacted → converted / lost, audited). Migration 0033 |
 | LND-05 | V1 | NOT_IMPLEMENTED | — |
 | AUTH-01 | M | PARTIALLY_IMPLEMENTED | Terms acceptance is not recorded |
 | AUTH-02 | M | SUPERSEDED (sign-up) by AUTH-101 | D-01: email code at sign-up, no SMS. The existing phone OTP code path stays in the code base but is not used for sign-up |

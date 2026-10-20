@@ -53,12 +53,18 @@ import { ServicesList } from './screens/services/list';
 import { AppShell } from './screens/shell';
 import { Logo, Spinner } from './ui/components';
 import { NotFound } from './ui/page';
-import { invitationToken, to, type Route } from './router';
+import { invitationToken, isSignupLink, to, type Route } from './router';
 
 export function App() {
   const [session, setSessionState] = useState<Session | null>(null);
   const [booting, setBooting] = useState(true);
-  const [screen, setScreen] = useState<AuthScreen>({ name: 'login' });
+  // H7: the landing page links to `#/signup`; the hash is cleared at once so it never outlives the sign-up form
+  const [screen, setScreen] = useState<AuthScreen>(() => (isSignupLink(window.location.hash) ? { name: 'signup' } : { name: 'login' }));
+  useEffect(() => {
+    if (!isSignupLink(window.location.hash)) return;
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    window.dispatchEvent(new HashChangeEvent('hashchange')); // the page route re-reads the (now empty) hash
+  }, []);
   const route = useRoute();
   // H5: `#/platform…` is the platform admin panel, with its own sign-in and session (never the clinic one)
   const [platformRoute, setPlatformRoute] = useState(() => parsePlatformRoute(window.location.hash));

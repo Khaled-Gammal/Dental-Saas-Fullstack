@@ -533,10 +533,15 @@ export interface Leads {
   email: string | null;
   full_name: string;
   id: Generated<string>;
+  ip: string | null;
   message: string | null;
   phone: string;
+  plan_id: string | null;
   source: string | null;
   status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+  user_agent: string | null;
 }
 
 export interface LegalAcceptances {

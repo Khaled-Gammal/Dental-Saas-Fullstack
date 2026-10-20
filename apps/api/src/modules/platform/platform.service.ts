@@ -129,6 +129,14 @@ export class PlatformService {
     return this.repo.legalVersions();
   }
 
+  // ---------- requests from the landing page's contact form (H7, LND-04) ----------
+  leads() { return this.repo.leads(this.admin()); }
+
+  async setLeadStatus(id: string, status: string) {
+    await this.repo.setLeadStatus(this.admin(), id, status);
+    return this.repo.leads(this.admin());
+  }
+
   // ---------- plans (ADM-04) ----------
   plans() {
     this.admin();

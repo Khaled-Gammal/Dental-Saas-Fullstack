@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
     ROOT_DOMAIN: process.env.ROOT_DOMAIN ?? 'lvh.me',
     API_INTERNAL_URL: process.env.API_INTERNAL_URL ?? process.env.API_PUBLIC_URL ?? 'http://localhost:4000',
     DASHBOARD_URL: process.env.DASHBOARD_URL ?? 'http://localhost:5173',
+    // the landing page's sample-website link (H7); unset in production until a real sample clinic exists
+    DEMO_SITE_URL: process.env.DEMO_SITE_URL ?? (process.env.NODE_ENV === 'production' ? '' : `http://clinic-a.${process.env.ROOT_DOMAIN ?? 'lvh.me'}:3000`),
     REVALIDATE_SECRET: process.env.REVALIDATE_SECRET ?? 'dev-only-revalidate-secret',
   },
 };
