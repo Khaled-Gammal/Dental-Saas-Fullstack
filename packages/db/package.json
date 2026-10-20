@@ -13,7 +13,8 @@
     "reset": "node scripts/dbmate.mjs drop && node scripts/dbmate.mjs up && node scripts/run-sql.mjs seeds/dev_seed.sql",
     "types": "node scripts/codegen.mjs",
     "test": "node scripts/test-db.mjs",
-    "seed:demo-billing": "node scripts/run-sql.mjs seeds/demo_billing.sql"
+    "seed:demo-billing": "node scripts/run-sql.mjs seeds/demo_billing.sql",
+    "platform:admin": "node scripts/platform-admin.mjs"
   },
   "dependencies": {
     "kysely": "^0.28.2",

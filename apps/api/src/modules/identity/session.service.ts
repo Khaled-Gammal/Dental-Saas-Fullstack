@@ -34,7 +34,12 @@ export class SessionService {
     if (!user) throw sessionExpired();
     if (!user.is_active) throw Err.unauthorized('account_disabled', 'Account disabled');
 
-    const active = (await this.repo.memberships(userId)).filter((m) => m.member_status === 'active' && m.tenant_status !== 'cancelled');
+    const all = (await this.repo.memberships(userId)).filter((m) => m.member_status === 'active' && m.tenant_status !== 'cancelled');
+    // H5: a suspended clinic opens to nobody; when it is the only (or the chosen) clinic, say so
+    const active = all.filter((m) => m.tenant_status !== 'suspended');
+    if (all.some((m) => m.tenant_status === 'suspended' && (!clinicSlug || m.slug === clinicSlug)) && !active.some((m) => !clinicSlug || m.slug === clinicSlug)) {
+      throw Err.forbidden('clinic_suspended', 'This clinic is suspended; contact the platform');
+    }
     const wanted = clinicSlug ? active.find((m) => m.slug === clinicSlug) : undefined;
     if (clinicSlug && !wanted) {
       // never switch clinic silently: on refresh the session ends, on login the slug is reported as wrong

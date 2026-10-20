@@ -792,6 +792,14 @@ export interface PlatformInvoices {
   tenant_id: string;
 }
 
+export interface PlatformTenantNotes {
+  author_user_id: string;
+  body: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  tenant_id: string;
+}
+
 export interface Posts {
   author_member_id: string | null;
   body: string;
@@ -1067,6 +1075,9 @@ export interface Tenants {
   social_links: Generated<Json>;
   specialties: Generated<string[]>;
   status: Generated<string>;
+  status_before_suspension: string | null;
+  suspended_at: Timestamp | null;
+  suspension_reason: string | null;
   timezone: Generated<string>;
   updated_at: Generated<Timestamp>;
   whatsapp: string | null;
@@ -1284,6 +1295,7 @@ export interface DB {
   plans: Plans;
   platform_audit_log: PlatformAuditLog;
   platform_invoices: PlatformInvoices;
+  platform_tenant_notes: PlatformTenantNotes;
   posts: Posts;
   prescription_items: PrescriptionItems;
   prescriptions: Prescriptions;

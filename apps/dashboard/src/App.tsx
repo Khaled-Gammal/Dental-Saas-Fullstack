@@ -9,6 +9,8 @@ import { StaffInvite } from './screens/staff/invite';
 import { StaffList } from './screens/staff/list';
 import { RoleForm, RolesList } from './screens/staff/roles';
 import { canOpen } from './access';
+import { parsePlatformRoute } from './platform-model';
+import { PlatformApp } from './screens/platform/platform';
 import { CanProvider } from './can';
 import { BranchForm } from './screens/branches/form';
 import { BranchHours } from './screens/branches/hours';
@@ -56,6 +58,13 @@ export function App() {
   const [booting, setBooting] = useState(true);
   const [screen, setScreen] = useState<AuthScreen>({ name: 'login' });
   const route = useRoute();
+  // H5: `#/platform…` is the platform admin panel, with its own sign-in and session (never the clinic one)
+  const [platformRoute, setPlatformRoute] = useState(() => parsePlatformRoute(window.location.hash));
+  useEffect(() => {
+    const on = () => setPlatformRoute(parsePlatformRoute(window.location.hash));
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
 
   useEffect(() => {
     subscribeSession((s) => {
@@ -76,7 +85,9 @@ export function App() {
   const invite = invitationToken(window.location.hash);
 
   let view: ReactNode;
-  if (booting) {
+  if (platformRoute) {
+    view = <PlatformApp route={platformRoute} />;
+  } else if (booting) {
     view = (
       <div className="boot" role="status" aria-label={t('loading')}>
         <Logo name={t('brand')} />

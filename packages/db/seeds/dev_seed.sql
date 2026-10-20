@@ -2,6 +2,7 @@
 --   Clinic A  http://clinic-a.lvh.me:3000   owner.a@demo.test / reception.a@demo.test / doctor.a@demo.test
 --             reception.maadi@demo.test (receptionist limited to the Maadi branch), accountant.a@demo.test
 --   Clinic B  http://clinic-b.lvh.me:3000   owner.b@demo.test
+--   Platform admin (H5)  admin@demo.test — the admin panel at #/platform (sign-in also needs the emailed code)
 --   Every demo account's password is  Demo@12345  (dev only; hash below is scrypt N=16384 r=8 p=1)
 -- Fixed ids so tests and docs can refer to them.
 BEGIN;
@@ -63,6 +64,11 @@ INSERT INTO users (id, email, phone, full_name, locale, email_verified_at, phone
  ('b0000000-0000-0000-0000-0000000000a4','reception.maadi@demo.test','+201000000114','Hala Fathy','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
  ('b0000000-0000-0000-0000-0000000000a5','accountant.a@demo.test','+201000000115','Mahmoud Ibrahim','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A'),
  ('b0000000-0000-0000-0000-0000000000b1','owner.b@demo.test','+201000000211','Dr. Karim Adel','ar',now(),now(),'scrypt$16384$8$1$XR8Mmns+Kkxtjg8aKzxNXg$1En43/A2aEoMRt+cxNHwQj86koqxwvSXbeb5/BVQXuL2kCc/oMGPI1zOjJ1v/2ZMy4Y5u/fBRI0NZtpq3RA84A');
+
+-- the platform admin (H5): no clinic membership; created like this by a command in production (`platform:admin`)
+INSERT INTO users (id, email, full_name, locale, email_verified_at, password_hash, platform_role) VALUES
+ ('b0000000-0000-0000-0000-0000000000f1','admin@demo.test','Platform Admin','ar',now(),
+  (SELECT password_hash FROM users WHERE id = 'b0000000-0000-0000-0000-0000000000a1'),'super_admin');
 
 INSERT INTO tenant_members (id, tenant_id, user_id, role_id) VALUES
  ('c0000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','b0000000-0000-0000-0000-0000000000a1','a0000000-0000-0000-0000-0000000000a1'),

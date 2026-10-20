@@ -58,6 +58,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-20 | Owner: expenses are seen and recorded by the owner and the accountant only; reception handles bookings, patients and patient payments (it keeps the cash box, CLR-04). Replaces the reception part of CLR-03 | EXP-001/003, B.1, migration 0029 |
 | 2026-10-20 | Owner asked for CSV export of the reports (was deferred as "Excel export") | DSH-11 (part), L10N-007; H3 |
 | 2026-10-20 | Owner: no fixed roles but the owner. Sign-up creates the owner role only (every permission); the owner creates, changes and deletes every other role and its permissions. `staff:manage` may be given to a role (with anti-escalation guards); mixing clinical and money writing only warns. The B.1 role columns become starting suggestions, no longer created at sign-up | ACCESS-006, B.1, AUTH-03; H4 |
+| 2026-10-20 | Owner: build the platform admin panel now (reverses the CLR-14 default "defer ADM"). Suspending a clinic blocks its staff's sign-in and takes its website offline (not read-only); platform admins sign in with a password and an emailed code every time | ADM-01, ADM-02, ADM-04; H5 |
 
 ---
 
@@ -193,7 +194,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | BIL-03 | V1 | DEFERRED (paid gateway) | — |
 | BIL-04 … BIL-07 | V1 | NOT_IMPLEMENTED | Not in v4 |
 | BIL-08 | M | IMPLEMENTED | — |
-| ADM-01, 02, 04 | M | NOT_IMPLEMENTED | Not in v4 (CLR-14) |
+| ADM-01, 02, 04 | M | IMPLEMENTED (2026-10-20, H5) | `#/platform`: clinics list, clinic detail (extend trial, suspend/reactivate, change plan, notes, history), plans; owner's choice reversing CLR-14 for ADM. "Add credits" (SMS) not built: no SMS (D-01) |
 | ADM-03, 05 | V1 | DEFERRED | — |
 | ADM-06 | V2 | DEFERRED | — |
 | NFR-01 | — | IMPLEMENTED | 19 DB isolation checks + cross-clinic e2e cases pass (2026-10-17) |
@@ -1667,7 +1668,7 @@ CLR-10, CLR-11, CLR-12, CLR-13, CLR-14, CLR-15, CLR-16 and CLR-17**. These defau
 | CLR-11 | Treatment plan acceptance: a staff tick with date, or a patient signature? | TPLAN-002 | Staff records acceptance (member, date); signature later with consents |
 | CLR-12 | Adjustments: waive an installment, write off a remainder, issue a credit note — which, who approves, any limit? | PAY-006 | Waiver and write-off rows with reason, owner only; no credit notes in v4 |
 | CLR-13 | Order of work: pause the website-content roadmap (Phase 2 "Offers", display-only marketing, unrelated to billing discounts) until this plan's Phase E is done? | roadmap | Pause website phases 2–6 |
-| CLR-14 | Consent signing (DSH-16, M in v3) and the super-admin panel (ADM, M in v3) are not in the v4 brief: defer both? | DSH-16, ADM-* | Defer both (Part D) |
+| CLR-14 | Consent signing (DSH-16, M in v3) and the super-admin panel (ADM, M in v3) are not in the v4 brief: defer both? | DSH-16, ADM-* | Defer both (Part D). **Owner 2026-10-20: ADM-01/02/04 built now (H5); consents still deferred** |
 | CLR-15 | Patient merge: how are medical histories combined? | PATIENT-003 | Union of allergies, conditions and medications (never lose an allergy); survivor's other fields kept; conflicts listed for the user |
 | CLR-16 | Procedure price: may the doctor change it, or do all reductions go through discounts? | VISIT-003, DISC-* | Price = service price, or within the service's price range when it has one; any other reduction is a discount |
 | CLR-17 | Print format for invoices and receipts: A4, A5, or 80 mm receipt printer? | BILLING-004 | A4 invoice and A5 receipt from the browser; thermal printers later |

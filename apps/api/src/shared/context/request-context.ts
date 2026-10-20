@@ -7,6 +7,8 @@ export interface RequestContext extends ClsStore {
   userId?: string;
   memberId?: string;
   permissions?: string[];
+  /** H5: the platform admin a /platform request acts for (set by PlatformGuard; never with a clinic) */
+  platformUserId?: string;
   /** client address and agent, for audit rows (set by JwtAuthGuard) */
   ip?: string;
   userAgent?: string;

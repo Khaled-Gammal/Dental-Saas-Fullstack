@@ -41,12 +41,14 @@ export class JwtAuthGuard implements CanActivate {
     }
     // SRS ACCESS-005: a disabled member, or a role/branch change, takes effect on the next request, not at token expiry.
     // One primary-key lookup; on `access_changed` the dashboard refreshes and gets a token with the new rights.
-    const { rows } = await sql<{ tenant_id: string; status: string; access_version: number }>`
+    const { rows } = await sql<{ tenant_id: string; status: string; access_version: number; tenant_status: string }>`
       select * from member_access_state(${payload.mid}::uuid)`.execute(this.db.platform());
     const state = rows[0];
     if (!state || state.tenant_id !== payload.tid || state.status !== 'active') {
       throw Err.unauthorized('access_revoked', 'Your access to this clinic has ended');
     }
+    // H5: a clinic the platform suspended is closed to its staff from their next request (the owner's choice)
+    if (state.tenant_status === 'suspended') throw Err.unauthorized('clinic_suspended', 'This clinic is suspended; contact the platform');
     if (state.access_version !== payload.av) throw Err.unauthorized('access_changed', 'Your access changed; sign in again');
     this.cls.set('userId', payload.sub);
     this.cls.set('tenantId', payload.tid);
