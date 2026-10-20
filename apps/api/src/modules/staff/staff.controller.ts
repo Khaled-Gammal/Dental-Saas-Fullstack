@@ -40,7 +40,7 @@ export class StaffController {
   @Get('roles')
   roles() { return this.staff.roles(); }
 
-  /** H4: a custom role (built-in roles are fixed); a member who is not the owner gives only permissions they hold */
+  /** H4: a role of the clinic (the owner role is fixed); a member who is not the owner gives only permissions they hold */
   @Post('roles')
   createRole(@Body(new ZodBody(NewRoleBody)) b: z.infer<typeof NewRoleBody>) { return this.staff.createRole(b); }
 

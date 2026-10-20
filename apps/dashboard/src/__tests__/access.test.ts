@@ -44,7 +44,7 @@ describe('page access (H4)', () => {
 });
 
 const role = (id: string, key: string, permissions: string[], archived = false): StaffRole => ({
-  id, key, name_ar: key, name_en: key, is_system: !key.startsWith('custom-'), permissions, archived_at: archived ? '2026-10-20' : null,
+  id, key, name_ar: key, name_en: key, is_system: key === 'owner', permissions, archived_at: archived ? '2026-10-20' : null,
   members: 0, invitations: 0, mixes_clinical_and_money: false, can: { edit: false, remove: false },
 });
 const ROLES = [role('o', 'owner', ['*']), role('r', 'receptionist', ['patients:read', 'payments:write']), role('c', 'custom-1', ['patients:read']),

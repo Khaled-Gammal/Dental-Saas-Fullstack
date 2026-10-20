@@ -29,8 +29,7 @@ describe('Roles the owner creates (e2e, Phase H4)', () => {
     await app.init();
     await login('ownerA', 'owner.a@demo.test');
     await login('acct', 'accountant.a@demo.test');
-    builtIn = Object.fromEntries((await http().get('/staff/roles').set(as('ownerA')).expect(200)).body
-      .filter((r: { is_system: boolean }) => r.is_system).map((r: { key: string; id: string }) => [r.key, r.id]));
+    builtIn = Object.fromEntries((await http().get('/staff/roles').set(as('ownerA')).expect(200)).body.map((r: { key: string; id: string }) => [r.key, r.id]));
   });
   afterAll(async () => {
     // the accountant gets their role back, whatever happened above
@@ -48,7 +47,7 @@ describe('Roles the owner creates (e2e, Phase H4)', () => {
     await http().get('/staff/permissions').set(as('acct')).expect(403); // staff:manage
   });
 
-  it('the owner creates a role from the catalogue; built-in roles stay fixed', async () => {
+  it('the owner creates a role from the catalogue; only the owner role is fixed', async () => {
     const r = (await http().post('/staff/roles').set(as('ownerA'))
       .send({ nameAr: `مدير الفرع ${run}`, permissions: ['staff:manage', 'patients:read', 'appointments:read', 'patients:read'] }).expect(201)).body;
     manager = r.id;
@@ -58,8 +57,13 @@ describe('Roles the owner creates (e2e, Phase H4)', () => {
     expect((await bad({ nameAr: `كل شيء ${run}`, permissions: ['*'] }).expect(400)).body).toMatchObject({ code: 'permission_unknown', permission: '*' });
     expect((await bad({ nameAr: `كاتب ${run}`, permissions: ['patients:write'] }).expect(400)).body).toMatchObject({ code: 'permission_requires', requires: 'patients:read' });
     expect((await bad({ nameAr: `مدير الفرع ${run}`, permissions: [] }).expect(409)).body.code).toBe('role_name_taken');
-    expect((await http().patch(`/staff/roles/${builtIn.receptionist}`).set(as('ownerA')).send({ permissions: ['patients:read'] }).expect(409)).body.code).toBe('role_builtin');
-    expect((await http().delete(`/staff/roles/${builtIn.doctor}`).set(as('ownerA')).expect(409)).body.code).toBe('role_builtin');
+    expect((await http().patch(`/staff/roles/${builtIn.owner}`).set(as('ownerA')).send({ permissions: ['patients:read'] }).expect(409)).body.code).toBe('owner_role_fixed');
+    expect((await http().delete(`/staff/roles/${builtIn.owner}`).set(as('ownerA')).expect(409)).body.code).toBe('owner_role_fixed');
+    // the old starter roles are the clinic's own: the owner edits them, and deletes them once nobody holds them
+    const rec = (await http().get('/staff/roles').set(as('ownerA')).expect(200)).body.find((x: { id: string }) => x.id === builtIn.receptionist);
+    expect(rec).toMatchObject({ is_system: false, can: { edit: true, remove: true } });
+    await http().patch(`/staff/roles/${builtIn.receptionist}`).set(as('ownerA')).send({ nameAr: rec.name_ar }).expect(200);
+    expect((await http().delete(`/staff/roles/${builtIn.doctor}`).set(as('ownerA')).expect(409)).body.code).toBe('role_in_use');
     // mixing clinical and money writing is allowed with a warning (owner 2026-10-20)
     const mixed = (await bad({ nameAr: `طبيب ومحصل ${run}`, permissions: ['patients:read', 'clinical:read', 'clinical:write', 'invoices:read', 'payments:write'] }).expect(201)).body;
     expect(mixed.mixes_clinical_and_money).toBe(true);

@@ -29,9 +29,10 @@ const notHeldError = (permission: string) =>
  * audited by the database; a role, status or branch change — or an edit of a role's permissions — bumps the members'
  * access version, so it applies on their next request (ACCESS-005).
  *
- * Owner 2026-10-20: staff:manage may be given to a custom role. So that nobody raises their own rights, a member who
- * is not the owner ('*') gives only permissions they hold, never changes their own role or status nor edits the role
- * they hold, and never gives or takes the owner role. The built-in roles stay as B.1 sets them.
+ * Owner 2026-10-20: sign-up creates only the owner role ('*'); the owner creates, changes and deletes every other
+ * role. staff:manage may be given to a role, so that nobody raises their own rights a member who is not the owner
+ * gives only permissions they hold, never changes their own role or status nor edits the role they hold, and never
+ * gives or takes the owner role.
  */
 @Injectable()
 export class StaffService {
@@ -98,11 +99,11 @@ export class StaffService {
     });
   }
 
-  /** A custom role in use, and not the caller's own (unless they are the owner). */
+  /** A role in use other than the owner's, and not the caller's own (unless they are the owner). */
   private async editableRole(tx: Tx, id: string) {
     const r = await this.repo.lockRole(tx, id);
     if (!r) throw roleNotFound();
-    if (r.is_system) throw Err.conflict('role_builtin', 'Built-in roles keep their permissions; create a role instead');
+    if (r.is_system) throw Err.conflict('owner_role_fixed', 'The owner role keeps every permission');
     if (r.archived_at) throw Err.conflict('role_archived', 'This role is archived');
     if (!this.isOwner() && r.id === (await this.repo.memberRoleId(tx, this.memberId()))) {
       throw Err.forbidden('own_role', 'You cannot change your own role');

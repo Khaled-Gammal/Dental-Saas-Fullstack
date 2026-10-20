@@ -10,8 +10,8 @@ import { to } from '../../router';
 import { EMPTY_INVITE, inviteProblem, toInviteBody, type InviteForm } from '../../staff-model';
 import { roleOptions } from '../../roles-model';
 import type { Branch, StaffInvitation, StaffRole } from '../../types';
-import { Badge, Card, Field, Input, Switch } from '../../ui/components';
-import { FormPage, ResourceState } from '../../ui/page';
+import { Alert, Badge, Card, Field, Input, Switch } from '../../ui/components';
+import { FormPage, ResourceState, RouteLink } from '../../ui/page';
 
 /** `#/staff/new`: invite someone by email with a role and branch access (SRS ACCESS-001). */
 export function StaffInvite({ clinicId, has }: { clinicId: string; has: (p: string) => boolean }) {
@@ -57,6 +57,9 @@ function InviteBody({ clinicId, roles, branches, doctors }: {
   return (
     <FormPage title={t('inviteTitle')} sub={t('inviteSub')} crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
       saving={send.isPending} canSave={!send.isPending} error={send.error}>
+      {!roles.some((r) => r.key !== 'owner') && (
+        <Alert tone="info">{t('inviteNeedsRole')} <RouteLink route={to.list('roles')}>{t('navRoles')}</RouteLink></Alert>
+      )}
       <Card>
         <div className="grid-2">
           <Field label={t('email')} error={show('email') ? t('needEmail') : undefined}>

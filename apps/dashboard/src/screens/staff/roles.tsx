@@ -15,9 +15,9 @@ import { FormPage, ResourceState, RouteLink } from '../../ui/page';
 const permLabel = (p: string) => t(`perm_${p}` as Key);
 
 /**
- * `#/roles` (H4): the clinic's roles. The built-in ones (owner, doctor, reception, assistant, accountant) keep the
- * permissions the SRS sets and are viewed or copied; the owner — or a member given staff:manage — creates roles of
- * their own from the permission catalogue. A role nobody ever held is deleted; one that was held is archived.
+ * `#/roles` (H4): the clinic's roles (owner 2026-10-20). Sign-up creates only the owner role, which holds every
+ * permission and is fixed; the owner — or a member given staff:manage — creates, changes and deletes every other role
+ * from the permission catalogue. A role nobody ever held is deleted; one that was referred to is archived.
  */
 export function RolesList({ clinicId }: { clinicId: string }) {
   const roles = useRoles(clinicId);
@@ -70,7 +70,7 @@ function RoleRow({ r, clinicId, onDone }: { r: StaffRole; clinicId: string; onDo
         </span>
       </span>
       <span className="patient-badges">
-        <Badge tone={r.is_system ? 'primary' : 'neutral'}>{t(r.is_system ? 'roleBuiltIn' : 'roleCustom')}</Badge>
+        {r.is_system && <Badge tone="primary">{t('roleFixed')}</Badge>}
         {r.archived_at && <Badge tone="warning">{t('roleArchived')}</Badge>}
         {r.mixes_clinical_and_money && <Badge tone="warning">{t('roleMixBadge')}</Badge>}
       </span>
@@ -142,7 +142,7 @@ function RoleBody({ clinicId, has, role, source, catalogue, readOnly }: {
   const everything = role?.permissions.includes('*');
 
   return (
-    <FormPage title={title} sub={t(readOnly ? (role?.is_system ? 'builtInRoleNote' : 'roleReadOnlyNote') : 'roleFormSub')} crumbs={crumbs} back={to.list('roles')}
+    <FormPage title={title} sub={readOnly ? (role?.is_system ? undefined : t('roleReadOnlyNote')) : t('roleFormSub')} crumbs={crumbs} back={to.list('roles')}
       onSubmit={submit} saving={save.isPending} canSave={!readOnly && nameOk && !save.isPending} error={save.error}
       notice={!readOnly && mixesClinicalAndMoney(perms) ? <Alert tone="info">{t('roleMixWarning')}</Alert> : undefined}>
       {!readOnly && (

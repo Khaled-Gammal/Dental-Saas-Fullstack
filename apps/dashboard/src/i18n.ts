@@ -518,7 +518,7 @@ const dict = {
   exportCsv: 'تصدير CSV',
   // H4: roles and permissions
   navRoles: 'الأدوار والصلاحيات',
-  rolesSub: 'من يرى ماذا ويفعل ماذا. الأدوار الأساسية ثابتة؛ أنشئ دورًا جديدًا أو انسخ دورًا أساسيًا وعدّل صلاحياته.',
+  rolesSub: 'من يرى ماذا ويفعل ماذا. المالك يملك كل الصلاحيات؛ أنشئ أدوار عيادتك واختر صلاحيات كل دور، وعدّلها أو احذفها متى شئت.',
   newRole: 'دور جديد',
   editRole: 'تعديل الدور',
   viewRole: 'عرض',
@@ -530,8 +530,7 @@ const dict = {
   roleArchivedNotice: 'تمت أرشفة الدور: يبقى في السجل ولا يُعطى لأحد جديد.',
   roleSaved: 'تم حفظ الدور. يسري على أصحابه من طلبهم التالي.',
   roleCreated: 'تم إنشاء الدور. أعطه لعضو من صفحة فريق العمل.',
-  roleBuiltIn: 'أساسي',
-  roleCustom: 'مخصص',
+  roleFixed: 'ثابت',
   roleArchived: 'مؤرشف',
   archivedRoles: 'أدوار مؤرشفة',
   roleMixBadge: 'علاجي ومالي',
@@ -541,15 +540,15 @@ const dict = {
   roleInvites: '{n} دعوة مفتوحة',
   allPermissions: 'كل الصلاحيات',
   ownerRoleNote: 'المالك يملك كل الصلاحيات دائمًا، ولا يُعدَّل دوره.',
-  builtInRoleNote: 'دور أساسي بصلاحيات ثابتة. لتخصيصه انسخه كدور جديد.',
   roleReadOnlyNote: 'لا يمكنك تعديل هذا الدور.',
   ownRoleNote: 'هذا دورك؛ يعدّله المالك أو مدير آخر.',
   roleFormSub: 'اختر ما يراه أصحاب هذا الدور وما يفعلونه. الصلاحية التي تحتاج غيرها تُختار معها تلقائيًا.',
   roleName: 'اسم الدور',
   needRoleName: 'اكتب اسمًا للدور (حرفان على الأقل).',
   permNotHeldHint: 'تستطيع إعطاء الصلاحيات التي تملكها فقط؛ الباقي مقفل.',
-  noCustomRoles: 'لا أدوار مخصصة بعد',
-  noCustomRolesText: 'أنشئ دورًا جديدًا، أو انسخ دورًا أساسيًا وعدّل صلاحياته.',
+  noCustomRoles: 'لا أدوار بعد',
+  noCustomRolesText: 'أنشئ أدوار عيادتك (الطبيب والاستقبال والمحاسب وغيرها) واختر صلاحيات كل دور، ثم ادعُ فريقك.',
+  inviteNeedsRole: 'لا توجد أدوار لفريقك بعد. أنشئ دورًا أولًا من «الأدوار والصلاحيات».',
   permGroup_clinic: 'العيادة والإعدادات',
   permGroup_patients: 'المرضى',
   permGroup_clinical: 'السجل العلاجي',
@@ -592,7 +591,7 @@ const dict = {
   'perm_reports:read:daily': 'تقرير إيرادات اليوم فقط',
   'perm_reports:read:own': 'تقارير الطبيب نفسه',
   'perm_audit:read': 'سجل التغييرات',
-  err_role_builtin: 'الأدوار الأساسية ثابتة؛ أنشئ دورًا جديدًا بدلًا من ذلك.',
+  err_owner_role_fixed: 'دور المالك ثابت: يملك كل الصلاحيات دائمًا.',
   err_role_archived: 'هذا الدور مؤرشف ولا يُعطى لأحد.',
   err_role_in_use: 'أعضاء أو دعوات مفتوحة ما زالت تحمل هذا الدور؛ غيّر أدوارهم أولًا.',
   err_role_name_taken: 'يوجد دور بهذا الاسم.',
@@ -1488,8 +1487,8 @@ export function errorText(code: string, status: number | undefined): string {
   const st = status === undefined || status >= 500 ? 500 : [400, 401, 403, 404, 409, 429].includes(status) ? status : 400;
   return t(`err_generic_${st}` as Key);
 }
-/** A built-in role by its Arabic label; a role the owner created (H4) by its own name. */
-export const roleLabel = (role: string, name?: string | null): string => (`role_${role}` in dict ? t(`role_${role}` as Key) : name || role);
+/** A role by its own name (roles are the clinic's, H4); the Arabic label of its key when no name is at hand. */
+export const roleLabel = (role: string, name?: string | null): string => name || (`role_${role}` in dict ? t(`role_${role}` as Key) : role);
 /** "5 دقائق" but "20 دقيقة": Arabic counts 3–10 with the plural form. */
 export const minutesLabel = (n: number): string => t(n >= 3 && n <= 10 ? 'minutesFew' : 'minutes');
 /** Catalogue category label; an unknown category shows its code rather than breaking the picker. */

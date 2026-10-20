@@ -1,7 +1,7 @@
 import { GRANTABLE, PERMISSION_GROUPS, REQUIRES } from '../../../auth/permission-catalogue';
 import { added, checkRolePermissions, mixesClinicalAndMoney, notHeld } from '../role-rules';
 
-// SRS B.1 defaults of the built-in roles (the database function default_role_permissions(), migration 0029)
+// the old starter roles (SRS B.1 defaults, migration 0029), which existing clinics keep as their own roles
 const BUILT_IN = {
   doctor: ['branches:read', 'patients:read', 'patients:write', 'patients:merge', 'clinical:read', 'clinical:write', 'appointments:read',
     'appointments:write:own', 'treatments:write:own', 'invoices:read:own', 'reports:read:own'],
@@ -22,7 +22,7 @@ describe('the permission catalogue (H4)', () => {
     }
     expect(PERMISSION_GROUPS.length).toBeGreaterThan(5);
   });
-  it('every built-in role (catalogue part) passes the same checks a custom role does', () => {
+  it('the old starter roles pass the same checks as any role the owner creates', () => {
     for (const perms of Object.values(BUILT_IN)) expect(checkRolePermissions(perms)).toBeNull();
   });
 });

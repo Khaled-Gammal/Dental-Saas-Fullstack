@@ -98,8 +98,7 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   expenses_locked: { status: 409, code: 'expense_locked', title: 'A recorded expense is not edited; void it and record it again' },
   expenses_self_approval: { status: 403, code: 'self_approval', title: 'An expense is approved by someone else' },
   // custom roles (Phase H4): the service checks these first; the database is the last word
-  roles_system_fixed: { status: 409, code: 'role_builtin', title: 'Built-in roles keep their permissions; create a role instead' },
-  roles_custom_key: { status: 409, code: 'role_builtin', title: 'Built-in roles keep their permissions; create a role instead' },
+  roles_owner_fixed: { status: 409, code: 'owner_role_fixed', title: 'The owner role keeps every permission' },
   roles_permission_unknown: { status: 400, code: 'permission_unknown', title: 'This permission cannot be given to a role' },
   roles_archived: { status: 409, code: 'role_archived', title: 'This role is archived' },
   roles_tenant_name_ar: { status: 409, code: 'role_name_taken', title: 'A role with this name exists' },
