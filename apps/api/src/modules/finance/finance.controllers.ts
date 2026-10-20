@@ -1,20 +1,24 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import type { z } from 'zod';
-import { RequirePermission } from '../../auth/decorators';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { z } from 'zod';
+import { Public, RequirePermission } from '../../auth/decorators';
+import { EXPENSE_FILE_POLICY } from '../../config';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { CashService } from './cash.service';
 import { ExpensesService } from './expenses.service';
 import {
-  CashHistoryQuery, CashQuery, CloseCash, EditCategory, ExpenseDecision, ExpenseRejection, ExpenseSettings, ExpensesQuery, NewCategory, NewExpense, OpenCash, ReopenCash, VoidExpense,
+  CashHistoryQuery, CashQuery, CloseCash, EditCategory, ExpenseDecision, ExpenseRejection, ExpensesQuery, NewCategory, NewExpense, OpenCash, ReopenCash, VoidExpense,
 } from './finance.schemas';
 
 const id = new ParseUUIDPipe();
 type Body<T extends z.ZodTypeAny> = z.infer<T>;
 
 /**
- * Expenses (SRS EXP-001…004). Recording: expenses:write, or expenses:write:cash for reception's cash expenses
- * (checked in the service, CLR-03). Approving, categories and the reception limit: expenses:approve (the owner).
+ * Expenses (SRS EXP-001…004): the owner's and the accountant's (owner 2026-10-20; reception has no access). Reading:
+ * expenses:read; recording, voiding, documents: expenses:write. Approving (what reception recorded before) and
+ * categories: expenses:approve (the owner).
  */
 @ApiTags('finance')
 @ApiBearerAuth()
@@ -23,11 +27,13 @@ export class ExpensesController {
   constructor(private readonly expenses: ExpensesService) {}
 
   @Get()
+  @RequirePermission('expenses:read')
   list(@Query(new ZodBody(ExpensesQuery)) q: Body<typeof ExpensesQuery>) {
     return this.expenses.list(q);
   }
 
   @Post()
+  @RequirePermission('expenses:write')
   create(@Body(new ZodBody(NewExpense)) body: Body<typeof NewExpense>) {
     return this.expenses.create(body);
   }
@@ -39,6 +45,7 @@ export class ExpensesController {
   }
 
   @Get('categories')
+  @RequirePermission('expenses:read')
   categories() {
     return this.expenses.categories();
   }
@@ -55,19 +62,8 @@ export class ExpensesController {
     return this.expenses.editCategory(categoryId, body);
   }
 
-  @Get('settings')
-  @RequirePermission('expenses:approve')
-  settings() {
-    return this.expenses.settings();
-  }
-
-  @Patch('settings')
-  @RequirePermission('expenses:approve')
-  setSettings(@Body(new ZodBody(ExpenseSettings)) body: Body<typeof ExpenseSettings>) {
-    return this.expenses.setSettings(body.receptionLimitMinor);
-  }
-
   @Get(':id')
+  @RequirePermission('expenses:read')
   get(@Param('id', id) expenseId: string) {
     return this.expenses.get(expenseId);
   }
@@ -85,8 +81,39 @@ export class ExpensesController {
   }
 
   @Post(':id/void') @HttpCode(200)
+  @RequirePermission('expenses:write')
   void(@Param('id', id) expenseId: string, @Body(new ZodBody(VoidExpense)) body: Body<typeof VoidExpense>) {
     return this.expenses.void(expenseId, body.reason);
+  }
+
+  /** EXP-001: the supporting document (multipart field `file`: PDF or image), attached once. The permission is checked before the body is read. */
+  @Post(':id/document') @HttpCode(200)
+  @RequirePermission('expenses:write')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: EXPENSE_FILE_POLICY.maxUploadBytes, files: 1, fields: 0 } }))
+  attachDocument(@Param('id', id) expenseId: string, @UploadedFile() file: { buffer?: Buffer } | undefined) {
+    return this.expenses.attachDocument(expenseId, file?.buffer ?? Buffer.alloc(0));
+  }
+}
+
+const SignedQuery = z.object({ u: z.string().uuid(), exp: z.coerce.number().int(), sig: z.string().regex(/^[A-Za-z0-9_-]{20,64}$/) }).strict();
+
+/** An expense document's 5-minute signed link (no session; the signature is bound to the member). */
+@ApiTags('finance')
+@Controller('expense-files')
+export class ExpenseFileLinkController {
+  constructor(private readonly expenses: ExpensesService) {}
+
+  @Public()
+  @Get(':tenantId/:fileId')
+  async open(@Param('tenantId', id) tenantId: string, @Param('fileId', id) fileId: string, @Query(new ZodBody(SignedQuery)) q: z.infer<typeof SignedQuery>,
+    @Res({ passthrough: true }) res: Response) {
+    const f = await this.expenses.openDocument(tenantId, fileId, q.u, q.exp, q.sig);
+    res.set({
+      'Content-Type': f.mime, 'Content-Length': String(f.length), 'Content-Disposition': `inline; filename="${f.name}"`,
+      'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
+    });
+    return new StreamableFile(f.body as never);
   }
 }
 

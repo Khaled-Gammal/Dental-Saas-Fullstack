@@ -55,6 +55,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-17 | Proposed defaults accepted for CLR-02, CLR-03, CLR-04, CLR-09, CLR-12, CLR-17 ("implement what you recommend") (Part C) | DISC-002/003, EXP-003, CASH-*, L10N-005, PAY-006, BILLING-004 |
 | 2026-10-17 | Proposed defaults accepted for CLR-06, CLR-10, CLR-11, CLR-13, CLR-14, CLR-15, CLR-16 (Part C) | VISIT-002, APPT-004, TPLAN-002, roadmap, Part D, PATIENT-003, VISIT-003 |
 | 2026-10-19 | Proposed defaults accepted for CLR-07 and CLR-08. Added by the owner: the product is Arabic in production, but **brand and clinic names may be written in English (Latin letters)**; Latin digits are fine | L10N-001 (names are on the allow-list), L10N-006, L10N-007, L10N-008 |
+| 2026-10-20 | Owner: expenses are seen and recorded by the owner and the accountant only; reception handles bookings, patients and patient payments (it keeps the cash box, CLR-04). Replaces the reception part of CLR-03 | EXP-001/003, B.1, migration 0029 |
 
 ---
 
@@ -1027,8 +1028,8 @@ it is decided only the owner (`*`) holds the permission.
 | `payments:adjust` | Waive / write off (PAY-006) | ✓ | — | — | — | pending CLR-12 |
 | `discounts:apply` | Apply a discount within the role's limit (DISC-002) | ✓ | — | ✓ (limit) | — | ✓ (limit) |
 | `discounts:approve` | Approve discounts above a limit | ✓ | — | — | — | pending CLR-02 |
-| `expenses:read` / `expenses:write` ✓ | Expenses (§2.2: owner, accountant) | ✓ | — | pending CLR-03 | — | ✓ |
-| `expenses:approve` | Approve expenses that need approval | ✓ | — | — | — | pending CLR-03 |
+| `expenses:read` / `expenses:write` ✓ | Expenses (§2.2: owner, accountant) | ✓ | — | — (owner 2026-10-20) | — | ✓ |
+| `expenses:approve` | Approve expenses that need approval | ✓ | — | — | — | — (CLR-03) |
 | `cash:operate` | Open and close the cash box | ✓ | — | pending CLR-04 | — | pending CLR-04 |
 | `cash:reopen` | Reopen a closed cash day | ✓ | — | — | — | pending CLR-04 |
 | `reports:read` ✓ / `reports:read:daily` ✓ / `reports:read:own` ✓ | Reports (§2.2) | ✓ | own | daily (own branch) | — | ✓ |
@@ -1456,12 +1457,14 @@ Separation rule: no seeded role other than the owner holds both a clinical write
 
 ### B.10 Expenses (feature F3)
 
-**EXP-001 — Record an expense** · PARTIAL (2026-10-17, E3: everything but the supporting document, which comes with private expense files) · Phase E (refines DSH-08)
+**EXP-001 — Record an expense** · IMPLEMENTED (2026-10-20, H2: the supporting document; E3: everything else) · Phase E (refines DSH-08)
 - *Description:* An expense with branch, category, description, amount, date, payment method (cash, bank transfer,
   card, wallet, InstaPay), reference, optional supplier and optional supporting document.
 - *Behaviour:* the responsible staff member is the signed-in member who records it. The supporting document is
-  private (image or PDF, same checks as PATIENT-004). Expenses are separate from patient invoices and payments and
-  never change a patient's balance.
+  private (image or PDF, same checks as PATIENT-004). It is attached when the expense is recorded or later, once, while
+  the expense is not void, by a member with `expenses:write` (owner, accountant); it is never replaced or
+  removed (void and record again). Expenses are separate from patient invoices and payments and never change a
+  patient's balance.
 - *Validation:* amount > 0; date not in the future; branch and category in the clinic; reference rules as PAY-001.
 - *Permissions:* `expenses:write`.
 - *Entities:* `expenses` (+ method, reference, status, approver, responsible-staff FK), `files`.
@@ -1472,10 +1475,11 @@ Separation rule: no seeded role other than the owner holds both a clinical write
   The owner adds or renames categories. A category in use is deactivated, not deleted.
 - *Entities:* `expense_categories` (+ `is_active`).
 
-**EXP-003 — Expense approval** · IMPLEMENTED (2026-10-17, E3; CLR-03) · Phase E
+**EXP-003 — Expense approval** · IMPLEMENTED (2026-10-17, E3; CLR-03; reception part removed 2026-10-20) · Phase E
 - *Description:* An expense that needs approval is pending until a member with `expenses:approve` approves or rejects
-  it. Which expenses need approval is decided in CLR-03: the owner's and the accountant's are approved on entry;
-  reception records cash expenses only, up to the clinic's limit (500.00 to start), and they wait for the owner.
+  it. Which expenses need approval is decided in CLR-03: the owner's and the accountant's are approved on entry.
+  Since 2026-10-20 (owner) reception records no expenses, so nothing new waits; expenses reception recorded before
+  that still wait for the owner.
   Approving one's own expense is not allowed. A pending or rejected cash expense still counts on its cash day: the
   cash left the drawer either way; only voiding (recorded in error) changes the day.
 - *Errors:* `self_approval`.
@@ -1632,7 +1636,7 @@ CLR-10, CLR-11, CLR-12, CLR-13, CLR-14, CLR-15, CLR-16 and CLR-17**. These defau
 | --- | --- | --- | --- |
 | CLR-01 | ~~Sign-up verification without SMS~~ | — | **Resolved 2026-10-17: email code (AUTH-101)** |
 | CLR-02 | Discounts: initial limit per role (% and/or amount); approval on the spot (manager signs in on the same screen) or as a request in a queue; may the accountant approve? | DISC-002, DISC-003, B.1 | Owner configures limits (start: receptionist 10 %, accountant 20 %); in-app request approved by owner; accountant cannot approve |
-| CLR-03 | Expenses: which need approval (all, above an amount, some categories)? Who approves? Can receptionists record petty-cash expenses? | EXP-003, B.1 | Expenses by owner/accountant are approved on entry; receptionists may record cash expenses up to a clinic-set amount, which wait for owner approval |
+| CLR-03 | Expenses: which need approval (all, above an amount, some categories)? Who approves? Can receptionists record petty-cash expenses? | EXP-003, B.1 | Expenses by owner/accountant are approved on entry. ~~Receptionists may record cash expenses up to a clinic-set amount, which wait for owner approval~~ — **owner 2026-10-20: reception records and sees no expenses** |
 | CLR-04 | Cash: one session per branch per day, or per staff member/drawer? Who opens and closes? Can a closed session be reopened? Can a cash payment be dated into a closed session? | CASH-001…004, PAY-001 | One session per branch per business day; receptionist or accountant opens/closes; only the owner reopens, with a reason; no back-dating into a closed session |
 | CLR-05 | Refunds and reversals: who may refund or reverse? Must a refund use the original method (can a card payment be refunded in cash)? Is a reversal allowed only on the same day? | PAY-003, PAY-005, B.1 | Owner and accountant refund; reception may reverse its own entry the same day before the cash session closes; refund method recorded explicitly and may differ, with a reason |
 | CLR-06 | Clinical notes: when does a visit become final (doctor presses "finalize", the appointment is completed, or after N hours)? Who may amend (author only, any doctor, owner)? | VISIT-002 | Final when the doctor finalizes or when the appointment is completed, whichever is first; the author or the owner may amend, with a reason |

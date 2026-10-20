@@ -10,13 +10,7 @@ const num = (v: string | number | null) => (v === null ? null : Number(v));
 @Injectable()
 export class FinanceRepository {
   clinic(tx: Tx, tenantId: string) {
-    return tx.selectFrom('tenants as t').innerJoin('tenant_settings as s', 's.tenant_id', 't.id')
-      .select(['t.currency', 't.timezone', 's.reception_expense_limit_minor']).where('t.id', '=', tenantId).executeTakeFirstOrThrow()
-      .then((c) => ({ ...c, reception_expense_limit_minor: Number(c.reception_expense_limit_minor) }));
-  }
-
-  setReceptionLimit(tx: Tx, tenantId: string, minor: number) {
-    return tx.updateTable('tenant_settings').set({ reception_expense_limit_minor: minor }).where('tenant_id', '=', tenantId).execute();
+    return tx.selectFrom('tenants as t').select(['t.currency', 't.timezone']).where('t.id', '=', tenantId).executeTakeFirstOrThrow();
   }
 
   /** the active branches the member works at, for the cash box's branch picker */
@@ -57,11 +51,13 @@ export class FinanceRepository {
   // ---------- expenses (EXP-001, EXP-003, EXP-004) ----------
   private expenses(tx: Tx) {
     return tx.selectFrom('expenses as e').innerJoin('expense_categories as c', 'c.id', 'e.category_id').innerJoin('branches as b', 'b.id', 'e.branch_id')
+      .leftJoin('files as f', 'f.id', 'e.file_id')
       .select([
         'e.id', 'e.branch_id', 'e.category_id', 'c.name as category_name', 'e.amount_minor', 'e.currency', dateText('e.spent_on').as('spent_on'),
         'e.payment_method', 'e.reference', 'e.supplier_name', 'e.description', 'e.status', 'e.created_by', 'e.created_at',
         memberName('e.created_by').as('created_by_name'), 'e.approved_at', memberName('e.approved_by').as('approved_by_name'), 'e.decision_note',
         'e.void_reason', 'e.voided_at', memberName('e.voided_by').as('voided_by_name'),
+        'e.file_id', 'f.mime_type as document_mime', 'f.size_bytes as document_size',
         sql<{ name_ar: string | null; name_en: string | null }>`json_build_object('name_ar', b.name_ar, 'name_en', b.name_en)`.as('branch'),
       ]);
   }
@@ -75,16 +71,16 @@ export class FinanceRepository {
     if (q.from) query = query.where(sql<boolean>`e.spent_on >= ${q.from}::date`);
     if (q.to) query = query.where(sql<boolean>`e.spent_on <= ${q.to}::date`);
     const rows = await query.orderBy('e.spent_on', 'desc').orderBy('e.created_at', 'desc').limit(q.limit).execute();
-    return rows.map((r) => ({ ...r, amount_minor: Number(r.amount_minor) }));
+    return rows.map((r) => ({ ...r, amount_minor: Number(r.amount_minor), document_size: num(r.document_size) }));
   }
 
   async get(tx: Tx, id: string) {
     const r = await this.expenses(tx).where('e.id', '=', id).executeTakeFirst();
-    return r && { ...r, amount_minor: Number(r.amount_minor) };
+    return r && { ...r, amount_minor: Number(r.amount_minor), document_size: num(r.document_size) };
   }
 
   lock(tx: Tx, id: string) {
-    return tx.selectFrom('expenses').select(['id', 'status', 'created_by']).where('id', '=', id).forUpdate().executeTakeFirst();
+    return tx.selectFrom('expenses').select(['id', 'status', 'created_by', 'file_id']).where('id', '=', id).forUpdate().executeTakeFirst();
   }
 
   add(tx: Tx, tenantId: string, e: {
@@ -95,6 +91,27 @@ export class FinanceRepository {
       tenant_id: tenantId, branch_id: e.branchId, category_id: e.categoryId, amount_minor: e.amountMinor, currency: e.currency, spent_on: e.spentOn,
       payment_method: e.method, reference: e.reference, supplier_name: e.supplierName, description: e.description, status: e.status, created_by: e.createdBy,
     }).returning('id').executeTakeFirstOrThrow();
+  }
+
+  // ---------- supporting documents (EXP-001, H2) ----------
+  async usedBytes(tx: Tx): Promise<number> {
+    const { rows } = await sql<{ n: string }>`select coalesce(sum(size_bytes), 0) as n from files`.execute(tx);
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  /** the private file row, then the expense points at it (the database allows that once, while the expense is not void) */
+  async attachDocument(tx: Tx, expenseId: string, f: { id: string; tenantId: string; bucket: string; objectKey: string; mime: string; size: number; sha256: string; uploadedBy: string }) {
+    await tx.insertInto('files').values({
+      id: f.id, tenant_id: f.tenantId, bucket: f.bucket, object_key: f.objectKey, mime_type: f.mime, size_bytes: f.size, kind: 'document',
+      is_private: true, sha256: f.sha256, uploaded_by: f.uploadedBy,
+    }).execute();
+    await tx.updateTable('expenses').set({ file_id: f.id }).where('id', '=', expenseId).execute();
+  }
+
+  /** the expense a document belongs to, for its signed link (RLS: another clinic's file looks missing) */
+  documentOf(tx: Tx, fileId: string) {
+    return tx.selectFrom('expenses as e').innerJoin('files as f', 'f.id', 'e.file_id')
+      .select(['e.id as expense_id', 'f.id', 'f.object_key', 'f.mime_type']).where('f.id', '=', fileId).executeTakeFirst();
   }
 
   decide(tx: Tx, id: string, d: { status: 'approved' | 'rejected'; by: string; note: string | null }) {

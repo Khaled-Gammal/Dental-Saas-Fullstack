@@ -37,7 +37,7 @@ Last updated: 2026-10-19, end of Phase G (final report: `docs/reviews/2026-10-19
 | 12 | Invoice | IMPLEMENTED (E1, E2) | — |
 | 13 | Payments | IMPLEMENTED (E1, E2, E3) | back-dating a payment (not offered; payments are dated now) |
 | 14 | Follow-up | IMPLEMENTED | — |
-| 15 | Expenses and cash | IMPLEMENTED (E3) | expense supporting documents (EXP-001) |
+| 15 | Expenses and cash | IMPLEMENTED (E3, H2) | — |
 | 16 | Reporting | IMPLEMENTED (E4, F4) | Excel export (deferred) |
 
 ## Part B — approved new requirements
@@ -89,9 +89,9 @@ Last updated: 2026-10-19, end of Phase G (final report: `docs/reviews/2026-10-19
 | DISC-001 | Fixed/percent discount + reason | IMPLEMENTED | E2 | line and invoice; percent → amount half up, follows the lines on a draft; reason required (DB) |
 | DISC-002 | Authorization limits | IMPLEMENTED | E2 | `roles.max_discount_bp/minor` (CLR-02 defaults, also at sign-up); measured on every change; `#/discounts` |
 | DISC-003 | Discount approval | IMPLEMENTED | E2 | pending blocks issuing (DB), no self-approval (DB), approve/reject with note, audited; owner queue |
-| EXP-001 | Record an expense | PARTIAL | E3 | migration 0025; branch, category, amount, date (not future), method + reference rule, supplier, description; the recorder is the responsible member; `#/expenses`. Missing: supporting document upload |
+| EXP-001 | Record an expense | IMPLEMENTED | E3/H2 | migration 0025; branch, category, amount, date (not future), method + reference rule, supplier, description; the recorder is the responsible member; `#/expenses`. H2 (migration 0028): supporting document `POST /expenses/:id/document` (PDF/JPEG/PNG/WebP by bytes, private, attached once by `expenses:write`, not on a void expense), 5-minute member-bound links `/expense-files/…` in their own signing scope; `27_expense_documents.sql`, `finance.e2e-spec.ts` |
 | EXP-002 | Expense categories | IMPLEMENTED | E3 | 8 Arabic categories per clinic (back-filled, and at sign-up); owner adds and deactivates; never deleted |
-| EXP-003 | Expense approval | IMPLEMENTED | E3 | CLR-03: owner/accountant approved on entry; reception cash only ≤ clinic limit (500.00), pending; owner approves/rejects with a note; no self-approval (DB) |
+| EXP-003 | Expense approval | IMPLEMENTED | E3/H2 | CLR-03: owner/accountant approved on entry; owner approves/rejects with a note; no self-approval (DB). Owner 2026-10-20 (migration 0029): reception has no expense access (`expenses:write:cash` retired, reception limit removed from the API and screen); pending ones recorded before still wait for the owner |
 | EXP-004 | Expense corrections | IMPLEMENTED | E3 | money fields immutable (DB); void with reason, stays listed; status only moves forward |
 | CASH-001…004 | Cash sessions, expected cash, close, reopen | IMPLEMENTED | E3 | CLR-04: one session per branch per business day (`cash:operate`: reception, accountant); expected = opening + cash in − cash refunds − cash expenses, other methods listed apart; a difference needs a note; nothing dated into a closed day (DB, race-safe); owner reopens with a reason, earlier figures kept; `#/cash` |
 | REPORT-001…005 | Reports | IMPLEMENTED | E4 | migration 0026 `report_money/expenses/attendance/procedures/outstanding/overdue_installments()` (caller's rights, so RLS and branch access apply); `modules/reports` `GET /reports/{revenue,expenses,attendance,performance,outstanding,branches}`; reception today's revenue only, doctors their own attendance/performance; `#/reports` with A4 print; `25_reports.sql` (fixed data, sums = records, Maadi-only member), `reports.e2e-spec.ts`, `reports-rules.spec.ts` |
@@ -131,6 +131,8 @@ Change annotations (superseded, refined, deviation) are in SRS §A.0. Statuses:
 | --- | --- | --- |
 | 2026-10-17 | A | Audit (`docs/implementation-audit.md`) |
 | 2026-10-17 | B | SRS v4, database design, roadmap, this tracker. Decision D-01 (email verification, no SMS) |
+| 2026-10-20 | H2b | Owner: expenses are the owner's and the accountant's only; reception keeps bookings, patients, patient payments and the cash box. Migration 0029 (retires `expenses:write:cash`, bumps the access version of the members concerned) |
+| 2026-10-20 | H2 | EXP-001 supporting document. Migration 0028 (`expenses_guard`: document attached once; private files of the clinic; one expense per file) |
 | 2026-10-19 | H1 | BILLING-005 at check-in (`GET /balances`), TPLAN-004 invoiced/paid/balance per plan. No migration |
 | 2026-10-19 | F5 | Owner confirmed the "my day" rule and asked for no-shows today as well as the month (home). L10N-008 cleanup approved and done: Arabic-only dictionary and no `lang` plumbing in the dashboard. No migration |
 | 2026-10-19 | G | Full run (431 DB, 296 API, 75 dashboard, 23 website), browser sweep of 33 dashboard screens at two widths; fixed the profile/visit overflow at phone width and the bare new-invoice link. Final report |

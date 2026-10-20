@@ -137,6 +137,12 @@ export const CLINICAL_FILE_POLICY = {
 } as const;
 export type ClinicalFileKind = (typeof CLINICAL_FILE_POLICY.kinds)[number];
 
+/** An expense's supporting document (EXP-001): PDF or image, private, same checks and link lifetime as clinical files. */
+export const EXPENSE_FILE_POLICY = {
+  maxUploadBytes: 20 * 1024 * 1024,
+  linkSeconds: 5 * 60,
+} as const;
+
 export type MediaPurpose = keyof typeof MEDIA_POLICY.purposes;
 export type MediaKind = (typeof MEDIA_POLICY.purposes)[MediaPurpose]['kind'];
 

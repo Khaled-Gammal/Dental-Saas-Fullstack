@@ -97,6 +97,10 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   payments_future: { status: 400, code: 'date_in_future', title: 'A payment is not dated in the future' },
   expenses_locked: { status: 409, code: 'expense_locked', title: 'A recorded expense is not edited; void it and record it again' },
   expenses_self_approval: { status: 403, code: 'self_approval', title: 'An expense is approved by someone else' },
+  // the supporting document (Phase H2): the service checks these first; the database is the last word under races
+  expenses_document_fixed: { status: 409, code: 'expense_has_document', title: 'This expense already has its document' },
+  expenses_document_private: { status: 400, code: 'file_not_found', title: 'File not found' },
+  expenses_file: { status: 409, code: 'expense_has_document', title: 'This expense already has its document' },
   expenses_void_complete: { status: 400, code: 'void_reason_required', title: 'Give the reason for voiding' },
   expenses_reference_required: { status: 400, code: 'reference_required', title: 'Enter the transfer, wallet or InstaPay reference' },
   expense_categories_tenant_id_name_key: { status: 409, code: 'category_name_taken', title: 'A category with this name exists' },

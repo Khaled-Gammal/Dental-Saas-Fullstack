@@ -337,13 +337,12 @@ export function useFinanceMutation<V, R = unknown>(clinicId: string, fn: (v: V) 
   return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: financeKeys.all(clinicId) }) });
 }
 export const useExpenses = (clinicId: string, q: { status?: string; from?: string; to?: string; branchId?: string; categoryId?: string }) =>
-  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', q] as const, queryFn: () => api<ExpensesPage>(`/expenses${qs(q)}`) });
+  // document links last 5 minutes (EXP-001): refreshed before they expire, like a patient's files
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', q] as const, queryFn: () => api<ExpensesPage>(`/expenses${qs(q)}`), staleTime: 4 * 60_000, refetchInterval: 4 * 60_000 });
 export const usePendingExpenses = (clinicId: string, enabled = true) =>
-  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', 'pending'] as const, queryFn: () => api<Expense[]>('/expenses/pending'), enabled });
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'expenses', 'pending'] as const, queryFn: () => api<Expense[]>('/expenses/pending'), enabled, staleTime: 4 * 60_000, refetchInterval: 4 * 60_000 });
 export const useExpenseCategories = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'categories'] as const, queryFn: () => api<ExpenseCategory[]>('/expenses/categories') });
-export const useExpenseSettings = (clinicId: string, enabled = true) =>
-  useQuery({ queryKey: [...financeKeys.all(clinicId), 'settings'] as const, queryFn: () => api<{ receptionLimitMinor: number }>('/expenses/settings'), enabled });
 export const useCashBranches = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-branches'] as const, queryFn: () => api<CashBranch[]>('/cash/branches') });
 export const useCashDay = (clinicId: string, branchId: string) =>

@@ -387,7 +387,9 @@ export interface Expense {
   payment_method: PaymentMethod | null; reference: string | null; supplier_name: string | null; description: string | null; status: ExpenseStatus;
   created_by: string | null; created_at: string; created_by_name: string | null; approved_at: string | null; approved_by_name: string | null; decision_note: string | null;
   void_reason: string | null; voided_at: string | null; voided_by_name: string | null; branch: { name_ar: string | null; name_en: string | null };
-  can?: { decide: boolean; void: boolean };
+  /** EXP-001 (H2): the private supporting document; `url` is a 5-minute link for the signed-in member */
+  file_id: string | null; document: { url: string; mime_type: string; size_bytes: number } | null;
+  can?: { decide: boolean; void: boolean; attach: boolean };
 }
 export interface ExpensesPage { items: Expense[]; byCategory: { id: string; name: string; amount: number }[] | null }
 export interface DayTotals {
