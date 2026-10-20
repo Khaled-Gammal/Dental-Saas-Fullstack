@@ -62,7 +62,7 @@ export class FinanceRepository {
       ]);
   }
 
-  async list(tx: Tx, q: { status?: string; branchId?: string; categoryId?: string; from?: string; to?: string; createdBy?: string; limit: number }) {
+  async list(tx: Tx, q: { status?: string; branchId?: string; categoryId?: string; from?: string; to?: string; createdBy?: string; limit: number; after?: string }) {
     let query = this.expenses(tx);
     if (q.status) query = query.where('e.status', '=', q.status);
     if (q.branchId) query = query.where('e.branch_id', '=', q.branchId);
@@ -70,7 +70,10 @@ export class FinanceRepository {
     if (q.createdBy) query = query.where('e.created_by', '=', q.createdBy);
     if (q.from) query = query.where(sql<boolean>`e.spent_on >= ${q.from}::date`);
     if (q.to) query = query.where(sql<boolean>`e.spent_on <= ${q.to}::date`);
-    const rows = await query.orderBy('e.spent_on', 'desc').orderBy('e.created_at', 'desc').limit(q.limit).execute();
+    // keyset paging in the list's own order (the id breaks ties): the page after `after`; an id this clinic cannot
+    // see (RLS) matches no row, so nothing comes back
+    if (q.after) query = query.where(sql<boolean>`(e.spent_on, e.created_at, e.id) < (select a.spent_on, a.created_at, a.id from expenses a where a.id = ${q.after})`);
+    const rows = await query.orderBy('e.spent_on', 'desc').orderBy('e.created_at', 'desc').orderBy('e.id', 'desc').limit(q.limit).execute();
     return rows.map((r) => ({ ...r, amount_minor: Number(r.amount_minor), document_size: num(r.document_size) }));
   }
 

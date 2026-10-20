@@ -19,6 +19,8 @@ export const ExpensesQuery = z.object({
   branchId: Uuid.optional(), categoryId: Uuid.optional(),
   from: z.string().regex(ISO_DATE).optional(), to: z.string().regex(ISO_DATE).optional(),
   limit: z.coerce.number().int().min(1).max(500).default(200),
+  /** "load more": the expenses listed after this one (the last of the previous page) */
+  after: Uuid.optional(),
 }).strict();
 export const ExpenseDecision = z.object({ note: Text(500).nullable().optional() }).strict();
 export const ExpenseRejection = z.object({ note: z.string().trim().min(3).max(500) }).strict();

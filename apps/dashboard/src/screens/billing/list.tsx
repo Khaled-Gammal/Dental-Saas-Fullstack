@@ -47,9 +47,11 @@ const INVOICE_COLUMNS: Column<InvoiceRow>[] = [
 export function InvoicesList({ clinicId, query }: { clinicId: string; query?: Record<string, string> }) {
   const status = (FILTERS as readonly string[]).includes(query?.status ?? '') ? query!.status : 'open';
   const list = useInvoices(clinicId, status === 'overdue' ? 'open' : status);
+  const rows = list.data?.pages.flat();
   return (
     <>
-      <PageHeader title={t('navBilling')} sub={t('invoicesSub')} count={status !== 'overdue' && list.data ? fmtNumber(list.data.length) : undefined} />
+      <PageHeader title={t('navBilling')} sub={t('invoicesSub')}
+        count={status !== 'overdue' && rows ? <bdi dir="ltr">{fmtNumber(rows.length)}{list.hasNextPage && '+'}</bdi> : undefined} />
       <div className="seg" role="group" aria-label={t('navBilling')}>
         {FILTERS.map((f) => (
           <RouteLink key={f} route={{ page: 'invoices', query: { status: f } }} className={`seg-btn${f === status ? ' is-on' : ''}`} aria-current={f === status ? 'page' : undefined}>{t(`invf_${f}` as Key)}</RouteLink>
@@ -59,7 +61,7 @@ export function InvoicesList({ clinicId, query }: { clinicId: string; query?: Re
         <DataTable
           key={status} // a new tab starts on page 1 with no search
           label={t('navBilling')}
-          rows={list.data}
+          rows={rows}
           columns={INVOICE_COLUMNS}
           rowKey={(i) => i.id}
           isLoading={list.isLoading}
@@ -70,6 +72,10 @@ export function InvoicesList({ clinicId, query }: { clinicId: string; query?: Re
           pageSize={20}
           onRowClick={(i) => navigate(to.invoice(i.id))}
           empty={{ icon: <ReceiptIcon size={28} />, title: t('noInvoices'), text: t('noInvoicesText') }}
+          // the table searches and sorts what is loaded; older invoices come in 100 at a time
+          footer={list.hasNextPage && (
+            <div className="row-center"><Button variant="secondary" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('loadMore')}</Button></div>
+          )}
         />
       )}
     </>

@@ -33,6 +33,8 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
   const [adding, setAdding] = useState(false);
   const [docFailed, setDocFailed] = useState(false);
   const list = useExpenses(clinicId, { ...period, status: status === 'all' ? undefined : status });
+  const rows = list.data?.pages.flatMap((p) => p.items);
+  const byCategory = list.data?.pages[0]?.byCategory; // the whole period's totals, the same on every page
   return (
     <>
       <PageHeader title={t('navExpenses')} sub={t('expensesSub')}
@@ -57,7 +59,7 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
       <DataTable
         key={`${status}:${period.from}:${period.to}`}
         label={t('navExpenses')}
-        rows={list.data?.items}
+        rows={rows}
         columns={expenseColumns(clinicId, rights)}
         rowKey={(e) => e.id}
         isLoading={list.isLoading}
@@ -69,14 +71,18 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
         pageSize={25}
         actions={rights.all ? (e) => <ExpenseActions clinicId={clinicId} e={e} /> : undefined}
         empty={{ icon: <WalletIcon size={28} />, title: t('noExpenses'), text: t('noExpensesText') }}
+        // the table searches and sorts what is loaded; older expenses in the period come in 200 at a time
+        footer={list.hasNextPage && (
+          <div className="row-center"><Button variant="secondary" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('loadMore')}</Button></div>
+        )}
       />
-      {list.data?.byCategory && list.data.byCategory.length > 0 && (
+      {byCategory && byCategory.length > 0 && (
         <Card>
           <h2>{t('byCategory')}</h2>
           <p className="muted small">{t('byCategorySub')}</p>
           <ul className="line-list mt-sm">
-            {list.data.byCategory.map((c) => <li key={c.id}><span>{c.name}</span><span className="line-end"><bdi>{money(c.amount)}</bdi></span></li>)}
-            <li className="line-total"><strong>{t('total')}</strong><span className="line-end"><strong><bdi>{money(list.data.byCategory.reduce((s, c) => s + c.amount, 0))}</bdi></strong></span></li>
+            {byCategory.map((c) => <li key={c.id}><span>{c.name}</span><span className="line-end"><bdi>{money(c.amount)}</bdi></span></li>)}
+            <li className="line-total"><strong>{t('total')}</strong><span className="line-end"><strong><bdi>{money(byCategory.reduce((s, c) => s + c.amount, 0))}</bdi></strong></span></li>
           </ul>
         </Card>
       )}
