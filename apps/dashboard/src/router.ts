@@ -3,7 +3,7 @@
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
 export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking'
-  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles';
+  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles' | 'data';
 export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge';
 
 /** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
@@ -18,6 +18,7 @@ export type Route = (
 const ACTIONS: Record<Page, readonly Action[]> = {
   overview: [],
   profile: [],
+  data: [], // H8: the owner's data export and clinic deletion
   branches: ['new', 'edit', 'hours', 'rooms'],
   appointments: ['new', 'edit'], // `edit` = move to another time/doctor and/or give it a room
   patients: ['new', 'edit', 'view', 'merge'], // merge = another record of the same person is merged into this one

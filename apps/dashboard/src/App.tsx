@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { can, logout, refreshSession, subscribeSession, type Session } from './api';
+import { can, logout, refreshSession, subscribeSession, takeLoginNotice, type Session } from './api';
 import { t } from './i18n';
 import { AuthLayout, Forgot, Login, ResetPassword, Signup, Verify, type AuthScreen } from './screens/auth';
 import { AcceptInvite } from './screens/accept-invite';
@@ -48,6 +48,7 @@ import { GalleryList } from './screens/gallery/list';
 import { GalleryUpload } from './screens/gallery/new';
 import { Overview } from './screens/overview';
 import { Profile } from './screens/profile';
+import { ClinicData } from './screens/clinic-data';
 import { ServiceFormPage } from './screens/services/form';
 import { ServicesList } from './screens/services/list';
 import { AppShell } from './screens/shell';
@@ -83,7 +84,7 @@ export function App() {
   useEffect(() => {
     subscribeSession((s) => {
       setSessionState(s);
-      if (!s) setScreen({ name: 'login' }); // after sign-out or an ended session, never show a stale screen
+      if (!s) setScreen({ name: 'login', notice: takeLoginNotice() }); // after sign-out or an ended session, never show a stale screen
     });
     // restore the session from the refresh cookie after a page reload
     refreshSession().catch(() => null).finally(() => setBooting(false));
@@ -152,6 +153,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
   switch (page) {
     case 'overview': return <Overview session={session} />;
     case 'profile': return <Profile clinicId={clinicId} canEdit={settings} />;
+    case 'data': return <ClinicData session={session} />;
     case 'branches': {
       const w = can(session, 'branches:write');
       if (action === 'new' && w) return <BranchForm clinicId={clinicId} />;

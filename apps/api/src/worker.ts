@@ -9,6 +9,7 @@ import type { EmailSender } from './shared/notifications/ports';
 import { SmtpEmailSender } from './shared/notifications/smtp-email.sender';
 import { createObjectStorage } from './shared/storage/create-storage';
 import { appointmentCreated, appointmentRescheduled } from './worker/appointment-notifications';
+import { buildNextExport, expireExports, purgeDeletedClinics } from './worker/data-exports';
 import { sendDueNotifications } from './worker/notification-sender';
 import { relayOutbox } from './worker/outbox-relay';
 import { purgeOrphanImages } from './worker/purge-orphan-images';
@@ -17,7 +18,8 @@ import { purgeOrphanImages } from './worker/purge-orphan-images';
  * Background worker (separate process). Connects as app_worker, which may work across clinics.
  * Jobs: outbox relay (booking emails and reminders), sending due notifications, releasing expired website slot
  * holds every minute, marking no-shows, suspending clinics whose trial ended (every 15 minutes), purging old auth data
- * and unused uploaded images nightly. Next: site revalidation through the outbox.
+ * and unused uploaded images nightly; H8: clinic data exports (their own queue, one at a time), expiring old exports
+ * and erasing clinics whose 90 days after deletion are over (nightly). Next: site revalidation through the outbox.
  */
 async function main() {
   const cfg = loadConfig();
@@ -41,6 +43,12 @@ async function main() {
   await queue.upsertJobScheduler('purge-auth-data', { pattern: WORKER_POLICY.purgeAuthCron, tz: WORKER_POLICY.timezone }, { name: 'purge-auth-data' });
   // 03:45 every night: uploaded images nothing uses, older than a day
   await queue.upsertJobScheduler('purge-orphan-images', { pattern: WORKER_POLICY.purgeImagesCron, tz: WORKER_POLICY.timezone }, { name: 'purge-orphan-images' });
+  // H8: 04:00 exports past their days; 04:30 clinics whose 90 days after deletion are over
+  await queue.upsertJobScheduler('expire-exports', { pattern: WORKER_POLICY.expireExportsCron, tz: WORKER_POLICY.timezone }, { name: 'expire-exports' });
+  await queue.upsertJobScheduler('purge-clinics', { pattern: WORKER_POLICY.purgeClinicsCron, tz: WORKER_POLICY.timezone }, { name: 'purge-clinics' });
+  // H8: a data export can take minutes: its own queue, so reminders and the rest never wait behind it
+  const exportsQueue = new Queue('exports', { connection });
+  await exportsQueue.upsertJobScheduler('build-exports', { every: WORKER_POLICY.buildExportsEveryMs }, { name: 'build-exports' });
 
   const worker = new Worker(
     'maintenance',
@@ -86,6 +94,16 @@ async function main() {
           log({ job: job.name, deleted });
           return { deleted };
         }
+        case 'expire-exports': {
+          const expired = await expireExports(db, storage, log);
+          if (expired > 0) log({ job: job.name, expired });
+          return { expired };
+        }
+        case 'purge-clinics': {
+          const purged = await purgeDeletedClinics(db, storage, log);
+          if (purged > 0) log({ job: job.name, purged });
+          return { purged };
+        }
         default:
           throw new Error(`Unknown job ${job.name}`);
       }
@@ -93,11 +111,18 @@ async function main() {
     { connection, concurrency: 1 },
   );
   worker.on('failed', (job, err) => console.error(JSON.stringify({ job: job?.name, error: err.message })));
+  // keep looping while there are queued exports, one at a time
+  const exportsWorker = new Worker('exports', async () => {
+    while (await buildNextExport(db, storage, email, cfg.DASHBOARD_URL, log)) { /* the next one */ }
+  }, { connection, concurrency: 1 });
+  exportsWorker.on('failed', (job, err) => console.error(JSON.stringify({ job: job?.name, error: err.message })));
   console.log(`Worker ready: outbox every ${WORKER_POLICY.outboxEveryMs / 1000}s, notifications every ${WORKER_POLICY.notificationsEveryMs / 1000}s, holds every ${WORKER_POLICY.releaseHoldsEveryMs / 1000}s`);
 
   const shutdown = async () => {
     await worker.close();
+    await exportsWorker.close();
     await queue.close();
+    await exportsQueue.close();
     connection.disconnect();
     await db.destroy();
     process.exit(0);

@@ -36,7 +36,12 @@ export class SessionService {
     if (!user) throw sessionExpired();
     if (!user.is_active) throw Err.unauthorized('account_disabled', 'Account disabled');
 
-    const all = (await this.repo.memberships(userId)).filter((m) => m.member_status === 'active' && m.tenant_status !== 'cancelled');
+    const mine = (await this.repo.memberships(userId)).filter((m) => m.member_status === 'active');
+    const all = mine.filter((m) => m.tenant_status !== 'cancelled');
+    // H8: a clinic its owner deleted (kept 90 days): when it is the only (or the chosen) clinic, say so
+    if (!all.some((m) => !clinicSlug || m.slug === clinicSlug) && mine.some((m) => m.tenant_status === 'cancelled' && (!clinicSlug || m.slug === clinicSlug))) {
+      throw Err.forbidden('clinic_deleted', 'This clinic was deleted; contact the platform to restore it');
+    }
     // H5: a suspended clinic opens to nobody; when it is the only (or the chosen) clinic, say so
     const active = all.filter((m) => m.tenant_status !== 'suspended');
     if (all.some((m) => m.tenant_status === 'suspended' && (!clinicSlug || m.slug === clinicSlug)) && !active.some((m) => !clinicSlug || m.slug === clinicSlug)) {

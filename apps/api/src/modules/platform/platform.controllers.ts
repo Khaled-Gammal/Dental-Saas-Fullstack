@@ -73,6 +73,9 @@ export class PlatformController {
     return this.platform.suspend(clinicId, b.reason);
   }
 
+  @Post('clinics/:id/restore') @HttpCode(200)
+  restore(@Param('id', id) clinicId: string) { return this.platform.restore(clinicId); }
+
   @Post('clinics/:id/reactivate') @HttpCode(200)
   reactivate(@Param('id', id) clinicId: string) { return this.platform.reactivate(clinicId); }
 

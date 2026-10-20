@@ -108,6 +108,9 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   platform_cycle: { status: 400, code: 'validation_failed', title: 'A subscription is monthly or yearly' },
   platform_plan_missing: { status: 404, code: 'subscription_plan_not_found', title: 'Plan not found' },
   lead_not_found: { status: 404, code: 'lead_not_found', title: 'Request not found' },
+  // data export and clinic deletion (Phase H8)
+  data_exports_one_open: { status: 409, code: 'export_in_progress', title: 'An export of this clinic is already being prepared' },
+  clinic_owner_only: { status: 403, code: 'owner_only', title: 'Only the clinic owner can do this' },
   tenants_suspension_reason: { status: 400, code: 'reason_required', title: 'Give the reason (3 characters at least)' },
   // custom roles (Phase H4): the service checks these first; the database is the last word
   roles_owner_fixed: { status: 409, code: 'owner_role_fixed', title: 'The owner role keeps every permission' },

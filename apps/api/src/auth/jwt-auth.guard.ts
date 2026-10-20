@@ -49,6 +49,8 @@ export class JwtAuthGuard implements CanActivate {
     }
     // H5: a clinic the platform suspended is closed to its staff from their next request (the owner's choice)
     if (state.tenant_status === 'suspended') throw Err.unauthorized('clinic_suspended', 'This clinic is suspended; contact the platform');
+    // H8: the owner deleted the clinic: closed at once, like a suspension
+    if (state.tenant_status === 'cancelled') throw Err.unauthorized('clinic_deleted', 'This clinic was deleted; contact the platform to restore it');
     if (state.access_version !== payload.av) throw Err.unauthorized('access_changed', 'Your access changed; sign in again');
     this.cls.set('userId', payload.sub);
     this.cls.set('tenantId', payload.tid);

@@ -168,6 +168,23 @@ export type MediaPurpose = keyof typeof MEDIA_POLICY.purposes;
 export type MediaKind = (typeof MEDIA_POLICY.purposes)[MediaPurpose]['kind'];
 
 /** Background job schedule. */
+/**
+ * Data export and clinic deletion (H8, NFR-08; owner 2026-10-20). The owner asks for an export (password again); the
+ * worker builds one ZIP, kept 7 days, downloaded through a short signed link. Deletion keeps the data 90 days (in
+ * the database: request_clinic_deletion), then the worker erases it.
+ */
+export const DATA_POLICY = {
+  exportKeepDays: 7,
+  exportsPerDay: 3,
+  linkSeconds: 5 * 60,
+  /** an export still 'running' after this long was cut off (a restart): it is marked failed */
+  staleExportMinutes: 120,
+  /** rows read per query while exporting a table */
+  pageRows: 5_000,
+  readySubject: 'نسخة بيانات عيادتك جاهزة',
+  deletionSubject: 'طلب حذف العيادة',
+} as const;
+
 export const WORKER_POLICY = {
   outboxEveryMs: 5_000,
   notificationsEveryMs: 30_000,
@@ -177,5 +194,9 @@ export const WORKER_POLICY = {
   expireTrialsEveryMs: 15 * 60_000,
   purgeAuthCron: '15 3 * * *',
   purgeImagesCron: '45 3 * * *',
+  /** H8: data exports are built one at a time on their own queue; old ones expire and closed clinics are erased nightly */
+  buildExportsEveryMs: 30_000,
+  expireExportsCron: '0 4 * * *',
+  purgeClinicsCron: '30 4 * * *',
   timezone: 'Africa/Cairo',
 } as const;
