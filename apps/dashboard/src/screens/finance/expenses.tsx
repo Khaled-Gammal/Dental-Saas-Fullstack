@@ -1,6 +1,9 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { arName } from '@dental/ui/text';
 import { uploadFile } from '../../api';
+import { navigate, useFlash, useLeave, useUnsavedChanges } from '../../hooks';
+import { to } from '../../router';
+import { FormPage } from '../../ui/page';
 import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { FilePicker } from '../../components/file-picker';
@@ -13,7 +16,7 @@ import type { Expense, ExpenseStatus, PaymentMethod } from '../../types';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader, Switch } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
-import { WalletIcon } from '../../ui/icons';
+import { PlusIcon, WalletIcon } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
 
 const STATUS_TONE: Record<ExpenseStatus, 'neutral' | 'primary' | 'success' | 'warning'> = { pending: 'warning', approved: 'success', rejected: 'neutral', void: 'neutral' };
@@ -31,17 +34,15 @@ export interface ExpenseRights { all: boolean; read: boolean; approve: boolean }
 export function Expenses({ clinicId, rights }: { clinicId: string; rights: ExpenseRights }) {
   const [period, setPeriod] = useState(() => monthOf(localToday()));
   const [status, setStatus] = useState<(typeof FILTERS)[number]>('all');
-  const [adding, setAdding] = useState(false);
-  const [docFailed, setDocFailed] = useState(false);
+  const flash = useFlash(); // "saved", or "saved without its document" when the upload failed
   const list = useExpenses(clinicId, { ...period, status: status === 'all' ? undefined : status });
   const rows = list.data?.pages.flatMap((p) => p.items);
   const byCategory = list.data?.pages[0]?.byCategory; // the whole period's totals, the same on every page
   return (
     <>
       <PageHeader title={t('navExpenses')} sub={t('expensesSub')}
-        action={rights.all && !adding && <Button onClick={() => { setAdding(true); setDocFailed(false); }}>{t('recordExpense')}</Button>} />
-      {adding && <ExpenseForm clinicId={clinicId} onDone={(failed) => { setAdding(false); setDocFailed(failed); }} />}
-      {docFailed && <Alert tone="info">{t('expenseSavedNoDocument')}</Alert>}
+        action={rights.all && <Button onClick={() => navigate(to.create('expenses'))}><PlusIcon size={18} />{t('recordExpense')}</Button>} />
+      {flash && <Alert tone={flash === t('expenseSavedNoDocument') ? 'info' : 'success'}>{flash}</Alert>}
       {rights.approve && <PendingExpenses clinicId={clinicId} />}
       <div className="row-between">
         <div className="seg" role="group" aria-label={t('navExpenses')}>
@@ -93,7 +94,11 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
 }
 
 /** `onDone(true)`: the expense was saved but its document did not upload (it can be attached from the list). */
-function ExpenseForm({ clinicId, onDone }: { clinicId: string; onDone: (documentFailed: boolean) => void }) {
+/**
+ * `#/expenses/new` (UI refinement U3): recording an expense on its own page, in two sections, with the form page's
+ * Save and Cancel (it used to open inside the list). The expense is saved first, then its document.
+ */
+export function NewExpense({ clinicId }: { clinicId: string }) {
   const branches = useBranches(clinicId); // every member reads branches; the API checks the member may use the one chosen
   const categories = useExpenseCategories(clinicId);
   const today = localToday();
@@ -119,11 +124,19 @@ function ExpenseForm({ clinicId, onDone }: { clinicId: string; onDone: (document
     return uploadFile<Expense>(`/expenses/${e.id}/document`, file, () => undefined).then(() => false, () => true);
   });
   const ready = !!branch && !!categoryId && !!minor && minor > 0 && (!needsReference(method) || reference.trim().length > 0) && !tooBig;
-  const submit = (e: FormEvent) => { e.preventDefault(); if (ready) save.mutate(undefined, { onSuccess: onDone }); };
+  const leave = useLeave(to.list('expenses'));
+  const dirty = !!(branchId || categoryId || amount || reference || supplier || description || file);
+  useUnsavedChanges(dirty && !save.isPending && !save.isSuccess, t('leaveUnsaved'));
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (ready) save.mutate(undefined, { onSuccess: (documentFailed) => leave(t(documentFailed ? 'expenseSavedNoDocument' : 'expenseSaved')) });
+  };
   return (
-    <Card as="form" className="stack">
-      <h2>{t('recordExpense')}</h2>
-      <div className="grid-2">
+    <FormPage title={t('recordExpense')} sub={t('expensesSub')} crumbs={[{ label: t('navExpenses'), route: to.list('expenses') }, { label: t('recordExpense') }]}
+      back={to.list('expenses')} onSubmit={submit} saving={save.isPending} canSave={ready} error={save.error}>
+      <Card>
+      <h2>{t('expenseSectionMain')}</h2>
+      <div className="grid-2 mt-sm">
         <Field label={t('branch')}>
           {(a) => <Choice id={a.id} value={branch} onChange={setBranchId} placeholder={t('pickBranch')}
             options={list.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en) }))} />}
@@ -143,18 +156,19 @@ function ExpenseForm({ clinicId, onDone }: { clinicId: string; onDone: (document
           </Field>
         )}
         <Field label={t('expenseDate')}>{(a) => <DatePicker id={a.id} value={spentOn} onChange={setSpentOn} max={today} />}</Field>
+      </div>
+      </Card>
+      <Card>
+      <h2>{t('expenseSectionMore')}</h2>
+      <div className="grid-2 mt-sm">
         <Field label={t('supplier')} optional={t('optional')}>{(a) => <Input id={a.id} value={supplier} onChange={(e) => setSupplier(e.target.value)} maxLength={120} />}</Field>
         <Field label={t('lineDescription')} optional={t('optional')}>{(a) => <Input id={a.id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />}</Field>
         <Field label={t('expenseDocument')} optional={t('optional')} hint={t('expenseDocumentHint')} error={tooBig ? t('clinicalTooBig') : undefined}>
           {(a) => <FilePicker id={a.id} describedBy={a.describedBy} accept={DOC_ACCEPT} file={file} onChange={setFile} disabled={save.isPending} />}
         </Field>
       </div>
-      <ErrorText error={save.error} />
-      <div className="row-end">
-        <Button variant="ghost" onClick={() => onDone(false)}>{t('cancel')}</Button>
-        <Button type="submit" onClick={submit} loading={save.isPending} disabled={!ready}>{t('save')}</Button>
-      </div>
-    </Card>
+      </Card>
+    </FormPage>
   );
 }
 

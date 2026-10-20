@@ -39,6 +39,7 @@ const DoctorTimeOff = lazyScreen(() => import('./screens/calendar/time-off'), 'D
 const Discounts = lazyScreen(() => import('./screens/billing/discounts'), 'Discounts');
 const CashBox = lazyScreen(() => import('./screens/finance/cash'), 'CashBox');
 const Expenses = lazyScreen(() => import('./screens/finance/expenses'), 'Expenses');
+const NewExpense = lazyScreen(() => import('./screens/finance/expenses'), 'NewExpense');
 const Reports = lazyScreen(() => import('./screens/reports/reports'), 'Reports');
 const InvoicePage = lazyScreen(() => import('./screens/billing/invoice'), 'InvoicePage');
 const InvoicesList = lazyScreen(() => import('./screens/billing/list'), 'InvoicesList');
@@ -235,6 +236,8 @@ function Screen({ route, session }: { route: Route; session: Session }) {
     case 'expenses': {
       const rights = { all: can(session, 'expenses:write'), read: can(session, 'expenses:read'), approve: can(session, 'expenses:approve') };
       if (!rights.read) return <NotFound text={t('noPermissionPage')} back={to.list('overview')} backLabel={t('navOverview')} />;
+      if (action === 'new' && rights.all) return <NewExpense clinicId={clinicId} />;
+      if (action) return <NotFound text={t('noPermissionPage')} back={to.list('expenses')} backLabel={t('navExpenses')} />;
       return <Expenses clinicId={clinicId} rights={rights} />;
     }
     case 'cash':

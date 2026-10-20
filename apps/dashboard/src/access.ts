@@ -49,6 +49,7 @@ const ACTION: Partial<Record<Page, Partial<Record<string, Need>>>> = {
   },
   // a doctor opens the invoices of their own patients (invoices:read:own) but not the clinic's list
   invoices: { view: [INVOICE_ANY], print: [INVOICE_ANY], new: ['invoices:write', 'patients:read', INVOICE_ANY] },
+  expenses: { new: ['expenses:read', 'expenses:write'] },
 };
 
 const meets = (has: (p: string) => boolean, need: Need) => need.every((c) => (typeof c === 'string' ? has(c) : c.some(has)));

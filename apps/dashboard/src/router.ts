@@ -36,7 +36,7 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   invoices: ['new', 'view', 'print'], // print = the A4 invoice
   payments: ['print'], // the A5 receipt
   discounts: [], // the owner's approval queue and role limits
-  expenses: [], // expenses, the owner's approval queue and categories
+  expenses: ['new'], // expenses, the owner's approval queue and categories; new = record one (U3: its own page)
   cash: [], // the branch's cash day: open, expected cash, count and close; history
   reports: [], // revenue, expenses, attendance, performance, balances (`?tab=`), each printable
   roles: ['new', 'edit', 'view'], // H4: the clinic's roles and their permissions (built-in ones are viewed only)

@@ -45,9 +45,11 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
  * The one layout for every create/edit screen: breadcrumbs, a focused heading, the form body,
  * and a sticky footer with Cancel + Save. The caller owns the state; this owns the chrome.
  */
-export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, error, notice, children, extra }: {
+export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, error, notice, children, extra, saveLabel }: {
   title: string; sub?: string; crumbs: Crumb[]; back: Route; onSubmit: (e: FormEvent) => void;
   saving: boolean; canSave: boolean; error?: unknown; notice?: ReactNode; children: ReactNode; extra?: ReactNode;
+  /** the save button's words when "save" is not what happens (a new invoice is created as a draft) */
+  saveLabel?: string;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -71,7 +73,7 @@ export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, 
         <ErrorText error={error} />
         <div className="form-footer">
           <Button variant="ghost" onClick={() => navigate(back)}>{t('cancel')}</Button>
-          <Button type="submit" loading={saving} disabled={!canSave}>{t('save')}</Button>
+          <Button type="submit" loading={saving} disabled={!canSave}>{saveLabel ?? t('save')}</Button>
         </div>
       </form>
     </>
