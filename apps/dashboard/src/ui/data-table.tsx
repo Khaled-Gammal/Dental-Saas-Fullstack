@@ -27,17 +27,22 @@ export interface Column<T> {
  * Wide tables scroll sideways inside their card on small screens, never the page.
  */
 export function DataTable<T>({
-  rows, columns, rowKey, isLoading, error, onRetry, empty, search, pageSize, defaultSort, actions, onRowClick, toolbar, label,
+  rows, columns, rowKey, isLoading, isFetching, error, onRetry, empty, search, pageSize, defaultSort, actions, onRowClick, toolbar, footer, label,
 }: {
   rows: readonly T[] | undefined;
   columns: Column<T>[];
   rowKey: (row: T) => string;
   isLoading?: boolean;
+  /** refetching in the background (the rows stay, marked busy) */
+  isFetching?: boolean;
   error?: unknown;
   onRetry?: () => void;
   empty: { icon: ReactNode; title: string; text: string; action?: ReactNode };
-  /** a search box over the rows: what text each row is found by */
-  search?: { placeholder: string; text: (row: T) => string };
+  /**
+   * A search box. With `text`, the table searches the rows it has. With `value` + `onChange`, the screen searches (the
+   * API does, over every record) and gives the table what it found.
+   */
+  search?: { placeholder: string; text?: (row: T) => string; value?: string; onChange?: (q: string) => void; autoFocus?: boolean };
   /** rows per page; no paging when absent */
   pageSize?: number;
   defaultSort?: SortState;
@@ -47,19 +52,23 @@ export function DataTable<T>({
   onRowClick?: (row: T) => void;
   /** filters or buttons beside the search box */
   toolbar?: ReactNode;
+  /** under the table: "load more" for a list the API pages */
+  footer?: ReactNode;
   /** what the table lists, for screen readers */
   label: string;
 }) {
-  const [query, setQuery] = useState('');
+  const [ownQuery, setOwnQuery] = useState('');
+  const controlled = !!search?.onChange;
+  const query = controlled ? search?.value ?? '' : ownQuery;
   const [sort, setSort] = useState<SortState | null>(defaultSort ?? null);
   const [page, setPage] = useState(1);
 
   const shown = useMemo(() => {
     let r = rows ?? [];
-    if (search && query) r = searchRows(r, query, search.text);
+    if (!controlled && search?.text && query) r = searchRows(r, query, search.text);
     if (sort) r = sortRows(r, columns.find((c) => c.id === sort.id)?.sortValue, sort.dir);
     return r;
-  }, [rows, search, query, sort, columns]);
+  }, [rows, search, controlled, query, sort, columns]);
   const view = pageSize ? paginate(shown, page, pageSize) : { rows: shown, page: 1, pages: 1, total: shown.length, from: 1, to: shown.length };
   const cols = columns.length + (actions ? 1 : 0);
   const mobileHide = (c: Column<T>) => (c.hideOnMobile ? 'hidden md:table-cell' : '');
@@ -71,15 +80,15 @@ export function DataTable<T>({
           {search && (
             <label className="data-table-search">
               <Search aria-hidden className="size-4 text-muted-foreground" />
-              <input className="input" type="search" value={query} placeholder={search.placeholder} aria-label={search.placeholder}
-                onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
+              <input className="input" type="search" value={query} placeholder={search.placeholder} aria-label={search.placeholder} autoFocus={search.autoFocus}
+                onChange={(e) => { if (controlled) search.onChange!(e.target.value); else setOwnQuery(e.target.value); setPage(1); }} />
             </label>
           )}
           {toolbar}
         </div>
       )}
       {error ? <ErrorText error={error} onRetry={onRetry} /> : (
-        <Table aria-label={label} aria-busy={isLoading || undefined}>
+        <Table aria-label={label} aria-busy={isLoading || isFetching || undefined}>
           <TableHeader className="bg-surface">
             <TableRow className="hover:bg-transparent">
               {columns.map((c) => {
@@ -109,7 +118,7 @@ export function DataTable<T>({
             ) : !view.rows.length ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={cols} className="whitespace-normal p-0">
-                  {query ? <p className="data-table-none">{t('noSearchResults')}</p> : <EmptyState {...empty} />}
+                  {query && !controlled ? <p className="data-table-none">{t('noSearchResults')}</p> : <EmptyState {...empty} />}
                 </TableCell>
               </TableRow>
             ) : view.rows.map((r) => (
@@ -124,6 +133,7 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       )}
+      {footer}
       {pageSize && view.pages > 1 && (
         <nav className="data-table-pager" aria-label={t('pagination')}>
           <Button variant="secondary" disabled={view.page <= 1} onClick={() => setPage(view.page - 1)}>{t('previous')}</Button>
