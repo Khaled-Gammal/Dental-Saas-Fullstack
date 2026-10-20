@@ -160,7 +160,8 @@ describe('Calendar: moves, rooms, holidays, time off, booking rules, my day (e2e
     it('a closed day removes its slots and lists the bookings it falls on; nothing is cancelled', async () => {
       const a = await book(OMAR, MONA, (await slots(MONA, closed))[0]);
       const h = await http().post('/holidays').set(as('ownerA')).send({ branchId: NASR, date: closed, name: 'إجازة رسمية' }).expect(201);
-      expect(h.body.conflicts.map((c: { id: string }) => c.id)).toEqual([a.id]);
+      // other suites book on random far Saturdays too: the day's list holds ours, maybe beside theirs
+      expect(h.body.conflicts.map((c: { id: string }) => c.id)).toContain(a.id);
       expect(await slots(MONA, closed)).toEqual([]);
       expect((await http().get(`/appointments/${a.id}`).set(as('receptionA')).expect(200)).body.status).toBe('confirmed');
       expect((await http().post('/holidays').set(as('ownerA')).send({ branchId: NASR, date: closed, name: 'again' }).expect(409)).body.code).toBe('holiday_exists');
@@ -175,7 +176,7 @@ describe('Calendar: moves, rooms, holidays, time off, booking rules, my day (e2e
       const a = await book(NOUR, AHMED, (await slots(AHMED, day))[0]);
       const t = await http().post(`/doctors/${AHMED}/time-off`).set(as('ownerA'))
         .send({ startsAt: `${day}T00:00:00+02:00`, endsAt: `${day}T23:59:00+02:00`, reason: 'مؤتمر' }).expect(201);
-      expect(t.body.conflicts.map((c: { id: string }) => c.id)).toEqual([a.id]);
+      expect(t.body.conflicts.map((c: { id: string }) => c.id)).toContain(a.id); // as above: other suites may book that day
       expect(await slots(AHMED, day)).toEqual([]);
       expect((await http().post(`/doctors/${AHMED}/time-off`).set(as('ownerA')).send({ startsAt: `${day}T10:00:00+02:00`, endsAt: `${day}T09:00:00+02:00` }).expect(400)).body.code)
         .toBe('invalid_range');
