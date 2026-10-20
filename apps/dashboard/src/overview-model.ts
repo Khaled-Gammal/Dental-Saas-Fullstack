@@ -34,3 +34,13 @@ export function attentionItems(h: HomeData, extra: { unconfirmed?: number; disco
   for (const c of h.cash ?? []) if (c.status === 'none') items.push({ key: 'cash', n: 1, branch: { name_ar: c.name_ar, name_en: c.name_en } });
   return items;
 }
+
+/**
+ * How a figure moved against the period before, as a fraction (0.125 = +12.5%), for the «vs last period» badges. Null
+ * when there is nothing to compare with (the period before was zero): no invented percentage. A display comparison,
+ * not a business figure; the two numbers are the API's.
+ */
+export function change(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return (current - previous) / Math.abs(previous);
+}

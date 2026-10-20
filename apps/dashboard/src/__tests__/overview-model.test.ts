@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attentionItems, remainingToday } from '../overview-model';
+import { attentionItems, change, remainingToday } from '../overview-model';
 import type { Appointment, HomeData } from '../types';
 
 const appt = (id: string, status: Appointment['status'], starts_at: string) => ({ id, status, starts_at }) as Appointment;
@@ -35,5 +35,15 @@ describe('the overview (2026-10-21)', () => {
 
   it('adds nothing for blocks the API did not send', () => {
     expect(attentionItems(home({}), {})).toEqual([]);
+  });
+});
+
+describe('«vs last period» (statistics, 2026-10-21)', () => {
+  it('is the move against the period before, and nothing when that was zero', () => {
+    expect(change(150, 100)).toBe(0.5);
+    expect(change(50, 100)).toBe(-0.5);
+    expect(change(100, 100)).toBe(0);
+    expect(change(-50, -100)).toBe(0.5); // a loss that shrank is an improvement
+    expect(change(100, 0)).toBeNull();
   });
 });

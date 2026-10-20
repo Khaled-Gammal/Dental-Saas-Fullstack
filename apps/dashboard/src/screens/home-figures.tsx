@@ -13,6 +13,7 @@ import { DataTable, type Column } from '../ui/data-table';
 import { CalendarIcon, CashIcon, ChartIcon, EditIcon, PhoneIcon, ReceiptIcon, UsersIcon } from '../ui/icons';
 import { RouteLink } from '../ui/page';
 import { RowMenu } from '../ui/row-menu';
+import { OverviewStats } from './overview-stats';
 import { fmtNumber } from '../util';
 
 /** As the appointments page shows each status. */
@@ -35,6 +36,7 @@ export function HomeFigures({ session }: { session: Session }) {
   // the day's list the appointments page also reads (one cache): only when the API sent the appointments block
   const day = useAppointments(clinicId, h?.today ?? '', undefined, mine, !!h?.appointments);
   const discounts = usePendingDiscounts(clinicId, has('discounts:approve'));
+  const stats = has('reports:read'); // GET /reports/stats is theirs (owner and accountant)
   const expenses = usePendingExpenses(clinicId, has('expenses:approve'));
 
   if (home.isError) return <Card><ErrorText error={home.error} onRetry={() => void home.refetch()} /></Card>;
@@ -51,7 +53,9 @@ export function HomeFigures({ session }: { session: Session }) {
   return (
     <>
       {h.linked_doctor === false && <Alert tone="info">{t('homeNotLinked')}</Alert>}
-      <Stats h={h} mine={mine} />
+      {/* owner and accountant: the period's figures against the one before, and the chart (statistics, 2026-10-21);
+          everyone else: today's figures from their home blocks */}
+      {stats ? <OverviewStats clinicId={clinicId} today={h.today} /> : <Stats h={h} mine={mine} />}
 
       <div className={`ov-main${h.appointments ? '' : ' is-single'}`}>
         {h.appointments && (
@@ -89,7 +93,7 @@ export function HomeFigures({ session }: { session: Session }) {
         <Attention items={todo} />
       </div>
 
-      {h.finance && <Finance h={h} />}
+      {!stats && h.finance && <Finance h={h} />}
     </>
   );
 }

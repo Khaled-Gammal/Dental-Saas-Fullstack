@@ -377,8 +377,8 @@ export const useCashSession = (clinicId: string, id: string | null) =>
 /** Reports are read-only; they refresh when opened again and after any money or expense change (shared prefix). */
 export const useReport = <T,>(clinicId: string, kind: string, q: { from?: string; to?: string; branchId?: string }, enabled = true) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'report', kind, q] as const, queryFn: () => api<T>(`/reports/${kind}${qs(q)}`), enabled });
-export const useReportBranches = (clinicId: string) =>
-  useQuery({ queryKey: [...financeKeys.all(clinicId), 'report-branches'] as const, queryFn: () => api<ReportBranch[]>('/reports/branches') });
+export const useReportBranches = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'report-branches'] as const, queryFn: () => api<ReportBranch[]>('/reports/branches'), enabled });
 /** REPORT-006: the member's home figures; refreshed with money changes (shared prefix) and every minute while open. */
 export const useHome = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'home'] as const, queryFn: () => api<HomeData>('/reports/home'), refetchInterval: 60_000 });

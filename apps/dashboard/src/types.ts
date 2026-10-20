@@ -468,6 +468,17 @@ export interface OutstandingReport extends ReportFrame {
 export interface ReportBranch { id: string; name_ar: string | null; name_en: string | null; is_active: boolean; is_main: boolean }
 
 // ---------- home screen per role (Phase F4, REPORT-006) ----------
+/** GET /reports/stats (owner and accountant, 2026-10-21): a period against the one before, and a chart series */
+export interface StatsFigures { invoiced: number; collections_net: number; expenses: number; result: number; new_patients: number }
+export interface StatsReport extends ReportFrame {
+  previous_period: { from: string; to: string };
+  bucket: 'day' | 'month';
+  totals: StatsFigures & { appointments: AttendanceFigures };
+  previous: StatsFigures & { appointments: AttendanceFigures };
+  series: (StatsFigures & { key: string })[];
+  outstanding: { balance: number; patients: number; invoices: number; overdue: number; overdue_installments: number };
+}
+
 export interface HomeData {
   today: string; month: { from: string; to: string }; currency: string; linked_doctor: boolean | null;
   appointments: (AttendanceFigures & { scope: 'mine' | 'all'; waiting: number; in_progress: number }) | null;
