@@ -7,6 +7,7 @@
 --   Nour Ali     — invoice paid in full (card + bank transfer); another invoice issued by mistake and voided
 --   منى عبد الله  — a cash payment entered by mistake and reversed, then paid by e-wallet
 --   كريم حسن     — paid by card, then 200 EGP refunded in cash (part of the treatment was not done)
+-- Further parts below (E2, E3, H1) each have their own guard.
 -- Visits, recorded payments, expenses and cash days can never be deleted (by design); reset the dev database to remove them.
 DO $demo$
 DECLARE
@@ -207,3 +208,78 @@ BEGIN
 
   RAISE NOTICE 'E3 demo data created';
 END $demo3$;
+
+-- Phase H1: a balance at check-in and a plan's invoiced/paid figures (Dr. Mona, Nasr City).
+--   كريم حسن — an accepted three-item plan; item 1 (filling 46) done today and invoiced together with a consultation
+--              outside the plan, partly paid in cash; booked for this evening, so the day list shows what he owes
+--   Omar Khaled — booked today and checked in (manual), so the waiting list shows his balance
+-- Plans, visits and payments are never deleted (by design); cancel the appointments from the dashboard if they are in the way.
+DO $demo4$
+DECLARE
+  t     constant uuid := '11111111-1111-1111-1111-111111111111';
+  nasr  constant uuid := 'd0000000-0000-0000-0000-0000000000a1';
+  mona  constant uuid := 'f0000000-0000-0000-0000-0000000000a2';
+  sara  constant uuid := 'c0000000-0000-0000-0000-0000000000a2';
+  doc   constant uuid := 'c0000000-0000-0000-0000-0000000000a3';
+  omar  constant uuid := '70000000-0000-0000-0000-0000000000a1';
+  karim constant uuid := '7f000000-0000-0000-0000-000000000002';
+  consult constant uuid := '90000000-0000-0000-0000-0000000000a1';
+  scaling constant uuid := '90000000-0000-0000-0000-0000000000a2';
+  filling constant uuid := '90000000-0000-0000-0000-0000000000a3';
+  today date := business_date(now(), '11111111-1111-1111-1111-111111111111');
+  plan uuid; item1 uuid; v uuid; p1 uuid; inv uuid; ap uuid;
+BEGIN
+  IF EXISTS (SELECT 1 FROM invoices WHERE tenant_id = t AND notes = 'بيانات تجريبية ٤') THEN
+    RAISE NOTICE 'H1 demo data already exists; nothing to do';
+    RETURN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM patients WHERE id = karim) THEN
+    RAISE NOTICE 'run the E1 demo first (it creates the demo patients)';
+    RETURN;
+  END IF;
+  PERFORM set_config('app.tenant_id', t::text, true), set_config('app.member_id', doc::text, true),
+          set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a3', true), set_config('app.actor_type', 'member', true);
+
+  -- the plan: drafted, proposed, accepted by the patient
+  INSERT INTO treatment_plans (tenant_id, patient_id, doctor_id, title, notes)
+  VALUES (t, karim, mona, 'علاج الفك السفلي', 'بيانات تجريبية ٤') RETURNING id INTO plan;
+  INSERT INTO treatment_plan_items (tenant_id, plan_id, service_id, tooth_code, surfaces, price_minor, sort_order)
+  VALUES (t, plan, filling, 46, '{O}', 100000, 0) RETURNING id INTO item1;
+  INSERT INTO treatment_plan_items (tenant_id, plan_id, service_id, price_minor, sort_order) VALUES (t, plan, scaling, 60000, 1);
+  INSERT INTO treatment_plan_items (tenant_id, plan_id, service_id, tooth_code, surfaces, price_minor, sort_order)
+  VALUES (t, plan, filling, 47, '{O,D}', 100000, 2);
+  UPDATE treatment_plans SET status = 'proposed' WHERE id = plan;
+  UPDATE treatment_plans SET status = 'accepted', accepted_at = now(), accepted_by = doc WHERE id = plan;
+
+  -- today's visit does item 1
+  INSERT INTO visits (tenant_id, patient_id, doctor_id, branch_id, chief_complaint, diagnosis, created_by)
+  VALUES (t, karim, mona, nasr, 'حساسية في الضرس 46', 'تسوس سطحي في 46', doc) RETURNING id INTO v;
+  INSERT INTO visit_procedures (tenant_id, visit_id, service_id, doctor_id, tooth_code, surfaces, price_minor, plan_item_id, created_by)
+  VALUES (t, v, filling, mona, 46, '{O}', 100000, item1, doc) RETURNING id INTO p1;
+  UPDATE visits SET status = 'final', finalized_by = doc WHERE id = v;
+
+  -- one invoice for the plan's filling and a consultation outside the plan, 500 paid in cash
+  PERFORM set_config('app.member_id', sara::text, true), set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a2', true);
+  INSERT INTO invoices (tenant_id, branch_id, patient_id, currency, notes, created_by) VALUES (t, nasr, karim, 'EGP', 'بيانات تجريبية ٤', sara) RETURNING id INTO inv;
+  INSERT INTO invoice_items (tenant_id, invoice_id, service_id, visit_procedure_id, doctor_id, description, tooth_code, quantity, unit_price_minor, line_total_minor, sort_order) VALUES
+    (t, inv, filling, p1, mona, 'حشو تجميلي — سن 46 (O)', 46, 1, 100000, 100000, 0);
+  INSERT INTO invoice_items (tenant_id, invoice_id, service_id, description, quantity, unit_price_minor, line_total_minor, sort_order)
+  VALUES (t, inv, consult, 'كشف', 1, 30000, 30000, 1);
+  PERFORM issue_invoice(inv);
+  IF NOT EXISTS (SELECT 1 FROM cash_sessions WHERE branch_id = nasr AND business_date = today AND status = 'closed') THEN
+    INSERT INTO payments (tenant_id, branch_id, patient_id, invoice_id, amount_minor, currency, method, paid_at, received_by, idempotency_key)
+    VALUES (t, nasr, karim, inv, 50000, 'EGP', 'cash', now(), sara, 'demo4-karim-1');
+  END IF;
+
+  -- today's appointments: Omar checked in for 6 pm, Karim booked for 7 pm (Cairo time)
+  INSERT INTO appointments (tenant_id, branch_id, patient_id, doctor_id, service_id, starts_at, ends_at, status, confirmed_at, source, booked_by)
+  VALUES (t, nasr, omar, mona, consult, (today + time '18:00') AT TIME ZONE 'Africa/Cairo', (today + time '18:30') AT TIME ZONE 'Africa/Cairo',
+          'confirmed', now(), 'phone', sara) RETURNING id INTO ap;
+  UPDATE appointments SET status = 'checked_in', check_in_method = 'manual', check_in_note = 'بيانات تجريبية ٤', checked_in_at = now(), checked_in_by = sara
+   WHERE id = ap;
+  INSERT INTO appointments (tenant_id, branch_id, patient_id, doctor_id, service_id, starts_at, ends_at, status, confirmed_at, source, booked_by)
+  VALUES (t, nasr, karim, mona, scaling, (today + time '19:00') AT TIME ZONE 'Africa/Cairo', (today + time '19:30') AT TIME ZONE 'Africa/Cairo',
+          'confirmed', now(), 'phone', sara);
+
+  RAISE NOTICE 'H1 demo data created';
+END $demo4$;
