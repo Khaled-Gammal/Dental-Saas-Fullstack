@@ -14,6 +14,7 @@ import { ClinicalModule } from './modules/clinical';
 import { IdentityModule } from './modules/identity/identity.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
 import { ClinicDataModule } from './modules/clinic-data/clinic-data.module';
+import { ConsentsModule } from './modules/consents/consents.module';
 import { LandingModule } from './modules/landing/landing.module';
 import { MediaModule } from './modules/media';
 import { PatientsModule } from './modules/patients';
@@ -77,6 +78,7 @@ class ConfigModule {}
     PlatformModule,
     LandingModule,
     ClinicDataModule,
+    ConsentsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemDetailsFilter }],
 })

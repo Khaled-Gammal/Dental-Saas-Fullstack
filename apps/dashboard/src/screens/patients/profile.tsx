@@ -17,6 +17,7 @@ import { PlansCard } from '../clinical/plans';
 import { PatientBillingCard } from '../billing/list';
 import { FilesCard } from './files-card';
 import { MedicalHistoryCard } from './medical-history';
+import { PatientConsentsCard } from '../consents/patient-consents';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 const loc = () => ('ar-EG-u-nu-latn');
@@ -66,6 +67,8 @@ export function PatientProfile({ clinicId, id, session }: { clinicId: string; id
           {p.medicalHistory && <ClinicalVisitsCard clinicId={clinicId} patientId={p.id} />}
           {(can(session, 'invoices:read') || can(session, 'invoices:read:own')) && <PatientBillingCard clinicId={clinicId} patientId={p.id} canWrite={can(session, 'invoices:write')} />}
           <PlansCard clinicId={clinicId} patientId={p.id} canCreate={can(session, 'treatments:write:own')} />
+          <PatientConsentsCard clinicId={clinicId} patient={p}
+            canSign={can(session, 'patients:write') || can(session, 'clinical:write') || can(session, 'treatments:write:own')} />
           <PatientFollowUpsCard clinicId={clinicId} patientId={p.id} canWrite={write} canBook={can(session, 'appointments:write') && !p.is_blocked} />
           <VisitsCard p={p} />
           {can(session, 'audit:read') && <ActivityCard clinicId={clinicId} patientId={p.id} />}

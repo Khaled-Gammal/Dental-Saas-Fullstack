@@ -3,8 +3,8 @@
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
 export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking'
-  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles' | 'data';
-export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge';
+  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles' | 'data' | 'consents';
+export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge' | 'sign' | 'consent';
 
 /** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
 export type Route = (
@@ -19,9 +19,10 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   overview: [],
   profile: [],
   data: [], // H8: the owner's data export and clinic deletion
+  consents: ['new', 'edit'], // H9: the clinic's consent texts (`#/consents/<key>/edit`)
   branches: ['new', 'edit', 'hours', 'rooms'],
   appointments: ['new', 'edit'], // `edit` = move to another time/doctor and/or give it a room
-  patients: ['new', 'edit', 'view', 'merge'], // merge = another record of the same person is merged into this one
+  patients: ['new', 'edit', 'view', 'merge', 'sign', 'consent'], // merge = another record merged into this one; sign/consent: H9 consents
   gallery: ['new', 'edit'],
   doctors: ['new', 'edit', 'schedule', 'timeoff'],
   services: ['new', 'edit'],

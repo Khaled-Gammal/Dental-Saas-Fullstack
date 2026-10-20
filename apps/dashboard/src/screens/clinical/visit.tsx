@@ -6,6 +6,7 @@ import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { t, type Key } from '../../i18n';
 import { ageOn } from '../../patient-model';
+import { missingConsents } from '../../consents-model';
 import { send, useClinicalMutation, usePatientPlans, usePlan, useServices, useVisit } from '../../queries';
 import { to } from '../../router';
 import type { NoteField, PlanItem, Prescription, RecallReason, Surface, Visit } from '../../types';
@@ -55,6 +56,18 @@ export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: stri
           <AlertIcon size={16} /> <strong>{t('alerts')}:</strong>{' '}
           {[...h.allergies.map((a) => `${t('allergyTo')} ${a}`), ...(h.is_pregnant ? [t('pregnant')] : []), ...h.conditions].join(' · ')}
           {h.medications.length > 0 && <div className="small mt-sm">{t('medications')}: <bdi>{h.medications.join('، ')}</bdi></div>}
+        </Alert>
+      )}
+      {missingConsents(v.consents).length > 0 && (
+        <Alert tone="danger">
+          <AlertIcon size={16} /> <strong>{t('consentMissing')}:</strong>{' '}
+          {missingConsents(v.consents).map((c, i) => (
+            <span key={c.key}>
+              {i > 0 && ' · '}<bdi>{c.title ?? c.key}</bdi>{' '}
+              <RouteLink route={{ page: 'patients', id: v.patient_id, action: 'sign', query: { consent: c.key, visit: v.id } }} className="btn btn-secondary btn-sm">{t('consentSignNow')}</RouteLink>
+            </span>
+          ))}
+          <div className="small mt-sm">{t('consentMissingNote')}</div>
         </Alert>
       )}
       <div className="profile-grid">

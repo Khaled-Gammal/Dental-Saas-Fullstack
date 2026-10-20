@@ -718,3 +718,16 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .legal-doc h1 { margin-bottom: 4px; }
 .legal-body { white-space: pre-wrap; line-height: 1.9; margin-top: 16px; }
 .legal-consent { font-size: var(--fs-sm); }
+
+/* patient consents (Phase H9): the text as the patient reads it, the box they sign in, the printed sheet */
+.sign-page { display: flex; flex-direction: column; gap: 16px; max-width: 860px; }
+.sign-page h1 { font-size: var(--fs-xl); font-weight: 700; }
+.consent-text { white-space: pre-wrap; line-height: 1.9; }
+.consent-text-large { font-size: 1.15rem; }
+.signature { display: flex; flex-direction: column; gap: 8px; }
+.signature-box { width: 100%; height: 220px; border: 2px dashed var(--line); border-radius: var(--r-md); background: #fff; touch-action: none; cursor: crosshair; }
+.consent-signature { display: block; max-width: 360px; width: 100%; height: auto; border-bottom: 1px solid var(--line); }
+@media print {
+  .consent-sheet, .consent-sheet * { visibility: visible; }
+  .consent-sheet { position: absolute; inset: 0 auto auto 0; width: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+}
