@@ -515,6 +515,7 @@ const dict = {
   correction: 'تصحيح',
   replaced: 'استُبدلت',
   print: 'طباعة',
+  exportCsv: 'تصدير CSV',
   correct: 'تصحيح',
   correctionText: 'تُصدر روشتة جديدة بدل هذه، وتبقى القديمة محفوظة ومعلَّمة بأنها استُبدلت.',
   drug: 'الدواء',

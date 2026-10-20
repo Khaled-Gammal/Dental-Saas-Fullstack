@@ -6,7 +6,7 @@ import { KEYS, t } from '../i18n';
  * appear only for names and tokens on the allow-list (the owner allows brand names in English, CLR-07 note of
  * 2026-10-19). A new text without proper Arabic fails here.
  */
-const ALLOWED_LATIN = /\b(QR|PDF|JPE?G|PNG|WEBP|HEIC|SVG|Enter|Mailpit|localhost|nasr-city|InstaPay|WhatsApp|Google|Maps|URL|ID|MB|PDPL|FDI|A4|A5|EGP|SMS|OTP|HTTPS?|www|clinic-a|lvh\.me|dental|example|com)\b/gi;
+const ALLOWED_LATIN = /\b(QR|PDF|JPE?G|PNG|WEBP|HEIC|SVG|Enter|Mailpit|localhost|nasr-city|InstaPay|WhatsApp|Google|Maps|URL|ID|MB|PDPL|FDI|A4|A5|EGP|CSV|Excel|SMS|OTP|HTTPS?|www|clinic-a|lvh\.me|dental|example|com)\b/gi;
 
 describe('Arabic only (L10N-001)', () => {
   it('every text has Arabic, written in Arabic letters', () => {

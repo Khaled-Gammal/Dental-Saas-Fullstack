@@ -3,9 +3,10 @@ import { arName } from '@dental/ui/text';
 import { can, type Session } from '../../api';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
+import { csvFileName, downloadCsv, pounds, toCsv, type CsvCell } from '../../csv';
 import { localToday } from '../../finance-model';
 import { t, type Key } from '../../i18n';
-import { money } from '../../money';
+import { currencyLabel, money } from '../../money';
 import { useProfile, useReport, useReportBranches } from '../../queries';
 import { dailyOnly, percent, PRESETS, presetOf, presetPeriod, reportTabs, type ReportTab } from '../../reports-model';
 import { to } from '../../router';
@@ -125,6 +126,23 @@ function PrintHead({ clinicId, title, frame, branches }: { clinicId: string; tit
 
 // ---------- building blocks ----------
 const name = (n: ReportName) => (n ? arName(n.name_ar, n.name_en) : '—');
+/** An expense method; expenses recorded before methods existed have none ("unknown"). */
+const methodName = (m: string) => (m === 'unknown' ? t('repUnknownMethod') : t(`pm_${m}` as Key));
+/** A rate as a plain percentage for a spreadsheet (12.5), as `percent()` shows it. */
+const pct = (rate: number | null): number | null => (rate === null ? null : Math.round(rate * 1000) / 10);
+
+/**
+ * What a table exports (one CSV file per table): the raw cells behind what it shows, in the same order — amounts in
+ * pounds, counts and rates as numbers, dates as YYYY-MM-DD. `money` and `rates` are column indexes whose header gets
+ * the currency or "%" (the cells carry plain numbers).
+ */
+interface CsvSpec { frame: ReportFrame; table: string; rows: CsvCell[][]; foot?: CsvCell[]; money?: number[]; rates?: number[] }
+
+function exportTable(head: string[], c: CsvSpec) {
+  const header = head.map((h, i) => (c.money?.includes(i) ? `${h} (${currencyLabel(c.frame.currency)})` : c.rates?.includes(i) ? `${h} (%)` : h));
+  const when = c.frame.period ? [c.frame.period.from, c.frame.period.to] : [c.frame.today];
+  downloadCsv(csvFileName(c.frame.kind, c.table, ...when), toCsv(header, c.rows, c.foot));
+}
 
 function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -138,12 +156,15 @@ function Tile({ label, value, note }: { label: string; value: string; note?: str
   );
 }
 
-/** A table whose first `text` columns are words and the rest figures (aligned to the end). */
-function Table({ caption, head, rows, foot, text = 1 }: { caption: string; head: string[]; rows: ReactNode[][]; foot?: ReactNode[]; text?: number }) {
+/** A table whose first `text` columns are words and the rest figures (aligned to the end); `csv` adds its export. */
+function Table({ caption, head, rows, foot, text = 1, csv }: { caption: string; head: string[]; rows: ReactNode[][]; foot?: ReactNode[]; text?: number; csv?: CsvSpec }) {
   const cls = (i: number) => (i < text ? undefined : 'num');
   return (
     <Card className="report-card">
-      <h2>{caption}</h2>
+      <div className="row-between">
+        <h2>{caption}</h2>
+        {csv && <Button variant="ghost" className="no-print" onClick={() => exportTable(head, csv)} aria-label={`${t('exportCsv')}: ${caption}`}>{t('exportCsv')}</Button>}
+      </div>
       <div className="table-wrap">
         <table className="report-table">
           <thead><tr>{head.map((h, i) => <th key={i} scope="col" className={cls(i)}>{h}</th>)}</tr></thead>
@@ -175,20 +196,30 @@ function Revenue({ r }: { r: RevenueReport }) {
         <>
           <Table caption={t('repByMethod')} head={[t('paymentMethod'), t('repCollected'), t('repRefunded'), t('repNet')]}
             rows={r.by_method.map((x) => [t(`pm_${x.method}` as Key), m(x.collected), m(x.refunded), m(x.net)])}
-            foot={[t('total'), m(T.collected), m(T.refunded), m(T.net)]} />
+            foot={[t('total'), m(T.collected), m(T.refunded), m(T.net)]}
+            csv={{ frame: r, table: 'by-method', money: [1, 2, 3],
+              rows: r.by_method.map((x) => [t(`pm_${x.method}` as Key), pounds(x.collected), pounds(x.refunded), pounds(x.net)]),
+              foot: [t('total'), pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
           {r.adjustments.length > 0 && (
             <Table caption={t('repAdjustments')} head={[t('repKind'), t('repCount'), t('amount')]}
-              rows={r.adjustments.map((x) => [t(`adj_${x.kind}` as Key), fmtNumber(x.n), m(x.amount)])} />
+              rows={r.adjustments.map((x) => [t(`adj_${x.kind}` as Key), fmtNumber(x.n), m(x.amount)])}
+              csv={{ frame: r, table: 'adjustments', money: [2], rows: r.adjustments.map((x) => [t(`adj_${x.kind}` as Key), x.n, pounds(x.amount)]) }} />
           )}
           {r.by_branch.length > 1 && (
             <Table caption={t('repByBranch')} head={[t('branch'), t('repInvoiced'), t('repCollected'), t('repRefunded'), t('repNet')]}
               rows={r.by_branch.map((x) => [name(x.branch), m(x.invoiced), m(x.collected), m(x.refunded), m(x.net)])}
-              foot={[t('total'), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]} />
+              foot={[t('total'), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]}
+              csv={{ frame: r, table: 'by-branch', money: [1, 2, 3, 4],
+                rows: r.by_branch.map((x) => [name(x.branch), pounds(x.invoiced), pounds(x.collected), pounds(x.refunded), pounds(x.net)]),
+                foot: [t('total'), pounds(T.invoiced), pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
           )}
           {r.by_day.length > 1 && (
             <Table caption={t('repByDay')} head={[t('date'), t('repInvoiced'), t('repCollected'), t('repRefunded'), t('repNet')]}
               rows={r.by_day.map((x) => [x.day, m(x.invoiced), m(x.collected), m(x.refunded), m(x.net)])}
-              foot={[t('total'), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]} />
+              foot={[t('total'), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]}
+              csv={{ frame: r, table: 'by-day', money: [1, 2, 3, 4],
+                rows: r.by_day.map((x) => [x.day, pounds(x.invoiced), pounds(x.collected), pounds(x.refunded), pounds(x.net)]),
+                foot: [t('total'), pounds(T.invoiced), pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
           )}
         </>
       )}
@@ -213,12 +244,20 @@ function Expenses({ r }: { r: ExpensesReport }) {
       {!T.count ? <Nothing /> : (
         <>
           <Table caption={t('byCategory')} head={[t('expenseCategory'), t('repCount'), t('amount')]}
-            rows={r.by_category.map((x) => [x.name ?? '—', fmtNumber(x.n), m(x.amount)])} foot={[t('total'), fmtNumber(T.count), m(T.total)]} />
+            rows={r.by_category.map((x) => [x.name ?? '—', fmtNumber(x.n), m(x.amount)])} foot={[t('total'), fmtNumber(T.count), m(T.total)]}
+            csv={{ frame: r, table: 'by-category', money: [2], rows: r.by_category.map((x) => [x.name ?? '—', x.n, pounds(x.amount)]), foot: [t('total'), T.count, pounds(T.total)] }} />
           <Table caption={t('repByMethod')} head={[t('paymentMethod'), t('repCount'), t('amount')]}
-            rows={r.by_method.map((x) => [x.method === 'unknown' ? t('repUnknownMethod') : t(`pm_${x.method}` as Key), fmtNumber(x.n), m(x.amount)])} />
+            rows={r.by_method.map((x) => [methodName(x.method), fmtNumber(x.n), m(x.amount)])}
+            csv={{ frame: r, table: 'by-method', money: [2], rows: r.by_method.map((x) => [methodName(x.method), x.n, pounds(x.amount)]) }} />
           {r.by_branch.length > 1 && (
             <Table caption={t('repByBranch')} head={[t('branch'), t('repCount'), t('amount')]}
-              rows={r.by_branch.map((x) => [name(x.branch), fmtNumber(x.n), m(x.amount)])} />
+              rows={r.by_branch.map((x) => [name(x.branch), fmtNumber(x.n), m(x.amount)])}
+              csv={{ frame: r, table: 'by-branch', money: [2], rows: r.by_branch.map((x) => [name(x.branch), x.n, pounds(x.amount)]) }} />
+          )}
+          {r.by_day.length > 1 && (
+            <Table caption={t('repByDay')} head={[t('date'), t('repCount'), t('amount')]}
+              rows={r.by_day.map((x) => [x.day, fmtNumber(x.n), m(x.amount)])} foot={[t('total'), fmtNumber(T.count), m(T.total)]}
+              csv={{ frame: r, table: 'by-day', money: [2], rows: r.by_day.map((x) => [x.day, x.n, pounds(x.amount)]), foot: [t('total'), T.count, pounds(T.total)] }} />
           )}
         </>
       )}
@@ -231,7 +270,9 @@ function Attendance({ r }: { r: AttendanceReport }) {
   const T = r.totals;
   const n = (v: number) => fmtNumber(v);
   const cells = (x: AttendanceFigures) => [n(x.booked), n(x.completed), n(x.no_show), n(x.cancelled), percent(x.no_show_rate), percent(x.cancellation_rate)];
+  const raw = (x: AttendanceFigures): CsvCell[] => [x.booked, x.completed, x.no_show, x.cancelled, pct(x.no_show_rate), pct(x.cancellation_rate)];
   const head = [t('repBooked'), t('status_completed'), t('status_no_show'), t('status_cancelled'), t('repNoShowRate'), t('repCancelRate')];
+  const rates = [5, 6]; // after the name column
   return (
     <>
       <div className="stats">
@@ -243,11 +284,14 @@ function Attendance({ r }: { r: AttendanceReport }) {
       {!T.booked ? <Nothing /> : (
         <>
           <Table caption={t('repByDoctor')} head={[t('doctor'), ...head]} rows={r.by_doctor.map((x) => [name(x.doctor), ...cells(x)])}
-            foot={r.by_doctor.length > 1 ? [t('total'), ...cells(T)] : undefined} />
+            foot={r.by_doctor.length > 1 ? [t('total'), ...cells(T)] : undefined}
+            csv={{ frame: r, table: 'by-doctor', rates, rows: r.by_doctor.map((x) => [name(x.doctor), ...raw(x)]), foot: r.by_doctor.length > 1 ? [t('total'), ...raw(T)] : undefined }} />
           {r.by_branch.length > 1 && (
-            <Table caption={t('repByBranch')} head={[t('branch'), ...head]} rows={r.by_branch.map((x) => [name(x.branch), ...cells(x)])} foot={[t('total'), ...cells(T)]} />
+            <Table caption={t('repByBranch')} head={[t('branch'), ...head]} rows={r.by_branch.map((x) => [name(x.branch), ...cells(x)])} foot={[t('total'), ...cells(T)]}
+              csv={{ frame: r, table: 'by-branch', rates, rows: r.by_branch.map((x) => [name(x.branch), ...raw(x)]), foot: [t('total'), ...raw(T)] }} />
           )}
-          <Table caption={t('repByStatus')} head={[t('status'), t('repCount')]} rows={r.by_status.map((x) => [t(`status_${x.status}` as Key), n(x.n)])} />
+          <Table caption={t('repByStatus')} head={[t('status'), t('repCount')]} rows={r.by_status.map((x) => [t(`status_${x.status}` as Key), n(x.n)])}
+            csv={{ frame: r, table: 'by-status', rows: r.by_status.map((x) => [t(`status_${x.status}` as Key), x.n]) }} />
         </>
       )}
       <p className="muted small">{t('repAttendanceNote')}</p>
@@ -273,11 +317,17 @@ function Performance({ r }: { r: PerformanceReport }) {
           {r.by_branch && (
             <Table caption={t('repByBranch')} head={[t('branch'), t('repCompleted'), t('repProcedures'), t('repProceduresValue'), t('repNet')]}
               rows={r.by_branch.map((x) => [name(x.branch), n(x.completed), n(x.procedures), m(x.procedures_value), m(x.collections_net)])}
-              foot={[t('total'), n(T.completed), n(T.procedures), m(T.procedures_value), m(T.collections_net ?? 0)]} />
+              foot={[t('total'), n(T.completed), n(T.procedures), m(T.procedures_value), m(T.collections_net ?? 0)]}
+              csv={{ frame: r, table: 'by-branch', money: [3, 4],
+                rows: r.by_branch.map((x) => [name(x.branch), x.completed, x.procedures, pounds(x.procedures_value), pounds(x.collections_net)]),
+                foot: [t('total'), T.completed, T.procedures, pounds(T.procedures_value), pounds(T.collections_net ?? 0)] }} />
           )}
           <Table caption={t('repByDoctor')} head={[t('doctor'), t('repCompleted'), t('repProcedures'), t('repProceduresValue')]}
             rows={r.by_doctor.map((x) => [name(x.doctor), n(x.completed), n(x.procedures), m(x.procedures_value)])}
-            foot={r.by_doctor.length > 1 ? [t('total'), n(T.completed), n(T.procedures), m(T.procedures_value)] : undefined} />
+            foot={r.by_doctor.length > 1 ? [t('total'), n(T.completed), n(T.procedures), m(T.procedures_value)] : undefined}
+            csv={{ frame: r, table: 'by-doctor', money: [3],
+              rows: r.by_doctor.map((x) => [name(x.doctor), x.completed, x.procedures, pounds(x.procedures_value)]),
+              foot: r.by_doctor.length > 1 ? [t('total'), T.completed, T.procedures, pounds(T.procedures_value)] : undefined }} />
         </>
       )}
       <p className="muted small">{t(r.scope === 'own' ? 'repPerformanceOwnNote' : 'repPerformanceNote')}</p>
@@ -305,7 +355,10 @@ function Outstanding({ r, branches }: { r: OutstandingReport; branches: ReportBr
             <RouteLink key="p" route={to.view('patients', p.patient_id)}><bdi>{p.full_name}</bdi></RouteLink>, n(p.file_no), p.phone ? <bdi dir="ltr">{p.phone}</bdi> : '—',
             branchNames(p.branch_ids), n(p.invoices), p.oldest ?? '—', m(p.balance),
           ])}
-          foot={[t('total'), '', '', '', n(T.invoices), '', m(T.balance)]} />
+          foot={[t('total'), '', '', '', n(T.invoices), '', m(T.balance)]}
+          csv={{ frame: r, table: 'patients', money: [6],
+            rows: r.patients.map((p) => [p.full_name, p.file_no, p.phone, branchNames(p.branch_ids), p.invoices, p.oldest, pounds(p.balance)]),
+            foot: [t('total'), null, null, null, T.invoices, null, pounds(T.balance)] }} />
       )}
       {r.overdue.length > 0 && (
         <Table caption={t('repOverdueInstallments')} text={3}
@@ -315,7 +368,10 @@ function Outstanding({ r, branches }: { r: OutstandingReport; branches: ReportBr
             <RouteLink key="i" route={to.invoice(o.invoice_id)}><bdi dir="ltr">{o.number ?? '—'}</bdi></RouteLink>, name(o.branch),
             n(o.seq), o.due_date, n(o.days_overdue), m(o.remaining),
           ])}
-          foot={[t('total'), '', '', '', '', '', m(T.overdue)]} />
+          foot={[t('total'), '', '', '', '', '', m(T.overdue)]}
+          csv={{ frame: r, table: 'overdue-installments', money: [6],
+            rows: r.overdue.map((o) => [o.full_name, o.number, name(o.branch), o.seq, o.due_date, o.days_overdue, pounds(o.remaining)]),
+            foot: [t('total'), null, null, null, null, null, pounds(T.overdue)] }} />
       )}
     </>
   );

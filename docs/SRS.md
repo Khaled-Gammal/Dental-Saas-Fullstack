@@ -56,6 +56,7 @@ message, email and printout is in Arabic and right-to-left. Database columns suc
 | 2026-10-17 | Proposed defaults accepted for CLR-06, CLR-10, CLR-11, CLR-13, CLR-14, CLR-15, CLR-16 (Part C) | VISIT-002, APPT-004, TPLAN-002, roadmap, Part D, PATIENT-003, VISIT-003 |
 | 2026-10-19 | Proposed defaults accepted for CLR-07 and CLR-08. Added by the owner: the product is Arabic in production, but **brand and clinic names may be written in English (Latin letters)**; Latin digits are fine | L10N-001 (names are on the allow-list), L10N-006, L10N-007, L10N-008 |
 | 2026-10-20 | Owner: expenses are seen and recorded by the owner and the accountant only; reception handles bookings, patients and patient payments (it keeps the cash box, CLR-04). Replaces the reception part of CLR-03 | EXP-001/003, B.1, migration 0029 |
+| 2026-10-20 | Owner asked for CSV export of the reports (was deferred as "Excel export") | DSH-11 (part), L10N-007; H3 |
 
 ---
 
@@ -171,7 +172,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | DSH-08 | V1 | IMPLEMENTED (2026-10-17, E3) | Brought into v4: EXP-001…004 |
 | DSH-09 | V2 | DEFERRED | — |
 | DSH-10 | M | PARTIALLY_IMPLEMENTED | Doctor schedules done; invite, roles, branch access, time off missing; commission % deferred. Refined by ACCESS-001…005, APPT-005 |
-| DSH-11 | V1 | NOT_IMPLEMENTED | Brought into v4 for the approved reports: REPORT-001…006. Excel export deferred |
+| DSH-11 | V1 | PARTIALLY_IMPLEMENTED | Brought into v4 for the approved reports: REPORT-001…006; export as CSV that opens in Excel (2026-10-20, H3) |
 | DSH-12 | M | PARTIALLY_IMPLEMENTED | Profile, branches, hours done; holidays, booking rules, tax missing; notification templates and gateway keys deferred |
 | DSH-13 | M | PARTIALLY_IMPLEMENTED | Theme publish only; template, sections, SEO and domains follow the website-content roadmap |
 | DSH-14 | V1 | DEFERRED | — |
@@ -1667,7 +1668,7 @@ Not built in v4. Reasons and target phases are in `docs/roadmap.md`.
 | Dental laboratory tracking | DSH-17 | Brief §8 |
 | Doctor commissions and payouts | DSH-20 | Brief §8 (DB rules already exist and stay) |
 | Advanced patient financing | brief §8 | Beyond installments (PAY-004) |
-| Advanced analytics, Excel export | DSH-11 (part), brief §8 | Beyond REPORT-001…006 |
+| Advanced analytics | DSH-11 (part), brief §8 | Beyond REPORT-001…006 (CSV export of these reports was added 2026-10-20, H3) |
 | Automatic recalls | DSH-19 | v4 has the manual follow-up list (VISIT-005) |
 | Inventory | DSH-09 (V2) | Not in brief |
 | Consent signing | DSH-16 | Pending CLR-14 |
