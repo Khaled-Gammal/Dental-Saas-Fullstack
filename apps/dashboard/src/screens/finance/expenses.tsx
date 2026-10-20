@@ -41,9 +41,9 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
       {docFailed && <Alert tone="info">{t('expenseSavedNoDocument')}</Alert>}
       {rights.approve && <PendingExpenses clinicId={clinicId} />}
       <div className="row-between">
-        <div className="seg" role="tablist" aria-label={t('navExpenses')}>
+        <div className="seg" role="group" aria-label={t('navExpenses')}>
           {FILTERS.map((f) => (
-            <button key={f} type="button" className={`seg-btn${f === status ? ' is-on' : ''}`} role="tab" aria-selected={f === status} onClick={() => setStatus(f)}>
+            <button key={f} type="button" className={`seg-btn${f === status ? ' is-on' : ''}`} aria-pressed={f === status} onClick={() => setStatus(f)}>
               {t(f === 'all' ? 'expf_all' : (`exp_${f}` as Key))}
             </button>
           ))}

@@ -12,6 +12,7 @@ import { Choice } from '../../components/choice';
 import { Alert, Card, LinkButton } from '../../ui/components';
 import { CloseIcon, PlusIcon } from '../../ui/icons';
 import { FormPage, ResourceState } from '../../ui/page';
+import { TimeField } from '../../components/time-field';
 
 const ERR_KEY: Record<NonNullable<SlotError>, Key> = { order: 'errOrder', overlap: 'errOverlap', branch: 'err_branch_not_assigned' };
 
@@ -70,12 +71,10 @@ function ScheduleEditor({ clinicId, doctor, branches }: { clinicId: string; doct
                             ...branches.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en, b.slug) })),
                             ...(ids.includes(s.branchId) ? [] : [{ value: s.branchId, label: t('inactive'), disabled: true }]),
                           ]} />
-                        <span className="shift-times" dir="ltr">
-                          <input className="input time" type="time" step={300} value={s.starts} required
-                            aria-label={`${dayName} ${t('opensAt')} ${k + 1}`} onChange={(e) => setSlot(i, k, { starts: e.target.value })} />
+                        <span className="shift-times">
+                          <TimeField value={s.starts} label={`${dayName} ${t('opensAt')} ${k + 1}`} onChange={(starts) => setSlot(i, k, { starts })} />
                           <span className="shift-dash" aria-hidden>–</span>
-                          <input className="input time" type="time" step={300} value={s.ends} required
-                            aria-label={`${dayName} ${t('closesAt')} ${k + 1}`} onChange={(e) => setSlot(i, k, { ends: e.target.value })} />
+                          <TimeField value={s.ends} label={`${dayName} ${t('closesAt')} ${k + 1}`} onChange={(ends) => setSlot(i, k, { ends })} />
                         </span>
                         <button type="button" className="icon-btn sm" aria-label={`${t('removeSlot')} ${k + 1}`}
                           onClick={() => update(i, (x) => ({ ...x, slots: x.slots.filter((_, j) => j !== k) }))}><CloseIcon size={16} /></button>

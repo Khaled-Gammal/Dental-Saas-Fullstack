@@ -12,6 +12,7 @@ import { CalendarIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState } from '../../ui/page';
 import { zonedToUtc } from '../../util';
 import { Conflicts } from './conflicts';
+import { TimeField } from '../../components/time-field';
 
 const loc = () => ('ar-EG-u-nu-latn');
 const TZ = 'Africa/Cairo'; // the clinic's zone (branches default to it); the API stores instants
@@ -49,9 +50,9 @@ export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id
           <h2>{t('addTimeOff')}</h2>
           <form onSubmit={submit} className="grid-2 mt">
             <Field label={t('fromLabel')}>{(a) => <DatePicker id={a.id} value={from.date} onChange={(d) => setFrom((f) => ({ ...f, date: d }))} min={today} />}</Field>
-            <Field label={t('time')}>{(a) => <Input id={a.id} type="time" dir="ltr" value={from.time} onChange={(e) => setFrom((f) => ({ ...f, time: e.target.value }))} />}</Field>
+            <Field label={t('time')}>{(a) => <TimeField id={a.id} value={from.time} onChange={(time) => setFrom((f) => ({ ...f, time }))} />}</Field>
             <Field label={t('toLabel')}>{(a) => <DatePicker id={a.id} value={until.date} onChange={(d) => setUntil((u) => ({ ...u, date: d }))} min={from.date} />}</Field>
-            <Field label={t('time')}>{(a) => <Input id={a.id} type="time" dir="ltr" value={until.time} onChange={(e) => setUntil((u) => ({ ...u, time: e.target.value }))} />}</Field>
+            <Field label={t('time')}>{(a) => <TimeField id={a.id} value={until.time} onChange={(time) => setUntil((u) => ({ ...u, time }))} />}</Field>
             <Field label={t('reasonLabel')} optional={t('optional')}>{(a) => <Input id={a.id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
             <div className="row-end"><Button type="submit" loading={add.isPending}>{t('addTimeOff')}</Button></div>
           </form>

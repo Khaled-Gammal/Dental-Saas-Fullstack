@@ -10,13 +10,13 @@ const NONE = '__none__';
  * A labelled shadcn/ui Select for the dashboard's forms. `id` goes on the trigger, so a `<label htmlFor>` (our Field)
  * focuses it; `noneLabel` adds an explicit "not set" choice for optional fields.
  */
-export function Choice({ id, value, onChange, options, placeholder, noneLabel, invalid, className, label, disabled }: {
-  id?: string; value: string; onChange: (v: string) => void; options: Option[]; placeholder?: string; noneLabel?: string;
+export function Choice({ id, describedBy, value, onChange, options, placeholder, noneLabel, invalid, className, label, disabled }: {
+  id?: string; describedBy?: string; value: string; onChange: (v: string) => void; options: Option[]; placeholder?: string; noneLabel?: string;
   invalid?: boolean; className?: string; label?: string; disabled?: boolean;
 }) {
   return (
     <Select value={value || (noneLabel ? NONE : '')} onValueChange={(v) => onChange(v === NONE ? '' : v)} dir={'rtl'} disabled={disabled}>
-      <SelectTrigger id={id} aria-label={label} aria-invalid={invalid || undefined} className={className ?? 'h-10 w-full min-w-40 bg-card'}>
+      <SelectTrigger id={id} aria-describedby={describedBy} aria-label={label} aria-invalid={invalid || undefined} className={className ?? 'h-10 w-full min-w-40 bg-card'}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

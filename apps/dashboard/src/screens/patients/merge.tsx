@@ -20,6 +20,7 @@ interface MergePreview {
 }
 
 const SHOWN = ['full_name', 'file_no', 'phone', 'date_of_birth', 'email', 'city'] as const;
+const LTR_FIELDS = new Set<string>(['phone', 'email']); // read left to right inside Arabic text
 const show = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : typeof v === 'boolean' ? t(v ? 'yes' : 'no') : String(v));
 
 /**
@@ -81,8 +82,8 @@ export function PatientMerge({ clinicId, id }: { clinicId: string; id?: string }
                     return (
                       <tr key={f} className={differs ? 'is-diff' : undefined}>
                         <th scope="row">{tOr(`field_${f}`, f)}</th>
-                        <td><bdi>{show(f === 'file_no' ? fmtNumber(p.survivor.file_no) : p.survivor[f])}</bdi></td>
-                        <td><bdi>{show(f === 'file_no' ? fmtNumber(p.merged.file_no) : p.merged[f])}</bdi>{differs && <Badge tone="warning">{t('differs')}</Badge>}</td>
+                        <td><bdi dir={LTR_FIELDS.has(f) ? 'ltr' : undefined}>{show(f === 'file_no' ? fmtNumber(p.survivor.file_no) : p.survivor[f])}</bdi></td>
+                        <td><bdi dir={LTR_FIELDS.has(f) ? 'ltr' : undefined}>{show(f === 'file_no' ? fmtNumber(p.merged.file_no) : p.merged[f])}</bdi>{differs && <Badge tone="warning">{t('differs')}</Badge>}</td>
                       </tr>
                     );
                   })}

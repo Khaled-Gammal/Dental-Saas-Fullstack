@@ -25,7 +25,7 @@ export function DatePicker({ value, onChange, label, id, placeholder, min, max, 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button id={id} variant="outline" aria-label={label} aria-invalid={invalid || undefined}
+        <Button id={id} variant="outline" aria-label={label && `${label}: ${selected ? format(selected, 'EEEE d MMMM yyyy', { locale }) : placeholder ?? ''}`} aria-invalid={invalid || undefined}
           className="h-10 min-w-56 justify-start gap-2 font-normal data-[empty=true]:text-muted-foreground" data-empty={!value}>
           <CalendarIcon className="size-4 opacity-70" />
           {selected ? format(selected, years ? 'd MMMM yyyy' : 'EEEE d MMMM yyyy', { locale }) : placeholder}

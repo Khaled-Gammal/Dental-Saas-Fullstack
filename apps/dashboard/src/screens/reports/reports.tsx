@@ -46,9 +46,9 @@ export function Reports({ clinicId, session, query }: { clinicId: string; sessio
           action={<Button variant="secondary" onClick={() => window.print()}>{t('print')}</Button>} />
         <Card>
           {tabs.length > 1 && (
-            <div className="seg" role="tablist" aria-label={t('navReports')}>
+            <div className="seg" role="group" aria-label={t('navReports')}>
               {tabs.map((x) => (
-                <button key={x} type="button" className={`seg-btn${x === tab ? ' is-on' : ''}`} role="tab" aria-selected={x === tab} onClick={() => setTab(x)}>{t(TAB_TITLE[x])}</button>
+                <button key={x} type="button" className={`seg-btn${x === tab ? ' is-on' : ''}`} aria-pressed={x === tab} onClick={() => setTab(x)}>{t(TAB_TITLE[x])}</button>
               ))}
             </div>
           )}

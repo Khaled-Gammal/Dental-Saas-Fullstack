@@ -11,6 +11,7 @@ import type { Appointment, Doctor, Room } from '../../types';
 import { Alert, Card, Field, Input, Switch } from '../../ui/components';
 import { FormPage, ResourceState } from '../../ui/page';
 import { zonedToUtc } from '../../util';
+import { TimeField } from '../../components/time-field';
 
 const loc = () => ('ar-EG-u-nu-latn');
 const dateIn = (iso: string, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(iso));
@@ -101,7 +102,7 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
           </div>
           {override ? (
             <div className="grid-2 mt">
-              <Field label={t('time')} hint={t('tzHint').replace('{tz}', tz)}>{(a) => <Input id={a.id} describedBy={a.describedBy} type="time" dir="ltr" value={time} onChange={(e) => setTime(e.target.value)} />}</Field>
+              <Field label={t('time')} hint={t('tzHint').replace('{tz}', tz)}>{(a) => <TimeField id={a.id} describedBy={a.describedBy} value={time} onChange={setTime} />}</Field>
               <Field label={t('overrideReason')} hint={t('overrideHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
             </div>
           ) : slots.isLoading ? <p className="muted small mt-sm" role="status">{t('loading')}</p>
