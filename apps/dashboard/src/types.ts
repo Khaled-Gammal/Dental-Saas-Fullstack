@@ -1,3 +1,4 @@
+import type { LegalDoc } from './legal-model';
 /** API response shapes used by more than one screen. */
 
 export interface HoursRow { weekday: number; opens_at: string; closes_at: string }
@@ -236,6 +237,8 @@ export interface StaffInvitation {
 export interface InvitationPreview {
   clinic: { slug: string; nameAr: string | null; nameEn: string | null }; role: { key: string; nameAr: string };
   email: string; jobTitle: string | null; expiresAt: string; allBranches: boolean; accountExists: boolean;
+  /** H6: the documents joining asks to accept (staff: Terms and Privacy; an owner the DPA too) */
+  legal?: LegalDoc[];
 }
 
 /** Closed day: one branch, or the whole clinic when `branch_id` is null. */

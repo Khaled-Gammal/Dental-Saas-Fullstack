@@ -35,7 +35,11 @@ export const EditRoleBody = z.object({ nameAr: RoleName.optional(), permissions:
 export type EditRoleInput = z.infer<typeof EditRoleBody>;
 
 /** Accepting an invitation: a new account gives its name and a password; an existing one confirms its password. */
-export const AcceptBody = z.object({ fullName: DisplayName.optional(), password: z.string().min(1).max(128) }).strict();
+export const AcceptBody = z.object({
+  fullName: DisplayName.optional(), password: z.string().min(1).max(128),
+  /** H6: the ids of the current Terms and Privacy Policy (and DPA for an owner) the invitee accepted */
+  acceptedDocuments: z.array(z.string().uuid()).max(10).default([]),
+}).strict();
 export type AcceptInput = z.infer<typeof AcceptBody>;
 
 /** The opaque token in the emailed link (32 random bytes, base64url). */

@@ -4,6 +4,7 @@ import { APP_CONFIG, type AppConfig } from '../../config';
 import { TokenService } from '../../auth/token.service';
 import { Err } from '../../shared/errors/app-error';
 import { maskPhone } from '../../shared/phone';
+import { LegalService } from '../legal/legal.service';
 import { AuthEventsRepository } from './auth-events.repository';
 import { newRefreshToken, sha256 } from './crypto';
 import { IdentityRepository } from './identity.repository';
@@ -23,6 +24,7 @@ export class SessionService {
     private readonly repo: IdentityRepository,
     private readonly tokens: TokenService,
     private readonly events: AuthEventsRepository,
+    private readonly legal: LegalService,
   ) {}
 
   /**
@@ -51,7 +53,10 @@ export class SessionService {
 
     const member = await this.repo.activeMember(m.tenant_id, userId);
     if (!member) throw Err.forbidden('no_clinic', 'Your account is not linked to an active clinic');
-    const accessToken = await this.tokens.signAccess({ sub: userId, tid: m.tenant_id, mid: member.id, perms: member.permissions, av: member.access_version });
+    const legalPending = await this.legal.pending(userId, m.tenant_id, m.role_key === 'owner');
+    const accessToken = await this.tokens.signAccess({
+      sub: userId, tid: m.tenant_id, mid: member.id, perms: member.permissions, av: member.access_version, ...(legalPending.length > 0 && { lp: true }),
+    });
 
     const refreshToken = newRefreshToken();
     await this.repo.insertRefreshToken({
@@ -70,6 +75,7 @@ export class SessionService {
       user: { id: user.id, name: user.full_name, email: user.email, phone: user.phone ? maskPhone(user.phone) : null },
       // permissions are for showing/hiding UI only; every endpoint still checks them itself
       clinic: { id: m.tenant_id, slug: m.slug, nameAr: m.name_ar, nameEn: m.name_en, role: m.role_key, roleName: member.role_name, status: m.tenant_status, permissions: member.permissions },
+      legalPending,
       clinics: active.map((r) => ({ slug: r.slug, nameAr: r.name_ar, nameEn: r.name_en })),
     };
   }

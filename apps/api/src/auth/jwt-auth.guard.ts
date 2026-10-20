@@ -7,7 +7,7 @@ import type { RequestContext } from '../shared/context/request-context';
 import { TenantDb } from '../shared/database/tenant-db.service';
 import { Err } from '../shared/errors/app-error';
 import { clipUserAgent } from '../shared/request-meta';
-import { IS_PUBLIC } from './decorators';
+import { ALLOW_LEGAL_PENDING, IS_PUBLIC } from './decorators';
 import { TokenService, type AccessTokenPayload } from './token.service';
 
 /** Global guard: every endpoint needs a valid access token of a still-active member unless marked @Public(). */
@@ -54,6 +54,10 @@ export class JwtAuthGuard implements CanActivate {
     this.cls.set('tenantId', payload.tid);
     this.cls.set('memberId', payload.mid);
     this.cls.set('permissions', payload.perms ?? []);
+    // H6: documents to accept first (owner 2026-10-20: before using the system)
+    if (payload.lp && !this.reflector.getAllAndOverride<boolean>(ALLOW_LEGAL_PENDING, [ctx.getHandler(), ctx.getClass()])) {
+      throw Err.forbidden('legal_acceptance_required', 'Accept the updated legal documents to continue');
+    }
     return true;
   }
 }

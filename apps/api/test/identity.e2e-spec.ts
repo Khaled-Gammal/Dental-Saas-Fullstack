@@ -28,6 +28,7 @@ describe('Identity: sign-up, email verification, login, sessions (e2e)', () => {
   /** the newest code emailed to an address (SRS AUTH-101: sign-up codes go by email, never SMS) */
   const codeFor = (to: string) => /(\d{6})/.exec(mail.outbox.get(to)?.text ?? '')?.[1] ?? '';
   const lastCode = () => codeFor(email);
+  let legalIds: string[] = [];
 
   beforeAll(async () => {
     const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -35,6 +36,8 @@ describe('Identity: sign-up, email verification, login, sessions (e2e)', () => {
     await app.init();
     sms = app.get(SMS_SENDER);
     mail = app.get(EMAIL_SENDER);
+    // H6: the owner accepts the current Terms, Privacy Policy and DPA
+    legalIds = (await http().get('/public/legal').expect(200)).body.map((d: { id: string }) => d.id);
   });
   afterAll(async () => {
     await app.close();
@@ -57,10 +60,17 @@ describe('Identity: sign-up, email verification, login, sessions (e2e)', () => {
     expect(arabicDigits.body.code).toBe('weak_password');
   });
 
+  it('refuses a sign-up that did not accept the legal documents (H6)', async () => {
+    const body = { fullName: 'Dr Test Owner', email, phone: phoneLocal, password: 'Secret123', clinicNameAr: 'عيادة الاختبار', slug };
+    const res = await http().post('/auth/signup').send({ ...body, acceptedDocuments: legalIds.slice(0, 2) }).expect(400);
+    expect(res.body).toMatchObject({ code: 'legal_acceptance_required', documents: [expect.objectContaining({ kind: 'dpa' })] });
+    expect(legalIds).toHaveLength(3);
+  });
+
   it('signs up: creates the clinic and emails a code (no SMS)', async () => {
     const res = await http().post('/auth/signup').send({
       fullName: 'Dr Test Owner', email, phone: phoneLocal, password: 'Secret123',
-      clinicNameAr: 'عيادة الاختبار', clinicNameEn: 'Test Clinic', slug,
+      clinicNameAr: 'عيادة الاختبار', clinicNameEn: 'Test Clinic', slug, acceptedDocuments: legalIds,
     }).expect(201);
     expect(res.body.next).toBe('verify_email');
     expect(res.body.email).not.toBe(email); // masked
@@ -150,6 +160,7 @@ describe('Identity: sign-up, email verification, login, sessions (e2e)', () => {
     it('signs up', async () => {
       await http().post('/auth/signup').send({
         fullName: 'Dr Second', email: email2, phone: phone2, password: 'Secret123', clinicNameAr: 'عيادة ثانية', slug: `second-${run2}`,
+        acceptedDocuments: legalIds,
       }).expect(201);
     });
 
@@ -163,7 +174,8 @@ describe('Identity: sign-up, email verification, login, sessions (e2e)', () => {
     it('a new code works, and Arabic-Indic digits are accepted', async () => {
       await http().post('/auth/otp/resend').send({ email: email2 }).expect(202);
       const arabic = code2().replace(/\d/g, (d) => String.fromCharCode(0x0660 + Number(d)));
-      await http().post('/auth/verify-email').send({ email: email2, code: arabic }).expect(200);
+      const s = (await http().post('/auth/verify-email').send({ email: email2, code: arabic }).expect(200)).body;
+      expect(s.legalPending).toEqual([]); // the owner accepted all three at sign-up
     });
 
     it('locks login after 10 attempts from the same device, even with the right password', async () => {
@@ -181,7 +193,7 @@ describe('Identity: sign-up, email verification, login, sessions (e2e)', () => {
     const email3 = `owner3.${run3}@signup.test`;
     await http().post('/auth/signup').send({
       fullName: 'Dr Third', email: email3, phone: phone3, password: 'Secret123',
-      clinicNameAr: 'عيادة ثالثة', slug: `third-${run3}`,
+      clinicNameAr: 'عيادة ثالثة', slug: `third-${run3}`, acceptedDocuments: legalIds,
     }).expect(201); // send 1
     await http().post('/auth/otp/resend').send({ email: email3 }).expect(202); // send 2
     await http().post('/auth/otp/resend').send({ email: email3 }).expect(202); // send 3

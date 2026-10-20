@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Accounts } from '../identity/accounts.service';
 import type { RequestMeta, Session } from '../identity/identity.types';
 import { SessionService } from '../identity/session.service';
+import { kindsFor, LegalService } from '../legal/legal.service';
 import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
 import type { AcceptInput } from './staff.schemas';
@@ -23,6 +24,7 @@ export class InvitationAcceptance {
     private readonly repo: StaffRepository,
     private readonly accounts: Accounts,
     private readonly sessions: SessionService,
+    private readonly legal: LegalService,
   ) {}
 
   async preview(token: string) {
@@ -34,6 +36,8 @@ export class InvitationAcceptance {
       email: inv.email, jobTitle: inv.job_title, expiresAt: inv.expires_at,
       allBranches: inv.branch_ids.length === 0,
       accountExists: await this.accounts.exists(inv.email),
+      // H6: what joining asks to accept (staff: Terms and Privacy; an owner the DPA too)
+      legal: (await this.legal.current()).filter((d) => kindsFor(inv.role_key === 'owner').includes(d.kind)),
     };
   }
 
@@ -45,6 +49,7 @@ export class InvitationAcceptance {
     // password must not use up the link)
     let userId = existing ? (await this.accounts.checkPassword(inv.email, input.password)).id : null;
     if (!existing && !input.fullName) throw Err.badRequest('full_name_required', 'Enter your name');
+    const legalDocs = await this.legal.requireAccepted(input.acceptedDocuments ?? [], kindsFor(inv.role_key === 'owner'));
 
     await this.db.runAs(inv.tenant_id, async (tx) => {
       if (!(await this.repo.claimInvitation(tx, inv.invitation_id))) throw invalid(); // single use, even under a double click
@@ -59,6 +64,7 @@ export class InvitationAcceptance {
       });
       if (inv.branch_ids.length) await this.repo.replaceBranches(tx, inv.tenant_id, memberId, inv.branch_ids);
       if (inv.doctor_id) await this.repo.linkDoctor(tx, inv.doctor_id, memberId);
+      await this.legal.record(tx, userId, inv.tenant_id, legalDocs, meta);
     });
     return this.sessions.start(userId!, inv.clinic_slug, meta);
   }

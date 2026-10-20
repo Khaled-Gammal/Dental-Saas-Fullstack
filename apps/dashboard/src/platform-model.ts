@@ -10,7 +10,8 @@ export type PlatformRoute =
   | { page: 'clinics' }
   | { page: 'clinic'; id: string }
   | { page: 'plans' }
-  | { page: 'activity' };
+  | { page: 'activity' }
+  | { page: 'legal' };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,6 +23,7 @@ export function parsePlatformRoute(hash: string): PlatformRoute | null {
   if (parts[1] === 'clinics' && parts.length === 3 && UUID.test(parts[2])) return { page: 'clinic', id: parts[2] };
   if (parts[1] === 'plans' && parts.length === 2) return { page: 'plans' };
   if (parts[1] === 'activity' && parts.length === 2) return { page: 'activity' };
+  if (parts[1] === 'legal' && parts.length === 2) return { page: 'legal' };
   return { page: 'clinics' };
 }
 

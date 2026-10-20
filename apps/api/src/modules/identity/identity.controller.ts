@@ -23,6 +23,8 @@ const Signup = z.object({
   clinicNameEn: DisplayName.optional(),
   slug: TenantSlug,
   locale: z.enum(['ar', 'en']).optional(),
+  /** H6: the ids of the current Terms, Privacy Policy and DPA the owner accepted (GET /public/legal) */
+  acceptedDocuments: z.array(z.string().uuid()).max(10).default([]),
 });
 const SlugQuery = z.string().trim().toLowerCase().max(63).catch('');
 const Email = z.string().trim().toLowerCase().email().max(200);

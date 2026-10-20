@@ -1,3 +1,4 @@
+import { LegalModule } from '../legal/legal.module';
 import { Module } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
 import { InvitationAcceptance } from './invitation-acceptance.service';
@@ -10,7 +11,7 @@ import { StaffService } from './staff.service';
  * only through its exported services (Accounts, SessionService, SessionCookie).
  */
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, LegalModule],
   controllers: [StaffController, InvitationsController],
   providers: [StaffService, InvitationAcceptance, StaffRepository],
 })

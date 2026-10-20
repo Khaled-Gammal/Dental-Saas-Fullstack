@@ -7,7 +7,7 @@ import { AUTH_POLICY } from '../../config';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { requestMeta } from '../identity/session-cookie';
-import { Activate, ChangePlan, EditPlan, ExtendTrial, NewNote, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
+import { Activate, ChangePlan, EditPlan, PublishLegal, ExtendTrial, NewNote, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
 import { PlatformCookie, PlatformGuard } from './platform-session';
 import { PlatformService } from './platform.service';
 
@@ -93,6 +93,14 @@ export class PlatformController {
 
   @Get('audit')
   audit() { return this.platform.audit(); }
+
+  @Get('legal')
+  legal() { return this.platform.legalVersions(); }
+
+  @Post('legal')
+  publishLegal(@Body(new ZodBody(PublishLegal)) b: Body<typeof PublishLegal>) {
+    return this.platform.publishLegal(b.kind, b.titleAr, b.bodyAr, b.requiresReacceptance);
+  }
 
   @Get('plans')
   plans() { return this.platform.plans(); }

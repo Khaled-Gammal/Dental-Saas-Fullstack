@@ -7,6 +7,7 @@ import { normalizePhone } from '../../shared/phone';
 import { hashPassword, passwordProblem } from './crypto';
 import { IdentityRepository } from './identity.repository';
 import type { RequestMeta, Session, SignupInput } from './identity.types';
+import { kindsFor, LegalService } from '../legal/legal.service';
 import { OtpService } from './otp.service';
 import { SessionService } from './session.service';
 
@@ -25,6 +26,7 @@ export class SignupService {
     private readonly repo: IdentityRepository,
     private readonly otp: OtpService,
     private readonly sessions: SessionService,
+    private readonly legal: LegalService,
   ) {}
 
   slugAvailable(slug: string): Promise<boolean> {
@@ -46,11 +48,15 @@ export class SignupService {
       throw Err.conflict('slug_taken', `The address ${slug}.${this.cfg.ROOT_DOMAIN} is not available`);
     }
 
+    // H6: the owner accepts the current Terms, Privacy Policy and DPA (recorded with the account, for this clinic)
+    const legalDocs = await this.legal.requireAccepted(input.acceptedDocuments ?? [], kindsFor(true));
+    const tenantId = randomUUID();
     const locale = input.locale ?? 'ar';
     const { userId, hostname } = await this.repo.createUserWithClinic(
-      randomUUID(),
+      tenantId,
       { email, phone, fullName: input.fullName.trim(), passwordHash: await hashPassword(input.password), locale },
       { slug, nameAr: input.clinicNameAr, nameEn: input.clinicNameEn ?? null, rootDomain: this.cfg.ROOT_DOMAIN },
+      (tx, newUserId) => this.legal.record(tx, newUserId, tenantId, legalDocs, meta),
     );
 
     await this.otp.sendByEmail(email, 'verify_email', meta, VERIFY_EMAIL_SUBJECT, userId);

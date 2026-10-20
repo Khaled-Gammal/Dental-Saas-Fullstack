@@ -6,6 +6,7 @@ import { roleLabel, t } from '../i18n';
 import type { InvitationPreview } from '../types';
 import { Alert, Button, ErrorText, Field, Input, LinkButton, PasswordInput, Skeleton } from '../ui/components';
 import { UsersIcon } from '../ui/icons';
+import { LegalConsent } from '../components/legal';
 import { passwordChecks } from '../util';
 
 /**
@@ -18,9 +19,12 @@ export function AcceptInvite({ token, done }: { token: string; done: () => void 
   });
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const legalIds = (preview.data?.legal ?? []).map((d) => d.id);
   const accept = useMutation({
     mutationFn: () => api<Session>(`/public/invitations/${token}/accept`, {
-      method: 'POST', body: JSON.stringify(preview.data?.accountExists ? { password } : { fullName: fullName.trim(), password }),
+      method: 'POST',
+      body: JSON.stringify({ ...(preview.data?.accountExists ? { password } : { fullName: fullName.trim(), password }), acceptedDocuments: agreed ? legalIds : [] }),
     }),
     onSuccess: (s) => { done(); setSession(s); },
   });
@@ -38,7 +42,7 @@ export function AcceptInvite({ token, done }: { token: string; done: () => void 
   const p = preview.data!;
   const clinic = arName(p.clinic.nameAr, p.clinic.nameEn, p.clinic.slug);
   const pwc = passwordChecks(password);
-  const ok = p.accountExists ? password.length > 0 : fullName.trim().length >= 2 && pwc.length && pwc.letter && pwc.digit;
+  const ok = (p.accountExists ? password.length > 0 : fullName.trim().length >= 2 && pwc.length && pwc.letter && pwc.digit) && (!p.legal?.length || agreed);
   const submit = (e: FormEvent) => { e.preventDefault(); if (ok) accept.mutate(); };
 
   return (
@@ -58,6 +62,7 @@ export function AcceptInvite({ token, done }: { token: string; done: () => void 
           {(a) => <PasswordInput id={a.id} describedBy={a.describedBy} value={password} onChange={(e) => setPassword(e.target.value)}
             autoComplete={p.accountExists ? 'current-password' : 'new-password'} required autoFocus={p.accountExists} showLabel={t('showPw')} hideLabel={t('hidePw')} />}
         </Field>
+        <LegalConsent docs={p.legal ?? []} checked={agreed} onChange={setAgreed} />
         <ErrorText error={accept.error} />
         <Button type="submit" block loading={accept.isPending} disabled={!ok}>{t('acceptJoin')}</Button>
       </form>
