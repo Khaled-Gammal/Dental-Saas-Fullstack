@@ -12,7 +12,7 @@ Tokens live in `packages/ui/tokens.css` and are shared by the dashboard (`apps/d
 | `--ink` / `--muted` | `#14213d` / `#5b6b82` | body / secondary text (15.0 and 5.4:1) |
 | status | success `#0b7a55`, warning `#8a4b0f` on `#fef3e6`, danger `#b42d25` | alerts and badges |
 
-Font: IBM Plex Sans Arabic (Arabic and Latin in one family). Radius 8/12/16/24. All spacing uses logical properties, so RTL and LTR share one stylesheet.
+Fonts: Cairo in the dashboard (self-hosted with @fontsource), Tajawal on the clinic websites (next/font, served from the site). Both cover Arabic and Latin in one family; Tajawal has no 600, so semibold renders at 700. Radius 8/12/16/24. All spacing uses logical properties, so RTL and LTR share one stylesheet.
 
 ## Rules
 - Clinic websites use the clinic's own `theme.primary` as `--brand`; tints (`--brand-50/100/200`) and the dark `--brand-deep` are derived with `color-mix()`. Only `#rrggbb` values are accepted; the default when none is set is indigo `#4f46e5`. The server also sets `--on-brand` (text on the brand colour) and `--brand-text` (the brand colour as text on white), both at least 4.5:1, so any colour a clinic picks stays readable.
