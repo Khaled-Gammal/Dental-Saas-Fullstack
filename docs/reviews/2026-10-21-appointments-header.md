@@ -20,3 +20,20 @@ page. Looking at the screenshot also showed that the page had no way to start a 
 
 Lint, typecheck, the 123 unit tests. Screenshots: the page at 1440 px and 390 px, the open dialog, and the form opened
 from «موعد جديد» on the 22nd (prefilled).
+
+## The day toolbar (same day, second request)
+
+The user asked to improve the section under the header (a screenshot of the date bar, the branch filter and the tabs).
+
+- **One row** instead of three blocks: the views (كل المواعيد · قائمة الانتظار · مواعيدي) as a compact segmented control
+  on the start side; on the end side the day and the branch.
+- **A joined date stepper:** previous · date · next as one control, with arrows (the previous day on the right in
+  right-to-left, its arrow pointing right) instead of the «السابق» and «التالي» text buttons. Each arrow has an
+  accessible name («اليوم السابق», «اليوم التالي»).
+- **«اليوم»** is an outline button, disabled when the day shown is already today.
+- **The day heading** is smaller, says «اليوم» when it is today, and shows the number of appointments (not for an
+  empty day, where the empty message says it, nor on the waiting list, which counts its own).
+- On a phone the tabs and the stepper take the full width; the date grows between the arrows.
+
+Checks: lint, typecheck, 123 unit tests, build; screenshots today and on the 17th (two appointments) at 1440 px, and at
+390 px.

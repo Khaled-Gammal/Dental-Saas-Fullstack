@@ -333,10 +333,18 @@ fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-wid
 a.btn, a.link-btn { text-decoration: none; }
 
 /* ===== appointments: day view + reception check-in ===== */
-.day-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.day-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .day-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* previous · date · next as one joined control */
+.day-stepper { display: inline-flex; align-items: stretch; }
+.day-stepper > * { border-radius: 0; }
+.day-stepper > * + * { margin-inline-start: -1px; }
+.day-stepper > :first-child { border-start-start-radius: var(--r-sm); border-end-start-radius: var(--r-sm); }
+.day-stepper > :last-child { border-start-end-radius: var(--r-sm); border-end-end-radius: var(--r-sm); }
+.day-stepper > :focus-visible { position: relative; z-index: 1; }
+@media (max-width: 640px) { .day-toolbar > .seg, .day-nav, .day-stepper { width: 100%; } .day-stepper > :nth-child(2) { flex: 1; min-width: 0; } }
 .day-date { min-height: 40px; }
-.day-title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); font-weight: 600; margin: 20px 0 12px; }
+.day-title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-md); font-weight: 700; margin: 16px 0 10px; }
 .day-title svg { color: var(--primary-500); }
 .checkin-form { display: flex; flex-direction: column; gap: 14px; }
 .checkin-head { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; }
