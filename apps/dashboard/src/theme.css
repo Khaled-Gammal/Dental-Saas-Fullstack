@@ -60,4 +60,11 @@
   --chart-4: #94a3b8; /* neutral: cancelled, the rest */
   --chart-5: #38bdf8; /* still ahead: upcoming */
   --chart-6: #dc2626; /* missed: no-shows */
+  /* type (2026-10-21): a denser scale for a working tool, 14px body; Cairo reads larger than its size.
+     The clinic websites keep the shared scale. */
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.875rem;
+  --fs-lg: 1rem;
+  --fs-xl: 1.25rem;
+  --fs-2xl: 1.5rem;
 }

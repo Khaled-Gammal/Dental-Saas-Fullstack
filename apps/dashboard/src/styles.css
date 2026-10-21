@@ -54,6 +54,8 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 .field-error { font-size: var(--fs-xs); color: var(--danger); font-weight: 500; }
 .input { width: 100%; min-height: 44px; padding: 10px 14px; font: inherit; font-size: var(--fs-md); color: var(--ink); background: var(--card);
   border: 1px solid var(--line-strong); border-radius: var(--r-sm); transition: border-color var(--t-fast), box-shadow var(--t-fast); }
+/* phones zoom into a field whose text is under 16px when it gets focus */
+@media (max-width: 860px) { .input { font-size: 16px; } }
 .input::placeholder { color: var(--faint); }
 .input:hover { border-color: var(--primary-300); }
 .input:focus { outline: none; border-color: var(--primary-500); box-shadow: var(--ring); }
@@ -174,7 +176,7 @@ select.input { appearance: auto; }
 .row-form > :first-child { flex: 1 1 260px; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
 .page-head-text { min-width: 0; }
-.page-head h1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: clamp(1.3rem, 1.15rem + 0.5vw, 1.6rem); font-weight: 700; letter-spacing: -0.01em; }
+.page-head h1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: clamp(1.2rem, 1.1rem + 0.35vw, 1.4rem); font-weight: 700; letter-spacing: -0.01em; }
 .page-head p { color: var(--muted); margin-top: 4px; }
 .page-count { display: inline-flex; align-items: center; padding: 1px 9px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card);
   color: var(--muted); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0; }
@@ -709,7 +711,7 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .ov-kpi:hover { border-color: var(--primary-200); box-shadow: var(--shadow-md); }
 .ov-kpi-label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
 .ov-kpi-icon { display: inline-flex; color: var(--muted); }
-.ov-kpi-value { font-size: clamp(1.6rem, 1.3rem + 0.8vw, 2rem); font-weight: 700; color: var(--ink); line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ov-kpi-value { font-size: clamp(1.4rem, 1.2rem + 0.55vw, 1.75rem); font-weight: 700; color: var(--ink); line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ov-kpi-value.is-negative { color: var(--danger); }
 .ov-kpi-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; min-height: 40px; }
 .ov-kpi-delta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }

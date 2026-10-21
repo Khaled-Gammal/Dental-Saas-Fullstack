@@ -179,7 +179,7 @@ function NavItems({ items, current }: { items: NavItem[]; current: Page | null }
         const active = current === i.page;
         return (
           <SidebarMenuItem key={i.page}>
-            <SidebarMenuButton asChild isActive={active} tooltip={label} className={`h-9 text-[0.9375rem] text-sidebar-foreground ${ACTIVE}`}>
+            <SidebarMenuButton asChild isActive={active} tooltip={label} className={`h-9 text-sm text-sidebar-foreground ${ACTIVE}`}>
               <a href={href(to.list(i.page))} aria-current={active ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
                 <Icon /><span>{label}</span>
               </a>
