@@ -3,7 +3,7 @@ import { arName } from '@dental/ui/text';
 import { toMinor, toPounds } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { difference, otherMethods } from '../../finance-model';
-import { t, type Key } from '../../i18n';
+import { cashStatusLabel, paymentMethodLabel } from '../../labels';
 import { money } from '../../money';
 import { send, useCashBranches, useCashDay, useCashHistory, useFinanceMutation } from '../../queries';
 import type { CashSession, DayTotals } from '../../types';
@@ -24,24 +24,24 @@ export function CashBox({ clinicId }: { clinicId: string }) {
   const day = useCashDay(clinicId, branchId);
   return (
     <>
-      <PageHeader title={t('navCash')} sub={t('cashSub')} />
+      <PageHeader title="الخزنة اليومية" sub="جلسة واحدة لكل فرع في اليوم: رصيد افتتاحي، ثم النقدية المتوقعة من المسجل فعلًا، ثم العد والإقفال." />
       {list.length > 1 && (
         <Card>
-          <Field label={t('branch')}>
+          <Field label="الفرع">
             {(a) => <Choice id={a.id} value={branchId} onChange={setPicked} options={list.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en) }))} />}
           </Field>
         </Card>
       )}
       {branches.isError ? <ErrorText error={branches.error} onRetry={() => void branches.refetch()} />
         : !branches.data ? <Skeleton h={120} count={2} />
-        : !list.length ? <Card><EmptyState icon={<CashIcon size={28} />} title={t('noCashBranch')} text={t('noCashBranchText')} /></Card>
+        : !list.length ? <Card><EmptyState icon={<CashIcon size={28} />} title="لا فرع متاح" text="لا يوجد فرع نشط تعمل به." /></Card>
         : day.isError ? <ErrorText error={day.error} onRetry={() => void day.refetch()} />
         : !day.data ? <Skeleton h={160} count={2} />
         : (
           <>
             {day.data.earlier_open && (
               <Card>
-                <Alert tone="danger">{t('earlierOpen').replace('{date}', day.data.earlier_open.business_date)}</Alert>
+                <Alert tone="danger">{'خزنة يوم {date} ما زالت مفتوحة. أقفلها أولًا قبل فتح خزنة اليوم.'.replace('{date}', day.data.earlier_open.business_date)}</Alert>
                 <SessionCard clinicId={clinicId} s={day.data.earlier_open} />
               </Card>
             )}
@@ -66,14 +66,14 @@ function OpenCard({ clinicId, branchId, date, suggested, totals }: { clinicId: s
   const moved = totals && (totals.cash_in || totals.cash_refunds || totals.cash_expenses);
   return (
     <Card>
-      <h2>{t('openCashDay')} · {date}</h2>
-      <p className="muted small">{t(suggested !== null ? 'openingSuggested' : 'openingFirst')}</p>
-      {moved ? <Alert tone="info">{t('movedBeforeOpening')}</Alert> : null}
-      <Field label={t('openingCash')}>
+      <h2>فتح الخزنة · {date}</h2>
+      <p className="muted small">{suggested !== null ? 'المبلغ المقترح هو ما عُدّ عند إقفال آخر يوم. عُدّ النقدية وصحّحه إن اختلف.' : 'عُدّ النقدية الموجودة في الدرج وأدخلها.'}</p>
+      {moved ? <Alert tone="info">سُجلت حركات نقدية اليوم قبل فتح الخزنة؛ ستُحسب ضمن هذا اليوم.</Alert> : null}
+      <Field label="الرصيد الافتتاحي">
         {(a) => (
           <div className="row-start">
             <Input id={a.id} className="input-sm" dir="ltr" inputMode="decimal" value={text} onChange={(e) => setAmount(e.target.value)} invalid={!!text && minor === null} />
-            <Button loading={open.isPending} disabled={minor === null} onClick={() => open.mutate(undefined)}>{t('openCashDay')}</Button>
+            <Button loading={open.isPending} disabled={minor === null} onClick={() => open.mutate(undefined)}>فتح الخزنة</Button>
           </div>
         )}
       </Field>
@@ -88,35 +88,35 @@ function SessionCard({ clinicId, s }: { clinicId: string; s: CashSession }) {
   return (
     <>
       <div className="row-between">
-        <h2>{t('cashDay')} · {s.business_date}</h2>
-        <Badge tone={s.status === 'open' ? 'success' : 'neutral'}>{t(`cs_${s.status}` as Key)}</Badge>
+        <h2>خزنة يوم · {s.business_date}</h2>
+        <Badge tone={s.status === 'open' ? 'success' : 'neutral'}>{cashStatusLabel[s.status]}</Badge>
       </div>
-      <p className="muted small">{t('openedBy')} <bdi>{s.opened_by_name}</bdi>{s.closed_by_name && <> · {t('closedBy')} <bdi>{s.closed_by_name}</bdi></>}</p>
+      <p className="muted small">فتحها <bdi>{s.opened_by_name}</bdi>{s.closed_by_name && <> · أقفلها <bdi>{s.closed_by_name}</bdi></>}</p>
       <ul className="line-list mt-sm cash-figures">
-        <li><span>{t('openingCash')}</span><span className="line-end"><bdi>{money(s.opening_minor, s.currency)}</bdi></span></li>
-        <li><span>+ {t('cashPayments')}</span><span className="line-end"><bdi>{money(totals.cash_in, s.currency)}</bdi></span></li>
-        <li><span>− {t('cashRefunds')}</span><span className="line-end"><bdi>{money(totals.cash_refunds, s.currency)}</bdi></span></li>
-        <li><span>− {t('cashExpenses')}</span><span className="line-end"><bdi>{money(totals.cash_expenses, s.currency)}</bdi></span></li>
-        <li className="line-total"><strong>= {t('expectedCash')}</strong><span className="line-end"><strong><bdi>{money(expected, s.currency)}</bdi></strong></span></li>
+        <li><span>الرصيد الافتتاحي</span><span className="line-end"><bdi>{money(s.opening_minor, s.currency)}</bdi></span></li>
+        <li><span>+ مدفوعات نقدية</span><span className="line-end"><bdi>{money(totals.cash_in, s.currency)}</bdi></span></li>
+        <li><span>− مرتجعات نقدية</span><span className="line-end"><bdi>{money(totals.cash_refunds, s.currency)}</bdi></span></li>
+        <li><span>− مصروفات نقدية</span><span className="line-end"><bdi>{money(totals.cash_expenses, s.currency)}</bdi></span></li>
+        <li className="line-total"><strong>= النقدية المتوقعة</strong><span className="line-end"><strong><bdi>{money(expected, s.currency)}</bdi></strong></span></li>
         {s.status === 'closed' && s.counted_minor !== null && (
           <>
-            <li><span>{t('countedCash')}</span><span className="line-end"><bdi>{money(s.counted_minor, s.currency)}</bdi></span></li>
-            <li><span>{t('cashDifference')}</span><span className="line-end"><DiffBadge diff={s.difference_minor ?? 0} currency={s.currency} /></span></li>
+            <li><span>النقدية الفعلية</span><span className="line-end"><bdi>{money(s.counted_minor, s.currency)}</bdi></span></li>
+            <li><span>الفرق</span><span className="line-end"><DiffBadge diff={s.difference_minor ?? 0} currency={s.currency} /></span></li>
           </>
         )}
       </ul>
-      {s.note && <p className="small mt-sm">{t('closingNote')}: <bdi>{s.note}</bdi></p>}
+      {s.note && <p className="small mt-sm">ملاحظة الإقفال: <bdi>{s.note}</bdi></p>}
       <OtherMethods totals={totals} currency={s.currency} />
       {s.can?.close && <CloseForm clinicId={clinicId} s={s} />}
       {s.can?.reopen && <ReopenForm clinicId={clinicId} s={s} />}
       {!!s.reopenings?.length && (
         <>
-          <h3 className="mt">{t('reopenHistory')}</h3>
+          <h3 className="mt">سجل إعادة الفتح</h3>
           <ul className="line-list mt-sm">
             {s.reopenings.map((r) => (
               <li key={r.id}>
-                <span><bdi>{r.reason}</bdi><span className="muted small block">{t('reopenedBy')} <bdi>{r.reopened_by_name}</bdi> · {r.reopened_at.slice(0, 16).replace('T', ' ')}</span></span>
-                <span className="line-end small">{t('previousClose')}: <bdi>{money(r.previous_counted, s.currency)}</bdi> / <bdi>{money(r.previous_expected, s.currency)}</bdi></span>
+                <span><bdi>{r.reason}</bdi><span className="muted small block">أعاد فتحها <bdi>{r.reopened_by_name}</bdi> · {r.reopened_at.slice(0, 16).replace('T', ' ')}</span></span>
+                <span className="line-end small">الإقفال السابق (فعلي / متوقع): <bdi>{money(r.previous_counted, s.currency)}</bdi> / <bdi>{money(r.previous_expected, s.currency)}</bdi></span>
               </li>
             ))}
           </ul>
@@ -127,8 +127,8 @@ function SessionCard({ clinicId, s }: { clinicId: string; s: CashSession }) {
 }
 
 function DiffBadge({ diff, currency }: { diff: number; currency: string }) {
-  if (diff === 0) return <Badge tone="success">{t('noDifference')}</Badge>;
-  return <Badge tone="warning">{t(diff > 0 ? 'cashOver' : 'cashShort')} <bdi>{money(Math.abs(diff), currency)}</bdi></Badge>;
+  if (diff === 0) return <Badge tone="success">مطابق</Badge>;
+  return <Badge tone="warning">{diff > 0 ? 'زيادة' : 'عجز'} <bdi>{money(Math.abs(diff), currency)}</bdi></Badge>;
 }
 
 /** CASH-002: card, transfers, wallets and InstaPay are listed beside expected cash, never inside it. */
@@ -137,13 +137,13 @@ function OtherMethods({ totals, currency }: { totals: DayTotals; currency: strin
   if (!rows.length) return null;
   return (
     <>
-      <h3 className="mt">{t('otherMethods')}</h3>
-      <p className="muted small">{t('otherMethodsSub')}</p>
+      <h3 className="mt">طرق الدفع الأخرى</h3>
+      <p className="muted small">لا تدخل في النقدية المتوقعة؛ تُطابق مع البنك أو جهاز البطاقات.</p>
       <ul className="line-list mt-sm">
         {rows.map((r) => (
           <li key={r.method}>
-            <span>{t(`pm_${r.method}` as Key)}</span>
-            <span className="line-end small">{t('received')} <bdi>{money(r.inMinor, currency)}</bdi>{r.outMinor > 0 && <> · {t('paidOut')} <bdi>{money(r.outMinor, currency)}</bdi></>}</span>
+            <span>{paymentMethodLabel[r.method]}</span>
+            <span className="line-end small">وارد <bdi>{money(r.inMinor, currency)}</bdi>{r.outMinor > 0 && <> · صادر <bdi>{money(r.outMinor, currency)}</bdi></>}</span>
           </li>
         ))}
       </ul>
@@ -161,18 +161,18 @@ function CloseForm({ clinicId, s }: { clinicId: string; s: CashSession }) {
   const ready = minor !== null && (diff === 0 || note.trim().length >= 3);
   return (
     <div className="stack mt tooth-panel">
-      <h3>{t('closeCashDay')}</h3>
-      <Field label={t('countedCash')} hint={t('countedHint')}>
+      <h3>إقفال الخزنة</h3>
+      <Field label="النقدية الفعلية" hint="عُدّ النقدية في الدرج وأدخل المبلغ.">
         {(a) => <Input id={a.id} describedBy={a.describedBy} className="input-sm" dir="ltr" inputMode="decimal" value={counted} onChange={(e) => setCounted(e.target.value)} invalid={!!counted && minor === null} />}
       </Field>
-      {diff !== null && <p className="small">{t('cashDifference')}: <DiffBadge diff={diff} currency={s.currency} /></p>}
+      {diff !== null && <p className="small">الفرق: <DiffBadge diff={diff} currency={s.currency} /></p>}
       {diff !== null && diff !== 0 && (
-        <Field label={t('closingNote')} hint={t('differenceNoteHint')}>
+        <Field label="ملاحظة الإقفال" hint="اشرح سبب الفرق (3 أحرف على الأقل).">
           {(a) => <TextArea id={a.id} describedBy={a.describedBy} rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />}
         </Field>
       )}
       <ErrorText error={close.error} />
-      <div className="row-end"><Button loading={close.isPending} disabled={!ready} onClick={() => close.mutate(undefined)}>{t('closeCashDay')}</Button></div>
+      <div className="row-end"><Button loading={close.isPending} disabled={!ready} onClick={() => close.mutate(undefined)}>إقفال الخزنة</Button></div>
     </div>
   );
 }
@@ -182,18 +182,18 @@ function ReopenForm({ clinicId, s }: { clinicId: string; s: CashSession }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const reopen = useFinanceMutation(clinicId, () => send(`/cash/sessions/${s.id}/reopen`, 'POST', { reason: reason.trim() }));
-  if (!open) return <div className="row-end mt"><Button variant="secondary" onClick={() => setOpen(true)}>{t('reopenCashDay')}</Button></div>;
+  if (!open) return <div className="row-end mt"><Button variant="secondary" onClick={() => setOpen(true)}>إعادة فتح الخزنة</Button></div>;
   return (
     <div className="stack mt tooth-panel">
-      <h3>{t('reopenCashDay')}</h3>
-      <p className="muted small">{t('reopenText')}</p>
-      <Field label={t('reason')} hint={t('reasonHint')}>
+      <h3>إعادة فتح الخزنة</h3>
+      <p className="muted small">تُحفظ أرقام الإقفال السابقة في السجل مع السبب.</p>
+      <Field label="السبب" hint="3 أحرف على الأقل">
         {(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}
       </Field>
       <ErrorText error={reopen.error} />
       <div className="row-end">
-        <Button variant="ghost" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-        <Button loading={reopen.isPending} disabled={reason.trim().length < 3} onClick={() => reopen.mutate(undefined, { onSuccess: () => setOpen(false) })}>{t('reopenCashDay')}</Button>
+        <Button variant="ghost" onClick={() => setOpen(false)}>إلغاء</Button>
+        <Button loading={reopen.isPending} disabled={reason.trim().length < 3} onClick={() => reopen.mutate(undefined, { onSuccess: () => setOpen(false) })}>إعادة فتح الخزنة</Button>
       </div>
     </div>
   );
@@ -202,18 +202,18 @@ function ReopenForm({ clinicId, s }: { clinicId: string; s: CashSession }) {
 /** The closed days (redesign R4: a table). Every figure is the one the API stored when the day was closed. */
 const HISTORY_COLUMNS: Column<CashSession>[] = [
   {
-    id: 'date', header: t('cashColDay'), sortValue: (s) => s.business_date,
+    id: 'date', header: 'اليوم', sortValue: (s) => s.business_date,
     cell: (s) => (
       <>
         <strong className="whitespace-nowrap tabular-nums">{s.business_date}</strong>
-        {s.reopen_count > 0 && <span className="muted small block">{t('reopenedTimes').replace('{n}', String(s.reopen_count))}</span>}
+        {s.reopen_count > 0 && <span className="muted small block">{'أُعيد فتحها {n} مرة'.replace('{n}', String(s.reopen_count))}</span>}
       </>
     ),
   },
-  { id: 'closedBy', header: t('closedBy'), hideOnMobile: true, cell: (s) => <><bdi>{s.closed_by_name}</bdi>{s.note && <span className="muted small block"><bdi>{s.note}</bdi></span>}</> },
-  { id: 'expected', header: t('expectedCash'), numeric: true, hideOnMobile: true, cell: (s) => <bdi>{money(s.expected_minor ?? 0, s.currency)}</bdi> },
-  { id: 'counted', header: t('countedCash'), numeric: true, cell: (s) => <bdi className="font-semibold">{money(s.counted_minor ?? 0, s.currency)}</bdi> },
-  { id: 'difference', header: t('cashDifference'), sortValue: (s) => s.difference_minor ?? 0, cell: (s) => <DiffBadge diff={s.difference_minor ?? 0} currency={s.currency} /> },
+  { id: 'closedBy', header: 'أقفلها', hideOnMobile: true, cell: (s) => <><bdi>{s.closed_by_name}</bdi>{s.note && <span className="muted small block"><bdi>{s.note}</bdi></span>}</> },
+  { id: 'expected', header: 'النقدية المتوقعة', numeric: true, hideOnMobile: true, cell: (s) => <bdi>{money(s.expected_minor ?? 0, s.currency)}</bdi> },
+  { id: 'counted', header: 'النقدية الفعلية', numeric: true, cell: (s) => <bdi className="font-semibold">{money(s.counted_minor ?? 0, s.currency)}</bdi> },
+  { id: 'difference', header: 'الفرق', sortValue: (s) => s.difference_minor ?? 0, cell: (s) => <DiffBadge diff={s.difference_minor ?? 0} currency={s.currency} /> },
 ];
 
 function History({ clinicId, branchId }: { clinicId: string; branchId: string }) {
@@ -223,17 +223,17 @@ function History({ clinicId, branchId }: { clinicId: string; branchId: string })
   if (!past.length) return null;
   return (
     <section>
-      <h2 className="section-title">{t('cashHistory')}</h2>
+      <h2 className="section-title">الأيام السابقة</h2>
       <DataTable
         key={branchId}
-        label={t('cashHistory')}
+        label="الأيام السابقة"
         rows={past}
         columns={HISTORY_COLUMNS}
         rowKey={(s) => s.id}
         isFetching={history.isFetching}
         defaultSort={{ id: 'date', dir: 'desc' }}
         pageSize={15}
-        empty={{ icon: <CashIcon size={28} />, title: t('cashHistory'), text: '' }}
+        empty={{ icon: <CashIcon size={28} />, title: 'الأيام السابقة', text: '' }}
       />
     </section>
   );

@@ -3,7 +3,6 @@ import { arName } from '@dental/ui/text';
 import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { navigate } from '../../hooks';
-import { t } from '../../i18n';
 import { money } from '../../money';
 import { send, useBillingMutation, useBranches, usePatient, usePatientBilling, useServices } from '../../queries';
 import { to } from '../../router';
@@ -40,9 +39,9 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
     })),
   }));
   // an invoice always starts from a patient (their profile or a visit); a bare link says so instead of "not found"
-  if (!patientId) return <NotFound text={t('invoiceNeedsPatient')} back={{ page: 'patients' }} backLabel={t('navPatients')} />;
+  if (!patientId) return <NotFound text="تبدأ الفاتورة من ملف المريض أو من زيارته. افتح ملف المريض ثم اختر «فاتورة جديدة»." back={{ page: 'patients' }} backLabel="المرضى" />;
   if (!patient.data) {
-    return <ResourceState isLoading={patient.isLoading} isError={patient.isError} error={patient.error} notFound={!patientId} refetch={() => void patient.refetch()} back={{ page: 'invoices' }} backLabel={t('navBilling')} />;
+    return <ResourceState isLoading={patient.isLoading} isError={patient.isError} error={patient.error} notFound={!patientId} refetch={() => void patient.refetch()} back={{ page: 'invoices' }} backLabel="الفواتير" />;
   }
   const currency = billing.data?.currency ?? 'EGP';
   const toggle = (id: string) => { const s = new Set(chosen); if (s.has(id)) s.delete(id); else s.add(id); setPicked(s); };
@@ -52,17 +51,17 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
   return (
     <>
       {/* UI refinement U3: the shared form page (form width, Cancel and the create button in its footer) */}
-      <FormPage title={t('newInvoice')} sub={patient.data.full_name} crumbs={[{ label: t('navBilling'), route: { page: 'invoices' } }, { label: patient.data.full_name, route: to.view('patients', patient.data.id) }, { label: t('newInvoice') }]}
-        back={to.view('patients', patient.data.id)} onSubmit={submit} saving={create.isPending} canSave={ready} error={create.error} saveLabel={t('createDraft')}>
+      <FormPage title="فاتورة جديدة" sub={patient.data.full_name} crumbs={[{ label: 'الفواتير', route: { page: 'invoices' } }, { label: patient.data.full_name, route: to.view('patients', patient.data.id) }, { label: 'فاتورة جديدة' }]}
+        back={to.view('patients', patient.data.id)} onSubmit={submit} saving={create.isPending} canSave={ready} error={create.error} saveLabel="إنشاء مسودة">
         <Card>
-          <Field label={t('branch')}>
-            {(a) => <Choice id={a.id} value={branch} onChange={setBranchId} placeholder={t('pickBranch')}
+          <Field label="الفرع">
+            {(a) => <Choice id={a.id} value={branch} onChange={setBranchId} placeholder="اختر الفرع"
               options={active.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en, b.slug) }))} />}
           </Field>
         </Card>
         <Card>
-          <h2>{t('unbilledWork')}</h2>
-          {unbilled.length === 0 ? <p className="muted small mt-sm">{t('noUnbilled')}</p> : (
+          <h2>إجراءات لم تُفوتر</h2>
+          {unbilled.length === 0 ? <p className="muted small mt-sm">لا توجد إجراءات غير مفوترة.</p> : (
             <ul className="line-list mt">
               {unbilled.map((p) => (
                 <li key={p.id}>
@@ -79,19 +78,19 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
         </Card>
         <Card>
           <div className="row-between">
-            <h2>{t('otherLines')}</h2>
-            <Button variant="secondary" onClick={() => setLines((ls) => [...ls, { serviceId: '', description: '', price: '', qty: '1' }])}>{t('addLine')}</Button>
+            <h2>بنود أخرى</h2>
+            <Button variant="secondary" onClick={() => setLines((ls) => [...ls, { serviceId: '', description: '', price: '', qty: '1' }])}>إضافة بند</Button>
           </div>
           {lines.map((l, i) => (
             <div key={i} className="grid-2 mt tooth-panel">
-              <Field label={t('service')} optional={t('optional')}>
-                {(a) => <Choice id={a.id} value={l.serviceId} onChange={(v) => set(i, 'serviceId', v)} noneLabel={t('otherLine')}
+              <Field label="الخدمة" optional="اختياري">
+                {(a) => <Choice id={a.id} value={l.serviceId} onChange={(v) => set(i, 'serviceId', v)} noneLabel="بند آخر (بدون خدمة)"
                   options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: arName(s.name_ar, s.name_en) }))} />}
               </Field>
-              {!l.serviceId && <Field label={t('lineDescription')}>{(a) => <Input id={a.id} value={l.description} onChange={(e) => set(i, 'description', e.target.value)} maxLength={300} />}</Field>}
-              <Field label={t('unitPrice')} optional={l.serviceId ? t('optional') : undefined}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={l.price} onChange={(e) => set(i, 'price', e.target.value)} />}</Field>
-              <Field label={t('quantity')}>{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={l.qty} onChange={(e) => set(i, 'qty', e.target.value.replace(/\D/g, '').slice(0, 3))} />}</Field>
-              <LinkButton onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>{t('remove')}</LinkButton>
+              {!l.serviceId && <Field label="البيان">{(a) => <Input id={a.id} value={l.description} onChange={(e) => set(i, 'description', e.target.value)} maxLength={300} />}</Field>}
+              <Field label="سعر الوحدة" optional={l.serviceId ? 'اختياري' : undefined}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={l.price} onChange={(e) => set(i, 'price', e.target.value)} />}</Field>
+              <Field label="الكمية">{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={l.qty} onChange={(e) => set(i, 'qty', e.target.value.replace(/\D/g, '').slice(0, 3))} />}</Field>
+              <LinkButton onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>إزالة</LinkButton>
             </div>
           ))}
         </Card>

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../api';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
-import { t, type Key } from '../../i18n';
+import { billingCycleLabel, clinicStatusLabel, leadStatusLabel, legalDocLabel, planFeatureLabel, planLimitLabel, platformActionLabel } from '../../labels';
 import { money } from '../../money';
 import { filterClinics, filterLeads, LEAD_STATUSES, papi, platformHref, trialDaysLeft, type LeadStatus, type PlatformRoute } from '../../platform-model';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, OtpInput, PageHeader, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
@@ -45,7 +45,7 @@ const clinicName = (c: { name_ar: string | null; name_en: string | null; slug: s
  */
 export function PlatformApp({ route }: { route: PlatformRoute }) {
   const me = useQuery({ queryKey: [...KEY, 'me'], queryFn: () => papi<Me>('/platform/me'), retry: false });
-  if (me.isLoading) return <div className="boot" role="status" aria-label={t('loading')}><Skeleton h={48} count={2} /></div>;
+  if (me.isLoading) return <div className="boot" role="status" aria-label="جارٍ التحميل…"><Skeleton h={48} count={2} /></div>;
   if (me.isError) {
     if (me.error instanceof ApiError && me.error.status === 401) return <PlatformLogin />;
     return <div className="platform-main"><ErrorText error={me.error} onRetry={() => void me.refetch()} /></div>;
@@ -80,27 +80,27 @@ function PlatformLogin() {
   return (
     <AuthLayout>
       <header className="form-head">
-        <h2>{t('pl_signInTitle')}</h2>
-        <p>{sentTo ? t('pl_codeSent').replace('{email}', sentTo) : t('pl_signInSub')}</p>
+        <h2>دخول لوحة إدارة المنصة</h2>
+        <p>{sentTo ? 'أرسلنا رمزًا من 6 أرقام إلى {email}. اكتبه لإكمال الدخول.'.replace('{email}', sentTo) : 'لمديري المنصة فقط. بعد كلمة المرور نرسل رمزًا إلى بريدك.'}</p>
       </header>
         <form onSubmit={submit} className="stack">
           {!sentTo ? (
             <>
-              <Field label={t('email')}>
+              <Field label="البريد الإلكتروني">
                 {(a) => <Input id={a.id} describedBy={a.describedBy} type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus />}
               </Field>
-              <Field label={t('password')}>
+              <Field label="كلمة المرور">
                 {(a) => <PasswordInput id={a.id} describedBy={a.describedBy} value={password} onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password" required showLabel={t('showPw')} hideLabel={t('hidePw')} />}
+                  autoComplete="current-password" required showLabel="إظهار كلمة المرور" hideLabel="إخفاء كلمة المرور" />}
               </Field>
               <ErrorText error={login.error} />
-              <Button type="submit" block loading={login.isPending}>{t('signIn')}</Button>
+              <Button type="submit" block loading={login.isPending}>تسجيل الدخول</Button>
             </>
           ) : (
             <>
-              <Field label={t('code')}>{(a) => <OtpInput id={a.id} value={code} onChange={setCode} invalid={!!verify.error} label={t('code')} />}</Field>
+              <Field label="الرمز">{(a) => <OtpInput id={a.id} value={code} onChange={setCode} invalid={!!verify.error} label="الرمز" />}</Field>
               <ErrorText error={verify.error} />
-              <Button type="submit" block loading={verify.isPending} disabled={code.length !== 6}>{t('pl_confirm')}</Button>
+              <Button type="submit" block loading={verify.isPending} disabled={code.length !== 6}>تأكيد الدخول</Button>
             </>
           )}
         </form>
@@ -111,19 +111,19 @@ function PlatformLogin() {
 function PlatformShell({ me, route, children }: { me: Me; route: PlatformRoute; children: ReactNode }) {
   const qc = useQueryClient();
   const out = useMutation({ mutationFn: () => papi('/platform/auth/logout', { method: 'POST' }), onSettled: () => qc.removeQueries({ queryKey: KEY }) });
-  const tab = (r: PlatformRoute, label: Key) => (
-    <a href={platformHref(r)} className={`seg-btn${route.page === r.page || (r.page === 'clinics' && route.page === 'clinic') ? ' is-on' : ''}`}>{t(label)}</a>
+  const tab = (r: PlatformRoute, label: string) => (
+    <a href={platformHref(r)} className={`seg-btn${route.page === r.page || (r.page === 'clinics' && route.page === 'clinic') ? ' is-on' : ''}`}>{label}</a>
   );
   return (
     <div className="platform">
       <header className="platform-bar">
-        <strong><ShieldIcon size={18} /> {t('pl_title')}</strong>
-        <nav className="seg" aria-label={t('pl_title')}>
-          {tab({ page: 'clinics' }, 'pl_clinics')}{tab({ page: 'leads' }, 'pl_leads')}{tab({ page: 'plans' }, 'pl_plans')}{tab({ page: 'legal' }, 'pl_legal')}{tab({ page: 'activity' }, 'pl_activity')}
+        <strong><ShieldIcon size={18} /> لوحة إدارة المنصة</strong>
+        <nav className="seg" aria-label="لوحة إدارة المنصة">
+          {tab({ page: 'clinics' }, 'العيادات')}{tab({ page: 'leads' }, 'طلبات التواصل')}{tab({ page: 'plans' }, 'الخطط')}{tab({ page: 'legal' }, 'المستندات القانونية')}{tab({ page: 'activity' }, 'السجل')}
         </nav>
         <span className="row-end">
           <span className="muted small"><bdi>{me.name}</bdi></span>
-          <Button variant="ghost" loading={out.isPending} onClick={() => out.mutate()}>{t('signOut')}</Button>
+          <Button variant="ghost" loading={out.isPending} onClick={() => out.mutate()}>خروج</Button>
         </span>
       </header>
       <main className="platform-main">{children}</main>
@@ -140,54 +140,54 @@ function ClinicsPage() {
   const count = (s: string) => clinics.data?.filter((c) => c.status === s).length ?? 0;
   const columns: Column<Clinic>[] = [
     {
-      id: 'clinic', header: t('pl_clinic'), sortValue: (c) => clinicName(c),
+      id: 'clinic', header: 'العيادة', sortValue: (c) => clinicName(c),
       cell: (c) => <><a href={platformHref({ page: 'clinic', id: c.id })} className="font-semibold no-underline hover:underline"><bdi>{clinicName(c)}</bdi></a><span className="muted small block" dir="ltr">{c.slug}</span></>,
     },
     {
-      id: 'status', header: t('status'), sortValue: (c) => c.status,
+      id: 'status', header: 'الحالة', sortValue: (c) => c.status,
       cell: (c) => (
         <>
-          <Badge tone={STATUS_TONE[c.status] ?? 'neutral'} dot>{t(c.deletion ? 'pl_deletionPending' : c.suspension_kind === 'trial_ended' ? 'pl_trialEnded' : (`pl_status_${c.status}` as Key))}</Badge>
+          <Badge tone={STATUS_TONE[c.status] ?? 'neutral'} dot>{c.deletion ? 'بانتظار الحذف' : c.suspension_kind === 'trial_ended' ? 'انتهت التجربة' : (clinicStatusLabel[c.status])}</Badge>
           {c.deletion && <span className="muted small block">{date(c.deletion.delete_after)}</span>}
         </>
       ),
     },
-    { id: 'plan', header: t('pl_plan'), hideOnMobile: true, sortValue: (c) => c.plan_name_ar, cell: (c) => c.plan_name_ar ?? '—' },
+    { id: 'plan', header: 'الخطة', hideOnMobile: true, sortValue: (c) => c.plan_name_ar, cell: (c) => c.plan_name_ar ?? '—' },
     {
-      id: 'trial', header: t('pl_trial'), hideOnMobile: true, sortValue: (c) => trialDaysLeft(c.trial_ends_at, c.subscription_status),
-      cell: (c) => { const left = trialDaysLeft(c.trial_ends_at, c.subscription_status); return left === null ? '—' : left >= 0 ? t('pl_daysLeft').replace('{n}', String(left)) : t('pl_trialEnded'); },
+      id: 'trial', header: 'نهاية التجربة', hideOnMobile: true, sortValue: (c) => trialDaysLeft(c.trial_ends_at, c.subscription_status),
+      cell: (c) => { const left = trialDaysLeft(c.trial_ends_at, c.subscription_status); return left === null ? '—' : left >= 0 ? 'باقي {n} يوم'.replace('{n}', String(left)) : 'انتهت التجربة'; },
     },
-    { id: 'members', header: t('pl_members'), numeric: true, hideOnMobile: true, sortValue: (c) => c.members, cell: (c) => c.members },
-    { id: 'patients', header: t('pl_patients'), numeric: true, sortValue: (c) => c.patients, cell: (c) => c.patients },
-    { id: 'appointments', header: t('pl_appointments30'), numeric: true, hideOnMobile: true, sortValue: (c) => c.appointments_30d, cell: (c) => c.appointments_30d },
-    { id: 'login', header: t('pl_lastLogin'), hideOnMobile: true, sortValue: (c) => c.last_login_at, cell: (c) => date(c.last_login_at) },
+    { id: 'members', header: 'الأعضاء', numeric: true, hideOnMobile: true, sortValue: (c) => c.members, cell: (c) => c.members },
+    { id: 'patients', header: 'المرضى', numeric: true, sortValue: (c) => c.patients, cell: (c) => c.patients },
+    { id: 'appointments', header: 'مواعيد آخر 30 يومًا', numeric: true, hideOnMobile: true, sortValue: (c) => c.appointments_30d, cell: (c) => c.appointments_30d },
+    { id: 'login', header: 'آخر دخول', hideOnMobile: true, sortValue: (c) => c.last_login_at, cell: (c) => date(c.last_login_at) },
   ];
   return (
     <>
-      <PageHeader title={t('pl_clinics')} sub={t('pl_clinicsSub')} count={clinics.data?.length} />
+      <PageHeader title="العيادات" sub="كل العيادات على المنصة: الخطة والحالة والأرقام (بدون بيانات المرضى)." count={clinics.data?.length} />
       {clinics.data && (
         <div className="stats">
           {(['trialing', 'active', 'past_due', 'suspended'] as const).map((s) => (
-            <div key={s} className="stat"><span className="stat-text"><small>{t(`pl_status_${s}` as Key)}</small><strong>{count(s)}</strong></span></div>
+            <div key={s} className="stat"><span className="stat-text"><small>{clinicStatusLabel[s]}</small><strong>{count(s)}</strong></span></div>
           ))}
         </div>
       )}
       <DataTable
-        label={t('pl_clinics')}
+        label="العيادات"
         rows={rows}
         columns={columns}
         rowKey={(c) => c.id}
         isLoading={clinics.isLoading}
         error={clinics.isError ? clinics.error : undefined}
         onRetry={() => void clinics.refetch()}
-        search={{ placeholder: t('pl_searchHint'), text: (c) => [c.slug, c.name_ar, c.name_en, c.owner_email].filter(Boolean).join(' ') }}
+        search={{ placeholder: 'اسم العيادة أو النطاق أو بريد المالك', text: (c) => [c.slug, c.name_ar, c.name_en, c.owner_email].filter(Boolean).join(' ') }}
         toolbar={(
-          <Choice value={status} onChange={setStatus} label={t('status')} className="h-10 w-48 bg-card"
-            options={['all', 'onboarding', 'trialing', 'active', 'past_due', 'suspended', 'cancelled'].map((s) => ({ value: s, label: t(s === 'all' ? 'pl_allStatuses' : (`pl_status_${s}` as Key)) }))} />
+          <Choice value={status} onChange={setStatus} label="الحالة" className="h-10 w-48 bg-card"
+            options={['all', 'onboarding', 'trialing', 'active', 'past_due', 'suspended', 'cancelled'].map((s) => ({ value: s, label: s === 'all' ? 'كل الحالات' : (clinicStatusLabel[s]) }))} />
         )}
         pageSize={25}
         onRowClick={(c) => { window.location.hash = platformHref({ page: 'clinic', id: c.id }); }}
-        empty={{ icon: <ShieldIcon size={28} />, title: t('pl_noClinics'), text: t('pl_noClinicsText') }}
+        empty={{ icon: <ShieldIcon size={28} />, title: 'لا عيادات مطابقة', text: 'غيّر البحث أو الحالة.' }}
       />
     </>
   );
@@ -219,119 +219,119 @@ function ClinicPage({ id }: { id: string }) {
   const today = new Date().toLocaleDateString('en-CA');
   return (
     <>
-      <p><a href={platformHref({ page: 'clinics' })}>{t('pl_clinics')}</a></p>
+      <p><a href={platformHref({ page: 'clinics' })}>العيادات</a></p>
       <div className="page-head">
         <div>
-          <h1><bdi>{clinicName(d)}</bdi> <Badge tone={STATUS_TONE[d.status] ?? 'neutral'}>{t(d.deletion ? 'pl_deletionPending' : (`pl_status_${d.status}` as Key))}</Badge></h1>
+          <h1><bdi>{clinicName(d)}</bdi> <Badge tone={STATUS_TONE[d.status] ?? 'neutral'}>{d.deletion ? 'بانتظار الحذف' : (clinicStatusLabel[d.status])}</Badge></h1>
           <p dir="ltr" className="muted">{d.slug} · {d.owner_email ?? '—'}</p>
         </div>
       </div>
       <div className="stats">
         {([['pl_members', d.members], ['pl_branches', d.branches], ['pl_patients', d.patients], ['pl_appointments30', d.appointments_30d]] as const).map(([k, v]) => (
-          <div key={k} className="stat"><span className="stat-text"><small>{t(k)}</small><strong>{v}</strong></span></div>
+          <div key={k} className="stat"><span className="stat-text"><small>{k}</small><strong>{v}</strong></span></div>
         ))}
       </div>
       {d.deletion && (
         <Card className="card-danger">
-          <h2>{t('pl_deletionTitle')}</h2>
-          <p className="mt-sm">{t('pl_deletionText').replace('{asked}', date(d.deletion.requested_at)).replace('{date}', date(d.deletion.delete_after))}</p>
-          <p className="muted small mt-sm">{t('pl_restoreText')}</p>
-          <div className="mt"><Button loading={act.isPending && act.variables?.path === 'restore'} onClick={() => act.mutate({ path: 'restore' })}>{t('pl_restore')}</Button></div>
+          <h2>طلب مالك العيادة حذفها</h2>
+          <p className="mt-sm">{'طُلب الحذف في {asked}. تُمحى كل البيانات نهائيًا في {date} ما لم تُستعَد العيادة.'.replace('{asked}', date(d.deletion.requested_at)).replace('{date}', date(d.deletion.delete_after))}</p>
+          <p className="muted small mt-sm">تعود العيادة كما كانت قبل طلب الحذف، ويستطيع فريقها الدخول من جديد.</p>
+          <div className="mt"><Button loading={act.isPending && act.variables?.path === 'restore'} onClick={() => act.mutate({ path: 'restore' })}>استعادة العيادة</Button></div>
         </Card>
       )}
       <Card>
-        <h2>{t('pl_subscription')}</h2>
+        <h2>الاشتراك</h2>
         <dl className="detail-list mt-sm">
-          <div><dt>{t('pl_plan')}</dt><dd>{d.plan_name_ar ?? '—'}</dd></div>
-          <div><dt>{t('pl_subStatus')}</dt><dd>{d.subscription_status ? t(`pl_status_${d.subscription_status}` as Key) : '—'}</dd></div>
-          {d.subscription_status === 'active' && <div><dt>{t('pl_periodEnd')}</dt><dd>{date(d.current_period_end)} ({t(`pl_cycle_${d.billing_cycle ?? 'monthly'}` as Key)})</dd></div>}
-          <div><dt>{t('pl_trial')}</dt><dd>{d.trial_ends_at ? `${date(d.trial_ends_at)}${left !== null ? ` (${left >= 0 ? t('pl_daysLeft').replace('{n}', String(left)) : t('pl_trialEnded')})` : ''}` : '—'}</dd></div>
-          <div><dt>{t('pl_signedUp')}</dt><dd>{date(d.created_at)}</dd></div>
-          <div><dt>{t('pl_lastLogin')}</dt><dd>{date(d.last_login_at)}</dd></div>
+          <div><dt>الخطة</dt><dd>{d.plan_name_ar ?? '—'}</dd></div>
+          <div><dt>حالة الاشتراك</dt><dd>{d.subscription_status ? clinicStatusLabel[d.subscription_status] : '—'}</dd></div>
+          {d.subscription_status === 'active' && <div><dt>نهاية الاشتراك الحالي</dt><dd>{date(d.current_period_end)} ({billingCycleLabel[d.billing_cycle ?? 'monthly']})</dd></div>}
+          <div><dt>نهاية التجربة</dt><dd>{d.trial_ends_at ? `${date(d.trial_ends_at)}${left !== null ? ` (${left >= 0 ? 'باقي {n} يوم'.replace('{n}', String(left)) : 'انتهت التجربة'})` : ''}` : '—'}</dd></div>
+          <div><dt>تاريخ التسجيل</dt><dd>{date(d.created_at)}</dd></div>
+          <div><dt>آخر دخول</dt><dd>{date(d.last_login_at)}</dd></div>
         </dl>
         <div className="grid-2 mt">
           {d.subscription_status === 'trialing' && (
-            <Field label={t('pl_extendTrial')}>
+            <Field label="تمديد التجربة حتى">
               {(a) => (
                 <div className="row-start">
-                  <DatePicker id={a.id} value={until} onChange={setUntil} min={today} placeholder={t('pickDate')} />
+                  <DatePicker id={a.id} value={until} onChange={setUntil} min={today} placeholder="اختر التاريخ" />
                   <Button variant="secondary" disabled={!until} loading={act.isPending && act.variables?.path === 'trial'}
-                    onClick={() => act.mutate({ path: 'trial', body: { until } })}>{t('save')}</Button>
+                    onClick={() => act.mutate({ path: 'trial', body: { until } })}>حفظ</Button>
                 </div>
               )}
             </Field>
           )}
           {(d.subscription_status === 'trialing' || d.subscription_status === 'past_due' || d.subscription_status === 'suspended') && (
-            <Field label={t('pl_activate')} hint={t('pl_activateHint')}>
+            <Field label="تفعيل الاشتراك" hint="بعد أن تدفع العيادة: يبدأ الاشتراك اليوم لشهر أو سنة، ويرفع الإيقاف بسبب انتهاء التجربة.">
               {(a) => (
                 <div className="row-start">
-                  <Choice id={a.id} value={cycle} onChange={setCycle} options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: t(`pl_cycle_${c}` as Key) }))} />
-                  <Button loading={act.isPending && act.variables?.path === 'activate'} onClick={() => act.mutate({ path: 'activate', body: { cycle } })}>{t('pl_activateBtn')}</Button>
+                  <Choice id={a.id} value={cycle} onChange={setCycle} options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: billingCycleLabel[c] }))} />
+                  <Button loading={act.isPending && act.variables?.path === 'activate'} onClick={() => act.mutate({ path: 'activate', body: { cycle } })}>تفعيل</Button>
                 </div>
               )}
             </Field>
           )}
-          <Field label={t('pl_changePlan')}>
+          <Field label="تغيير الخطة">
             {(a) => (
               <div className="row-start">
-                <Choice id={a.id} value={planId} onChange={setPlanId} placeholder={t('pl_pickPlan')}
+                <Choice id={a.id} value={planId} onChange={setPlanId} placeholder="اختر الخطة"
                   options={(plans.data ?? []).map((p) => ({ value: p.id, label: p.name_ar }))} />
                 <Button variant="secondary" disabled={!planId} loading={act.isPending && act.variables?.path === 'plan'}
-                  onClick={() => act.mutate({ path: 'plan', body: { planId } })}>{t('save')}</Button>
+                  onClick={() => act.mutate({ path: 'plan', body: { planId } })}>حفظ</Button>
               </div>
             )}
           </Field>
         </div>
         <div className="row-end mt">
           {d.status === 'suspended'
-            ? d.suspension_kind !== 'trial_ended' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>{t('pl_reactivate')}</Button>
-            : d.status !== 'cancelled' && <Button variant="secondary" onClick={() => { setReason(''); setSuspending(true); }}>{t('pl_suspend')}</Button>}
+            ? d.suspension_kind !== 'trial_ended' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>إعادة تفعيل العيادة</Button>
+            : d.status !== 'cancelled' && <Button variant="secondary" onClick={() => { setReason(''); setSuspending(true); }}>إيقاف العيادة</Button>}
         </div>
         {d.status === 'suspended' && (
           <Alert tone="info">
-            {t(d.suspension_kind === 'trial_ended' ? 'pl_trialEndedNote' : 'pl_suspendedNote')}
-            {d.suspension_kind === 'manual' && d.suspension_reason && <> {t('pl_suspendReason')}: <bdi>{d.suspension_reason}</bdi></>}
+            {d.suspension_kind === 'trial_ended' ? 'أوقفت العيادة تلقائيًا لانتهاء الفترة التجريبية دون تفعيل خطة. فعّل الاشتراك بعد الدفع، أو مدّد التجربة.' : 'العيادة موقوفة: فريقها لا يستطيع الدخول وموقعها متوقف.'}
+            {d.suspension_kind === 'manual' && d.suspension_reason && <> السبب: <bdi>{d.suspension_reason}</bdi></>}
           </Alert>
         )}
         <ErrorText error={act.error} />
       </Card>
       <Card>
-        <h2>{t('pl_notes')}</h2>
+        <h2>ملاحظات المنصة</h2>
         <form className="stack mt-sm" onSubmit={(e) => { e.preventDefault(); if (note.trim()) addNote.mutate(); }}>
-          <Field label={t('pl_newNote')}>{(a) => <TextArea id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />}</Field>
+          <Field label="ملاحظة جديدة (لا تراها العيادة)">{(a) => <TextArea id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />}</Field>
           <ErrorText error={addNote.error} />
-          <div className="row-end"><Button type="submit" variant="secondary" loading={addNote.isPending} disabled={!note.trim()}>{t('add')}</Button></div>
+          <div className="row-end"><Button type="submit" variant="secondary" loading={addNote.isPending} disabled={!note.trim()}>إضافة</Button></div>
         </form>
         <ul className="line-list mt">
           {d.notes.map((n) => <li key={n.id}><span><bdi>{n.body}</bdi><span className="muted small block">{n.author} · {when(n.created_at)}</span></span></li>)}
         </ul>
       </Card>
       <Card>
-        <h2>{t('pl_history')}</h2>
+        <h2>سجل الإجراءات</h2>
         <AuditList rows={d.history} />
       </Card>
-      <ConfirmDialog open={suspending} title={t('pl_suspend')} confirmLabel={t('pl_suspend')} danger
+      <ConfirmDialog open={suspending} title="إيقاف العيادة" confirmLabel="إيقاف العيادة" danger
         onConfirm={() => { if (reason.trim().length >= 3) { setSuspending(false); act.mutate({ path: 'suspend', body: { reason: reason.trim() } }); } }}
         onCancel={() => setSuspending(false)}>
-        <p>{t('pl_suspendText')}</p>
-        <Field label={t('reason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />}</Field>
+        <p>لن يستطيع فريق العيادة الدخول، وسيتوقف موقعها. تبقى البيانات كما هي، وإعادة التفعيل ترجع كل شيء.</p>
+        <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />}</Field>
       </ConfirmDialog>
     </>
   );
 }
 
 function AuditList({ rows }: { rows: AuditRow[] }) {
-  if (!rows.length) return <p className="muted small mt-sm">{t('pl_noHistory')}</p>;
+  if (!rows.length) return <p className="muted small mt-sm">لا إجراءات بعد.</p>;
   return (
     <ul className="line-list mt-sm">
       {rows.map((r) => (
         <li key={r.id}>
           <span>
-            <strong>{t(`pl_action_${r.action.replace('.', '_')}` as Key)}</strong>
+            <strong>{platformActionLabel[r.action.replace('.', '_')]}</strong>
             {typeof r.details?.reason === 'string' && <> — <bdi>{r.details.reason}</bdi></>}
-            <span className="muted small block">{r.actor ?? t('pl_system')} · {when(r.created_at)}</span>
+            <span className="muted small block">{r.actor ?? 'النظام'} · {when(r.created_at)}</span>
           </span>
-          {r.tenant_id && <span className="line-end"><a href={platformHref({ page: 'clinic', id: r.tenant_id })}>{t('pl_openClinic')}</a></span>}
+          {r.tenant_id && <span className="line-end"><a href={platformHref({ page: 'clinic', id: r.tenant_id })}>فتح العيادة</a></span>}
         </li>
       ))}
     </ul>
@@ -342,7 +342,7 @@ function ActivityPage() {
   const audit = useQuery({ queryKey: [...KEY, 'audit'], queryFn: () => papi<AuditRow[]>('/platform/audit') });
   return (
     <>
-      <PageHeader title={t('pl_activity')} sub={t('pl_activitySub')} />
+      <PageHeader title="السجل" sub="كل ما فعله مديرو المنصة، الأحدث أولًا." />
       <Card>{audit.isError ? <ErrorText error={audit.error} /> : !audit.data ? <Skeleton h={48} count={4} /> : <AuditList rows={audit.data} />}</Card>
     </>
   );
@@ -370,17 +370,17 @@ function LeadsPage() {
   const rows = leads.data ? filterLeads(leads.data, q, status) : undefined;
   const count = (s: LeadStatus) => leads.data?.filter((l) => l.status === s).length ?? 0;
   const columns: Column<Lead>[] = [
-    { id: 'received', header: t('pl_leadReceived'), sortValue: (l) => l.created_at, cell: (l) => <span className="whitespace-nowrap">{when(l.created_at)}</span> },
+    { id: 'received', header: 'وصل في', sortValue: (l) => l.created_at, cell: (l) => <span className="whitespace-nowrap">{when(l.created_at)}</span> },
     {
-      id: 'person', header: t('pl_leadPerson'), sortValue: (l) => l.full_name,
+      id: 'person', header: 'صاحب الطلب', sortValue: (l) => l.full_name,
       cell: (l) => (
         <>
           <strong><bdi>{l.full_name}</bdi></strong>
           <span className="block">
             <Badge tone={l.kind === 'subscribe' ? 'success' : 'neutral'}>
-              {l.kind === 'subscribe' ? t('pl_leadKind_subscribe').replace('{cycle}', t(l.billing_cycle === 'yearly' ? 'cycleYearly' : 'cycleMonthly')) : t('pl_leadKind_call')}
+              {l.kind === 'subscribe' ? 'طلب اشتراك · {cycle}'.replace('{cycle}', l.billing_cycle === 'yearly' ? 'سنوي' : 'شهري') : 'طلب اتصال'}
             </Badge>
-            {l.clinic_id && <> <a className="small" href={platformHref({ page: 'clinic', id: l.clinic_id })}>{t('pl_openNewClinic')}</a></>}
+            {l.clinic_id && <> <a className="small" href={platformHref({ page: 'clinic', id: l.clinic_id })}>صفحة العيادة</a></>}
           </span>
           {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
           {l.message && <span className="small block" style={{ whiteSpace: 'pre-wrap', maxWidth: 420 }}><bdi>{l.message}</bdi></span>}
@@ -388,7 +388,7 @@ function LeadsPage() {
       ),
     },
     {
-      id: 'contact', header: t('pl_leadContact'),
+      id: 'contact', header: 'التواصل',
       cell: (l) => (
         <>
           <a href={`tel:${l.phone}`} dir="ltr">{l.phone}</a>
@@ -396,46 +396,46 @@ function LeadsPage() {
         </>
       ),
     },
-    { id: 'plan', header: t('pl_plan'), hideOnMobile: true, sortValue: (l) => l.plan_name_ar, cell: (l) => l.plan_name_ar ?? '—' },
+    { id: 'plan', header: 'الخطة', hideOnMobile: true, sortValue: (l) => l.plan_name_ar, cell: (l) => l.plan_name_ar ?? '—' },
     {
-      id: 'status', header: t('status'), sortValue: (l) => LEAD_STATUSES.indexOf(l.status),
+      id: 'status', header: 'الحالة', sortValue: (l) => LEAD_STATUSES.indexOf(l.status),
       cell: (l) => (
         <>
-          <Badge tone={LEAD_TONE[l.status]} dot>{t(`pl_lead_status_${l.status}` as Key)}</Badge>
-          <Choice value={l.status} label={t('status')} className="h-9 w-full min-w-36 bg-card mt-sm" disabled={move.isPending}
+          <Badge tone={LEAD_TONE[l.status]} dot>{leadStatusLabel[l.status]}</Badge>
+          <Choice value={l.status} label="الحالة" className="h-9 w-full min-w-36 bg-card mt-sm" disabled={move.isPending}
             onChange={(v) => { if (v !== l.status) move.mutate({ id: l.id, to: v as LeadStatus }); }}
-            options={LEAD_STATUSES.map((s) => ({ value: s, label: t(`pl_lead_status_${s}` as Key) }))} />
-          {l.updated_by_name && <span className="muted small block">{t('pl_leadUpdatedBy').replace('{name}', l.updated_by_name)}</span>}
+            options={LEAD_STATUSES.map((s) => ({ value: s, label: leadStatusLabel[s] }))} />
+          {l.updated_by_name && <span className="muted small block">{'آخر تغيير: {name}'.replace('{name}', l.updated_by_name)}</span>}
         </>
       ),
     },
   ];
   return (
     <>
-      <PageHeader title={t('pl_leads')} sub={t('pl_leadsSub')} />
+      <PageHeader title="طلبات التواصل" sub="العيادات التي طلبت اتصالًا من صفحة المنصة، الأحدث أولًا. غيّر الحالة بعد كل خطوة." />
       {leads.data && (
         <div className="stats">
           {LEAD_STATUSES.map((s) => (
-            <div key={s} className="stat"><span className="stat-text"><small>{t(`pl_lead_status_${s}` as Key)}</small><strong>{count(s)}</strong></span></div>
+            <div key={s} className="stat"><span className="stat-text"><small>{leadStatusLabel[s]}</small><strong>{count(s)}</strong></span></div>
           ))}
         </div>
       )}
       {move.isError && <ErrorText error={move.error} />}
       <DataTable
-        label={t('pl_leads')}
+        label="طلبات التواصل"
         rows={rows}
         columns={columns}
         rowKey={(l) => l.id}
         isLoading={leads.isLoading}
         error={leads.isError ? leads.error : undefined}
         onRetry={() => void leads.refetch()}
-        search={{ placeholder: t('pl_leadSearchHint'), value: q, onChange: setQ }}
+        search={{ placeholder: 'الاسم أو العيادة أو المدينة أو الرقم', value: q, onChange: setQ }}
         toolbar={(
-          <Choice value={status} onChange={setStatus} label={t('status')} className="h-10 w-48 bg-card"
-            options={['all', ...LEAD_STATUSES].map((s) => ({ value: s, label: t(s === 'all' ? 'pl_allStatuses' : (`pl_lead_status_${s}` as Key)) }))} />
+          <Choice value={status} onChange={setStatus} label="الحالة" className="h-10 w-48 bg-card"
+            options={['all', ...LEAD_STATUSES].map((s) => ({ value: s, label: s === 'all' ? 'كل الحالات' : (leadStatusLabel[s]) }))} />
         )}
         pageSize={25}
-        empty={{ icon: <ShieldIcon size={28} />, title: t('pl_noLeads'), text: t('pl_noLeadsText') }}
+        empty={{ icon: <ShieldIcon size={28} />, title: 'لا توجد طلبات', text: 'تظهر هنا طلبات التواصل التي تصل من نموذج صفحة المنصة.' }}
       />
     </>
   );
@@ -462,23 +462,23 @@ function LegalAdminPage() {
   const ok = title.trim().length >= 2 && body.trim().length >= 20;
   return (
     <>
-      <PageHeader title={t('pl_legal')} sub={t('pl_legalSub')} />
+      <PageHeader title="المستندات القانونية" sub="شروط الاستخدام وسياسة الخصوصية واتفاقية معالجة البيانات. كل نشر إصدار جديد؛ الإصدارات السابقة تبقى كما هي." />
       {versions.isError ? <ErrorText error={versions.error} /> : !versions.data ? <Skeleton h={64} count={3} /> : LEGAL_KINDS.map((k) => (
         <Card key={k}>
           <div className="row-between">
-            <h2>{t(`pl_legal_${k}` as Key)}</h2>
-            <Button variant="secondary" onClick={() => start(k)}>{t('pl_legalNewVersion')}</Button>
+            <h2>{legalDocLabel[k]}</h2>
+            <Button variant="secondary" onClick={() => start(k)}>إصدار جديد</Button>
           </div>
-          {!versions.data.some((v) => v.kind === k) ? <p className="muted small mt-sm">{t('pl_legalNone')}</p> : (
+          {!versions.data.some((v) => v.kind === k) ? <p className="muted small mt-sm">لم يُنشر بعد. التسجيل لا يطلب الموافقة عليه حتى تنشره.</p> : (
             <ul className="line-list mt-sm">
               {versions.data.filter((v) => v.kind === k).map((v) => (
                 <li key={v.id}>
                   <span>
-                    <strong>{t('legalVersion').replace('{n}', String(v.version))}</strong> — <bdi>{v.title_ar}</bdi>
-                    {v.requires_reacceptance && <> <Badge tone="warning">{t('pl_legalReaccept')}</Badge></>}
-                    <span className="muted small block">{when(v.published_at)} · {v.published_by ?? '—'} · {t('pl_legalAcceptances').replace('{n}', String(v.acceptances))}</span>
+                    <strong>{'الإصدار {n}'.replace('{n}', String(v.version))}</strong> — <bdi>{v.title_ar}</bdi>
+                    {v.requires_reacceptance && <> <Badge tone="warning">تطلب الموافقة من جديد</Badge></>}
+                    <span className="muted small block">{when(v.published_at)} · {v.published_by ?? '—'} · {'{n} موافقة'.replace('{n}', String(v.acceptances))}</span>
                   </span>
-                  {v.id === latest(k)?.id && <span className="line-end"><a href={`#/legal/${k}`} target="_blank" rel="noopener noreferrer">{t('legalRead')}</a></span>}
+                  {v.id === latest(k)?.id && <span className="line-end"><a href={`#/legal/${k}`} target="_blank" rel="noopener noreferrer">قراءة</a></span>}
                 </li>
               ))}
             </ul>
@@ -486,20 +486,20 @@ function LegalAdminPage() {
         </Card>
       ))}
       <Card as="form" className="stack">
-        <h2>{t('pl_legalPublish')}</h2>
-        <p className="muted small">{t('pl_legalPublishHint')}</p>
+        <h2>نشر إصدار جديد</h2>
+        <p className="muted small">اكتب النص المعتمد من المحامي. لا يمكن تعديل إصدار بعد نشره؛ أي تغيير يكون إصدارًا جديدًا.</p>
         <div className="grid-2">
-          <Field label={t('pl_legalKind')}>{(a) => <Choice id={a.id} value={kind} onChange={start} options={LEGAL_KINDS.map((k) => ({ value: k, label: t(`pl_legal_${k}` as Key) }))} />}</Field>
-          <Field label={t('pl_legalTitle')}>{(a) => <Input id={a.id} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />}</Field>
+          <Field label="المستند">{(a) => <Choice id={a.id} value={kind} onChange={start} options={LEGAL_KINDS.map((k) => ({ value: k, label: legalDocLabel[k] }))} />}</Field>
+          <Field label="العنوان">{(a) => <Input id={a.id} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />}</Field>
         </div>
-        <Field label={t('pl_legalBody')} hint={t('pl_legalBodyHint')}>{(a) => <TextArea id={a.id} describedBy={a.describedBy} value={body} onChange={(e) => setBody(e.target.value)} rows={16} />}</Field>
-        <Switch checked={reaccept} onChange={setReaccept} label={t('pl_legalReacceptLabel')} />
+        <Field label="النص" hint="نص عادي؛ اترك سطرًا فارغًا بين الفقرات.">{(a) => <TextArea id={a.id} describedBy={a.describedBy} value={body} onChange={(e) => setBody(e.target.value)} rows={16} />}</Field>
+        <Switch checked={reaccept} onChange={setReaccept} label="يجب على من وافق على الإصدار السابق أن يوافق من جديد عند دخوله التالي" />
         <ErrorText error={publish.error} />
-        <div className="row-end"><Button disabled={!ok} loading={publish.isPending} onClick={() => setConfirming(true)}>{t('pl_legalPublishBtn')}</Button></div>
+        <div className="row-end"><Button disabled={!ok} loading={publish.isPending} onClick={() => setConfirming(true)}>نشر</Button></div>
       </Card>
-      <ConfirmDialog open={confirming} title={t('pl_legalPublish')} confirmLabel={t('pl_legalPublishBtn')} danger={reaccept}
+      <ConfirmDialog open={confirming} title="نشر إصدار جديد" confirmLabel="نشر" danger={reaccept}
         onConfirm={() => { setConfirming(false); publish.mutate(); }} onCancel={() => setConfirming(false)}>
-        <p>{t(reaccept ? 'pl_legalConfirmReaccept' : 'pl_legalConfirm')}</p>
+        <p>{reaccept ? 'كل من وافق على إصدار سابق لن يستطيع استخدام النظام حتى يوافق على هذا الإصدار عند دخوله التالي.' : 'سيسري الإصدار الجديد على التسجيلات الجديدة. من وافق سابقًا لن يُطلب منه شيء.'}</p>
       </ConfirmDialog>
     </>
   );
@@ -510,7 +510,7 @@ function PlansPage() {
   const plans = useQuery({ queryKey: [...KEY, 'plans'], queryFn: () => papi<Plan[]>('/platform/plans') });
   return (
     <>
-      <PageHeader title={t('pl_plans')} sub={t('pl_plansSub')} />
+      <PageHeader title="الخطط" sub="أسعار الخطط ومدة التجربة والحدود والمزايا. التغيير يسري على كل عيادة على الخطة." />
       {plans.isError ? <ErrorText error={plans.error} /> : !plans.data ? <Skeleton h={96} count={2} /> : plans.data.map((p) => <PlanCard key={p.id} p={p} />)}
     </>
   );
@@ -543,28 +543,28 @@ function PlanCard({ p }: { p: Plan }) {
   });
   return (
     <Card as="form" className="stack">
-      <div className="row-between"><h2>{p.name_ar} <span className="muted small" dir="ltr">({p.code})</span></h2><span className="muted small">{t('pl_planClinics').replace('{n}', String(p.clinics))}</span></div>
+      <div className="row-between"><h2>{p.name_ar} <span className="muted small" dir="ltr">({p.code})</span></h2><span className="muted small">{'{n} عيادة على هذه الخطة'.replace('{n}', String(p.clinics))}</span></div>
       <div className="grid-2">
-        <Field label={t('pl_planName')}>{(a) => <Input id={a.id} value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} maxLength={60} />}</Field>
-        <Field label={t('pl_trialDays')}>{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={trial} onChange={(e) => { setTrial(e.target.value); setSaved(false); }} />}</Field>
-        <Field label={`${t('pl_priceMonthly')} (${money(0, p.currency).replace(/^0\s*/, '')})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={monthly} onChange={(e) => { setMonthly(e.target.value); setSaved(false); }} invalid={m === null} />}</Field>
-        <Field label={`${t('pl_priceYearly')} (${money(0, p.currency).replace(/^0\s*/, '')})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={yearly} onChange={(e) => { setYearly(e.target.value); setSaved(false); }} invalid={y === null} />}</Field>
+        <Field label="اسم الخطة">{(a) => <Input id={a.id} value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} maxLength={60} />}</Field>
+        <Field label="أيام التجربة">{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={trial} onChange={(e) => { setTrial(e.target.value); setSaved(false); }} />}</Field>
+        <Field label={`${'السعر الشهري'} (${money(0, p.currency).replace(/^0\s*/, '')})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={monthly} onChange={(e) => { setMonthly(e.target.value); setSaved(false); }} invalid={m === null} />}</Field>
+        <Field label={`${'السعر السنوي'} (${money(0, p.currency).replace(/^0\s*/, '')})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={yearly} onChange={(e) => { setYearly(e.target.value); setSaved(false); }} invalid={y === null} />}</Field>
       </div>
-      <h3>{t('pl_limits')}</h3>
-      <p className="muted small">{t('pl_limitsHint')}</p>
+      <h3>الحدود</h3>
+      <p className="muted small">اتركه فارغًا لعدد غير محدود. الحد يسري على ما يُضاف بعد التغيير.</p>
       <div className="grid-2">
         {LIMIT_KEYS.map((k) => (
-          <Field key={k} label={t(`pl_limit_${k}` as Key)}>
-            {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={limits[k]} placeholder={t('pl_unlimited')} onChange={(e) => { setLimits((l) => ({ ...l, [k]: e.target.value })); setSaved(false); }} />}
+          <Field key={k} label={planLimitLabel[k]}>
+            {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={limits[k]} placeholder="غير محدود" onChange={(e) => { setLimits((l) => ({ ...l, [k]: e.target.value })); setSaved(false); }} />}
           </Field>
         ))}
       </div>
-      <h3>{t('pl_features')}</h3>
-      {FEATURE_KEYS.map((k) => <Switch key={k} checked={features[k]} label={t(`pl_feature_${k}` as Key)} onChange={(v) => { setFeatures((f) => ({ ...f, [k]: v })); setSaved(false); }} />)}
-      <Switch checked={isPublic} label={t('pl_planPublic')} onChange={(v) => { setPublic(v); setSaved(false); }} />
-      {saved && <Alert tone="success">{t('saved')}</Alert>}
+      <h3>المزايا</h3>
+      {FEATURE_KEYS.map((k) => <Switch key={k} checked={features[k]} label={planFeatureLabel[k]} onChange={(v) => { setFeatures((f) => ({ ...f, [k]: v })); setSaved(false); }} />)}
+      <Switch checked={isPublic} label="تظهر في صفحة الأسعار" onChange={(v) => { setPublic(v); setSaved(false); }} />
+      {saved && <Alert tone="success">تم الحفظ</Alert>}
       <ErrorText error={save.error} />
-      <div className="row-end"><Button onClick={() => save.mutate()} disabled={!ok} loading={save.isPending}>{t('save')}</Button></div>
+      <div className="row-end"><Button onClick={() => save.mutate()} disabled={!ok} loading={save.isPending}>حفظ</Button></div>
     </Card>
   );
 }

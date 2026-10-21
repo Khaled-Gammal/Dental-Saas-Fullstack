@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { ApiError, uploadFile } from '../api';
 import { ACCEPT_ATTR, imageSrcSet, uploadProblem } from '../gallery-model';
-import { t } from '../i18n';
 import type { MediaImage, MediaPurpose } from '../types';
 import { Button } from '../ui/components';
 import { ImageIcon } from '../ui/icons';
@@ -30,7 +29,7 @@ export function ImageField({ purpose, value, onChange, label, hint, shape, place
   async function pick(file: File) {
     setError(null);
     const problem = uploadProblem(file);
-    if (problem) { setError(t(problem === 'type' ? 'err_unsupported_image_type' : 'err_payload_too_large')); return; }
+    if (problem) { setError(problem === 'type' ? 'يُقبل JPG وPNG وWebP فقط.' : 'الملف أكبر من 10 ميجابايت.'); return; }
     const local = URL.createObjectURL(file);
     setPreview(local);
     setProgress(0);
@@ -67,13 +66,13 @@ export function ImageField({ purpose, value, onChange, label, hint, shape, place
       <div className="image-field-body">
         <div className="row">
           <Button variant="secondary" disabled={busy || disabled} onClick={() => input.current?.click()} aria-describedby={hintId}>
-            {t(value ? 'changeImage' : 'uploadImage')}
+            {value ? 'تغيير الصورة' : 'رفع صورة'}
           </Button>
-          {busy && <Button variant="ghost" onClick={() => abort.current?.abort()}>{t('cancel')}</Button>}
-          {value && !busy && <Button variant="ghost" disabled={disabled} onClick={() => { setError(null); onChange(null); }}>{t('removeImage')}</Button>}
+          {busy && <Button variant="ghost" onClick={() => abort.current?.abort()}>إلغاء</Button>}
+          {value && !busy && <Button variant="ghost" disabled={disabled} onClick={() => { setError(null); onChange(null); }}>إزالة الصورة</Button>}
         </div>
-        <p className="muted small" id={hintId}>{hint ?? t(purpose === 'logo' ? 'logoHint' : 'photoHint')}</p>
-        {busy && <progress max={1} value={progress} aria-label={t('uploading')} />}
+        <p className="muted small" id={hintId}>{hint ?? purpose === 'logo' ? 'يُفضّل PNG بخلفية شفافة، 48 بكسل على الأقل. يظهر في رأس الموقع وتذييله.' : 'JPG أو PNG أو WebP حتى 10 ميجابايت، 200 بكسل على الأقل. تُحفظ مع النموذج.'}</p>
+        {busy && <progress max={1} value={progress} aria-label="جارٍ رفع" />}
         {error && <p className="field-error" role="alert">{error}</p>}
       </div>
       <input ref={input} type="file" accept={ACCEPT_ATTR} hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); e.target.value = ''; }} />

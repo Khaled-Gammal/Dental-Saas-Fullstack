@@ -3,7 +3,6 @@ import { MoreHorizontal } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { t } from '../i18n';
 import type { Route } from '../router';
 import { RouteLink } from './page';
 
@@ -38,7 +37,7 @@ export function RowMenu({ label, actions }: { label: string; actions: RowAction[
   return (
     <DropdownMenu dir="rtl" modal={false}>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="row-menu-trigger" aria-label={`${t('actions')}: ${label}`}>
+        <button type="button" className="row-menu-trigger" aria-label={`${'إجراءات'}: ${label}`}>
           <MoreHorizontal className="size-4" aria-hidden />
         </button>
       </DropdownMenuTrigger>

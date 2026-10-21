@@ -5,7 +5,7 @@ import { Choice } from '../../components/choice';
 import { SignaturePad } from '../../components/signature-pad';
 import { defaultSigner, signable, signProblems, SIGNER_RELATIONS, type PatientConsent, type SignerRelation } from '../../consents-model';
 import { useLeave } from '../../hooks';
-import { t, type Key } from '../../i18n';
+import { signerRelationLabel } from '../../labels';
 import { usePatient } from '../../queries';
 import { to } from '../../router';
 import type { PatientDetail } from '../../types';
@@ -54,19 +54,19 @@ function SignForm({ clinicId, patient, texts, query }: {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: consentKeys.patient(clinicId, patient.id) });
       if (query.visit) void qc.invalidateQueries({ queryKey: ['clinical', clinicId, 'visit', query.visit] });
-      leave(t('consentSignedNotice'));
+      leave('وُقّعت الموافقة.');
     },
   });
   const submit = () => { setTried(true); if (text && !problems.length) sign.mutate(); };
 
   return (
     <>
-      <Breadcrumbs items={[{ label: t('navPatients'), route: to.list('patients') }, { label: patient.full_name, route: to.view('patients', patient.id) }, { label: t('consentSign') }]} />
-      <PageHeader title={<>{t('consentSign')} — <bdi>{patient.full_name}</bdi></>} />
+      <Breadcrumbs items={[{ label: 'المرضى', route: to.list('patients') }, { label: patient.full_name, route: to.view('patients', patient.id) }, { label: 'توقيع موافقة' }]} />
+      <PageHeader title={<>توقيع موافقة — <bdi>{patient.full_name}</bdi></>} />
       <div className="sign-page">
-        {!texts.length && <Alert tone="info">{t('consentNoneSignable')}</Alert>}
-        <Field label={t('consentWhich')}>
-          {(a) => <Choice id={a.id} value={key} onChange={(v) => { setKey(v); setRead(false); }} placeholder={t('consentPick')} options={texts.map((x) => ({ value: x.key, label: x.title_ar }))} />}
+        {!texts.length && <Alert tone="info">لا توجد نماذج معتمدة. يراجع مالك العيادة النماذج ويعتمدها من «نماذج الموافقات».</Alert>}
+        <Field label="النموذج">
+          {(a) => <Choice id={a.id} value={key} onChange={(v) => { setKey(v); setRead(false); }} placeholder="اختر النموذج" options={texts.map((x) => ({ value: x.key, label: x.title_ar }))} />}
         </Field>
         {text && (
           <Card className="consent-sheet">
@@ -74,26 +74,26 @@ function SignForm({ clinicId, patient, texts, query }: {
             <div className="consent-text consent-text-large">{text.body_ar}</div>
           </Card>
         )}
-        {start.minor && <Alert tone="info">{t('consentMinorNote')}</Alert>}
+        {start.minor && <Alert tone="info">المريض أقل من 18 سنة: يقرأ ولي الأمر النص ويوقّع.</Alert>}
         <div className="grid-2">
-          <Field label={t('consentSignerName')} error={tried && problems.includes('name') ? t('consentSignerNeeded') : undefined}>
+          <Field label="اسم من يوقّع" error={tried && problems.includes('name') ? 'اكتب اسم من يوقّع.' : undefined}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" />}
           </Field>
-          <Field label={t('consentSignerRelation')} error={problems.includes('relation') ? t('consentMinorNeedsGuardian') : undefined}>
-            {(a) => <Choice id={a.id} value={relation} onChange={(v) => setRelation(v as SignerRelation)} options={SIGNER_RELATIONS.map((r) => ({ value: r, label: t(`rel_${r}` as Key) }))} />}
+          <Field label="صفته" error={problems.includes('relation') ? 'المريض قاصر: يوقّع ولي الأمر.' : undefined}>
+            {(a) => <Choice id={a.id} value={relation} onChange={(v) => setRelation(v as SignerRelation)} options={SIGNER_RELATIONS.map((r) => ({ value: r, label: signerRelationLabel[r] }))} />}
           </Field>
         </div>
         <label className="check-row">
           <Checkbox checked={read} onCheckedChange={(v) => setRead(v === true)} disabled={!text} />
-          <span>{t('consentReadCheck')}</span>
+          <span>قرأت النص أعلاه وفهمته، وأُجيبت أسئلتي.</span>
         </label>
-        {tried && problems.includes('read') && <p className="field-error">{t('consentReadNeeded')}</p>}
-        <SignaturePad onChange={setSignature} label={t('consentSignature')} />
-        {tried && problems.includes('signature') && <p className="field-error">{t('consentSignatureNeeded')}</p>}
+        {tried && problems.includes('read') && <p className="field-error">أكّد قراءة النص.</p>}
+        <SignaturePad onChange={setSignature} label="التوقيع" />
+        {tried && problems.includes('signature') && <p className="field-error">وقّع في المربع.</p>}
         <ErrorText error={sign.error} />
         <div className="row-end">
-          <Button variant="ghost" onClick={() => leave()}>{t('cancel')}</Button>
-          <Button onClick={submit} loading={sign.isPending} disabled={!text}>{t('consentSubmit')}</Button>
+          <Button variant="ghost" onClick={() => leave()}>إلغاء</Button>
+          <Button onClick={submit} loading={sign.isPending} disabled={!text}>وقّعت</Button>
         </div>
       </div>
     </>

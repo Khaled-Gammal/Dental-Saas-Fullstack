@@ -1,5 +1,4 @@
 import { Component, lazy, Suspense, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react';
-import { t } from '../i18n';
 import { Button, Card, Skeleton } from './components';
 
 const RELOADED = 'screen-chunk-reload';
@@ -27,7 +26,7 @@ export function lazyScreen<M extends Record<K, AnyComponent>, K extends keyof M 
 
 /** While a screen's file loads (usually a moment, once). */
 export function ScreenLoading() {
-  return <div role="status" aria-label={t('loading')}><Skeleton h={72} count={3} /></div>;
+  return <div role="status" aria-label="جارٍ التحميل…"><Skeleton h={72} count={3} /></div>;
 }
 
 /**
@@ -47,9 +46,9 @@ export class ScreenBoundary extends Component<{ resetKey: string; children: Reac
     if (!this.state.failed) return <Suspense fallback={<ScreenLoading />}>{this.props.children}</Suspense>;
     return (
       <Card>
-        <h2>{t('screenFailed')}</h2>
-        <p className="muted">{t('screenFailedText')}</p>
-        <div className="row-end mt-sm"><Button onClick={() => window.location.reload()}>{t('reloadPage')}</Button></div>
+        <h2>تعذّر فتح هذه الصفحة</h2>
+        <p className="muted">ربما صدر تحديث للنظام أو انقطع الاتصال. أعد تحميل الصفحة؛ لن يضيع شيء محفوظ.</p>
+        <div className="row-end mt-sm"><Button onClick={() => window.location.reload()}>إعادة تحميل الصفحة</Button></div>
       </Card>
     );
   }

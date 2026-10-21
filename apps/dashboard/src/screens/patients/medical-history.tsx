@@ -1,5 +1,4 @@
 import { useState, type KeyboardEvent } from 'react';
-import { t } from '../../i18n';
 import { addItem, historyBody, toHistoryForm, type HistoryForm } from '../../patient-model';
 import { useHistoryVersions, useSaveMedicalHistory } from '../../queries';
 import type { MedicalHistory } from '../../types';
@@ -18,8 +17,8 @@ export function MedicalHistoryCard({ clinicId, patientId, history, canEdit }: { 
   if (!history) {
     return (
       <Card>
-        <h2>{t('medicalHistory')}</h2>
-        <p className="muted small mt-sm">{t('clinicalHidden')}</p>
+        <h2>التاريخ الطبي</h2>
+        <p className="muted small mt-sm">البيانات الطبية لا تظهر لدورك في العيادة.</p>
       </Card>
     );
   }
@@ -28,24 +27,24 @@ export function MedicalHistoryCard({ clinicId, patientId, history, canEdit }: { 
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('medicalHistory')}</h2>
-        {canEdit && <Button variant="secondary" onClick={() => setEditing(true)}><EditIcon size={16} />{t('edit')}</Button>}
+        <h2>التاريخ الطبي</h2>
+        {canEdit && <Button variant="secondary" onClick={() => setEditing(true)}><EditIcon size={16} />تعديل</Button>}
       </div>
-      {empty ? <p className="muted small mt-sm">{t('noHistory')}</p> : (
+      {empty ? <p className="muted small mt-sm">لم يُسجّل تاريخ طبي بعد.</p> : (
         <div className="stack mt">
           {(history.allergies.length > 0 || history.is_pregnant) && (
             <Alert tone="danger">
-              <strong><AlertIcon size={16} /> {t('alerts')}:</strong>{' '}
-              {[...history.allergies.map((a) => `${t('allergyTo')} ${a}`), ...(history.is_pregnant ? [t('pregnant')] : [])].join(' · ')}
+              <strong><AlertIcon size={16} /> تنبيهات:</strong>{' '}
+              {[...history.allergies.map((a) => `${'حساسية من'} ${a}`), ...(history.is_pregnant ? ['حامل'] : [])].join(' · ')}
             </Alert>
           )}
           {LISTS.map((k) => history[k].length > 0 && (
             <div key={k} className="history-row">
-              <span className="muted small">{t(k)}</span>
+              <span className="muted small">{k}</span>
               <span className="chips">{history[k].map((x) => <Badge key={x} tone={k === 'allergies' ? 'warning' : 'neutral'}><bdi>{x}</bdi></Badge>)}</span>
             </div>
           ))}
-          {history.is_smoker !== null && <div className="history-row"><span className="muted small">{t('smoker')}</span><span>{t(history.is_smoker ? 'yes' : 'no')}</span></div>}
+          {history.is_smoker !== null && <div className="history-row"><span className="muted small">مدخن</span><span>{history.is_smoker ? 'نعم' : 'لا'}</span></div>}
           {history.notes && <p className="history-notes">{history.notes}</p>}
         </div>
       )}
@@ -61,16 +60,16 @@ function Versions({ clinicId, patientId }: { clinicId: string; patientId: string
   const fmt = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(iso));
   return (
     <div className="mt">
-      <LinkButton onClick={() => setOpen(!open)} aria-expanded={open}>{t(open ? 'hideVersions' : 'historyVersions')}</LinkButton>
+      <LinkButton onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'إخفاء النسخ السابقة' : 'النسخ السابقة'}</LinkButton>
       {open && (versions.isError ? <ErrorText error={versions.error} />
-        : versions.isLoading ? <p className="muted small" role="status">{t('loading')}</p>
+        : versions.isLoading ? <p className="muted small" role="status">جارٍ التحميل…</p>
         : (
           <ol className="stack mt-sm">
             {versions.data?.map((v) => (
               <li key={v.id} className="history-version">
                 <span className="muted small">{fmt(v.saved_at)}{v.saved_by_name && <> · <bdi>{v.saved_by_name}</bdi></>}</span>
                 {LISTS.map((k) => v[k].length > 0 && (
-                  <div key={k} className="history-row"><span className="muted small">{t(k)}</span><span><bdi>{v[k].join('، ')}</bdi></span></div>
+                  <div key={k} className="history-row"><span className="muted small">{k}</span><span><bdi>{v[k].join('، ')}</bdi></span></div>
                 ))}
                 {v.notes && <p className="history-notes">{v.notes}</p>}
               </li>
@@ -96,17 +95,17 @@ function HistoryEditor({ clinicId, patientId, history, onDone }: { clinicId: str
 
   return (
     <Card>
-      <h2>{t('medicalHistory')}</h2>
+      <h2>التاريخ الطبي</h2>
       <div className="stack mt">
         {LISTS.map((k) => (
-          <Field key={k} label={t(k)} hint={t('listHint')}>
+          <Field key={k} label={k} hint="اكتب ثم اضغط Enter أو فاصلة">
             {(a) => (
               <div className="tag-input">
                 <span className="chips">
                   {form[k].map((x) => (
                     <Badge key={x} tone={k === 'allergies' ? 'warning' : 'neutral'}>
                       <bdi>{x}</bdi>
-                      <button type="button" className="chip-x" onClick={() => remove(k, x)} aria-label={`${t('remove')} ${x}`}><CloseIcon size={12} /></button>
+                      <button type="button" className="chip-x" onClick={() => remove(k, x)} aria-label={`${'إزالة'} ${x}`}><CloseIcon size={12} /></button>
                     </Badge>
                   ))}
                 </span>
@@ -116,14 +115,14 @@ function HistoryEditor({ clinicId, patientId, history, onDone }: { clinicId: str
           </Field>
         ))}
         <div className="switch-row">
-          <Switch checked={form.isPregnant === true} onChange={(v) => setForm((f) => ({ ...f, isPregnant: v }))} label={t('pregnant')} />
-          <Switch checked={form.isSmoker === true} onChange={(v) => setForm((f) => ({ ...f, isSmoker: v }))} label={t('smoker')} />
+          <Switch checked={form.isPregnant === true} onChange={(v) => setForm((f) => ({ ...f, isPregnant: v }))} label="حامل" />
+          <Switch checked={form.isSmoker === true} onChange={(v) => setForm((f) => ({ ...f, isSmoker: v }))} label="مدخن" />
         </div>
-        <Field label={t('notes')} optional={t('optional')}>{(a) => <TextArea id={a.id} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} maxLength={2000} />}</Field>
+        <Field label="ملاحظات" optional="اختياري">{(a) => <TextArea id={a.id} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} maxLength={2000} />}</Field>
         <ErrorText error={save.error} />
         <div className="row-end">
-          <Button variant="ghost" onClick={onDone}>{t('cancel')}</Button>
-          <Button onClick={submit} loading={save.isPending}>{t('save')}</Button>
+          <Button variant="ghost" onClick={onDone}>إلغاء</Button>
+          <Button onClick={submit} loading={save.isPending}>حفظ</Button>
         </div>
       </div>
     </Card>

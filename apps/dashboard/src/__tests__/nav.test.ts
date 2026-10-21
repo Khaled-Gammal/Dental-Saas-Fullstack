@@ -9,7 +9,8 @@ const as = (perms: string[]) => {
 };
 const keys = (perms: string[]) => {
   const { has, canSeePage } = as(perms);
-  return visibleNav(NAV_GROUPS, canSeePage, has).map((g) => [g.key, g.items.map((i) => i.key)]);
+  // groups by id, items by page (or, for a "soon" item, its permission)
+  return visibleNav(NAV_GROUPS, canSeePage, has).map((g) => [g.id, g.items.map((i) => i.page ?? i.perm)]);
 };
 
 describe('sidebar navigation (redesign R1)', () => {
@@ -19,31 +20,31 @@ describe('sidebar navigation (redesign R1)', () => {
     for (const p of pages) expect(parseRoute(`#/${p}`)).toEqual({ page: p });
   });
   it('the owner sees every group; the clinic data page only at the foot', () => {
-    expect(keys(['*']).map(([k]) => k)).toEqual([null, 'navGroupClinic', 'navGroupFinance', 'navGroupWebsite', 'navGroupTeam']);
+    expect(keys(['*']).map(([k]) => k)).toEqual([null, 'clinic', 'finance', 'website', 'team']);
     const { has, canSeePage } = as(['*']);
-    expect(visibleNav([{ key: null, items: NAV_FOOT }], canSeePage, has)[0].items.map((i) => i.key)).toEqual(['navData']);
+    expect(visibleNav([{ id: null, label: null, items: NAV_FOOT }], canSeePage, has)[0].items.map((i) => i.page)).toEqual(['data']);
   });
   it('a member sees only what they may open; a group left empty disappears', () => {
     const reception = keys(['patients:read', 'patients:write', 'appointments:read', 'appointments:write', 'invoices:read', 'payments:write', 'cash:operate']);
     expect(reception).toEqual([
-      [null, ['navOverview', 'navAppointments', 'navPatients', 'navFollowUps']],
-      ['navGroupClinic', ['navProfile', 'navBranches', 'navDoctors', 'navServices']], // consents need settings:write
-      ['navGroupFinance', ['navBilling', 'navCash']],
+      [null, ['overview', 'appointments', 'patients', 'followups']],
+      ['clinic', ['profile', 'branches', 'doctors', 'services']], // consents need settings:write
+      ['finance', ['invoices', 'cash']],
     ]);
     const { has, canSeePage } = as(['patients:read']);
-    expect(visibleNav([{ key: null, items: NAV_FOOT }], canSeePage, has)).toEqual([]); // not the owner: no clinic data page
+    expect(visibleNav([{ id: null, label: null, items: NAV_FOOT }], canSeePage, has)).toEqual([]); // not the owner: no clinic data page
   });
   it('the "soon" website item shows only to who will edit the site', () => {
-    expect(keys(['website:write']).find(([k]) => k === 'navGroupWebsite')).toEqual(['navGroupWebsite', ['navGallery', 'navWebsite']]);
-    expect(keys(['patients:read']).find(([k]) => k === 'navGroupWebsite')).toBeUndefined();
+    expect(keys(['website:write']).find(([k]) => k === 'website')).toEqual(['website', ['gallery', 'website:write']]);
+    expect(keys(['patients:read']).find(([k]) => k === 'website')).toBeUndefined();
   });
   it('a page without its own item lights its parent, and opens its group', () => {
     expect(navPageOf('visits')).toBe('patients');
     expect(navPageOf('payments')).toBe('invoices');
     expect(navPageOf('holidays')).toBe('branches');
     expect(navPageOf('not-found')).toBeNull();
-    expect(activeGroup(NAV_GROUPS, 'payments')).toBe('navGroupFinance');
-    expect(activeGroup(NAV_GROUPS, 'booking')).toBe('navGroupClinic');
+    expect(activeGroup(NAV_GROUPS, 'payments')).toBe('finance');
+    expect(activeGroup(NAV_GROUPS, 'booking')).toBe('clinic');
     expect(activeGroup(NAV_GROUPS, 'patients')).toBeNull(); // the daily links have no group to open
   });
 });

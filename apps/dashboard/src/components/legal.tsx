@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api, refreshSession, type Session } from '../api';
-import { t } from '../i18n';
 import { legalHref, type LegalDoc, type LegalKind } from '../legal-model';
 import { Alert, Button, ErrorText, Skeleton } from '../ui/components';
 import { ShieldIcon } from '../ui/icons';
@@ -20,10 +19,10 @@ export function LegalConsent({ docs, checked, onChange }: { docs: readonly Legal
     <label className="check-row legal-consent">
       <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} required />
       <span>
-        {t('legalAccept')}{' '}
+        قرأت وأوافق على{' '}
         {docs.map((d, i) => (
           <span key={d.id}>
-            {i > 0 && (i === docs.length - 1 ? ` ${t('and')} ` : '، ')}
+            {i > 0 && (i === docs.length - 1 ? ` ${'و'} ` : '، ')}
             <a href={legalHref(d.kind)} target="_blank" rel="noopener noreferrer">{d.title_ar}</a>
           </span>
         ))}
@@ -47,22 +46,22 @@ export function LegalGate({ session, onSignOut }: { session: Session; onSignOut:
     <>
       <header className="form-head">
         <div className="form-icon"><ShieldIcon size={22} /></div>
-        <h2>{t('legalGateTitle')}</h2>
-        <p>{t('legalGateSub')}</p>
+        <h2>مستندات تحتاج موافقتك</h2>
+        <p>تغيرت بعض شروط المنصة. اقرأها ووافق عليها لتكمل استخدام النظام.</p>
       </header>
       <ul className="line-list">
         {docs.map((d) => (
           <li key={d.id}>
-            <span><strong>{d.title_ar}</strong> <span className="muted small">({t('legalVersion').replace('{n}', String(d.version))})</span></span>
-            <span className="line-end"><a href={legalHref(d.kind as LegalKind)} target="_blank" rel="noopener noreferrer">{t('legalRead')}</a></span>
+            <span><strong>{d.title_ar}</strong> <span className="muted small">({'الإصدار {n}'.replace('{n}', String(d.version))})</span></span>
+            <span className="line-end"><a href={legalHref(d.kind as LegalKind)} target="_blank" rel="noopener noreferrer">قراءة</a></span>
           </li>
         ))}
       </ul>
       <form className="stack mt" onSubmit={(e) => { e.preventDefault(); if (agreed) accept.mutate(); }}>
         <LegalConsent docs={docs as LegalDoc[]} checked={agreed} onChange={setAgreed} />
         <ErrorText error={accept.error} />
-        <Button type="submit" block loading={accept.isPending} disabled={!agreed}>{t('legalAcceptBtn')}</Button>
-        <Button variant="ghost" block onClick={onSignOut}>{t('signOut')}</Button>
+        <Button type="submit" block loading={accept.isPending} disabled={!agreed}>أوافق وأتابع</Button>
+        <Button variant="ghost" block onClick={onSignOut}>خروج</Button>
       </form>
     </>
   );
@@ -78,15 +77,15 @@ export function LegalPage({ kind }: { kind: LegalKind }) {
   return (
     <main className="legal-page">
       {doc.isLoading ? <Skeleton h={48} count={4} />
-        : doc.isError ? <Alert tone="info">{t('legalMissing')}</Alert>
+        : doc.isError ? <Alert tone="info">هذا المستند غير منشور بعد.</Alert>
         : (
           <article className="legal-doc">
             <h1>{doc.data!.title_ar}</h1>
-            <p className="muted small">{t('legalVersion').replace('{n}', String(doc.data!.version))} · {t('legalPublished')} {date(doc.data!.published_at)}</p>
+            <p className="muted small">{'الإصدار {n}'.replace('{n}', String(doc.data!.version))} · نُشر في {date(doc.data!.published_at)}</p>
             <div className="legal-body">{doc.data!.body_ar}</div>
           </article>
         )}
-      <p className="muted small mt"><a href="#/">{t('legalBack')}</a></p>
+      <p className="muted small mt"><a href="#/">رجوع</a></p>
     </main>
   );
 }

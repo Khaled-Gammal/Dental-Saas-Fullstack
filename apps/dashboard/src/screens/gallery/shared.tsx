@@ -1,15 +1,14 @@
 import { arName } from '@dental/ui/text';
 import { Choice, type Option } from '../../components/choice';
-import { t } from '../../i18n';
 import type { Branch, MediaImage } from '../../types';
 import { imageSrcSet } from '../../gallery-model';
 
 /** Scope choices: the whole clinic, then each active branch. `withAll` adds "all photos" (list filter only). */
 export function scopeOptions(branches: Branch[], withAll: boolean): Option[] {
   return [
-    ...(withAll ? [{ value: 'all', label: t('allPhotos') }] : []),
-    { value: 'clinic', label: t('clinicWide') },
-    ...branches.filter((b) => b.is_active).map((b) => ({ value: b.id, label: `${t('branch')}: ${arName(b.name_ar, b.name_en, b.slug)}` })),
+    ...(withAll ? [{ value: 'all', label: 'كل الصور' }] : []),
+    { value: 'clinic', label: 'العيادة (كل الفروع)' },
+    ...branches.filter((b) => b.is_active).map((b) => ({ value: b.id, label: `${'الفرع'}: ${arName(b.name_ar, b.name_en, b.slug)}` })),
   ];
 }
 

@@ -4,7 +4,6 @@ import { arName } from '@dental/ui/text';
 import { api } from '../../api';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
-import { t } from '../../i18n';
 import { calendarKeys, keys, useBranches, useHolidays } from '../../queries';
 import type { CalendarConflict, Holiday } from '../../types';
 import { Badge, Button, Card, ErrorText, Field, Input, PageHeader } from '../../ui/components';
@@ -34,36 +33,36 @@ export function Holidays({ clinicId, canWrite }: { clinicId: string; canWrite: b
   const remove = useMutation({ mutationFn: (id: string) => api(`/holidays/${id}`, { method: 'DELETE' }), onSuccess: () => void refresh() });
   const [removing, setRemoving] = useState<Holiday | null>(null); // U2: removing a closed day asks first (it reopens the day for booking)
   const submit = (e: FormEvent) => { e.preventDefault(); if (date && name.trim()) add.mutate(); };
-  const branchName = (id: string | null) => (id ? arName(branches.find((b) => b.id === id)?.name_ar ?? null, branches.find((b) => b.id === id)?.name_en ?? null, '—') : t('wholeClinic'));
+  const branchName = (id: string | null) => (id ? arName(branches.find((b) => b.id === id)?.name_ar ?? null, branches.find((b) => b.id === id)?.name_en ?? null, '—') : 'كل الفروع');
   const fmtDate = (d: string) => new Intl.DateTimeFormat(loc(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
 
   return (
     <>
-      <PageHeader title={t('holidaysTitle')} sub={t('holidaysSub')} />
+      <PageHeader title="الإجازات والعطلات" sub="أيام تُغلق فيها العيادة كلها أو فرع واحد. لا تظهر فيها مواعيد للحجز." />
       {canWrite && (
         <Card>
-          <h2>{t('addHoliday')}</h2>
+          <h2>إضافة يوم إجازة</h2>
           <form onSubmit={submit} className="grid-2 mt">
-            <Field label={t('date')}>{(a) => <DatePicker id={a.id} value={date} onChange={setDate} min={new Date().toLocaleDateString('en-CA')} />}</Field>
-            <Field label={t('branch')}>
-              {(a) => <Choice id={a.id} value={branchId} onChange={setBranchId} noneLabel={t('wholeClinic')}
+            <Field label="التاريخ">{(a) => <DatePicker id={a.id} value={date} onChange={setDate} min={new Date().toLocaleDateString('en-CA')} />}</Field>
+            <Field label="الفرع">
+              {(a) => <Choice id={a.id} value={branchId} onChange={setBranchId} noneLabel="كل الفروع"
                 options={branches.filter((b) => b.is_active).map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en, b.slug) }))} />}
             </Field>
-            <Field label={t('holidayName')}>{(a) => <Input id={a.id} value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />}</Field>
-            <div className="row-end"><Button type="submit" loading={add.isPending} disabled={!date || !name.trim()}>{t('addHoliday')}</Button></div>
+            <Field label="المناسبة">{(a) => <Input id={a.id} value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />}</Field>
+            <div className="row-end"><Button type="submit" loading={add.isPending} disabled={!date || !name.trim()}>إضافة يوم إجازة</Button></div>
           </form>
           <ErrorText error={add.error} />
           {conflicts && <Conflicts items={conflicts} />}
         </Card>
       )}
-      <h2 className="section-title mt">{t('holidaysLink')}</h2>
+      <h2 className="section-title mt">الإجازات</h2>
       <DataTable
-        label={t('holidaysTitle')}
+        label="الإجازات والعطلات"
         rows={holidays.data}
         columns={[
-          { id: 'name', header: t('holidayName'), sortValue: (h) => h.name, cell: (h) => <strong><bdi>{h.name}</bdi></strong> },
-          { id: 'date', header: t('date'), sortValue: (h) => h.date, cell: (h) => <span className="whitespace-nowrap">{fmtDate(h.date)}</span> },
-          { id: 'branch', header: t('branch'), sortValue: (h) => branchName(h.branch_id), cell: (h) => <Badge>{branchName(h.branch_id)}</Badge> },
+          { id: 'name', header: 'المناسبة', sortValue: (h) => h.name, cell: (h) => <strong><bdi>{h.name}</bdi></strong> },
+          { id: 'date', header: 'التاريخ', sortValue: (h) => h.date, cell: (h) => <span className="whitespace-nowrap">{fmtDate(h.date)}</span> },
+          { id: 'branch', header: 'الفرع', sortValue: (h) => branchName(h.branch_id), cell: (h) => <Badge>{branchName(h.branch_id)}</Badge> },
         ]}
         rowKey={(h) => h.id}
         isLoading={holidays.isLoading}
@@ -71,13 +70,13 @@ export function Holidays({ clinicId, canWrite }: { clinicId: string; canWrite: b
         error={holidays.isError ? holidays.error : undefined}
         onRetry={() => void holidays.refetch()}
         defaultSort={{ id: 'date', dir: 'asc' }}
-        actions={canWrite ? (h) => <RowMenu label={h.name} actions={[{ label: t('remove'), destructive: true, onSelect: () => setRemoving(h) }]} /> : undefined}
-        empty={{ icon: <CalendarIcon size={28} />, title: t('noHolidays'), text: t('holidaysSub') }}
+        actions={canWrite ? (h) => <RowMenu label={h.name} actions={[{ label: 'إزالة', destructive: true, onSelect: () => setRemoving(h) }]} /> : undefined}
+        empty={{ icon: <CalendarIcon size={28} />, title: 'لا توجد إجازات قادمة.', text: 'أيام تُغلق فيها العيادة كلها أو فرع واحد. لا تظهر فيها مواعيد للحجز.' }}
       />
       <ErrorText error={remove.error} />
-      <ConfirmDialog open={!!removing} title={t('removeHolidayTitle')} confirmLabel={t('remove')} danger
+      <ConfirmDialog open={!!removing} title="حذف يوم الإجازة" confirmLabel="إزالة" danger
         onConfirm={() => { if (removing) remove.mutate(removing.id); setRemoving(null); }} onCancel={() => setRemoving(null)}>
-        {t('removeHolidayText')}
+        سيعود هذا اليوم متاحًا للحجز.
       </ConfirmDialog>
     </>
   );

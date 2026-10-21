@@ -4,7 +4,7 @@ import { arName } from '@dental/ui/text';
 import { api } from '../../api';
 import { Choice } from '../../components/choice';
 import { useLeave, useUnsavedChanges } from '../../hooks';
-import { roleLabel, t } from '../../i18n';
+import { roleLabel } from '../../labels';
 import { keys, useBranches, useDoctors, useMembers, useRoles } from '../../queries';
 import { to } from '../../router';
 import { EMPTY_INVITE, inviteProblem, toInviteBody, type InviteForm } from '../../staff-model';
@@ -22,7 +22,7 @@ export function StaffInvite({ clinicId, has }: { clinicId: string; has: (p: stri
   const members = useMembers(clinicId);
   if (!roles.data || !branches.data || !doctors.data || !members.data) {
     const q = [roles, branches, doctors, members].find((x) => x.isError) ?? roles;
-    return <ResourceState isLoading={!q.isError} isError={q.isError} error={q.error} notFound={false} refetch={() => void q.refetch()} back={to.list('staff')} backLabel={t('navStaff')} />;
+    return <ResourceState isLoading={!q.isError} isError={q.isError} error={q.error} notFound={false} refetch={() => void q.refetch()} back={to.list('staff')} backLabel="فريق العمل" />;
   }
   // a doctor record can get a login only once
   const linkable = doctors.data.filter((d) => d.is_active && !members.data!.some((m) => m.doctor?.id === d.id));
@@ -39,7 +39,7 @@ function InviteBody({ clinicId, roles, branches, doctors }: {
   const leave = useLeave(to.list('staff'));
   const problem = inviteProblem(form);
   const dirty = JSON.stringify(form) !== JSON.stringify(EMPTY_INVITE);
-  useUnsavedChanges(dirty, t('leaveUnsaved'));
+  useUnsavedChanges(dirty, 'لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟');
   const set = <K extends keyof InviteForm>(k: K) => (v: InviteForm[K]) => setForm((f) => ({ ...f, [k]: v }));
   const toggleBranch = (id: string, on: boolean) => set('branchIds')(on ? [...form.branchIds, id] : form.branchIds.filter((x) => x !== id));
 
@@ -50,31 +50,31 @@ function InviteBody({ clinicId, roles, branches, doctors }: {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setTried(true);
-    if (!problem) send.mutate(undefined, { onSuccess: () => leave(t('inviteSent')) });
+    if (!problem) send.mutate(undefined, { onSuccess: () => leave('أُرسلت الدعوة إلى بريده الإلكتروني.') });
   };
   const show = (p: typeof problem) => tried && problem === p;
-  const crumbs = [{ label: t('navOverview'), route: to.list('overview') }, { label: t('navStaff'), route: to.list('staff') }, { label: t('inviteTitle') }];
+  const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'فريق العمل', route: to.list('staff') }, { label: 'دعوة عضو جديد' }];
 
   return (
-    <FormPage title={t('inviteTitle')} sub={t('inviteSub')} crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
+    <FormPage title="دعوة عضو جديد" sub="نرسل رابطًا إلى بريده الإلكتروني صالحًا لمدة 7 أيام. يختار كلمة المرور بنفسه." crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
       saving={send.isPending} canSave={!send.isPending} error={send.error}>
       {!roles.some((r) => r.key !== 'owner') && (
-        <Alert tone="info">{t('inviteNeedsRole')} <RouteLink route={to.list('roles')}>{t('navRoles')}</RouteLink></Alert>
+        <Alert tone="info">لا توجد أدوار لفريقك بعد. أنشئ دورًا أولًا من «الأدوار والصلاحيات». <RouteLink route={to.list('roles')}>الأدوار والصلاحيات</RouteLink></Alert>
       )}
       <Card>
         <div className="grid-2">
-          <Field label={t('email')} error={show('email') ? t('needEmail') : undefined}>
+          <Field label="البريد الإلكتروني" error={show('email') ? 'أدخل بريدًا إلكترونيًا صحيحًا.' : undefined}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} type="email" dir="ltr" autoComplete="off" value={form.email} onChange={(e) => set('email')(e.target.value)} invalid={show('email')} autoFocus />}
           </Field>
-          <Field label={t('staffRole')} error={show('role') ? t('needRole') : undefined}>
-            {(a) => <Choice id={a.id} value={form.roleId} onChange={set('roleId')} placeholder={t('needRole')} invalid={show('role')}
+          <Field label="الدور" error={show('role') ? 'اختر الدور.' : undefined}>
+            {(a) => <Choice id={a.id} value={form.roleId} onChange={set('roleId')} placeholder="اختر الدور." invalid={show('role')}
               options={roles.map((r) => ({ value: r.id, label: roleLabel(r.key, r.name_ar) }))} />}
           </Field>
-          <Field label={t('jobTitleLabel')} optional={t('optional')}>
+          <Field label="المسمى الوظيفي" optional="اختياري">
             {(a) => <Input id={a.id} value={form.jobTitle} onChange={(e) => set('jobTitle')(e.target.value)} maxLength={80} />}
           </Field>
-          <Field label={t('linkDoctor')} optional={t('optional')} hint={t('linkDoctorHint')}>
-            {(a) => <Choice id={a.id} value={form.doctorId} onChange={set('doctorId')} noneLabel={t('noDoctorLink')} options={doctors} />}
+          <Field label="سجل الطبيب" optional="اختياري" hint="إن كان طبيبًا: اختر سجله ليرى مواعيده ويعمل على زياراته.">
+            {(a) => <Choice id={a.id} value={form.doctorId} onChange={set('doctorId')} noneLabel="ليس طبيبًا" options={doctors} />}
           </Field>
         </div>
       </Card>
@@ -91,20 +91,20 @@ export function BranchAccess({ branches, allBranches, branchIds, onAll, onToggle
   return (
     <Card>
       <fieldset className="check-group">
-        <legend>{t('accessBranches')}</legend>
-        <div className="switch-row mt"><Switch checked={allBranches} onChange={onAll} label={t('allBranchesSwitch')} /></div>
+        <legend>الفروع التي يعمل بها</legend>
+        <div className="switch-row mt"><Switch checked={allBranches} onChange={onAll} label="يعمل في كل الفروع" /></div>
         {!allBranches && (
           <>
-            <p className="muted small">{t('accessBranchesHint')}</p>
+            <p className="muted small">لن يرى مواعيد وفواتير الفروع الأخرى.</p>
             <div className="branch-checks">
               {branches.map((b) => (
                 <label key={b.id} className="check">
                   <Checkbox checked={branchIds.includes(b.id)} onCheckedChange={(v) => onToggle(b.id, v === true)} />
-                  <bdi>{arName(b.name_ar, b.name_en, b.slug)}</bdi>{b.is_main && <Badge tone="primary">{t('main')}</Badge>}
+                  <bdi>{arName(b.name_ar, b.name_en, b.slug)}</bdi>{b.is_main && <Badge tone="primary">رئيسي</Badge>}
                 </label>
               ))}
             </div>
-            {(missing || branchIds.length === 0) && <p className="field-error">{t('needBranch')}</p>}
+            {(missing || branchIds.length === 0) && <p className="field-error">اختر فرعًا واحدًا على الأقل</p>}
           </>
         )}
       </fieldset>

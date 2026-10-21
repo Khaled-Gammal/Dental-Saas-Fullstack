@@ -681,23 +681,53 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .row-menu-trigger:focus-visible { outline: none; box-shadow: var(--ring); }
 
 /* ---------- overview (screens/overview.tsx, home-figures.tsx; redesign 2026-10-21, after Untitled UI) ---------- */
-.ov-site { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ov-site-url { font-size: var(--fs-sm); color: var(--muted); padding-inline: 4px; }
 .ov-stats { display: grid; gap: clamp(10px, 1.5vw, 16px); grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); } /* two a row on a phone */
-.ov-stat { display: flex; flex-direction: column; gap: 6px; min-height: 112px; color: inherit; text-decoration: none; transition: border-color var(--t-med), box-shadow var(--t-med); }
-.ov-stat:hover { border-color: var(--primary-200); box-shadow: var(--shadow-md); }
-.ov-stat-head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
-.ov-stat-value { font-size: clamp(1.4rem, 1.2rem + 0.6vw, 1.8rem); font-weight: 700; color: var(--ink); line-height: 1.2; font-variant-numeric: tabular-nums; }
-.ov-stat-sub { color: var(--muted); font-size: var(--fs-sm); }
-.ov-stat.is-alert .ov-stat-sub { color: var(--warning-ink, #b45309); }
 /* the day's table beside the to-dos; one column below 1100px, or when the member has no appointments block */
-.ov-main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 1100px) { .ov-main { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); } .ov-main.is-single { grid-template-columns: minmax(0, 1fr); } }
-.ov-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .ov-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ov-section-head h2 { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); font-weight: 700; }
-.ov-attention h2 { font-size: var(--fs-lg); font-weight: 700; }
-.ov-attention ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.ov-attention-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); color: var(--ink); text-decoration: none; }
-.ov-attention-item:hover { background: var(--primary-50); border-color: var(--primary-200); }
-.ov-attention-n { display: inline-grid; place-items: center; min-width: 32px; height: 32px; padding-inline: 8px; border-radius: var(--r-pill); background: var(--warning-bg, #fffbeb); color: var(--warning-ink, #b45309); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---------- overview statistics (screens/overview-stats.tsx, overview-chart.tsx: shadcn/ui chart; 2026-10-21) ---------- */
+.ov-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ov-delta { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px; border-radius: var(--r-pill); font-weight: 700; font-size: var(--fs-xs); background: var(--surface); color: var(--muted); }
+.ov-delta.is-up { background: color-mix(in srgb, var(--success, #15803d) 12%, transparent); color: var(--success, #15803d); }
+.ov-delta.is-down { background: var(--danger-bg, #fff5f5); color: var(--danger, #dc2626); }
+
+/* ---------- overview v3 (owner and accountant; 2026-10-21): figure cards, charts, breakdowns ---------- */
+.ov-site { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-inline-start: 10px; font-size: var(--fs-sm); }
+.ov-site-url { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; text-decoration: none; }
+.ov-site-url:hover { text-decoration: underline; }
+.ov-site-copy { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card); color: var(--muted); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.ov-site-copy:hover { color: var(--ink); border-color: var(--line-strong); }
+/* figure cards, attention line, table card: see the block at the end (simple layout, 2026-10-21) */
+.ov-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ov-card h2 { font-size: var(--fs-lg); font-weight: 700; }
+.ov-figure { margin: 0; min-width: 0; }
+
+/* ---------- overview, simple layout (after the Untitled UI reference the user chose, 2026-10-21) ---------- */
+/* a figure card: icon and label; the value on its own line; then its ▲/▼ and note beside its trend */
+.ov-kpi { display: flex; flex-direction: column; gap: 12px; min-width: 0; color: inherit; text-decoration: none; transition: border-color var(--t-med), box-shadow var(--t-med); }
+.ov-kpi:hover { border-color: var(--primary-200); box-shadow: var(--shadow-md); }
+.ov-kpi-label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
+.ov-kpi-icon { display: inline-flex; color: var(--muted); }
+.ov-kpi-value { font-size: clamp(1.6rem, 1.3rem + 0.8vw, 2rem); font-weight: 700; color: var(--ink); line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ov-kpi-value.is-negative { color: var(--danger); }
+.ov-kpi-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; min-height: 40px; }
+.ov-kpi-delta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.ov-kpi-spark { flex: 0 0 44%; max-inline-size: 150px; }
+.ov-kpi.is-alert .ov-kpi-foot { color: var(--warning-ink); }
+.ov-delta { gap: 2px; padding: 1px 8px; border: 1px solid var(--line); }
+.ov-delta.is-up { border-color: color-mix(in srgb, var(--success) 30%, transparent); }
+.ov-delta.is-down { border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+/* what needs doing: one line of links under the header */
+.ov-attention-strip { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--line)); border-radius: var(--r-md); background: var(--warning-bg); font-size: var(--fs-sm); }
+.ov-attention-title { font-weight: 700; color: var(--warning-ink); }
+.ov-attention-link { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); text-decoration: none; }
+.ov-attention-link:hover { text-decoration: underline; }
+.ov-attention-n { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding-inline: 6px; border-radius: var(--r-pill); background: var(--card); color: var(--warning-ink); font-weight: 700; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+/* the table card: a header inside, the table edge to edge, its pager at the foot */
+.ov-table-card { padding: 0; overflow: hidden; }
+.ov-table-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: clamp(16px, 2.5vw, 22px) clamp(16px, 2.5vw, 24px); }
+.ov-table-head h2 { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); font-weight: 700; }
+.ov-table-card .data-table { gap: 0; }
+.ov-table-card [data-slot="table-container"] { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.ov-table-card .data-table-pager { padding: 12px clamp(16px, 2.5vw, 24px); border-top: 1px solid var(--line); }

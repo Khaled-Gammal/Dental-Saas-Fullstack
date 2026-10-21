@@ -1,5 +1,4 @@
 import { useRef, type ReactNode } from 'react';
-import { t } from '../i18n';
 import { Button } from './components';
 import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -26,7 +25,7 @@ export function ConfirmDialog({ open, title, children, confirmLabel, danger, onC
           <AlertDialogDescription asChild><div className="dialog-body">{children}</div></AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:justify-end">
-          <Button ref={cancel} variant="ghost" onClick={onCancel}>{t('cancel')}</Button>
+          <Button ref={cancel} variant="ghost" onClick={onCancel}>إلغاء</Button>
           <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>{confirmLabel}</Button>
         </AlertDialogFooter>
       </AlertDialogContent>

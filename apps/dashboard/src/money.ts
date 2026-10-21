@@ -1,4 +1,3 @@
-import { t } from './i18n';
 import { fmtNumber } from './util';
 
 let clinicCurrency = 'EGP';
@@ -12,7 +11,7 @@ export function setClinicCurrency(currency: string | null | undefined): void {
 }
 
 /** "ج.م" for the Egyptian pound, otherwise the ISO code (as on invoices). */
-export const currencyLabel = (currency = clinicCurrency): string => (currency === 'EGP' ? t('egp') : currency);
+export const currencyLabel = (currency = clinicCurrency): string => (currency === 'EGP' ? 'ج.م' : currency);
 
 /**
  * Minor units as "1,250.50 ج.م" in the clinic currency (whole amounts without decimals). Stored values are never

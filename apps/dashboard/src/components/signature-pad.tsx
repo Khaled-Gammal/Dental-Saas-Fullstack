@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { t } from '../i18n';
 import { Button } from '../ui/components';
 
 /**
@@ -65,8 +64,8 @@ export function SignaturePad({ onChange, label }: { onChange: (png: string | nul
       <canvas ref={canvas} className="signature-box" aria-label={label} role="img"
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={up} />
       <div className="row-between">
-        <span className="muted small">{empty ? t('signHere') : t('signedHere')}</span>
-        <Button variant="ghost" onClick={clear} disabled={empty}>{t('clearSignature')}</Button>
+        <span className="muted small">{empty ? 'وقّع داخل المربع بإصبعك أو بالقلم.' : 'تم التوقيع.'}</span>
+        <Button variant="ghost" onClick={clear} disabled={empty}>امسح وأعد التوقيع</Button>
       </div>
     </div>
   );

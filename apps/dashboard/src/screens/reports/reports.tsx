@@ -5,7 +5,7 @@ import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { csvFileName, downloadCsv, pounds, toCsv, type CsvCell } from '../../csv';
 import { localToday } from '../../finance-model';
-import { t, type Key } from '../../i18n';
+import { adjustmentKindLabel, appointmentStatusLabel, paymentMethodLabel, periodPresetLabel } from '../../labels';
 import { currencyLabel, money } from '../../money';
 import { useProfile, useReport, useReportBranches } from '../../queries';
 import { dailyOnly, percent, PRESETS, presetOf, presetPeriod, reportTabs, type ReportTab } from '../../reports-model';
@@ -16,8 +16,8 @@ import { ChartIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 
-const TAB_TITLE: Record<ReportTab, Key> = {
-  revenue: 'rep_revenue', expenses: 'rep_expenses', attendance: 'rep_attendance', performance: 'rep_performance', outstanding: 'rep_outstanding',
+const TAB_TITLE: Record<ReportTab, string> = {
+  revenue: 'الإيرادات والتحصيل', expenses: 'المصروفات', attendance: 'الحضور والمواعيد', performance: 'أداء الفروع والأطباء', outstanding: 'المستحقات',
 };
 
 /**
@@ -35,47 +35,47 @@ export function Reports({ clinicId, session, query }: { clinicId: string; sessio
   const [period, setPeriod] = useState(() => presetPeriod(daily ? 'today' : 'thisMonth', today));
   const [branchId, setBranchId] = useState('');
   const branches = useReportBranches(clinicId);
-  if (!tab) return <Card><EmptyState icon={<ChartIcon size={28} />} title={t('noReports')} text={t('noReportsText')} /></Card>;
+  if (!tab) return <Card><EmptyState icon={<ChartIcon size={28} />} title="لا تقارير متاحة لك" text="اطلب من صاحب العيادة صلاحية التقارير." /></Card>;
   const list = branches.data ?? [];
   const preset = presetOf(period, today);
   const q = { ...(daily || tab === 'outstanding' ? {} : period), branchId: branchId || undefined };
   return (
     <>
       <div className="no-print">
-        <PageHeader title={t('navReports')} sub={t(daily ? 'reportsSubDaily' : 'reportsSub')}
-          action={<Button variant="secondary" onClick={() => window.print()}>{t('print')}</Button>} />
+        <PageHeader title="التقارير" sub={daily ? 'إيرادات وتحصيلات اليوم في فرعك.' : 'من الحركات المسجلة فعلًا، لفترة ولفرع أو لكل فروعك. كل إجمالي هو مجموع ما تحته.'}
+          action={<Button variant="secondary" onClick={() => window.print()}>طباعة</Button>} />
         <Card>
           {tabs.length > 1 && (
-            <div className="seg" role="group" aria-label={t('navReports')}>
+            <div className="seg" role="group" aria-label="التقارير">
               {tabs.map((x) => (
-                <button key={x} type="button" className={`seg-btn${x === tab ? ' is-on' : ''}`} aria-pressed={x === tab} onClick={() => setTab(x)}>{t(TAB_TITLE[x])}</button>
+                <button key={x} type="button" className={`seg-btn${x === tab ? ' is-on' : ''}`} aria-pressed={x === tab} onClick={() => setTab(x)}>{TAB_TITLE[x]}</button>
               ))}
             </div>
           )}
           <div className="report-filters mt">
             {!daily && tab !== 'outstanding' && (
               <>
-                <div className="seg" aria-label={t('period')}>
+                <div className="seg" aria-label="الفترة">
                   {PRESETS.map((p) => (
                     <button key={p} type="button" className={`seg-btn${p === preset ? ' is-on' : ''}`} aria-pressed={p === preset} onClick={() => setPeriod(presetPeriod(p, today))}>
-                      {t(`preset_${p}` as Key)}
+                      {periodPresetLabel[p]}
                     </button>
                   ))}
                 </div>
                 <div className="period">
-                  <DatePicker label={t('fromDate')} value={period.from} onChange={(from) => setPeriod((x) => ({ ...x, from }))} max={period.to} />
-                  <DatePicker label={t('toDate')} value={period.to} onChange={(to) => setPeriod((x) => ({ ...x, to }))} min={period.from} />
+                  <DatePicker label="من" value={period.from} onChange={(from) => setPeriod((x) => ({ ...x, from }))} max={period.to} />
+                  <DatePicker label="إلى" value={period.to} onChange={(to) => setPeriod((x) => ({ ...x, to }))} min={period.from} />
                 </div>
               </>
             )}
             {list.length > 1 && (
-              <Field label={t('branch')}>
-                {(a) => <Choice id={a.id} value={branchId} onChange={setBranchId} noneLabel={t('allBranches')}
+              <Field label="الفرع">
+                {(a) => <Choice id={a.id} value={branchId} onChange={setBranchId} noneLabel="كل الفروع"
                   options={list.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en) }))} />}
               </Field>
             )}
           </div>
-          {daily && <p className="muted small mt-sm">{t('reportsDailyNote')}</p>}
+          {daily && <p className="muted small mt-sm">يعرض الاستقبال أرقام اليوم فقط.</p>}
         </Card>
       </div>
       <ReportBody key={tab} clinicId={clinicId} tab={tab} q={q} branches={list} />
@@ -94,7 +94,7 @@ function ReportBody({ clinicId, tab, q, branches }: { clinicId: string; tab: Rep
     <>
       <style>{'@page { size: A4; margin: 12mm; }'}</style>
       <article className="rx-sheet report-sheet" dir={'rtl'}>
-        <PrintHead clinicId={clinicId} title={t(TAB_TITLE[tab])} frame={data} branches={branches} />
+        <PrintHead clinicId={clinicId} title={TAB_TITLE[tab]} frame={data} branches={branches} />
         {tab === 'revenue' && <Revenue r={data as RevenueReport} />}
         {tab === 'expenses' && <Expenses r={data as ExpensesReport} />}
         {tab === 'attendance' && <Attendance r={data as AttendanceReport} />}
@@ -115,8 +115,8 @@ function PrintHead({ clinicId, title, frame, branches }: { clinicId: string; tit
         <h1 className="rx-clinic">{clinic ? arName(clinic.nameAr, clinic.nameEn) : ''}</h1>
         <p className="rx-doc-title">{title}</p>
         <p className="rx-branch">
-          {frame.period ? `${t('fromDate')} ${frame.period.from} ${t('toDate')} ${frame.period.to}` : `${t('asOf')} ${frame.today}`}
-          {' · '}{branch ? arName(branch.name_ar, branch.name_en) : t('allBranches')}
+          {frame.period ? `${'من'} ${frame.period.from} ${'إلى'} ${frame.period.to}` : `${'حتى'} ${frame.today}`}
+          {' · '}{branch ? arName(branch.name_ar, branch.name_en) : 'كل الفروع'}
         </p>
       </div>
       {clinic?.logo && <img className="rx-logo" src={clinic.logo.thumbUrl} alt="" />}
@@ -127,7 +127,7 @@ function PrintHead({ clinicId, title, frame, branches }: { clinicId: string; tit
 // ---------- building blocks ----------
 const name = (n: ReportName) => (n ? arName(n.name_ar, n.name_en) : '—');
 /** An expense method; expenses recorded before methods existed have none ("unknown"). */
-const methodName = (m: string) => (m === 'unknown' ? t('repUnknownMethod') : t(`pm_${m}` as Key));
+const methodName = (m: string) => (m === 'unknown' ? 'غير محددة' : paymentMethodLabel[m]);
 /** A rate as a plain percentage for a spreadsheet (12.5), as `percent()` shows it. */
 const pct = (rate: number | null): number | null => (rate === null ? null : Math.round(rate * 1000) / 10);
 
@@ -163,7 +163,7 @@ function Table({ caption, head, rows, foot, text = 1, csv }: { caption: string; 
     <Card className="report-card">
       <div className="row-between">
         <h2>{caption}</h2>
-        {csv && <Button variant="ghost" className="no-print" onClick={() => exportTable(head, csv)} aria-label={`${t('exportCsv')}: ${caption}`}>{t('exportCsv')}</Button>}
+        {csv && <Button variant="ghost" className="no-print" onClick={() => exportTable(head, csv)} aria-label={`${'تصدير CSV'}: ${caption}`}>تصدير CSV</Button>}
       </div>
       <div className="table-wrap">
         <table className="report-table">
@@ -177,7 +177,7 @@ function Table({ caption, head, rows, foot, text = 1, csv }: { caption: string; 
 }
 
 function Nothing() {
-  return <Card><EmptyState icon={<ChartIcon size={28} />} title={t('reportEmpty')} text={t('reportEmptyText')} /></Card>;
+  return <Card><EmptyState icon={<ChartIcon size={28} />} title="لا حركات في هذه الفترة" text="جرّب فترة أطول أو فرعًا آخر." /></Card>;
 }
 
 // ---------- REPORT-001 revenue and collections ----------
@@ -187,43 +187,43 @@ function Revenue({ r }: { r: RevenueReport }) {
   return (
     <>
       <div className="stats">
-        <Tile label={t('repInvoiced')} value={money(T.invoiced, r.currency)} note={t('repInvoicesCount').replace('{n}', fmtNumber(T.invoices))} />
-        <Tile label={t('repCollected')} value={money(T.collected, r.currency)} note={t('repPaymentsCount').replace('{n}', fmtNumber(T.payments))} />
-        <Tile label={t('repRefunded')} value={money(T.refunded, r.currency)} />
-        <Tile label={t('repNet')} value={money(T.net, r.currency)} />
+        <Tile label="الفواتير الصادرة" value={money(T.invoiced, r.currency)} note={'{n} فاتورة'.replace('{n}', fmtNumber(T.invoices))} />
+        <Tile label="المحصّل" value={money(T.collected, r.currency)} note={'{n} دفعة'.replace('{n}', fmtNumber(T.payments))} />
+        <Tile label="المرتجع" value={money(T.refunded, r.currency)} />
+        <Tile label="صافي التحصيل" value={money(T.net, r.currency)} />
       </div>
       {!T.invoices && !T.payments && !T.refunds && !T.adjusted ? <Nothing /> : (
         <>
-          <Table caption={t('repByMethod')} head={[t('paymentMethod'), t('repCollected'), t('repRefunded'), t('repNet')]}
-            rows={r.by_method.map((x) => [t(`pm_${x.method}` as Key), m(x.collected), m(x.refunded), m(x.net)])}
-            foot={[t('total'), m(T.collected), m(T.refunded), m(T.net)]}
+          <Table caption="حسب طريقة الدفع" head={['طريقة الدفع', 'المحصّل', 'المرتجع', 'صافي التحصيل']}
+            rows={r.by_method.map((x) => [paymentMethodLabel[x.method], m(x.collected), m(x.refunded), m(x.net)])}
+            foot={['الإجمالي', m(T.collected), m(T.refunded), m(T.net)]}
             csv={{ frame: r, table: 'by-method', money: [1, 2, 3],
-              rows: r.by_method.map((x) => [t(`pm_${x.method}` as Key), pounds(x.collected), pounds(x.refunded), pounds(x.net)]),
-              foot: [t('total'), pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
+              rows: r.by_method.map((x) => [paymentMethodLabel[x.method], pounds(x.collected), pounds(x.refunded), pounds(x.net)]),
+              foot: ['الإجمالي', pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
           {r.adjustments.length > 0 && (
-            <Table caption={t('repAdjustments')} head={[t('repKind'), t('repCount'), t('amount')]}
-              rows={r.adjustments.map((x) => [t(`adj_${x.kind}` as Key), fmtNumber(x.n), m(x.amount)])}
-              csv={{ frame: r, table: 'adjustments', money: [2], rows: r.adjustments.map((x) => [t(`adj_${x.kind}` as Key), x.n, pounds(x.amount)]) }} />
+            <Table caption="الإعفاءات" head={['النوع', 'العدد', 'المبلغ']}
+              rows={r.adjustments.map((x) => [adjustmentKindLabel[x.kind], fmtNumber(x.n), m(x.amount)])}
+              csv={{ frame: r, table: 'adjustments', money: [2], rows: r.adjustments.map((x) => [adjustmentKindLabel[x.kind], x.n, pounds(x.amount)]) }} />
           )}
           {r.by_branch.length > 1 && (
-            <Table caption={t('repByBranch')} head={[t('branch'), t('repInvoiced'), t('repCollected'), t('repRefunded'), t('repNet')]}
+            <Table caption="حسب الفرع" head={['الفرع', 'الفواتير الصادرة', 'المحصّل', 'المرتجع', 'صافي التحصيل']}
               rows={r.by_branch.map((x) => [name(x.branch), m(x.invoiced), m(x.collected), m(x.refunded), m(x.net)])}
-              foot={[t('total'), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]}
+              foot={['الإجمالي', m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]}
               csv={{ frame: r, table: 'by-branch', money: [1, 2, 3, 4],
                 rows: r.by_branch.map((x) => [name(x.branch), pounds(x.invoiced), pounds(x.collected), pounds(x.refunded), pounds(x.net)]),
-                foot: [t('total'), pounds(T.invoiced), pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
+                foot: ['الإجمالي', pounds(T.invoiced), pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
           )}
           {r.by_day.length > 1 && (
-            <Table caption={t('repByDay')} head={[t('date'), t('repInvoiced'), t('repCollected'), t('repRefunded'), t('repNet')]}
+            <Table caption="حسب اليوم" head={['التاريخ', 'الفواتير الصادرة', 'المحصّل', 'المرتجع', 'صافي التحصيل']}
               rows={r.by_day.map((x) => [x.day, m(x.invoiced), m(x.collected), m(x.refunded), m(x.net)])}
-              foot={[t('total'), m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]}
+              foot={['الإجمالي', m(T.invoiced), m(T.collected), m(T.refunded), m(T.net)]}
               csv={{ frame: r, table: 'by-day', money: [1, 2, 3, 4],
                 rows: r.by_day.map((x) => [x.day, pounds(x.invoiced), pounds(x.collected), pounds(x.refunded), pounds(x.net)]),
-                foot: [t('total'), pounds(T.invoiced), pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
+                foot: ['الإجمالي', pounds(T.invoiced), pounds(T.collected), pounds(T.refunded), pounds(T.net)] }} />
           )}
         </>
       )}
-      <p className="muted small">{t('repRevenueNote')}</p>
+      <p className="muted small">الفواتير بتاريخ إصدارها، والدفعات والمرتجعات بيوم تسجيلها. الدفعة الملغاة لخطأ في الإدخال لا تُحسب. الإعفاءات تقلل المستحق ولا تدخل في التحصيل.</p>
     </>
   );
 }
@@ -235,29 +235,29 @@ function Expenses({ r }: { r: ExpensesReport }) {
   return (
     <>
       <div className="stats">
-        <Tile label={t('repExpensesTotal')} value={money(T.total, r.currency)}
-          note={T.pending ? t('repPendingPart').replace('{amount}', money(T.pending, r.currency)) : undefined} />
-        <Tile label={t('repNet')} value={money(T.collections_net, r.currency)} />
-        <Tile label={t('repResult')} value={money(T.result, r.currency)} note={t('repResultNote')} />
+        <Tile label="إجمالي المصروفات" value={money(T.total, r.currency)}
+          note={T.pending ? 'منها {amount} بانتظار الموافقة'.replace('{amount}', money(T.pending, r.currency)) : undefined} />
+        <Tile label="صافي التحصيل" value={money(T.collections_net, r.currency)} />
+        <Tile label="التحصيل ناقص المصروفات" value={money(T.result, r.currency)} note="على أساس نقدي" />
       </div>
-      {T.rejected > 0 && <Alert tone="info">{t('repRejectedNote').replace('{amount}', money(T.rejected, r.currency))}</Alert>}
+      {T.rejected > 0 && <Alert tone="info">{'مصروفات مرفوضة بقيمة {amount} لا تدخل في الإجمالي (وتظل محسوبة في خزنة يومها لأن النقدية خرجت).'.replace('{amount}', money(T.rejected, r.currency))}</Alert>}
       {!T.count ? <Nothing /> : (
         <>
-          <Table caption={t('byCategory')} head={[t('expenseCategory'), t('repCount'), t('amount')]}
-            rows={r.by_category.map((x) => [x.name ?? '—', fmtNumber(x.n), m(x.amount)])} foot={[t('total'), fmtNumber(T.count), m(T.total)]}
-            csv={{ frame: r, table: 'by-category', money: [2], rows: r.by_category.map((x) => [x.name ?? '—', x.n, pounds(x.amount)]), foot: [t('total'), T.count, pounds(T.total)] }} />
-          <Table caption={t('repByMethod')} head={[t('paymentMethod'), t('repCount'), t('amount')]}
+          <Table caption="حسب البند" head={['البند', 'العدد', 'المبلغ']}
+            rows={r.by_category.map((x) => [x.name ?? '—', fmtNumber(x.n), m(x.amount)])} foot={['الإجمالي', fmtNumber(T.count), m(T.total)]}
+            csv={{ frame: r, table: 'by-category', money: [2], rows: r.by_category.map((x) => [x.name ?? '—', x.n, pounds(x.amount)]), foot: ['الإجمالي', T.count, pounds(T.total)] }} />
+          <Table caption="حسب طريقة الدفع" head={['طريقة الدفع', 'العدد', 'المبلغ']}
             rows={r.by_method.map((x) => [methodName(x.method), fmtNumber(x.n), m(x.amount)])}
             csv={{ frame: r, table: 'by-method', money: [2], rows: r.by_method.map((x) => [methodName(x.method), x.n, pounds(x.amount)]) }} />
           {r.by_branch.length > 1 && (
-            <Table caption={t('repByBranch')} head={[t('branch'), t('repCount'), t('amount')]}
+            <Table caption="حسب الفرع" head={['الفرع', 'العدد', 'المبلغ']}
               rows={r.by_branch.map((x) => [name(x.branch), fmtNumber(x.n), m(x.amount)])}
               csv={{ frame: r, table: 'by-branch', money: [2], rows: r.by_branch.map((x) => [name(x.branch), x.n, pounds(x.amount)]) }} />
           )}
           {r.by_day.length > 1 && (
-            <Table caption={t('repByDay')} head={[t('date'), t('repCount'), t('amount')]}
-              rows={r.by_day.map((x) => [x.day, fmtNumber(x.n), m(x.amount)])} foot={[t('total'), fmtNumber(T.count), m(T.total)]}
-              csv={{ frame: r, table: 'by-day', money: [2], rows: r.by_day.map((x) => [x.day, x.n, pounds(x.amount)]), foot: [t('total'), T.count, pounds(T.total)] }} />
+            <Table caption="حسب اليوم" head={['التاريخ', 'العدد', 'المبلغ']}
+              rows={r.by_day.map((x) => [x.day, fmtNumber(x.n), m(x.amount)])} foot={['الإجمالي', fmtNumber(T.count), m(T.total)]}
+              csv={{ frame: r, table: 'by-day', money: [2], rows: r.by_day.map((x) => [x.day, x.n, pounds(x.amount)]), foot: ['الإجمالي', T.count, pounds(T.total)] }} />
           )}
         </>
       )}
@@ -271,30 +271,30 @@ function Attendance({ r }: { r: AttendanceReport }) {
   const n = (v: number) => fmtNumber(v);
   const cells = (x: AttendanceFigures) => [n(x.booked), n(x.completed), n(x.no_show), n(x.cancelled), percent(x.no_show_rate), percent(x.cancellation_rate)];
   const raw = (x: AttendanceFigures): CsvCell[] => [x.booked, x.completed, x.no_show, x.cancelled, pct(x.no_show_rate), pct(x.cancellation_rate)];
-  const head = [t('repBooked'), t('status_completed'), t('status_no_show'), t('status_cancelled'), t('repNoShowRate'), t('repCancelRate')];
+  const head = ['المواعيد', 'مكتمل', 'لم يحضر', 'ملغي', 'نسبة عدم الحضور', 'نسبة الإلغاء'];
   const rates = [5, 6]; // after the name column
   return (
     <>
       <div className="stats">
-        <Tile label={t('repBooked')} value={n(T.booked)} note={T.upcoming ? t('repUpcoming').replace('{n}', n(T.upcoming)) : undefined} />
-        <Tile label={t('status_completed')} value={n(T.completed)} />
-        <Tile label={t('status_no_show')} value={n(T.no_show)} note={percent(T.no_show_rate)} />
-        <Tile label={t('status_cancelled')} value={n(T.cancelled)} note={percent(T.cancellation_rate)} />
+        <Tile label="المواعيد" value={n(T.booked)} note={T.upcoming ? 'منها {n} لم يحن موعدها'.replace('{n}', n(T.upcoming)) : undefined} />
+        <Tile label="مكتمل" value={n(T.completed)} />
+        <Tile label="لم يحضر" value={n(T.no_show)} note={percent(T.no_show_rate)} />
+        <Tile label="ملغي" value={n(T.cancelled)} note={percent(T.cancellation_rate)} />
       </div>
       {!T.booked ? <Nothing /> : (
         <>
-          <Table caption={t('repByDoctor')} head={[t('doctor'), ...head]} rows={r.by_doctor.map((x) => [name(x.doctor), ...cells(x)])}
-            foot={r.by_doctor.length > 1 ? [t('total'), ...cells(T)] : undefined}
-            csv={{ frame: r, table: 'by-doctor', rates, rows: r.by_doctor.map((x) => [name(x.doctor), ...raw(x)]), foot: r.by_doctor.length > 1 ? [t('total'), ...raw(T)] : undefined }} />
+          <Table caption="حسب الطبيب" head={['الطبيب', ...head]} rows={r.by_doctor.map((x) => [name(x.doctor), ...cells(x)])}
+            foot={r.by_doctor.length > 1 ? ['الإجمالي', ...cells(T)] : undefined}
+            csv={{ frame: r, table: 'by-doctor', rates, rows: r.by_doctor.map((x) => [name(x.doctor), ...raw(x)]), foot: r.by_doctor.length > 1 ? ['الإجمالي', ...raw(T)] : undefined }} />
           {r.by_branch.length > 1 && (
-            <Table caption={t('repByBranch')} head={[t('branch'), ...head]} rows={r.by_branch.map((x) => [name(x.branch), ...cells(x)])} foot={[t('total'), ...cells(T)]}
-              csv={{ frame: r, table: 'by-branch', rates, rows: r.by_branch.map((x) => [name(x.branch), ...raw(x)]), foot: [t('total'), ...raw(T)] }} />
+            <Table caption="حسب الفرع" head={['الفرع', ...head]} rows={r.by_branch.map((x) => [name(x.branch), ...cells(x)])} foot={['الإجمالي', ...cells(T)]}
+              csv={{ frame: r, table: 'by-branch', rates, rows: r.by_branch.map((x) => [name(x.branch), ...raw(x)]), foot: ['الإجمالي', ...raw(T)] }} />
           )}
-          <Table caption={t('repByStatus')} head={[t('status'), t('repCount')]} rows={r.by_status.map((x) => [t(`status_${x.status}` as Key), n(x.n)])}
-            csv={{ frame: r, table: 'by-status', rows: r.by_status.map((x) => [t(`status_${x.status}` as Key), x.n]) }} />
+          <Table caption="حسب الحالة" head={['الحالة', 'العدد']} rows={r.by_status.map((x) => [appointmentStatusLabel[x.status], n(x.n)])}
+            csv={{ frame: r, table: 'by-status', rows: r.by_status.map((x) => [appointmentStatusLabel[x.status], x.n]) }} />
         </>
       )}
-      <p className="muted small">{t('repAttendanceNote')}</p>
+      <p className="muted small">نسبة الإلغاء من كل المواعيد. نسبة عدم الحضور من المواعيد التي حان وقتها ولم تُلغَ. الحجوزات المؤقتة التي انتهت مهلتها ليست مواعيد.</p>
     </>
   );
 }
@@ -307,30 +307,30 @@ function Performance({ r }: { r: PerformanceReport }) {
   return (
     <>
       <div className="stats">
-        <Tile label={t('repCompleted')} value={n(T.completed)} />
-        <Tile label={t('repProcedures')} value={n(T.procedures)} />
-        <Tile label={t('repProceduresValue')} value={money(T.procedures_value, r.currency)} />
-        {T.collections_net !== null && <Tile label={t('repNet')} value={money(T.collections_net, r.currency)} />}
+        <Tile label="مواعيد مكتملة" value={n(T.completed)} />
+        <Tile label="الإجراءات" value={n(T.procedures)} />
+        <Tile label="قيمة الإجراءات" value={money(T.procedures_value, r.currency)} />
+        {T.collections_net !== null && <Tile label="صافي التحصيل" value={money(T.collections_net, r.currency)} />}
       </div>
       {!T.completed && !T.procedures && !T.collections_net ? <Nothing /> : (
         <>
           {r.by_branch && (
-            <Table caption={t('repByBranch')} head={[t('branch'), t('repCompleted'), t('repProcedures'), t('repProceduresValue'), t('repNet')]}
+            <Table caption="حسب الفرع" head={['الفرع', 'مواعيد مكتملة', 'الإجراءات', 'قيمة الإجراءات', 'صافي التحصيل']}
               rows={r.by_branch.map((x) => [name(x.branch), n(x.completed), n(x.procedures), m(x.procedures_value), m(x.collections_net)])}
-              foot={[t('total'), n(T.completed), n(T.procedures), m(T.procedures_value), m(T.collections_net ?? 0)]}
+              foot={['الإجمالي', n(T.completed), n(T.procedures), m(T.procedures_value), m(T.collections_net ?? 0)]}
               csv={{ frame: r, table: 'by-branch', money: [3, 4],
                 rows: r.by_branch.map((x) => [name(x.branch), x.completed, x.procedures, pounds(x.procedures_value), pounds(x.collections_net)]),
-                foot: [t('total'), T.completed, T.procedures, pounds(T.procedures_value), pounds(T.collections_net ?? 0)] }} />
+                foot: ['الإجمالي', T.completed, T.procedures, pounds(T.procedures_value), pounds(T.collections_net ?? 0)] }} />
           )}
-          <Table caption={t('repByDoctor')} head={[t('doctor'), t('repCompleted'), t('repProcedures'), t('repProceduresValue')]}
+          <Table caption="حسب الطبيب" head={['الطبيب', 'مواعيد مكتملة', 'الإجراءات', 'قيمة الإجراءات']}
             rows={r.by_doctor.map((x) => [name(x.doctor), n(x.completed), n(x.procedures), m(x.procedures_value)])}
-            foot={r.by_doctor.length > 1 ? [t('total'), n(T.completed), n(T.procedures), m(T.procedures_value)] : undefined}
+            foot={r.by_doctor.length > 1 ? ['الإجمالي', n(T.completed), n(T.procedures), m(T.procedures_value)] : undefined}
             csv={{ frame: r, table: 'by-doctor', money: [3],
               rows: r.by_doctor.map((x) => [name(x.doctor), x.completed, x.procedures, pounds(x.procedures_value)]),
-              foot: r.by_doctor.length > 1 ? [t('total'), T.completed, T.procedures, pounds(T.procedures_value)] : undefined }} />
+              foot: r.by_doctor.length > 1 ? ['الإجمالي', T.completed, T.procedures, pounds(T.procedures_value)] : undefined }} />
         </>
       )}
-      <p className="muted small">{t(r.scope === 'own' ? 'repPerformanceOwnNote' : 'repPerformanceNote')}</p>
+      <p className="muted small">{r.scope === 'own' ? 'أرقامك أنت فقط: مواعيدك المكتملة والإجراءات التي نفذتها.' : 'قيمة الإجراءات بسعر التنفيذ قبل خصومات الفاتورة، بتاريخ الزيارة. التحصيل لكل فرع فقط، ولا عمولات.'}</p>
     </>
   );
 }
@@ -344,34 +344,34 @@ function Outstanding({ r, branches }: { r: OutstandingReport; branches: ReportBr
   return (
     <>
       <div className="stats">
-        <Tile label={t('repOwed')} value={money(T.balance, r.currency)} note={t('repPatientsCount').replace('{n}', n(T.patients))} />
-        <Tile label={t('repOverdue')} value={money(T.overdue, r.currency)} note={t('repInstallmentsCount').replace('{n}', n(T.overdue_installments))} />
+        <Tile label="إجمالي المستحق على المرضى" value={money(T.balance, r.currency)} note={'{n} مريض'.replace('{n}', n(T.patients))} />
+        <Tile label="أقساط متأخرة" value={money(T.overdue, r.currency)} note={'{n} قسط'.replace('{n}', n(T.overdue_installments))} />
       </div>
-      {r.truncated && <Alert tone="info">{t('repTruncated')}</Alert>}
+      {r.truncated && <Alert tone="info">القائمة تعرض أول 500 فقط؛ الإجماليات تشمل الجميع.</Alert>}
       {!T.patients ? <Nothing /> : (
-        <Table caption={t('repPatientsOwing')} text={4}
-          head={[t('patient'), t('fileNo'), t('phone'), t('branch'), t('repInvoicesCol'), t('repOldest'), t('balance')]}
+        <Table caption="المرضى أصحاب المستحقات" text={4}
+          head={['المريض', 'ملف رقم', 'رقم الموبايل', 'الفرع', 'الفواتير', 'أقدم فاتورة', 'المتبقي']}
           rows={r.patients.map((p) => [
             <RouteLink key="p" route={to.view('patients', p.patient_id)}><bdi>{p.full_name}</bdi></RouteLink>, n(p.file_no), p.phone ? <bdi dir="ltr">{p.phone}</bdi> : '—',
             branchNames(p.branch_ids), n(p.invoices), p.oldest ?? '—', m(p.balance),
           ])}
-          foot={[t('total'), '', '', '', n(T.invoices), '', m(T.balance)]}
+          foot={['الإجمالي', '', '', '', n(T.invoices), '', m(T.balance)]}
           csv={{ frame: r, table: 'patients', money: [6],
             rows: r.patients.map((p) => [p.full_name, p.file_no, p.phone, branchNames(p.branch_ids), p.invoices, p.oldest, pounds(p.balance)]),
-            foot: [t('total'), null, null, null, T.invoices, null, pounds(T.balance)] }} />
+            foot: ['الإجمالي', null, null, null, T.invoices, null, pounds(T.balance)] }} />
       )}
       {r.overdue.length > 0 && (
-        <Table caption={t('repOverdueInstallments')} text={3}
-          head={[t('patient'), t('invoiceNo'), t('branch'), t('repInstallmentNo'), t('dueDate'), t('repDaysOverdue'), t('repRemaining')]}
+        <Table caption="الأقساط المتأخرة" text={3}
+          head={['المريض', 'رقم الفاتورة', 'الفرع', 'القسط', 'موعد الاستحقاق', 'أيام التأخير', 'المتبقي']}
           rows={r.overdue.map((o) => [
             <RouteLink key="p" route={to.view('patients', o.patient_id)}><bdi>{o.full_name}</bdi></RouteLink>,
             <RouteLink key="i" route={to.invoice(o.invoice_id)}><bdi dir="ltr">{o.number ?? '—'}</bdi></RouteLink>, name(o.branch),
             n(o.seq), o.due_date, n(o.days_overdue), m(o.remaining),
           ])}
-          foot={[t('total'), '', '', '', '', '', m(T.overdue)]}
+          foot={['الإجمالي', '', '', '', '', '', m(T.overdue)]}
           csv={{ frame: r, table: 'overdue-installments', money: [6],
             rows: r.overdue.map((o) => [o.full_name, o.number, name(o.branch), o.seq, o.due_date, o.days_overdue, pounds(o.remaining)]),
-            foot: [t('total'), null, null, null, null, null, pounds(T.overdue)] }} />
+            foot: ['الإجمالي', null, null, null, null, null, pounds(T.overdue)] }} />
       )}
     </>
   );

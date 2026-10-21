@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { arName } from '@dental/ui/text';
 import { api, type Session } from '../../api';
 import { navigate, useFlash } from '../../hooks';
-import { roleLabel, t } from '../../i18n';
+import { roleLabel } from '../../labels';
 import { keys, useBranches, useInvitations, useMembers } from '../../queries';
 import { to } from '../../router';
 import type { Branch, StaffInvitation, StaffMember } from '../../types';
@@ -28,18 +28,18 @@ export function StaffList({ clinicId, session }: { clinicId: string; session: Se
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: keys.staff(clinicId) });
   // one resend and one revoke for the table (U2): their errors and notices show above it
-  const resend = useMutation({ mutationFn: (id: string) => api(`/staff/invitations/${id}/resend`, { method: 'POST' }), onSuccess: () => { setNotice(t('inviteResent')); void refresh(); } });
-  const revoke = useMutation({ mutationFn: (id: string) => api(`/staff/invitations/${id}/revoke`, { method: 'POST' }), onSuccess: () => { setNotice(t('inviteRevoked')); void refresh(); } });
-  const addBtn = <Button onClick={() => navigate(to.create('staff'))}><PlusIcon size={18} />{t('inviteStaff')}</Button>;
+  const resend = useMutation({ mutationFn: (id: string) => api(`/staff/invitations/${id}/resend`, { method: 'POST' }), onSuccess: () => { setNotice('أُرسل رابط جديد، والرابط القديم لم يعد يعمل.'); void refresh(); } });
+  const revoke = useMutation({ mutationFn: (id: string) => api(`/staff/invitations/${id}/revoke`, { method: 'POST' }), onSuccess: () => { setNotice('أُلغيت الدعوة.'); void refresh(); } });
+  const addBtn = <Button onClick={() => navigate(to.create('staff'))}><PlusIcon size={18} />دعوة عضو</Button>;
 
   return (
     <>
-      <PageHeader title={t('navStaff')} sub={t('staffSub')} action={addBtn} />
+      <PageHeader title="فريق العمل" sub="أعضاء العيادة وأدوارهم والفروع التي يعملون بها" action={addBtn} />
       {(flash || notice) && <Alert tone="success">{notice ?? flash}</Alert>}
 
-      <h2 className="section-title">{t('members')}</h2>
+      <h2 className="section-title">الأعضاء</h2>
       <DataTable
-        label={t('members')}
+        label="الأعضاء"
         rows={members.data}
         columns={memberColumns(branches, session.user.email)}
         rowKey={(m) => m.id}
@@ -47,16 +47,16 @@ export function StaffList({ clinicId, session }: { clinicId: string; session: Se
         isFetching={members.isFetching}
         error={members.isError ? members.error : undefined}
         onRetry={() => void members.refetch()}
-        search={{ placeholder: t('staffSearchHint'), text: (m) => [m.user.full_name, m.user.email, m.job_title, roleLabel(m.role.key, m.role.name_ar)].filter(Boolean).join(' ') }}
-        actions={(m) => <RowMenu label={m.user.full_name} actions={[{ label: t('edit'), icon: <EditIcon size={16} />, route: to.edit('staff', m.id) }]} />}
+        search={{ placeholder: 'ابحث بالاسم أو البريد أو الوظيفة', text: (m) => [m.user.full_name, m.user.email, m.job_title, roleLabel(m.role.key, m.role.name_ar)].filter(Boolean).join(' ') }}
+        actions={(m) => <RowMenu label={m.user.full_name} actions={[{ label: 'تعديل', icon: <EditIcon size={16} />, route: to.edit('staff', m.id) }]} />}
         onRowClick={(m) => navigate(to.edit('staff', m.id))}
-        empty={{ icon: <ShieldIcon size={28} />, title: t('members'), text: t('staffSub') }}
+        empty={{ icon: <ShieldIcon size={28} />, title: 'الأعضاء', text: 'أعضاء العيادة وأدوارهم والفروع التي يعملون بها' }}
       />
 
-      <h2 className="section-title mt">{t('pendingInvites')}</h2>
+      <h2 className="section-title mt">دعوات لم تُقبل بعد</h2>
       <ErrorText error={resend.error ?? revoke.error} />
       <DataTable
-        label={t('pendingInvites')}
+        label="دعوات لم تُقبل بعد"
         rows={invitations.data}
         columns={invitationColumns(branches)}
         rowKey={(i) => i.id}
@@ -66,15 +66,15 @@ export function StaffList({ clinicId, session }: { clinicId: string; session: Se
         onRetry={() => void invitations.refetch()}
         actions={(i) => (
           <RowMenu label={i.email} actions={[
-            { label: t('resendInvite'), icon: <Mail size={16} aria-hidden />, onSelect: () => resend.mutate(i.id) },
-            { label: t('revokeInvite'), destructive: true, onSelect: () => setRevoking(i) },
+            { label: 'إرسال رابط جديد', icon: <Mail size={16} aria-hidden />, onSelect: () => resend.mutate(i.id) },
+            { label: 'إلغاء الدعوة', destructive: true, onSelect: () => setRevoking(i) },
           ]} />
         )}
-        empty={{ icon: <ShieldIcon size={28} />, title: t('noInvites'), text: t('inviteSub') }}
+        empty={{ icon: <ShieldIcon size={28} />, title: 'لا توجد دعوات معلقة.', text: 'نرسل رابطًا إلى بريده الإلكتروني صالحًا لمدة 7 أيام. يختار كلمة المرور بنفسه.' }}
       />
-      <ConfirmDialog open={!!revoking} title={t('revokeInvite')} confirmLabel={t('revokeInvite')} danger
+      <ConfirmDialog open={!!revoking} title="إلغاء الدعوة" confirmLabel="إلغاء الدعوة" danger
         onConfirm={() => { if (revoking) revoke.mutate(revoking.id); setRevoking(null); }} onCancel={() => setRevoking(null)}>
-        {t('revokeInviteText')}
+        سيتوقف رابط الدعوة عن العمل فورًا.
       </ConfirmDialog>
     </>
   );
@@ -84,33 +84,33 @@ export function StaffList({ clinicId, session }: { clinicId: string; session: Se
 function memberColumns(branches: Branch[] | undefined, myEmail: string | null): Column<StaffMember>[] {
   return [
     {
-      id: 'member', header: t('staffColMember'), sortValue: (m) => m.user.full_name,
+      id: 'member', header: 'العضو', sortValue: (m) => m.user.full_name,
       cell: (m) => (
         <span className="patient-main">
           <span className="patient-avatar" aria-hidden>{m.user.full_name.trim().slice(0, 1)}</span>
           <span className="patient-text">
-            <strong><bdi>{m.user.full_name}</bdi>{m.user.email === myEmail && <> · <span className="muted">{t('you')}</span></>}</strong>
+            <strong><bdi>{m.user.full_name}</bdi>{m.user.email === myEmail && <> · <span className="muted">أنت</span></>}</strong>
             <bdi dir="ltr" className="muted small">{m.user.email}</bdi>
           </span>
         </span>
       ),
     },
     {
-      id: 'job', header: t('staffColJob'), hideOnMobile: true,
+      id: 'job', header: 'الوظيفة', hideOnMobile: true,
       cell: (m) => (
         <>
           {m.job_title ? <bdi>{m.job_title}</bdi> : <span className="muted">—</span>}
-          {m.doctor && <span className="muted small block">{t('doctorPrefix')} <bdi>{arName(m.doctor.name_ar, m.doctor.name_en, '')}</bdi></span>}
+          {m.doctor && <span className="muted small block">طبيب: <bdi>{arName(m.doctor.name_ar, m.doctor.name_en, '')}</bdi></span>}
         </>
       ),
     },
-    { id: 'branches', header: t('staffColBranches'), hideOnMobile: true, cell: (m) => (m.all_branches ? t('allBranchesLabel') : <bdi>{branchNames(m.branch_ids, branches)}</bdi>) },
+    { id: 'branches', header: 'الفروع', hideOnMobile: true, cell: (m) => (m.all_branches ? 'كل الفروع' : <bdi>{branchNames(m.branch_ids, branches)}</bdi>) },
     {
-      id: 'role', header: t('staffColRole'), sortValue: (m) => roleLabel(m.role.key, m.role.name_ar),
+      id: 'role', header: 'الدور', sortValue: (m) => roleLabel(m.role.key, m.role.name_ar),
       cell: (m) => (
         <span className="patient-badges">
           <Badge tone={m.role.key === 'owner' ? 'primary' : 'neutral'}>{roleLabel(m.role.key, m.role.name_ar)}</Badge>
-          {m.status === 'disabled' && <Badge tone="warning" dot>{t('memberDisabled')}</Badge>}
+          {m.status === 'disabled' && <Badge tone="warning" dot>موقوف</Badge>}
         </span>
       ),
     },
@@ -122,24 +122,24 @@ function invitationColumns(branches: Branch[] | undefined): Column<StaffInvitati
   const expires = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium' }).format(new Date(iso));
   return [
     {
-      id: 'email', header: t('email'), sortValue: (i) => i.email,
+      id: 'email', header: 'البريد الإلكتروني', sortValue: (i) => i.email,
       cell: (i) => (
         <span className="patient-main">
           <span className="patient-avatar" aria-hidden>@</span>
-          <span className="patient-text"><strong><bdi dir="ltr">{i.email}</bdi></strong>{i.invited_by && <span className="muted small">{t('invitedBy')}: <bdi>{i.invited_by}</bdi></span>}</span>
+          <span className="patient-text"><strong><bdi dir="ltr">{i.email}</bdi></strong>{i.invited_by && <span className="muted small">أرسلها: <bdi>{i.invited_by}</bdi></span>}</span>
         </span>
       ),
     },
     {
-      id: 'role', header: t('staffColRole'), sortValue: (i) => roleLabel(i.role.key, i.role.name_ar),
+      id: 'role', header: 'الدور', sortValue: (i) => roleLabel(i.role.key, i.role.name_ar),
       cell: (i) => (
         <span className="patient-badges">
           <Badge>{roleLabel(i.role.key, i.role.name_ar)}</Badge>
-          {i.expired && <Badge tone="warning" dot>{t('expiredBadge')}</Badge>}
+          {i.expired && <Badge tone="warning" dot>انتهت صلاحيتها</Badge>}
         </span>
       ),
     },
-    { id: 'branches', header: t('staffColBranches'), hideOnMobile: true, cell: (i) => (i.branch_ids.length ? <bdi>{branchNames(i.branch_ids, branches)}</bdi> : t('allBranchesLabel')) },
-    { id: 'expires', header: t('expiresOn'), hideOnMobile: true, sortValue: (i) => i.expires_at, cell: (i) => <span className="whitespace-nowrap">{expires(i.expires_at)}</span> },
+    { id: 'branches', header: 'الفروع', hideOnMobile: true, cell: (i) => (i.branch_ids.length ? <bdi>{branchNames(i.branch_ids, branches)}</bdi> : 'كل الفروع') },
+    { id: 'expires', header: 'تنتهي', hideOnMobile: true, sortValue: (i) => i.expires_at, cell: (i) => <span className="whitespace-nowrap">{expires(i.expires_at)}</span> },
   ];
 }

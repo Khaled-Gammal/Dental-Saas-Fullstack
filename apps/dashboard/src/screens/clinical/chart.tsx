@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { CONDITIONS, currentByTooth, PERMANENT, PRIMARY, showsPrimary, SURFACES, toothHistory, toothTone } from '../../clinical-model';
 import { Choice } from '../../components/choice';
-import { t, type Key } from '../../i18n';
+import { toothConditionLabel, toothSurfaceLabel } from '../../labels';
 import { send, useClinicalMutation, usePatientChart } from '../../queries';
 import type { ChartEntry, PatientChart, Surface, ToothCondition } from '../../types';
 import { Button, Card, ErrorText, Field, Input, Skeleton, Switch } from '../../ui/components';
 
 const loc = () => ('ar-EG-u-nu-latn');
-const cond = (c: ToothCondition) => t(`cond_${c}` as Key);
+const cond = (c: ToothCondition) => toothConditionLabel[c];
 
 /**
  * The dental chart of a patient (SRS CHART-001): FDI numbering, the current condition per tooth, its history, and
@@ -24,8 +24,8 @@ export function ChartCard({ clinicId, patientId, canWrite, age, visitId }: {
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('chartTitle')}</h2>
-        <Switch checked={withPrimary} onChange={setPrimary} label={t('primaryTeeth')} />
+        <h2>خريطة الأسنان</h2>
+        <Switch checked={withPrimary} onChange={setPrimary} label="الأسنان اللبنية" />
       </div>
       {chart.isError ? <ErrorText error={chart.error} onRetry={() => void chart.refetch()} />
         : chart.isLoading ? <Skeleton h={120} count={1} />
@@ -48,14 +48,14 @@ export function DentalChart({ chart, primary, selected, onSelect }: {
   chart: PatientChart; primary: boolean; selected: number | null; onSelect: (tooth: number) => void;
 }) {
   const now = currentByTooth(chart.entries);
-  const row = (teeth: readonly number[], label: Key) => (
-    <div className="chart-row" role="group" aria-label={t(label)}>
+  const row = (teeth: readonly number[], label: string) => (
+    <div className="chart-row" role="group" aria-label={label}>
       {teeth.map((n, i) => {
         const e = now.get(n);
         const tone = toothTone(e?.condition);
         return (
           <button key={n} type="button" className={`tooth${tone ? ` tone-${tone}` : ''}${selected === n ? ' is-on' : ''}${i === teeth.length / 2 ? ' mid' : ''}`}
-            aria-pressed={selected === n} aria-label={`${t('tooth')} ${n}${e ? `: ${cond(e.condition)}` : ''}`} onClick={() => onSelect(n)}
+            aria-pressed={selected === n} aria-label={`${'سن'} ${n}${e ? `: ${cond(e.condition)}` : ''}`} onClick={() => onSelect(n)}
             title={e ? `${cond(e.condition)}${e.surfaces.length ? ` (${e.surfaces.join('')})` : ''}` : undefined}>
             <span className="tooth-no">{n}</span>
             {e && e.surfaces.length > 0 && <span className="tooth-surf">{e.surfaces.join('')}</span>}
@@ -66,20 +66,20 @@ export function DentalChart({ chart, primary, selected, onSelect }: {
   );
   return (
     <div className="dental-chart" dir="ltr">
-      <div className="chart-sides muted small"><span>{t('patientRight')}</span><span>{t('patientLeft')}</span></div>
-      {row(PERMANENT.upper, 'upperJaw')}
-      {primary && row(PRIMARY.upper, 'upperPrimary')}
-      {primary && row(PRIMARY.lower, 'lowerPrimary')}
-      {row(PERMANENT.lower, 'lowerJaw')}
+      <div className="chart-sides muted small"><span>يمين المريض</span><span>يسار المريض</span></div>
+      {row(PERMANENT.upper, 'الفك العلوي')}
+      {primary && row(PRIMARY.upper, 'اللبنية العلوية')}
+      {primary && row(PRIMARY.lower, 'اللبنية السفلية')}
+      {row(PERMANENT.lower, 'الفك السفلي')}
     </div>
   );
 }
 
 function Legend() {
-  const tones: [string, Key][] = [['problem', 'toneProblem'], ['treated', 'toneTreated'], ['missing', 'toneMissing'], ['healthy', 'toneHealthy']];
+  const tones: [string, string][] = [['problem', 'يحتاج علاج'], ['treated', 'معالَج'], ['missing', 'مفقود'], ['healthy', 'سليم']];
   return (
     <ul className="chart-legend small muted">
-      {tones.map(([k, label]) => <li key={k}><span className={`legend-dot tone-${k}`} aria-hidden />{t(label)}</li>)}
+      {tones.map(([k, label]) => <li key={k}><span className={`legend-dot tone-${k}`} aria-hidden />{label}</li>)}
     </ul>
   );
 }
@@ -98,10 +98,10 @@ function ToothPanel({ clinicId, patientId, tooth, history, canWrite, visitId, on
   return (
     <div className="tooth-panel mt">
       <div className="row-between">
-        <h3>{t('tooth')} <bdi dir="ltr">{tooth}</bdi></h3>
-        <Button variant="ghost" onClick={onClose}>{t('hide')}</Button>
+        <h3>سن <bdi dir="ltr">{tooth}</bdi></h3>
+        <Button variant="ghost" onClick={onClose}>إخفاء</Button>
       </div>
-      {history.length === 0 ? <p className="muted small">{t('noToothHistory')}</p> : (
+      {history.length === 0 ? <p className="muted small">لا توجد تسجيلات لهذا السن.</p> : (
         <ol className="stack-sm mt-sm">
           {history.map((e) => (
             <li key={e.id} className="history-row">
@@ -118,22 +118,22 @@ function ToothPanel({ clinicId, patientId, tooth, history, canWrite, visitId, on
       {canWrite && (
         <form className="stack mt" onSubmit={(ev) => { ev.preventDefault(); add.mutate(undefined, { onSuccess: () => { setSurfaces([]); setNotes(''); } }); }}>
           <div className="grid-2">
-            <Field label={t('condition')}>
+            <Field label="الحالة">
               {(a) => <Choice id={a.id} value={condition} onChange={(v) => setCondition(v as ToothCondition)} options={CONDITIONS.map((c) => ({ value: c, label: cond(c) }))} />}
             </Field>
-            <Field label={t('toothNote')} optional={t('optional')}>{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={300} />}</Field>
+            <Field label="ملاحظة" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={300} />}</Field>
           </div>
           <fieldset className="surface-picker">
-            <legend className="small">{t('surfaces')}</legend>
+            <legend className="small">الأسطح</legend>
             <div className="chips" dir="ltr">
               {SURFACES.map((s) => (
                 <button key={s} type="button" className={`chip-toggle${surfaces.includes(s) ? ' is-on' : ''}`} aria-pressed={surfaces.includes(s)}
-                  title={t(`surf_${s}` as Key)} onClick={() => toggle(s)}>{s}</button>
+                  title={toothSurfaceLabel[s]} onClick={() => toggle(s)}>{s}</button>
               ))}
             </div>
           </fieldset>
           <ErrorText error={add.error} />
-          <div className="row-end"><Button type="submit" loading={add.isPending}>{t('addChartEntry')}</Button></div>
+          <div className="row-end"><Button type="submit" loading={add.isPending}>تسجيل</Button></div>
         </form>
       )}
     </div>

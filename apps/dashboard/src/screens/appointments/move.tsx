@@ -4,7 +4,6 @@ import { moveBody } from '../../calendar-model';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { useLeave, useUnsavedChanges } from '../../hooks';
-import { t } from '../../i18n';
 import { useAppointment, useDoctors, useMoveAppointment, useRooms, useStaffSlots } from '../../queries';
 import { to } from '../../router';
 import type { Appointment, Doctor, Room } from '../../types';
@@ -28,7 +27,7 @@ export function MoveAppointment({ clinicId, id, canOverride }: { clinicId: strin
   const rooms = useRooms(clinicId, appt.data?.branch_id);
   if (!appt.data || !doctors.data) {
     const q = [appt, doctors].find((x) => x.isError) ?? appt;
-    return <ResourceState isLoading={!q.isError} isError={q.isError} error={q.error} notFound={false} refetch={() => void q.refetch()} back={to.list('appointments')} backLabel={t('navAppointments')} />;
+    return <ResourceState isLoading={!q.isError} isError={q.isError} error={q.error} notFound={false} refetch={() => void q.refetch()} back={to.list('appointments')} backLabel="المواعيد" />;
   }
   return <MoveBody key={appt.data.id} clinicId={clinicId} appt={appt.data} canOverride={canOverride}
     doctors={doctors.data.filter((d) => d.is_active && d.branch_ids.includes(appt.data!.branch_id))} rooms={(rooms.data ?? []).filter((r) => r.is_active || r.id === appt.data!.room_id)} />;
@@ -64,52 +63,52 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
   );
   const dirty = Object.keys(body).length > 0;
   const ready = dirty && !!startsAt && (!override || reason.trim().length >= 3);
-  useUnsavedChanges(dirty, t('leaveUnsaved'));
+  useUnsavedChanges(dirty, 'لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟');
   const reset = () => { setSlot(''); setTime(''); };
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!ready) return;
-    move.mutate({ id: appt.id, body }, { onSuccess: (a) => leave(t('moveSaved'), { page: 'appointments', query: { date: dateIn(a.starts_at, tz) } }) });
+    move.mutate({ id: appt.id, body }, { onSuccess: (a) => leave('تم حفظ التغيير.', { page: 'appointments', query: { date: dateIn(a.starts_at, tz) } }) });
   };
-  const crumbs = [{ label: t('navOverview'), route: to.list('overview') }, { label: t('navAppointments'), route: to.list('appointments') }, { label: t('moveTitle') }];
+  const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'المواعيد', route: to.list('appointments') }, { label: 'تغيير الموعد' }];
 
   return (
-    <FormPage title={t('moveTitle')} sub={t('moveSub')} crumbs={crumbs} back={to.list('appointments')} onSubmit={submit}
+    <FormPage title="تغيير الموعد" sub="اختر وقتًا آخر أو طبيبًا آخر في نفس الفرع، أو حدّد الكرسي." crumbs={crumbs} back={to.list('appointments')} onSubmit={submit}
       saving={move.isPending} canSave={ready} error={move.error}>
       <Card>
         <h2><bdi>{appt.patient?.full_name ?? '—'}</bdi></h2>
         <p className="muted mt-sm">
-          {t('currentTime')}: <strong><bdi>{fmt(appt.starts_at, { weekday: 'long', day: 'numeric', month: 'long' })} · <span dir="ltr">{fmtTime(appt.starts_at)}</span></bdi></strong>
+          الموعد الحالي: <strong><bdi>{fmt(appt.starts_at, { weekday: 'long', day: 'numeric', month: 'long' })} · <span dir="ltr">{fmtTime(appt.starts_at)}</span></bdi></strong>
           {' · '}<bdi>{arName(appt.doctor.name_ar, appt.doctor.name_en)}</bdi>
         </p>
-        {!canMove && <Alert tone="info">{t('timeOnlyWhenOpen')}</Alert>}
+        {!canMove && <Alert tone="info">يمكن تغيير الوقت للمواعيد المؤكدة أو المنتظرة فقط؛ بعد الحضور يمكن تحديد الكرسي فقط.</Alert>}
       </Card>
 
       {canMove && (
         <Card>
           <div className="row-between">
-            <h2>{t('newTime')}</h2>
-            {canOverride && <Switch checked={override} onChange={(v) => { setOverride(v); reset(); }} label={t('outsideSchedule')} />}
+            <h2>الوقت الجديد</h2>
+            {canOverride && <Switch checked={override} onChange={(v) => { setOverride(v); reset(); }} label="خارج جدول الطبيب" />}
           </div>
           <div className="grid-2 mt">
-            <Field label={t('doctor')}>
+            <Field label="الطبيب">
               {(a) => <Choice id={a.id} value={doctorId} onChange={(v) => { setDoctorId(v); reset(); }}
                 options={doctors.map((d) => ({ value: d.id, label: arName(d.name_ar, d.name_en, '—') }))} />}
             </Field>
-            <Field label={t('date')}>
+            <Field label="التاريخ">
               {(a) => <DatePicker id={a.id} value={date} onChange={(d) => { setDate(d); reset(); }} min={todayIso()} />}
             </Field>
           </div>
           {override ? (
             <div className="grid-2 mt">
-              <Field label={t('time')} hint={t('tzHint').replace('{tz}', tz)}>{(a) => <TimeField id={a.id} describedBy={a.describedBy} value={time} onChange={setTime} />}</Field>
-              <Field label={t('overrideReason')} hint={t('overrideHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
+              <Field label="الوقت" hint={'بتوقيت الفرع ({tz})'.replace('{tz}', tz)}>{(a) => <TimeField id={a.id} describedBy={a.describedBy} value={time} onChange={setTime} />}</Field>
+              <Field label="سبب الحجز خارج الجدول" hint="يُحفظ مع الموعد للمراجعة.">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
             </div>
-          ) : slots.isLoading ? <p className="muted small mt-sm" role="status">{t('loading')}</p>
-            : slots.isError ? <p className="field-error mt-sm">{t('err_network')}</p>
-            : !slots.data?.slots.length ? <p className="muted small mt-sm">{t('noSlots')}</p>
+          ) : slots.isLoading ? <p className="muted small mt-sm" role="status">جارٍ التحميل…</p>
+            : slots.isError ? <p className="field-error mt-sm">تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.</p>
+            : !slots.data?.slots.length ? <p className="muted small mt-sm">لا توجد أوقات متاحة في هذا اليوم.</p>
             : (
-              <div className="slot-grid mt" role="radiogroup" aria-label={t('time')}>
+              <div className="slot-grid mt" role="radiogroup" aria-label="الوقت">
                 {slots.data.slots.map((s) => (
                   <button key={s} type="button" role="radio" aria-checked={slot === s} className={`slot-btn${slot === s ? ' is-on' : ''}`} onClick={() => setSlot(slot === s ? '' : s)}>
                     <bdi dir="ltr">{fmtTime(s)}</bdi>
@@ -117,13 +116,13 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
                 ))}
               </div>
             )}
-          <p className="muted small mt-sm">{t('moveCodeNote')}</p>
+          <p className="muted small mt-sm">إذا تغيّر اليوم لحجز من الموقع، يصل المريض رمز حضور جديد بالبريد ويتوقف القديم.</p>
         </Card>
       )}
 
       <Card>
-        <Field label={t('roomLabel')} optional={t('optional')}>
-          {(a) => <Choice id={a.id} value={roomId} onChange={setRoomId} noneLabel={t('noRoom')} options={rooms.map((r) => ({ value: r.id, label: r.name }))} />}
+        <Field label="الكرسي" optional="اختياري">
+          {(a) => <Choice id={a.id} value={roomId} onChange={setRoomId} noneLabel="بدون كرسي" options={rooms.map((r) => ({ value: r.id, label: r.name }))} />}
         </Field>
       </Card>
     </FormPage>

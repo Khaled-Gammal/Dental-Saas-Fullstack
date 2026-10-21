@@ -3,7 +3,7 @@ import { arName } from '@dental/ui/text';
 import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { navigate } from '../../hooks';
-import { t, type Key } from '../../i18n';
+import { invoiceStatusLabel, paymentMethodLabel, paymentStatusLabel, referenceHintLabel } from '../../labels';
 import { currencyLabel, money } from '../../money';
 import { send, useBillingMutation, useInvoice, useServices } from '../../queries';
 import { to } from '../../router';
@@ -33,25 +33,25 @@ export function InvoicePage({ clinicId, id }: { clinicId: string; id?: string })
   const act = useBillingMutation(clinicId, (op: 'issue' | 'void' | 'delete') =>
     op === 'delete' ? send(`/invoices/${id}`, 'DELETE') : send(`/invoices/${id}/${op}`, 'POST', op === 'void' ? { reason: reason.trim() } : undefined));
   if (!inv.data) {
-    return <ResourceState isLoading={inv.isLoading} isError={inv.isError} error={inv.error} notFound={false} refetch={() => void inv.refetch()} back={{ page: 'invoices' }} backLabel={t('navBilling')} />;
+    return <ResourceState isLoading={inv.isLoading} isError={inv.isError} error={inv.error} notFound={false} refetch={() => void inv.refetch()} back={{ page: 'invoices' }} backLabel="الفواتير" />;
   }
   const v = inv.data;
   const m = (x: number) => money(x, v.currency);
   return (
     <>
-      <Breadcrumbs items={[{ label: t('navBilling'), route: { page: 'invoices' } }, { label: v.patient.full_name, route: to.view('patients', v.patient.id) }, { label: v.number ?? t('draftInvoice') }]} />
+      <Breadcrumbs items={[{ label: 'الفواتير', route: { page: 'invoices' } }, { label: v.patient.full_name, route: to.view('patients', v.patient.id) }, { label: v.number ?? 'مسودة فاتورة' }]} />
       <PageHeader
-        title={v.number ? `${t('invoice')} ${v.number}` : t('draftInvoice')}
-        sub={`${v.patient.full_name} · ${t('fileNo')} ${fmtNumber(v.patient.file_no)} · ${arName(v.branch.name_ar, v.branch.name_en)}${v.issue_date ? ` · ${v.issue_date}` : ''}`}
+        title={v.number ? `${'فاتورة'} ${v.number}` : 'مسودة فاتورة'}
+        sub={`${v.patient.full_name} · ${'ملف رقم'} ${fmtNumber(v.patient.file_no)} · ${arName(v.branch.name_ar, v.branch.name_en)}${v.issue_date ? ` · ${v.issue_date}` : ''}`}
         action={<div className="row-end">
-          <Badge tone={STATUS_TONE[v.status]}>{t(`inv_${v.status}` as Key)}</Badge>
-          {v.status !== 'draft' && <RouteLink route={to.printInvoice(v.id)} className="btn btn-secondary">{t('print')}</RouteLink>}
-          {v.can.issue && <Button onClick={() => setDialog('issue')} disabled={!v.lines.length}>{t('issueInvoice')}</Button>}
-          {v.can.edit && <Button variant="ghost" onClick={() => setDialog('delete')}>{t('deleteDraft')}</Button>}
-          {v.can.void && <Button variant="ghost" onClick={() => { setReason(''); setDialog('void'); }}>{t('voidInvoice')}</Button>}
+          <Badge tone={STATUS_TONE[v.status]}>{invoiceStatusLabel[v.status]}</Badge>
+          {v.status !== 'draft' && <RouteLink route={to.printInvoice(v.id)} className="btn btn-secondary">طباعة</RouteLink>}
+          {v.can.issue && <Button onClick={() => setDialog('issue')} disabled={!v.lines.length}>إصدار الفاتورة</Button>}
+          {v.can.edit && <Button variant="ghost" onClick={() => setDialog('delete')}>حذف المسودة</Button>}
+          {v.can.void && <Button variant="ghost" onClick={() => { setReason(''); setDialog('void'); }}>إلغاء الفاتورة</Button>}
         </div>}
       />
-      {v.status === 'void' && <Alert tone="info">{t('voidedBecause')}: <bdi>{v.void_reason}</bdi>{v.voided_by_name && <> · <bdi>{v.voided_by_name}</bdi></>}</Alert>}
+      {v.status === 'void' && <Alert tone="info">أُلغيت بسبب: <bdi>{v.void_reason}</bdi>{v.voided_by_name && <> · <bdi>{v.voided_by_name}</bdi></>}</Alert>}
       <ErrorText error={act.error} />
       <div className="profile-grid">
         <div className="stack">
@@ -61,37 +61,37 @@ export function InvoicePage({ clinicId, id }: { clinicId: string; id?: string })
         <div className="stack">
           <DiscountCard clinicId={clinicId} v={v} />
           <Card>
-            <h2>{t('totals')}</h2>
+            <h2>الإجماليات</h2>
             <dl className="detail-list mt">
-              <div><dt>{t('subtotal')}</dt><dd><bdi>{m(v.subtotal_minor)}</bdi></dd></div>
-              {v.discount_minor > 0 && <div><dt>{t('discount')}</dt><dd><bdi>− {m(v.discount_minor)}</bdi></dd></div>}
+              <div><dt>المجموع</dt><dd><bdi>{m(v.subtotal_minor)}</bdi></dd></div>
+              {v.discount_minor > 0 && <div><dt>الخصم</dt><dd><bdi>− {m(v.discount_minor)}</bdi></dd></div>}
               {(v.status === 'draft' ? v.tax_preview_minor : v.tax_minor) > 0 && (
-                <div><dt>{t('tax')} ({fmtNumber(v.tax_rate_bp / 100)}%)</dt><dd><bdi>{m(v.status === 'draft' ? v.tax_preview_minor : v.tax_minor)}</bdi></dd></div>
+                <div><dt>الضريبة ({fmtNumber(v.tax_rate_bp / 100)}%)</dt><dd><bdi>{m(v.status === 'draft' ? v.tax_preview_minor : v.tax_minor)}</bdi></dd></div>
               )}
-              <div><dt><strong>{t('total')}</strong></dt><dd><strong><bdi>{m(v.status === 'draft' ? v.subtotal_minor - v.discount_minor + v.tax_preview_minor : v.total_minor)}</bdi></strong></dd></div>
-              {v.status !== 'draft' && <div><dt>{t('paid')}</dt><dd><bdi>{m(v.paid_minor)}</bdi></dd></div>}
-              {v.adjusted_minor > 0 && <div><dt>{t('adjustments')}</dt><dd><bdi>{m(v.adjusted_minor)}</bdi></dd></div>}
-              {v.status !== 'draft' && v.status !== 'void' && <div><dt><strong>{t('balance')}</strong></dt><dd><strong><bdi>{m(v.balance_minor)}</bdi></strong></dd></div>}
+              <div><dt><strong>الإجمالي</strong></dt><dd><strong><bdi>{m(v.status === 'draft' ? v.subtotal_minor - v.discount_minor + v.tax_preview_minor : v.total_minor)}</bdi></strong></dd></div>
+              {v.status !== 'draft' && <div><dt>المدفوع</dt><dd><bdi>{m(v.paid_minor)}</bdi></dd></div>}
+              {v.adjusted_minor > 0 && <div><dt>الإعفاءات</dt><dd><bdi>{m(v.adjusted_minor)}</bdi></dd></div>}
+              {v.status !== 'draft' && v.status !== 'void' && <div><dt><strong>المتبقي</strong></dt><dd><strong><bdi>{m(v.balance_minor)}</bdi></strong></dd></div>}
             </dl>
-            {v.status === 'draft' && <p className="muted small mt-sm">{t('draftNote')}</p>}
+            {v.status === 'draft' && <p className="muted small mt-sm">مسودة: يمكن تعديل البنود. عند الإصدار تأخذ رقمًا وتاريخًا ولا تُعدَّل بعدها.</p>}
           </Card>
           <PlanCard clinicId={clinicId} v={v} />
           <AdjustmentsCard clinicId={clinicId} v={v} />
           {v.can.pay && <PayForm key={`${v.paid_minor}-${v.adjusted_minor}`} clinicId={clinicId} v={v} />}
         </div>
       </div>
-      <ConfirmDialog open={dialog === 'issue'} title={t('issueInvoice')} confirmLabel={t('issueInvoice')}
+      <ConfirmDialog open={dialog === 'issue'} title="إصدار الفاتورة" confirmLabel="إصدار الفاتورة"
         onConfirm={() => act.mutate('issue', { onSettled: () => setDialog(null) })} onCancel={() => setDialog(null)}>
-        <p>{t('issueText')}</p>
+        <p>ستأخذ الفاتورة رقمها وتاريخها وتُحسب الضريبة، ولا يمكن تعديلها بعد ذلك.</p>
       </ConfirmDialog>
-      <ConfirmDialog open={dialog === 'delete'} title={t('deleteDraft')} confirmLabel={t('deleteDraft')} danger
+      <ConfirmDialog open={dialog === 'delete'} title="حذف المسودة" confirmLabel="حذف المسودة" danger
         onConfirm={() => act.mutate('delete', { onSuccess: () => navigate(to.view('patients', v.patient.id)), onSettled: () => setDialog(null) })} onCancel={() => setDialog(null)}>
-        <p>{t('deleteDraftText')}</p>
+        <p>تُحذف المسودة وتعود إجراءاتها إلى غير المفوترة.</p>
       </ConfirmDialog>
-      <ConfirmDialog open={dialog === 'void'} title={t('voidInvoice')} confirmLabel={t('voidInvoice')} danger
+      <ConfirmDialog open={dialog === 'void'} title="إلغاء الفاتورة" confirmLabel="إلغاء الفاتورة" danger
         onConfirm={() => { if (reason.trim().length >= 3) act.mutate('void', { onSettled: () => setDialog(null) }); }} onCancel={() => setDialog(null)}>
-        <p>{t('voidText')}</p>
-        <Field label={t('reason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
+        <p>تبقى الفاتورة محفوظة ومعلّمة بأنها ملغاة، وتعود إجراءاتها قابلة للفوترة.</p>
+        <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
       </ConfirmDialog>
     </>
   );
@@ -103,18 +103,18 @@ function LinesCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   return (
     <Card>
       <div className="row-between">
-        <h2>{t('invoiceLines')}</h2>
-        {v.can.edit && !adding && <Button variant="secondary" onClick={() => setAdding(true)}>{t('addLine')}</Button>}
+        <h2>بنود الفاتورة</h2>
+        {v.can.edit && !adding && <Button variant="secondary" onClick={() => setAdding(true)}>إضافة بند</Button>}
       </div>
       <ul className="line-list mt">
         {v.lines.map((l) => (
           <li key={l.id}>
             <span><bdi>{l.description}</bdi>{l.quantity > 1 && <span className="muted small"> × {fmtNumber(l.quantity)}</span>}
-              {l.discount_minor > 0 && <span className="muted small"> · {t('discount')} <bdi>{money(l.discount_minor, v.currency)}</bdi> — <bdi>{l.discount_reason}</bdi></span>}</span>
+              {l.discount_minor > 0 && <span className="muted small"> · الخصم <bdi>{money(l.discount_minor, v.currency)}</bdi> — <bdi>{l.discount_reason}</bdi></span>}</span>
             <span className="line-end">
               <bdi>{money(l.line_total_minor, v.currency)}</bdi>
               {v.can.discount && <LineDiscount clinicId={clinicId} invoiceId={v.id} currency={v.currency} line={l} />}
-              {v.can.edit && <LinkButton onClick={() => remove.mutate(l.id)}>{t('remove')}</LinkButton>}
+              {v.can.edit && <LinkButton onClick={() => remove.mutate(l.id)}>إزالة</LinkButton>}
             </span>
           </li>
         ))}
@@ -139,18 +139,18 @@ function LineForm({ clinicId, invoiceId, onDone }: { clinicId: string; invoiceId
   return (
     <form className="stack mt tooth-panel" onSubmit={(e) => { e.preventDefault(); if (ready) add.mutate(undefined, { onSuccess: onDone }); }}>
       <div className="grid-2">
-        <Field label={t('service')} optional={t('optional')}>
-          {(a) => <Choice id={a.id} value={serviceId} onChange={setServiceId} noneLabel={t('otherLine')}
+        <Field label="الخدمة" optional="اختياري">
+          {(a) => <Choice id={a.id} value={serviceId} onChange={setServiceId} noneLabel="بند آخر (بدون خدمة)"
             options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: arName(s.name_ar, s.name_en) }))} />}
         </Field>
-        {!serviceId && <Field label={t('lineDescription')}>{(a) => <Input id={a.id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />}</Field>}
-        <Field label={t('unitPrice')} optional={serviceId ? t('optional') : undefined}>
+        {!serviceId && <Field label="البيان">{(a) => <Input id={a.id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />}</Field>}
+        <Field label="سعر الوحدة" optional={serviceId ? 'اختياري' : undefined}>
           {(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />}
         </Field>
-        <Field label={t('quantity')}>{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, '').slice(0, 3))} />}</Field>
+        <Field label="الكمية">{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, '').slice(0, 3))} />}</Field>
       </div>
       <ErrorText error={add.error} />
-      <div className="row-end"><Button variant="ghost" onClick={onDone}>{t('cancel')}</Button><Button type="submit" loading={add.isPending} disabled={!ready}>{t('addLine')}</Button></div>
+      <div className="row-end"><Button variant="ghost" onClick={onDone}>إلغاء</Button><Button type="submit" loading={add.isPending} disabled={!ready}>إضافة بند</Button></div>
     </form>
   );
 }
@@ -173,28 +173,28 @@ function PayForm({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   const ready = !!minor && minor > 0 && minor <= limit && (!NEEDS_REF.includes(method) || reference.trim().length > 0);
   return (
     <Card>
-      <h2>{t('recordPayment')}</h2>
+      <h2>تسجيل دفعة</h2>
       <form className="stack mt" onSubmit={(e) => { e.preventDefault(); if (ready) pay.mutate(undefined); }}>
         {open.length > 0 && (
-          <Field label={t('installment')}>
+          <Field label="القسط">
             {(a) => <Choice id={a.id} value={installmentId} onChange={(x) => { setInstallmentId(x); const i = open.find((y) => y.id === x); if (i) setAmount(String((i.amount_minor - i.paid_minor) / 100)); }}
               options={open.map((i) => ({ value: i.id, label: `${fmtNumber(i.seq)} · ${i.due_date} · ${money(i.amount_minor - i.paid_minor, v.currency)}` }))} />}
           </Field>
         )}
-        <Field label={`${t('amount')} (${currencyLabel(v.currency)})`} hint={`${t(installment ? 'installmentLeft' : 'balance')}: ${money(limit, v.currency)}`}>
+        <Field label={`${'المبلغ'} (${currencyLabel(v.currency)})`} hint={`${installment ? 'المتبقي من القسط' : 'المتبقي'}: ${money(limit, v.currency)}`}>
           {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />}
         </Field>
-        <Field label={t('paymentMethod')}>
-          {(a) => <Choice id={a.id} value={method} onChange={(x) => setMethod(x as PaymentMethod)} options={METHODS.map((x) => ({ value: x, label: t(`pm_${x}` as Key) }))} />}
+        <Field label="طريقة الدفع">
+          {(a) => <Choice id={a.id} value={method} onChange={(x) => setMethod(x as PaymentMethod)} options={METHODS.map((x) => ({ value: x, label: paymentMethodLabel[x] }))} />}
         </Field>
         {method !== 'cash' && (
-          <Field label={t('paymentReference')} optional={NEEDS_REF.includes(method) ? undefined : t('optional')} hint={t(`refHint_${method}` as Key)}>
+          <Field label="المرجع" optional={NEEDS_REF.includes(method) ? undefined : 'اختياري'} hint={referenceHintLabel[method]}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />}
           </Field>
         )}
-        <Field label={t('notes')} optional={t('optional')}>{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
+        <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
         <ErrorText error={pay.error} />
-        <Button type="submit" loading={pay.isPending} disabled={!ready}>{t('recordPayment')}</Button>
+        <Button type="submit" loading={pay.isPending} disabled={!ready}>تسجيل دفعة</Button>
       </form>
     </Card>
   );
@@ -207,27 +207,27 @@ function PaymentsCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   if (v.status === 'draft') return null;
   return (
     <Card>
-      <h2>{t('payments')}</h2>
-      {v.payments.length === 0 ? <p className="muted small mt-sm">{t('noPayments')}</p> : (
+      <h2>المدفوعات</h2>
+      {v.payments.length === 0 ? <p className="muted small mt-sm">لا مدفوعات بعد.</p> : (
         <ul className="stack mt">
           {v.payments.map((p) => (
             <li key={p.id} className={`rx-item${p.status === 'reversed' ? ' is-replaced' : ''}`}>
               <div className="row-between">
                 <span>
-                  <strong><bdi>{money(p.amount_minor, p.currency)}</bdi></strong> · {t(`pm_${p.method}` as Key)}
+                  <strong><bdi>{money(p.amount_minor, p.currency)}</bdi></strong> · {paymentMethodLabel[p.method]}
                   {p.reference && <> · <bdi dir="ltr">{p.reference}</bdi></>}{' '}
-                  <Badge tone={p.status === 'reversed' ? 'neutral' : p.status === 'succeeded' ? 'success' : 'warning'}>{t(`ps_${p.status}` as Key)}</Badge>
+                  <Badge tone={p.status === 'reversed' ? 'neutral' : p.status === 'succeeded' ? 'success' : 'warning'}>{paymentStatusLabel[p.status]}</Badge>
                 </span>
                 <span className="row-end">
-                  {p.status !== 'reversed' && <RouteLink route={to.printReceipt(p.id)} className="btn btn-ghost">{t('receipt')}</RouteLink>}
-                  {p.can.refund && <LinkButton onClick={() => setRefunding(p)}>{t('refund')}</LinkButton>}
-                  {p.can.reverse && <LinkButton onClick={() => setReversing(p)}>{t('reverse')}</LinkButton>}
+                  {p.status !== 'reversed' && <RouteLink route={to.printReceipt(p.id)} className="btn btn-ghost">إيصال</RouteLink>}
+                  {p.can.refund && <LinkButton onClick={() => setRefunding(p)}>استرداد</LinkButton>}
+                  {p.can.reverse && <LinkButton onClick={() => setReversing(p)}>إلغاء الدفعة (خطأ إدخال)</LinkButton>}
                 </span>
               </div>
-              <span className="muted small">{fmt.format(new Date(p.paid_at))}{p.received_by_name && <> · {t('receivedBy')} <bdi>{p.received_by_name}</bdi></>}</span>
-              {p.status === 'reversed' && <p className="small">{t('reversedBecause')}: <bdi>{p.reversal_reason}</bdi>{p.reversed_by_name && <> · <bdi>{p.reversed_by_name}</bdi></>}</p>}
+              <span className="muted small">{fmt.format(new Date(p.paid_at))}{p.received_by_name && <> · استلمها <bdi>{p.received_by_name}</bdi></>}</span>
+              {p.status === 'reversed' && <p className="small">أُلغيت بسبب: <bdi>{p.reversal_reason}</bdi>{p.reversed_by_name && <> · <bdi>{p.reversed_by_name}</bdi></>}</p>}
               {p.refunds.map((r) => (
-                <p key={r.id} className="small amendment">{t('refunded')} <bdi>{money(r.amount_minor, p.currency)}</bdi> · {t(`pm_${r.method}` as Key)} · <bdi>{r.reason}</bdi>
+                <p key={r.id} className="small amendment">استُرد <bdi>{money(r.amount_minor, p.currency)}</bdi> · {paymentMethodLabel[r.method]} · <bdi>{r.reason}</bdi>
                   {r.created_by_name && <> · <bdi>{r.created_by_name}</bdi></>} · {fmt.format(new Date(r.refunded_at))}</p>
               ))}
             </li>
@@ -244,10 +244,10 @@ function ReverseDialog({ clinicId, payment, onClose }: { clinicId: string; payme
   const [reason, setReason] = useState('');
   const reverse = useBillingMutation(clinicId, () => send(`/payments/${payment.id}/reverse`, 'POST', { reason: reason.trim() }));
   return (
-    <ConfirmDialog open title={t('reverse')} confirmLabel={t('reverse')} danger
+    <ConfirmDialog open title="إلغاء الدفعة (خطأ إدخال)" confirmLabel="إلغاء الدفعة (خطأ إدخال)" danger
       onConfirm={() => { if (reason.trim().length >= 3) reverse.mutate(undefined, { onSuccess: onClose }); }} onCancel={onClose}>
-      <p>{t('reverseText')}</p>
-      <Field label={t('reason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
+      <p>للدفعات المسجلة بالخطأ فقط: تبقى ظاهرة ومعلّمة بأنها ملغاة ويعود المبلغ مستحقًا. للمال المُعاد فعلًا استخدم الاسترداد.</p>
+      <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
       <ErrorText error={reverse.error} />
     </ConfirmDialog>
   );
@@ -264,17 +264,17 @@ function RefundDialog({ clinicId, payment, onClose }: { clinicId: string; paymen
     amountMinor: minor, method, reason: reason.trim(), ...(method !== 'cash' && reference.trim() && { reference: reference.trim() }),
   }));
   return (
-    <ConfirmDialog open title={t('refund')} confirmLabel={t('refund')} danger
+    <ConfirmDialog open title="استرداد" confirmLabel="استرداد" danger
       onConfirm={() => { if (minor && minor <= left && reason.trim().length >= 3) refund.mutate(undefined, { onSuccess: onClose }); }} onCancel={onClose}>
-      <p>{t('refundText')}</p>
-      <Field label={t('amount')} hint={`${t('refundable')}: ${money(left, payment.currency)}`}>
+      <p>مال أُعيد للمريض. يُسجل المبلغ والطريقة والسبب ومن قام به، ويعود المبلغ مستحقًا على الفاتورة.</p>
+      <Field label="المبلغ" hint={`${'المتاح للاسترداد'}: ${money(left, payment.currency)}`}>
         {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />}
       </Field>
-      <Field label={t('refundMethod')}>
-        {(a) => <Choice id={a.id} value={method} onChange={(x) => setMethod(x as PaymentMethod)} options={METHODS.map((x) => ({ value: x, label: t(`pm_${x}` as Key) }))} />}
+      <Field label="طريقة الاسترداد">
+        {(a) => <Choice id={a.id} value={method} onChange={(x) => setMethod(x as PaymentMethod)} options={METHODS.map((x) => ({ value: x, label: paymentMethodLabel[x] }))} />}
       </Field>
-      {method !== 'cash' && <Field label={t('paymentReference')} optional={t('optional')}>{(a) => <Input id={a.id} dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />}</Field>}
-      <Field label={t('reason')} hint={t('reasonHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
+      {method !== 'cash' && <Field label="المرجع" optional="اختياري">{(a) => <Input id={a.id} dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />}</Field>}
+      <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
       <ErrorText error={refund.error} />
     </ConfirmDialog>
   );

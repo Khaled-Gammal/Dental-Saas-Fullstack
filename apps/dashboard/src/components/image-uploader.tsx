@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type DragEvent } from 'react';
 import { ApiError, uploadFile } from '../api';
 import { ACCEPT_ATTR, uploadProblem } from '../gallery-model';
-import { errorText, t } from '../i18n';
+import { errorText } from '../labels';
 import type { MediaImage, MediaPurpose } from '../types';
 import { Button } from '../ui/components';
 import { CloseIcon, PlusIcon } from '../ui/icons';
@@ -9,16 +9,16 @@ import { CloseIcon, PlusIcon } from '../ui/icons';
 type Item = { key: string; file: File; preview: string; progress: number; state: 'queued' | 'uploading' | 'done' | 'error'; error?: string };
 
 /** Problem codes the API can return for an upload, mapped to dashboard text. */
-const UPLOAD_ERRORS: Record<string, Parameters<typeof t>[0]> = {
-  invalid_image: 'err_invalid_image', unsupported_image_type: 'err_unsupported_image_type', image_too_small: 'err_image_too_small',
-  payload_too_large: 'err_payload_too_large', storage_limit_reached: 'err_storage_limit_reached', network: 'err_network', missing_permission: 'err_missing_permission',
+const UPLOAD_ERRORS: Record<string, string> = {
+  invalid_image: 'الملف ليس صورة صالحة.', unsupported_image_type: 'يُقبل JPG وPNG وWebP فقط.', image_too_small: 'الصورة صغيرة جدًا (200 بكسل على الأقل لكل ضلع).',
+  payload_too_large: 'الملف أكبر من 10 ميجابايت.', storage_limit_reached: 'امتلأت مساحة الصور في باقتك. احذف صورًا أو رقِّ الباقة.', network: 'تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.', missing_permission: 'ليست لديك صلاحية لهذا الإجراء.',
 };
 
 /** Dashboard text for a failed upload (a logo's minimum size differs from a photo's). */
 export function uploadErrorText(e: unknown, purpose: MediaPurpose = 'gallery'): string {
   const code = e instanceof ApiError ? e.code : 'error';
-  if (code === 'image_too_small' && purpose === 'logo') return t('err_logo_too_small');
-  return UPLOAD_ERRORS[code] ? t(UPLOAD_ERRORS[code]) : errorText(code, e instanceof ApiError ? e.status : undefined); // never the English detail (L10N-003)
+  if (code === 'image_too_small' && purpose === 'logo') return 'الشعار صغير جدًا (48 بكسل على الأقل لكل ضلع).';
+  return UPLOAD_ERRORS[code] ? UPLOAD_ERRORS[code] : errorText(code, e instanceof ApiError ? e.status : undefined); // never the English detail (L10N-003)
 }
 
 /**
@@ -54,7 +54,7 @@ export function ImageUploader({ multiple = true, onUploaded, disabled }: { multi
       const preview = URL.createObjectURL(file);
       urls.current.add(preview);
       const problem = uploadProblem(file);
-      return { key: `${file.name}-${file.size}-${Math.random()}`, file, preview, progress: 0, state: problem ? 'error' : 'queued', error: problem ? t(problem === 'type' ? 'err_unsupported_image_type' : 'err_payload_too_large') : undefined };
+      return { key: `${file.name}-${file.size}-${Math.random()}`, file, preview, progress: 0, state: problem ? 'error' : 'queued', error: problem ? problem === 'type' ? 'يُقبل JPG وPNG وWebP فقط.' : 'الملف أكبر من 10 ميجابايت.' : undefined };
     });
     setItems((xs) => (multiple ? [...xs, ...fresh] : fresh));
     // one at a time keeps the order predictable and the connection free for the rest of the dashboard
@@ -69,9 +69,9 @@ export function ImageUploader({ multiple = true, onUploaded, disabled }: { multi
       <div className={`dropzone${dragging ? ' is-over' : ''}${disabled ? ' is-disabled' : ''}`} onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true); }}
         onDragLeave={() => setDragging(false)} onDrop={onDrop}>
         <PlusIcon size={28} />
-        <p><strong>{t('dropImages')}</strong></p>
-        <p className="muted small" id={hintId}>{t('uploadHint')}</p>
-        <Button variant="secondary" disabled={disabled} onClick={() => input.current?.click()} aria-describedby={hintId}>{t('chooseImages')}</Button>
+        <p><strong>اسحب الصور إلى هنا</strong></p>
+        <p className="muted small" id={hintId}>JPG أو PNG أو WebP، حتى 10 ميجابايت للصورة. تُزال بيانات الموقع الجغرافي من الصور تلقائيًا.</p>
+        <Button variant="secondary" disabled={disabled} onClick={() => input.current?.click()} aria-describedby={hintId}>اختر صورًا</Button>
         <input ref={input} type="file" accept={ACCEPT_ATTR} multiple={multiple} hidden onChange={(e) => { if (e.target.files?.length) add(e.target.files); e.target.value = ''; }} />
       </div>
       {items.length > 0 && (
@@ -82,11 +82,11 @@ export function ImageUploader({ multiple = true, onUploaded, disabled }: { multi
               <div className="upload-meta">
                 <span className="upload-name"><bdi>{it.file.name}</bdi></span>
                 {it.state === 'error' ? <span className="field-error">{it.error}</span>
-                  : it.state === 'done' ? <span className="ok-text">{t('uploaded')}</span>
-                    : <progress max={1} value={it.progress} aria-label={`${t('uploading')} ${it.file.name}`} />}
+                  : it.state === 'done' ? <span className="ok-text">تم الرفع</span>
+                    : <progress max={1} value={it.progress} aria-label={`${'جارٍ رفع'} ${it.file.name}`} />}
               </div>
-              {it.state === 'error' && !uploadProblem(it.file) && <Button variant="ghost" onClick={() => void run(it)}>{t('retry')}</Button>}
-              {it.state !== 'uploading' && <button type="button" className="icon-btn" onClick={() => remove(it.key)} aria-label={t('remove')}><CloseIcon size={16} /></button>}
+              {it.state === 'error' && !uploadProblem(it.file) && <Button variant="ghost" onClick={() => void run(it)}>إعادة المحاولة</Button>}
+              {it.state !== 'uploading' && <button type="button" className="icon-btn" onClick={() => remove(it.key)} aria-label="إزالة"><CloseIcon size={16} /></button>}
             </li>
           ))}
         </ul>

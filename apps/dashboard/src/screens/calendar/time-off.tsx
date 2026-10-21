@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { arName } from '@dental/ui/text';
 import { api } from '../../api';
 import { DatePicker } from '../../components/date-picker';
-import { t } from '../../i18n';
 import { calendarKeys, keys, useDoctors, useOne, useTimeOff } from '../../queries';
 import { to } from '../../router';
 import type { CalendarConflict, TimeOff } from '../../types';
@@ -40,36 +39,36 @@ export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id
   });
   const remove = useMutation({ mutationFn: (offId: string) => api(`/doctors/${id}/time-off/${offId}`, { method: 'DELETE' }), onSuccess: () => void refresh() });
   const [removing, setRemoving] = useState<TimeOff | null>(null); // U2: removing leave asks first (the doctor becomes bookable again)
-  if (!one.data) return <ResourceState {...one} back={to.list('doctors')} backLabel={t('navDoctors')} />;
+  if (!one.data) return <ResourceState {...one} back={to.list('doctors')} backLabel="الأطباء" />;
   const name = arName(one.data.name_ar, one.data.name_en, '—');
   const fmt = (iso: string) => new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: TZ }).format(new Date(iso));
   const submit = (e: FormEvent) => { e.preventDefault(); add.mutate(); };
 
   return (
     <>
-      <Breadcrumbs items={[{ label: t('navOverview'), route: to.list('overview') }, { label: t('navDoctors'), route: to.list('doctors') }, { label: name }]} />
-      <PageHeader title={<>{t('timeOffTitle')} · <bdi>{name}</bdi></>} sub={t('timeOffSub')} />
+      <Breadcrumbs items={[{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'الأطباء', route: to.list('doctors') }, { label: name }]} />
+      <PageHeader title={<>إجازات الطبيب · <bdi>{name}</bdi></>} sub="لا تظهر مواعيد للحجز مع الطبيب خلالها." />
       {canWrite && (
         <Card>
-          <h2>{t('addTimeOff')}</h2>
+          <h2>إضافة إجازة</h2>
           <form onSubmit={submit} className="grid-2 mt">
-            <Field label={t('fromLabel')}>{(a) => <DatePicker id={a.id} value={from.date} onChange={(d) => setFrom((f) => ({ ...f, date: d }))} min={today} />}</Field>
-            <Field label={t('time')}>{(a) => <TimeField id={a.id} value={from.time} onChange={(time) => setFrom((f) => ({ ...f, time }))} />}</Field>
-            <Field label={t('toLabel')}>{(a) => <DatePicker id={a.id} value={until.date} onChange={(d) => setUntil((u) => ({ ...u, date: d }))} min={from.date} />}</Field>
-            <Field label={t('time')}>{(a) => <TimeField id={a.id} value={until.time} onChange={(time) => setUntil((u) => ({ ...u, time }))} />}</Field>
-            <Field label={t('reasonLabel')} optional={t('optional')}>{(a) => <Input id={a.id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
-            <div className="row-end"><Button type="submit" loading={add.isPending}>{t('addTimeOff')}</Button></div>
+            <Field label="من">{(a) => <DatePicker id={a.id} value={from.date} onChange={(d) => setFrom((f) => ({ ...f, date: d }))} min={today} />}</Field>
+            <Field label="الوقت">{(a) => <TimeField id={a.id} value={from.time} onChange={(time) => setFrom((f) => ({ ...f, time }))} />}</Field>
+            <Field label="إلى">{(a) => <DatePicker id={a.id} value={until.date} onChange={(d) => setUntil((u) => ({ ...u, date: d }))} min={from.date} />}</Field>
+            <Field label="الوقت">{(a) => <TimeField id={a.id} value={until.time} onChange={(time) => setUntil((u) => ({ ...u, time }))} />}</Field>
+            <Field label="السبب" optional="اختياري">{(a) => <Input id={a.id} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
+            <div className="row-end"><Button type="submit" loading={add.isPending}>إضافة إجازة</Button></div>
           </form>
           <ErrorText error={add.error} />
           {conflicts && <Conflicts items={conflicts} />}
         </Card>
       )}
       <DataTable
-        label={t('timeOffTitle')}
+        label="إجازات الطبيب"
         rows={list.data}
         columns={[
-          { id: 'period', header: t('timeOffColPeriod'), sortValue: (o) => o.starts_at, cell: (o) => <bdi dir="ltr" className="whitespace-nowrap font-semibold">{fmt(o.starts_at)} – {fmt(o.ends_at)}</bdi> },
-          { id: 'reason', header: t('reasonLabel'), cell: (o) => (o.reason ? <bdi>{o.reason}</bdi> : <span className="muted">—</span>) },
+          { id: 'period', header: 'الفترة', sortValue: (o) => o.starts_at, cell: (o) => <bdi dir="ltr" className="whitespace-nowrap font-semibold">{fmt(o.starts_at)} – {fmt(o.ends_at)}</bdi> },
+          { id: 'reason', header: 'السبب', cell: (o) => (o.reason ? <bdi>{o.reason}</bdi> : <span className="muted">—</span>) },
         ]}
         rowKey={(o) => o.id}
         isLoading={list.isLoading}
@@ -77,13 +76,13 @@ export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id
         error={list.isError ? list.error : undefined}
         onRetry={() => void list.refetch()}
         defaultSort={{ id: 'period', dir: 'asc' }}
-        actions={canWrite ? (o) => <RowMenu label={fmt(o.starts_at)} actions={[{ label: t('remove'), destructive: true, onSelect: () => setRemoving(o) }]} /> : undefined}
-        empty={{ icon: <CalendarIcon size={28} />, title: t('noTimeOff'), text: t('timeOffSub') }}
+        actions={canWrite ? (o) => <RowMenu label={fmt(o.starts_at)} actions={[{ label: 'إزالة', destructive: true, onSelect: () => setRemoving(o) }]} /> : undefined}
+        empty={{ icon: <CalendarIcon size={28} />, title: 'لا توجد إجازات قادمة.', text: 'لا تظهر مواعيد للحجز مع الطبيب خلالها.' }}
       />
       <ErrorText error={remove.error} />
-      <ConfirmDialog open={!!removing} title={t('removeTimeOffTitle')} confirmLabel={t('remove')} danger
+      <ConfirmDialog open={!!removing} title="حذف الإجازة" confirmLabel="إزالة" danger
         onConfirm={() => { if (removing) remove.mutate(removing.id); setRemoving(null); }} onCancel={() => setRemoving(null)}>
-        {t('removeTimeOffText')}
+        سيعود الطبيب متاحًا للحجز في هذه الفترة.
       </ConfirmDialog>
     </>
   );

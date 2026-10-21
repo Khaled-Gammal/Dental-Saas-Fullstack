@@ -1,5 +1,4 @@
 import { useEffect, useRef, type AnchorHTMLAttributes, type FormEvent, type MouseEvent, type ReactNode } from 'react';
-import { t } from '../i18n';
 import { navigate } from '../hooks';
 import { href, type Route } from '../router';
 import { Alert, Button, ErrorText, Skeleton } from './components';
@@ -23,7 +22,7 @@ export function RouteLink({ route, className = 'link-btn', children, ...rest }: 
 /** "Overview › Doctors › Edit" — every crumb but the last is a link (shadcn/ui Breadcrumb; the chevrons point left in RTL). */
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
   return (
-    <Breadcrumb aria-label={t('breadcrumbs')} className="-mb-2">
+    <Breadcrumb aria-label="مسار الصفحة" className="-mb-2">
       <BreadcrumbList className="gap-1 text-sm text-muted-foreground sm:gap-1.5">
         {items.map((c, i) => {
           const last = i === items.length - 1;
@@ -72,8 +71,8 @@ export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, 
         {notice}
         <ErrorText error={error} />
         <div className="form-footer">
-          <Button variant="ghost" onClick={() => navigate(back)}>{t('cancel')}</Button>
-          <Button type="submit" loading={saving} disabled={!canSave}>{saveLabel ?? t('save')}</Button>
+          <Button variant="ghost" onClick={() => navigate(back)}>إلغاء</Button>
+          <Button type="submit" loading={saving} disabled={!canSave}>{saveLabel ?? 'حفظ'}</Button>
         </div>
       </form>
     </>
@@ -86,7 +85,7 @@ export function ResourceState({ isLoading, isError, error, notFound, refetch, ba
 }) {
   if (isLoading) return <Skeleton h={120} count={3} />;
   if (isError) return <ErrorText error={error} onRetry={refetch} />;
-  if (notFound) return <NotFound text={t('resourceMissing')} back={back} backLabel={backLabel} />;
+  if (notFound) return <NotFound text="هذا العنصر غير موجود أو تم حذفه" back={back} backLabel={backLabel} />;
   return null;
 }
 
@@ -94,7 +93,7 @@ export function NotFound({ text, back, backLabel }: { text: string; back: Route;
   return (
     <div className="not-found">
       <Alert tone="info">{text}</Alert>
-      <Button variant="secondary" onClick={() => navigate(back)}>{backLabel || t('navOverview')}</Button>
+      <Button variant="secondary" onClick={() => navigate(back)}>{backLabel || 'نظرة عامة'}</Button>
     </div>
   );
 }

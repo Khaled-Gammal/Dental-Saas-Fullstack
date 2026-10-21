@@ -3,7 +3,7 @@ import { arName } from '@dental/ui/text';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { useDebounced, useLeave, useUnsavedChanges } from '../../hooks';
-import { t } from '../../i18n';
+import { appointmentSourceLabel } from '../../labels';
 import { send, useBookAppointment, useBranches, useDoctors, usePatient, usePatients, useServices, useStaffSlots } from '../../queries';
 import { to } from '../../router';
 import type { Appointment, PatientRow } from '../../types';
@@ -59,7 +59,7 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
   const minutes = Number(duration);
   const ready = !!chosen && !!branch && !!doctor && !!startsAt && (!override || (reason.trim().length >= 3 && (!!service || (minutes >= 5 && minutes <= 480))));
   const dirty = !!(chosen || doctor || slot || time || notes);
-  useUnsavedChanges(dirty, t('leaveUnsaved'));
+  useUnsavedChanges(dirty, 'لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟');
 
   const book = useBookAppointment(clinicId);
   const leave = useLeave({ page: 'appointments', query: { date, ...(branch && { branch }) } });
@@ -76,44 +76,44 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
         const id = (appt as Appointment).id;
         if (prefill?.plan && prefill.item) await send(`/plans/${prefill.plan}/items/${prefill.item}/schedule`, 'POST', { appointmentId: id }).catch(() => null);
         if (prefill?.recall) await send(`/recalls/${prefill.recall}/book`, 'POST', { appointmentId: id }).catch(() => null);
-        leave(t('appointmentBooked'));
+        leave('تم حجز الموعد');
       },
     });
   };
 
-  const crumbs = [{ label: t('navAppointments'), route: to.list('appointments') }, { label: t('newAppointment') }];
+  const crumbs = [{ label: 'المواعيد', route: to.list('appointments') }, { label: 'موعد جديد' }];
   const reset = () => { setSlot(''); book.reset(); };
 
   return (
-    <FormPage title={t('newAppointment')} crumbs={crumbs} back={to.list('appointments')} onSubmit={submit} saving={book.isPending} canSave={ready} error={book.error}>
+    <FormPage title="موعد جديد" crumbs={crumbs} back={to.list('appointments')} onSubmit={submit} saving={book.isPending} canSave={ready} error={book.error}>
       <Card>
-        <h2>{t('patient')}</h2>
+        <h2>المريض</h2>
         {chosen ? (
           <div className="row-between mt-sm">
             <strong><bdi>{chosen.name}</bdi></strong>
             {/* dropping ?patient= from the URL too, so a reload does not bring the old choice back */}
-            <button type="button" className="link-btn" onClick={() => { setPatient(null); window.location.hash = '#/appointments/new'; }}>{t('change')}</button>
+            <button type="button" className="link-btn" onClick={() => { setPatient(null); window.location.hash = '#/appointments/new'; }}>تغيير</button>
           </div>
         ) : <PatientPicker clinicId={clinicId} onPick={(p) => setPatient({ id: p.id, name: p.full_name })} />}
-        {allergies.length > 0 && <Alert tone="danger"><AlertIcon size={16} /> <strong>{t('allergies')}:</strong> <bdi>{allergies.join('، ')}</bdi></Alert>}
+        {allergies.length > 0 && <Alert tone="danger"><AlertIcon size={16} /> <strong>الحساسية:</strong> <bdi>{allergies.join('، ')}</bdi></Alert>}
       </Card>
 
       <Card>
-        <h2>{t('whenAndWho')}</h2>
+        <h2>الفرع والطبيب واليوم</h2>
         <div className="grid-2 mt">
-          <Field label={t('branch')}>
-            {(a) => <Choice id={a.id} value={branch} onChange={(v) => { setBranchId(v); setDoctorId((d) => ((doctors.data ?? []).some((x) => x.id === d && x.branch_ids.includes(v)) ? d : '')); reset(); }} placeholder={t('pickBranch')}
+          <Field label="الفرع">
+            {(a) => <Choice id={a.id} value={branch} onChange={(v) => { setBranchId(v); setDoctorId((d) => ((doctors.data ?? []).some((x) => x.id === d && x.branch_ids.includes(v)) ? d : '')); reset(); }} placeholder="اختر الفرع"
               options={activeBranches.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en, b.slug) }))} />}
           </Field>
-          <Field label={t('doctor')}>
-            {(a) => <Choice id={a.id} value={doctor} onChange={(v) => { setDoctorId(v); reset(); }} placeholder={t(branch ? 'pickDoctor' : 'pickBranchFirst')} disabled={!branch}
+          <Field label="الطبيب">
+            {(a) => <Choice id={a.id} value={doctor} onChange={(v) => { setDoctorId(v); reset(); }} placeholder={branch ? 'اختر الطبيب' : 'اختر الفرع أولًا'} disabled={!branch}
               options={doctorsHere.map((d) => ({ value: d.id, label: arName(d.name_ar, d.name_en) }))} />}
           </Field>
-          <Field label={t('service')} optional={t('optional')}>
-            {(a) => <Choice id={a.id} value={service?.id ?? ''} onChange={(v) => { setServiceId(v); reset(); }} noneLabel={t('noService')}
-              options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: `${arName(s.name_ar, s.name_en)} · ${s.duration_minutes} ${t('minutes')}` }))} />}
+          <Field label="الخدمة" optional="اختياري">
+            {(a) => <Choice id={a.id} value={service?.id ?? ''} onChange={(v) => { setServiceId(v); reset(); }} noneLabel="بدون خدمة محددة"
+              options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: `${arName(s.name_ar, s.name_en)} · ${s.duration_minutes} ${'دقيقة'}` }))} />}
           </Field>
-          <Field label={t('date')}>
+          <Field label="التاريخ">
             {(a) => <DatePicker id={a.id} value={date} onChange={(d) => { setDate(d); reset(); }} min={todayIso()} />}
           </Field>
         </div>
@@ -121,21 +121,21 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
 
       <Card>
         <div className="row-between">
-          <h2>{t('time')}</h2>
-          {canOverride && <Switch checked={override} onChange={(v) => { setOverride(v); reset(); }} label={t('outsideSchedule')} />}
+          <h2>الوقت</h2>
+          {canOverride && <Switch checked={override} onChange={(v) => { setOverride(v); reset(); }} label="خارج جدول الطبيب" />}
         </div>
         {override ? (
           <div className="grid-2 mt">
-            <Field label={t('time')} hint={t('tzHint').replace('{tz}', tz)}>{(a) => <TimeField id={a.id} describedBy={a.describedBy} value={time} onChange={setTime} />}</Field>
-            {!service && <Field label={t('duration')}>{(a) => <Input id={a.id} type="number" dir="ltr" min={5} max={480} step={5} value={duration} onChange={(e) => setDuration(e.target.value)} />}</Field>}
-            <Field label={t('overrideReason')} hint={t('overrideHint')}>{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
+            <Field label="الوقت" hint={'بتوقيت الفرع ({tz})'.replace('{tz}', tz)}>{(a) => <TimeField id={a.id} describedBy={a.describedBy} value={time} onChange={setTime} />}</Field>
+            {!service && <Field label="المدة">{(a) => <Input id={a.id} type="number" dir="ltr" min={5} max={480} step={5} value={duration} onChange={(e) => setDuration(e.target.value)} />}</Field>}
+            <Field label="سبب الحجز خارج الجدول" hint="يُحفظ مع الموعد للمراجعة.">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
           </div>
-        ) : !doctor ? <p className="muted small mt-sm">{t('pickDoctorForSlots')}</p>
-          : slots.isLoading ? <p className="muted small mt-sm" role="status">{t('loading')}</p>
-            : slots.isError ? <p className="field-error mt-sm">{t('err_network')}</p>
-              : !slots.data?.slots.length ? <p className="muted small mt-sm">{t('noSlots')}</p>
+        ) : !doctor ? <p className="muted small mt-sm">اختر الطبيب لعرض الأوقات المتاحة.</p>
+          : slots.isLoading ? <p className="muted small mt-sm" role="status">جارٍ التحميل…</p>
+            : slots.isError ? <p className="field-error mt-sm">تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.</p>
+              : !slots.data?.slots.length ? <p className="muted small mt-sm">لا توجد أوقات متاحة في هذا اليوم.</p>
                 : (
-                  <div className="slot-grid mt" role="radiogroup" aria-label={t('time')}>
+                  <div className="slot-grid mt" role="radiogroup" aria-label="الوقت">
                     {slots.data.slots.map((s) => (
                       <button key={s} type="button" role="radio" aria-checked={slot === s} className={`slot-btn${slot === s ? ' is-on' : ''}`} onClick={() => setSlot(s)}>
                         <bdi dir="ltr">{fmtTime(s)}</bdi>
@@ -147,12 +147,12 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
 
       <Card>
         <div className="grid-2">
-          <Field label={t('bookedVia')}>
-            {(a) => <Choice id={a.id} value={source} onChange={(v) => setSource(v as (typeof SOURCES)[number])} options={SOURCES.map((s) => ({ value: s, label: t(`source_${s}`) }))} />}
+          <Field label="طريقة الحجز">
+            {(a) => <Choice id={a.id} value={source} onChange={(v) => setSource(v as (typeof SOURCES)[number])} options={SOURCES.map((s) => ({ value: s, label: appointmentSourceLabel[s] }))} />}
           </Field>
         </div>
         <div className="stack mt">
-          <Field label={t('internalNotes')} optional={t('optional')}>{(a) => <TextArea id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
+          <Field label="ملاحظات داخلية" optional="اختياري">{(a) => <TextArea id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
         </div>
       </Card>
     </FormPage>
@@ -168,7 +168,7 @@ function PatientPicker({ clinicId, onPick }: { clinicId: string; onPick: (p: Pat
   const rows = useMemo(() => (search ? found.data?.pages[0]?.items ?? [] : []), [found.data, search]);
   return (
     <div className="stack mt-sm">
-      <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('patientSearchHint')} aria-label={t('patientSearch')} autoFocus />
+      <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="الاسم أو رقم الموبايل أو رقم الملف" aria-label="بحث عن مريض" autoFocus />
       {search && (
         <ul className="pick-list" aria-busy={found.isFetching || undefined}>
           {rows.map((p) => (
@@ -176,10 +176,10 @@ function PatientPicker({ clinicId, onPick }: { clinicId: string; onPick: (p: Pat
               <strong><bdi>{p.full_name}</bdi></strong><span className="muted small">#{p.file_no} · <span dir="ltr">{p.phone}</span></span>
             </button></li>
           ))}
-          {!found.isFetching && rows.length === 0 && <li className="muted small">{t('noPatientMatch')}</li>}
+          {!found.isFetching && rows.length === 0 && <li className="muted small">لا يوجد مريض مطابق</li>}
         </ul>
       )}
-      {canAdd && <p className="small"><Button variant="ghost" onClick={() => { window.location.hash = '#/patients/new'; }}>{t('addPatient')}</Button></p>}
+      {canAdd && <p className="small"><Button variant="ghost" onClick={() => { window.location.hash = '#/patients/new'; }}>مريض جديد</Button></p>}
     </div>
   );
 }

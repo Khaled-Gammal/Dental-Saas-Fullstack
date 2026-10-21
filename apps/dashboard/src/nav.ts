@@ -3,63 +3,63 @@
  * top as direct links; related modules are collapsible groups. Which items a member sees comes from `access.ts`
  * (the same rule as opening the page); the API still checks every request. Pure, unit-tested.
  */
-import type { Key } from './i18n';
 import type { Page } from './router';
 
 export type NavIcon = 'home' | 'calendar' | 'users' | 'phone' | 'clinic' | 'team' | 'pin' | 'stethoscope' | 'list' | 'edit' | 'receipt' | 'tag' | 'cash'
   | 'wallet' | 'chart' | 'image' | 'globe' | 'shield' | 'database';
 /** A page link, or an item shown as "soon" to who holds `perm` (the website editor). */
-export interface NavItem { key: Key; icon: NavIcon; page?: Page; perm?: string }
-export interface NavGroup { key: Key | null; items: NavItem[] }
+export interface NavItem { label: string; icon: NavIcon; page?: Page; perm?: string }
+/** `id` names the group in code (its remembered open state, the active group); `label` is what the menu shows. */
+export interface NavGroup { id: string | null; label: string | null; items: NavItem[] }
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    key: null, // the daily work: always open, no heading
+    id: null, label: null, // the daily work: always open, no heading
     items: [
-      { key: 'navOverview', icon: 'home', page: 'overview' },
-      { key: 'navAppointments', icon: 'calendar', page: 'appointments' },
-      { key: 'navPatients', icon: 'users', page: 'patients' },
-      { key: 'navFollowUps', icon: 'phone', page: 'followups' },
+      { label: 'نظرة عامة', icon: 'home', page: 'overview' },
+      { label: 'المواعيد', icon: 'calendar', page: 'appointments' },
+      { label: 'المرضى', icon: 'users', page: 'patients' },
+      { label: 'المتابعات', icon: 'phone', page: 'followups' },
     ],
   },
   {
-    key: 'navGroupClinic',
+    id: 'clinic', label: 'العيادة',
     items: [
-      { key: 'navProfile', icon: 'clinic', page: 'profile' },
-      { key: 'navBranches', icon: 'pin', page: 'branches' },
-      { key: 'navDoctors', icon: 'stethoscope', page: 'doctors' },
-      { key: 'navServices', icon: 'list', page: 'services' },
-      { key: 'navConsents', icon: 'edit', page: 'consents' },
+      { label: 'ملف العيادة', icon: 'clinic', page: 'profile' },
+      { label: 'الفروع', icon: 'pin', page: 'branches' },
+      { label: 'الأطباء', icon: 'stethoscope', page: 'doctors' },
+      { label: 'الخدمات والأسعار', icon: 'list', page: 'services' },
+      { label: 'نماذج الموافقات', icon: 'edit', page: 'consents' },
     ],
   },
   {
-    key: 'navGroupFinance',
+    id: 'finance', label: 'المالية',
     items: [
-      { key: 'navBilling', icon: 'receipt', page: 'invoices' },
-      { key: 'navDiscounts', icon: 'tag', page: 'discounts' },
-      { key: 'navCash', icon: 'cash', page: 'cash' },
-      { key: 'navExpenses', icon: 'wallet', page: 'expenses' },
-      { key: 'navReports', icon: 'chart', page: 'reports' },
+      { label: 'الفواتير', icon: 'receipt', page: 'invoices' },
+      { label: 'الخصومات', icon: 'tag', page: 'discounts' },
+      { label: 'الخزنة اليومية', icon: 'cash', page: 'cash' },
+      { label: 'المصروفات', icon: 'wallet', page: 'expenses' },
+      { label: 'التقارير', icon: 'chart', page: 'reports' },
     ],
   },
   {
-    key: 'navGroupWebsite',
+    id: 'website', label: 'الموقع الإلكتروني',
     items: [
-      { key: 'navGallery', icon: 'image', page: 'gallery' },
-      { key: 'navWebsite', icon: 'globe', perm: 'website:write' },
+      { label: 'معرض الصور', icon: 'image', page: 'gallery' },
+      { label: 'الموقع', icon: 'globe', perm: 'website:write' },
     ],
   },
   {
-    key: 'navGroupTeam',
+    id: 'team', label: 'الفريق والصلاحيات',
     items: [
-      { key: 'navStaff', icon: 'team', page: 'staff' },
-      { key: 'navRoles', icon: 'shield', page: 'roles' },
+      { label: 'فريق العمل', icon: 'team', page: 'staff' },
+      { label: 'الأدوار والصلاحيات', icon: 'shield', page: 'roles' },
     ],
   },
 ];
 
 /** At the foot of the sidebar: the owner's clinic data page. */
-export const NAV_FOOT: NavItem[] = [{ key: 'navData', icon: 'database', page: 'data' }];
+export const NAV_FOOT: NavItem[] = [{ label: 'بيانات العيادة', icon: 'database', page: 'data' }];
 
 /** Pages without their own menu item belong to the item they are opened from (a visit to the patients, a payment to billing). */
 const PARENT: Partial<Record<Page, Page>> = {
@@ -77,8 +77,8 @@ export function visibleNav(groups: readonly NavGroup[], canSeePage: (p: Page) =>
     .filter((g) => g.items.length > 0);
 }
 
-/** The group holding the current page (it opens by itself), or null. */
-export function activeGroup(groups: readonly NavGroup[], page: Page | 'not-found'): Key | null {
+/** The id of the group holding the current page (it opens by itself), or null. */
+export function activeGroup(groups: readonly NavGroup[], page: Page | 'not-found'): string | null {
   const p = navPageOf(page);
-  return groups.find((g) => g.key && g.items.some((i) => i.page === p))?.key ?? null;
+  return groups.find((g) => g.id && g.items.some((i) => i.page === p))?.id ?? null;
 }

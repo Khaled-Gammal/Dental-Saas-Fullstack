@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api, type ApiError, setSession, type Session } from '../api';
 import { DEMO_PASSWORD, DEMO_USERS, ROOT_DOMAIN } from '../config';
-import { t } from '../i18n';
 import { Alert, Button, ErrorText, Field, Input, LinkButton, Logo, OtpInput, PasswordInput } from '../ui/components';
 import { LegalConsent, useLegalDocs } from '../components/legal';
 import { CalendarIcon, CheckIcon, GlobeIcon, PhoneIcon, ShieldIcon } from '../ui/icons';
@@ -22,13 +21,13 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="auth">
       <aside className="auth-brand">
-        <Logo name={t('brand')} light />
+        <Logo name="منصة الأسنان" light />
         <div className="auth-brand-body">
-          <h1>{t('authTagline')}</h1>
+          <h1>موقع لعيادتك ونظام إدارة كامل في مكان واحد</h1>
           <ul className="auth-points">
-            <li><span><GlobeIcon size={18} /></span>{t('authPoint1')}</li>
-            <li><span><CalendarIcon size={18} /></span>{t('authPoint2')}</li>
-            <li><span><ShieldIcon size={18} /></span>{t('authPoint3')}</li>
+            <li><span><GlobeIcon size={18} /></span>موقع احترافي باسم عيادتك خلال دقائق</li>
+            <li><span><CalendarIcon size={18} /></span>حجوزات أونلاين مع كود تأكيد للاستقبال</li>
+            <li><span><ShieldIcon size={18} /></span>بيانات كل عيادة معزولة ومحمية</li>
           </ul>
         </div>
         <SmileCanvas className="auth-canvas" />
@@ -36,7 +35,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       </aside>
       <div className="auth-main">
         <div className="auth-top">
-          <span className="auth-mobile-logo"><Logo name={t('brand')} /></span>
+          <span className="auth-mobile-logo"><Logo name="منصة الأسنان" /></span>
         </div>
         <div className="auth-form">{children}</div>
       </div>
@@ -61,24 +60,24 @@ export function Login({ go, notice }: { go: (s: AuthScreen) => void; notice?: st
   return (
     <>
       <header className="form-head">
-        <h2>{t('signIn')}</h2>
-        <p>{t('signInSub')}</p>
+        <h2>تسجيل الدخول</h2>
+        <p>أهلًا بعودتك، سجّل الدخول لمتابعة عيادتك</p>
       </header>
       {notice && <Alert tone="success">{notice}</Alert>}
       <form onSubmit={submit} className="stack" noValidate={false}>
-        <Field label={t('identifier')}>
+        <Field label="البريد الإلكتروني أو رقم الموبايل">
           {(a) => <Input id={a.id} describedBy={a.describedBy} value={identifier} onChange={(e) => setIdentifier(e.target.value)} dir="ltr" autoComplete="username" required autoFocus />}
         </Field>
-        <Field label={t('password')}>
+        <Field label="كلمة المرور">
           {(a) => <PasswordInput id={a.id} describedBy={a.describedBy} value={password} onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password" required showLabel={t('showPw')} hideLabel={t('hidePw')} />}
+            autoComplete="current-password" required showLabel="إظهار كلمة المرور" hideLabel="إخفاء كلمة المرور" />}
         </Field>
         <ErrorText error={login.error} />
-        <Button type="submit" block loading={login.isPending}>{t('signIn')}</Button>
+        <Button type="submit" block loading={login.isPending}>تسجيل الدخول</Button>
       </form>
       <p className="form-foot row-between">
-        <LinkButton onClick={() => go({ name: 'signup' })}>{t('noAccount')}</LinkButton>
-        <LinkButton onClick={() => go({ name: 'forgot' })}>{t('forgotLink')}</LinkButton>
+        <LinkButton onClick={() => go({ name: 'signup' })}>عيادة جديدة؟ أنشئ حسابًا</LinkButton>
+        <LinkButton onClick={() => go({ name: 'forgot' })}>نسيت كلمة المرور؟</LinkButton>
       </p>
       {import.meta.env.DEV && <DevQuickLogin />}
     </>
@@ -93,12 +92,12 @@ function DevQuickLogin() {
   });
   return (
     <details className="dev">
-      <summary>{t('devQuick')}</summary>
+      <summary>دخول سريع (تطوير فقط)</summary>
       <div className="dev-row">
-        <select className="input" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" aria-label={t('devDemoUser')}>
+        <select className="input" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" aria-label="الحساب التجريبي">
           {DEMO_USERS.map((u) => <option key={u}>{u}</option>)}
         </select>
-        <Button variant="secondary" onClick={() => quick.mutate()} loading={quick.isPending}>{t('signIn')}</Button>
+        <Button variant="secondary" onClick={() => quick.mutate()} loading={quick.isPending}>تسجيل الدخول</Button>
       </div>
       <ErrorText error={quick.error} />
     </details>
@@ -112,7 +111,7 @@ function SubscribeNotice({ intent }: { intent: SubscribeIntent }) {
   if (plans.isLoading) return null;
   return (
     <Alert tone="info">
-      {t('subscribeNotice').replace('{plan}', name ?? intent.planCode).replace('{cycle}', t(intent.cycle === 'yearly' ? 'cycleYearly' : 'cycleMonthly'))}
+      {'اخترت الاشتراك في باقة «{plan}» بدفع {cycle}. أنشئ حساب عيادتك الآن وابدأ العمل فورًا، وسنتواصل معك لإتمام الدفع وتفعيل الاشتراك.'.replace('{plan}', name ?? intent.planCode).replace('{cycle}', intent.cycle === 'yearly' ? 'سنوي' : 'شهري')}
     </Alert>
   );
 }
@@ -151,17 +150,17 @@ export function Signup({ go, subscribe }: { go: (s: AuthScreen) => void; subscri
   return (
     <>
       <header className="form-head">
-        <h2>{t('signUp')}</h2>
-        <p>{t('signUpSub')}</p>
+        <h2>إنشاء حساب للعيادة</h2>
+        <p>ابدأ تجربة مجانية، بدون بطاقة دفع</p>
       </header>
       {subscribe && <SubscribeNotice intent={subscribe} />}
       <form onSubmit={submit} className="stack">
         <fieldset className="group">
-          <legend>{t('aboutYou')}</legend>
-          <Field label={t('fullName')}>{(a) => <Input id={a.id} value={f.fullName} onChange={set('fullName')} required autoComplete="name" autoFocus />}</Field>
+          <legend>بياناتك</legend>
+          <Field label="اسمك">{(a) => <Input id={a.id} value={f.fullName} onChange={set('fullName')} required autoComplete="name" autoFocus />}</Field>
           <div className="grid-2">
-            <Field label={t('email')}>{(a) => <Input id={a.id} type="email" value={f.email} onChange={set('email')} dir="ltr" required autoComplete="email" />}</Field>
-            <Field label={t('phone')}>
+            <Field label="البريد الإلكتروني">{(a) => <Input id={a.id} type="email" value={f.email} onChange={set('email')} dir="ltr" required autoComplete="email" />}</Field>
+            <Field label="رقم الموبايل">
               {(a) => (
                 <div className="input-wrap" dir="ltr">
                   <span className="input-lead" aria-hidden><PhoneIcon size={16} /></span>
@@ -170,30 +169,30 @@ export function Signup({ go, subscribe }: { go: (s: AuthScreen) => void; subscri
               )}
             </Field>
           </div>
-          <Field label={t('password')}
+          <Field label="كلمة المرور"
             hint={
               <ul className="checks" aria-live="polite">
-                <li className={pw.length ? 'ok' : ''}><CheckIcon size={14} />{t('pwLen')}</li>
-                <li className={pw.letter ? 'ok' : ''}><CheckIcon size={14} />{t('pwLetter')}</li>
-                <li className={pw.digit ? 'ok' : ''}><CheckIcon size={14} />{t('pwDigit')}</li>
+                <li className={pw.length ? 'ok' : ''}><CheckIcon size={14} />8 أحرف على الأقل</li>
+                <li className={pw.letter ? 'ok' : ''}><CheckIcon size={14} />حرف واحد على الأقل</li>
+                <li className={pw.digit ? 'ok' : ''}><CheckIcon size={14} />رقم واحد على الأقل</li>
               </ul>
             }>
             {(a) => <PasswordInput id={a.id} describedBy={a.describedBy} value={f.password} onChange={set('password')} required minLength={8} maxLength={128}
-              autoComplete="new-password" showLabel={t('showPw')} hideLabel={t('hidePw')} />}
+              autoComplete="new-password" showLabel="إظهار كلمة المرور" hideLabel="إخفاء كلمة المرور" />}
           </Field>
         </fieldset>
 
         <fieldset className="group">
-          <legend>{t('aboutClinic')}</legend>
+          <legend>عيادتك</legend>
           <div className="grid-2">
-            <Field label={t('clinicNameAr')} hint={t('brandNameHint')}>
+            <Field label="اسم العيادة" hint="بالعربية، أو بالإنجليزية إن كان اسم علامتك التجارية مكتوبًا بها.">
               {(a) => <Input id={a.id} describedBy={a.describedBy} value={f.clinicNameAr} onChange={set('clinicNameAr')} required dir="auto" />}
             </Field>
           </div>
-          <Field label={t('slug')}
-            error={slug === typedSlug && slugCheck.data?.available === false ? t('slugTaken') : undefined}
-            hint={slugPending ? t('checking')
-              : slug.length >= 3 && slugCheck.data?.available ? <span className="ok-text"><CheckIcon size={14} /> <bdi dir="ltr">{slug}.{ROOT_DOMAIN}</bdi> — {t('slugFree')}</span>
+          <Field label="عنوان موقع العيادة"
+            error={slug === typedSlug && slugCheck.data?.available === false ? 'هذا العنوان غير متاح، جرّب عنوانًا آخر' : undefined}
+            hint={slugPending ? 'جارٍ التحقق…'
+              : slug.length >= 3 && slugCheck.data?.available ? <span className="ok-text"><CheckIcon size={14} /> <bdi dir="ltr">{slug}.{ROOT_DOMAIN}</bdi> — متاح</span>
               : undefined}>
             {(a) => (
               <div className="addon" dir="ltr">
@@ -209,9 +208,9 @@ export function Signup({ go, subscribe }: { go: (s: AuthScreen) => void; subscri
         <LegalConsent docs={legalDocs} checked={agreed} onChange={setAgreed} />
         <ErrorText error={signup.error} />
         <Button type="submit" block loading={signup.isPending}
-          disabled={(slugCheck.data?.available === false && slug === typedSlug) || (legalDocs.length > 0 && !agreed)}>{t('create')}</Button>
+          disabled={(slugCheck.data?.available === false && slug === typedSlug) || (legalDocs.length > 0 && !agreed)}>إنشاء الحساب</Button>
       </form>
-      <p className="form-foot"><LinkButton onClick={() => go({ name: 'login' })}>{t('haveAccount')}</LinkButton></p>
+      <p className="form-foot"><LinkButton onClick={() => go({ name: 'login' })}>لديك حساب؟ سجّل الدخول</LinkButton></p>
     </>
   );
 }
@@ -244,26 +243,26 @@ export function Verify({ email, masked, justSent, back }: { email: string; maske
     <>
       <header className="form-head">
         <div className="form-icon"><ShieldIcon size={22} /></div>
-        <h2>{t('verifyTitle')}</h2>
-        <p>{t('verifySent')} <bdi dir="ltr" className="strong">{masked}</bdi></p>
+        <h2>تأكيد البريد الإلكتروني</h2>
+        <p>أرسلنا رمزًا من 6 أرقام إلى <bdi dir="ltr" className="strong">{masked}</bdi></p>
       </header>
       <form onSubmit={submit} className="stack">
-        <Field label={t('code')}>
-          {(a) => <OtpInput id={a.id} value={code} onChange={onCode} invalid={!!verify.error} label={t('code')} />}
+        <Field label="الرمز">
+          {(a) => <OtpInput id={a.id} value={code} onChange={onCode} invalid={!!verify.error} label="الرمز" />}
         </Field>
         <ErrorText error={verify.error} />
-        <Button type="submit" block loading={verify.isPending} disabled={code.length !== 6}>{t('verify')}</Button>
+        <Button type="submit" block loading={verify.isPending} disabled={code.length !== 6}>تأكيد</Button>
       </form>
       <div className="form-foot center">
-        <span className="muted">{t('verifyAgain')} </span>
+        <span className="muted">لم يصلك الرمز؟ </span>
         {cooldown > 0
-          ? <span className="muted">{t('resendIn')} <bdi>{cooldown}</bdi>{t('sec')}</span>
-          : <LinkButton onClick={() => resend.mutate()} disabled={resend.isPending}>{t('resend')}</LinkButton>}
+          ? <span className="muted">يمكنك الإعادة بعد <bdi>{cooldown}</bdi>ث</span>
+          : <LinkButton onClick={() => resend.mutate()} disabled={resend.isPending}>إعادة إرسال الرمز</LinkButton>}
       </div>
-      {resend.isSuccess && <Alert tone="success">{t('resent')}</Alert>}
+      {resend.isSuccess && <Alert tone="success">تم إرسال رمز جديد</Alert>}
       <ErrorText error={resend.error} />
-      <p className="form-foot center"><LinkButton onClick={back}>{t('changePhone')}</LinkButton></p>
-      {import.meta.env.DEV && <p className="dev-note">{t('devHint')}</p>}
+      <p className="form-foot center"><LinkButton onClick={back}>تعديل البيانات</LinkButton></p>
+      {import.meta.env.DEV && <p className="dev-note">في بيئة التطوير تظهر الرسائل في Mailpit: localhost:8025</p>}
     </>
   );
 }
@@ -280,17 +279,17 @@ export function Forgot({ go }: { go: (s: AuthScreen) => void }) {
     <>
       <header className="form-head">
         <div className="form-icon"><ShieldIcon size={22} /></div>
-        <h2>{t('forgotTitle')}</h2>
-        <p>{t('forgotSub')}</p>
+        <h2>إعادة تعيين كلمة المرور</h2>
+        <p>أدخل بريدك الإلكتروني وسنرسل لك رمزًا من 6 أرقام.</p>
       </header>
       <form onSubmit={submit} className="stack">
-        <Field label={t('email')}>
+        <Field label="البريد الإلكتروني">
           {(a) => <Input id={a.id} type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" autoComplete="email" required autoFocus />}
         </Field>
         <ErrorText error={send.error} />
-        <Button type="submit" block loading={send.isPending}>{t('sendCode')}</Button>
+        <Button type="submit" block loading={send.isPending}>إرسال الرمز</Button>
       </form>
-      <p className="form-foot center"><LinkButton onClick={() => go({ name: 'login' })}>{t('backToLogin')}</LinkButton></p>
+      <p className="form-foot center"><LinkButton onClick={() => go({ name: 'login' })}>العودة لتسجيل الدخول</LinkButton></p>
     </>
   );
 }
@@ -303,29 +302,29 @@ export function ResetPassword({ email, go }: { email: string; go: (s: AuthScreen
   const pwOk = pwc.length && pwc.letter && pwc.digit;
   const reset = useMutation({
     mutationFn: () => api('/auth/password/reset', { method: 'POST', body: JSON.stringify({ email, code, password }) }),
-    onSuccess: () => go({ name: 'login', notice: t('resetDone') }),
+    onSuccess: () => go({ name: 'login', notice: 'تم تغيير كلمة المرور. سجّل الدخول بها الآن.' }),
   });
   const submit = (e: FormEvent) => { e.preventDefault(); if (code.length === 6 && pwOk) reset.mutate(); };
   return (
     <>
       <header className="form-head">
         <div className="form-icon"><ShieldIcon size={22} /></div>
-        <h2>{t('resetTitle')}</h2>
-        <p>{t('resetSub')}</p>
+        <h2>كلمة مرور جديدة</h2>
+        <p>أدخل الرمز الذي أرسلناه إلى بريدك وكلمة المرور الجديدة.</p>
       </header>
       <form onSubmit={submit} className="stack">
-        <Field label={t('code')}>
-          {(a) => <OtpInput id={a.id} value={code} onChange={(v) => setCode(toAsciiDigits(v).replace(/\D/g, '').slice(0, 6))} label={t('code')} />}
+        <Field label="الرمز">
+          {(a) => <OtpInput id={a.id} value={code} onChange={(v) => setCode(toAsciiDigits(v).replace(/\D/g, '').slice(0, 6))} label="الرمز" />}
         </Field>
-        <Field label={t('newPassword')}>
+        <Field label="كلمة المرور الجديدة">
           {(a) => <PasswordInput id={a.id} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required
-            showLabel={t('showPw')} hideLabel={t('hidePw')} />}
+            showLabel="إظهار كلمة المرور" hideLabel="إخفاء كلمة المرور" />}
         </Field>
         <ErrorText error={reset.error} />
-        <Button type="submit" block loading={reset.isPending} disabled={code.length !== 6 || !pwOk}>{t('save')}</Button>
+        <Button type="submit" block loading={reset.isPending} disabled={code.length !== 6 || !pwOk}>حفظ</Button>
       </form>
-      <p className="form-foot center"><LinkButton onClick={() => go({ name: 'login' })}>{t('backToLogin')}</LinkButton></p>
-      {import.meta.env.DEV && <p className="dev-note">{t('devHint')}</p>}
+      <p className="form-foot center"><LinkButton onClick={() => go({ name: 'login' })}>العودة لتسجيل الدخول</LinkButton></p>
+      {import.meta.env.DEV && <p className="dev-note">في بيئة التطوير تظهر الرسائل في Mailpit: localhost:8025</p>}
     </>
   );
 }

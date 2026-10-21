@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { errorText } from '../i18n';
+import { errorText } from '../labels';
 import { fieldIssueText } from '../validation-text';
 
 describe('API errors in Arabic (L10N-003)', () => {

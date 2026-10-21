@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { arName } from '@dental/ui/text';
-import { t } from '../../i18n';
 import { ageOn } from '../../patient-model';
 import { useBranches, usePrescription, useProfile } from '../../queries';
 import { to } from '../../router';
@@ -21,7 +20,7 @@ export function PrescriptionPrint({ clinicId, id }: { clinicId: string; id?: str
   const branches = useBranches(clinicId);
   const [paper, setPaper] = useState<Paper>('A5');
   if (!rx.data) {
-    return <ResourceState isLoading={rx.isLoading} isError={rx.isError} error={rx.error} notFound={false} refetch={() => void rx.refetch()} back={to.list('patients')} backLabel={t('navPatients')} />;
+    return <ResourceState isLoading={rx.isLoading} isError={rx.isError} error={rx.error} notFound={false} refetch={() => void rx.refetch()} back={to.list('patients')} backLabel="المرضى" />;
   }
   const r = rx.data;
   const clinic = profile.data;
@@ -32,13 +31,13 @@ export function PrescriptionPrint({ clinicId, id }: { clinicId: string; id?: str
   return (
     <>
       <div className="no-print">
-        <Breadcrumbs items={[{ label: t('visit'), route: to.visit(r.visit_id) }, { label: t('prescription') }]} />
-        {r.replaced_by_id && <Alert tone="info">{t('replacedNotice')} <RouteLink route={to.printPrescription(r.replaced_by_id)}>{t('openCorrection')}</RouteLink></Alert>}
+        <Breadcrumbs items={[{ label: 'الزيارة', route: to.visit(r.visit_id) }, { label: 'الروشتة' }]} />
+        {r.replaced_by_id && <Alert tone="info">هذه الروشتة استُبدلت بتصحيح. <RouteLink route={to.printPrescription(r.replaced_by_id)}>فتح التصحيح</RouteLink></Alert>}
         <div className="row-end mt-sm">
-          <div className="seg" role="radiogroup" aria-label={t('paperSize')}>
+          <div className="seg" role="radiogroup" aria-label="حجم الورق">
             {(['A5', 'A4'] as Paper[]).map((p) => <button key={p} type="button" role="radio" aria-checked={paper === p} className={`seg-btn${paper === p ? ' is-on' : ''}`} onClick={() => setPaper(p)}>{p}</button>)}
           </div>
-          <Button onClick={() => window.print()}>{t('print')}</Button>
+          <Button onClick={() => window.print()}>طباعة</Button>
         </div>
       </div>
       {/* the page size follows the choice; margins stay small so A5 keeps room for the lines */}
@@ -56,10 +55,10 @@ export function PrescriptionPrint({ clinicId, id }: { clinicId: string; id?: str
           {(r.doctor.title_ar || r.doctor.title_en) && <span>{arName(r.doctor.title_ar, r.doctor.title_en)}</span>}
         </div>
         <dl className="rx-patient">
-          <div><dt>{t('patient')}</dt><dd><bdi>{r.patient?.full_name}</bdi></dd></div>
-          {age !== null && <div><dt>{t('age')}</dt><dd>{fmtNumber(age)} {t('years')}</dd></div>}
-          {r.patient && <div><dt>{t('fileNo')}</dt><dd>{fmtNumber(r.patient.file_no)}</dd></div>}
-          <div><dt>{t('date')}</dt><dd>{date}</dd></div>
+          <div><dt>المريض</dt><dd><bdi>{r.patient?.full_name}</bdi></dd></div>
+          {age !== null && <div><dt>السن</dt><dd>{fmtNumber(age)} سنة</dd></div>}
+          {r.patient && <div><dt>ملف رقم</dt><dd>{fmtNumber(r.patient.file_no)}</dd></div>}
+          <div><dt>التاريخ</dt><dd>{date}</dd></div>
         </dl>
         <div className="rx-symbol" aria-hidden>℞</div>
         <ol className="rx-items">
@@ -72,7 +71,7 @@ export function PrescriptionPrint({ clinicId, id }: { clinicId: string; id?: str
           ))}
         </ol>
         {r.notes && <p className="rx-note">{r.notes}</p>}
-        <footer className="rx-foot"><span>{t('doctorSignature')}</span></footer>
+        <footer className="rx-foot"><span>توقيع الطبيب</span></footer>
       </article>
     </>
   );

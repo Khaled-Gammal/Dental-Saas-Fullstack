@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api';
 import { useDebounced, useLeave } from '../../hooks';
-import { t, tOr, type Key } from '../../i18n';
+import { mergeMovesLabel, patientFieldLabel } from '../../labels';
 import { send, useClinicalMutation, usePatient, usePatients } from '../../queries';
 import { to } from '../../router';
 import type { PatientDetail } from '../../types';
@@ -21,7 +21,7 @@ interface MergePreview {
 
 const SHOWN = ['full_name', 'file_no', 'phone', 'date_of_birth', 'email', 'city'] as const;
 const LTR_FIELDS = new Set<string>(['phone', 'email']); // read left to right inside Arabic text
-const show = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : typeof v === 'boolean' ? t(v ? 'yes' : 'no') : String(v));
+const show = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : typeof v === 'boolean' ? v ? 'نعم' : 'لا' : String(v));
 
 /**
  * `#/patients/<id>/merge` (SRS PATIENT-003): another record of the same person is merged into this one. Everything of
@@ -43,19 +43,19 @@ export function PatientMerge({ clinicId, id }: { clinicId: string; id?: string }
   const merge = useClinicalMutation(clinicId, () => send<PatientDetail>(`/patients/${id}/merge`, 'POST', { mergedId: other }));
 
   if (!survivor.data) {
-    return <ResourceState isLoading={survivor.isLoading} isError={survivor.isError} error={survivor.error} notFound={false} refetch={() => void survivor.refetch()} back={to.list('patients')} backLabel={t('navPatients')} />;
+    return <ResourceState isLoading={survivor.isLoading} isError={survivor.isError} error={survivor.error} notFound={false} refetch={() => void survivor.refetch()} back={to.list('patients')} backLabel="المرضى" />;
   }
   const s = survivor.data;
   const rows = (search ? found.data?.pages[0]?.items ?? [] : []).filter((p) => p.id !== s.id);
   const p = preview.data;
   return (
     <>
-      <Breadcrumbs items={[{ label: t('navPatients'), route: to.list('patients') }, { label: s.full_name, route: to.view('patients', s.id) }, { label: t('mergeTitle') }]} />
-      <PageHeader title={t('mergeTitle')} sub={t('mergeSub')} />
+      <Breadcrumbs items={[{ label: 'المرضى', route: to.list('patients') }, { label: s.full_name, route: to.view('patients', s.id) }, { label: 'دمج ملف مكرر' }]} />
+      <PageHeader title="دمج ملف مكرر" sub="ملف آخر لنفس الشخص يُدمج في هذا الملف: تنتقل إليه كل المواعيد والزيارات والفواتير والمدفوعات." />
       <Card>
-        <h2>{t('mergeFind')}</h2>
+        <h2>ابحث عن الملف المكرر</h2>
         <div className="stack mt-sm">
-          <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('patientSearchHint')} aria-label={t('patientSearch')} />
+          <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="الاسم أو رقم الموبايل أو رقم الملف" aria-label="بحث عن مريض" />
           {search && (
             <ul className="pick-list" aria-busy={found.isFetching || undefined}>
               {rows.map((r) => (
@@ -63,7 +63,7 @@ export function PatientMerge({ clinicId, id }: { clinicId: string; id?: string }
                   <strong><bdi>{r.full_name}</bdi></strong><span className="muted small">#{r.file_no} · <span dir="ltr">{r.phone}</span></span>
                 </button></li>
               ))}
-              {!found.isFetching && rows.length === 0 && <li className="muted small">{t('noPatientMatch')}</li>}
+              {!found.isFetching && rows.length === 0 && <li className="muted small">لا يوجد مريض مطابق</li>}
             </ul>
           )}
         </div>
@@ -72,18 +72,18 @@ export function PatientMerge({ clinicId, id }: { clinicId: string; id?: string }
       {other && (preview.isError ? <ErrorText error={preview.error} onRetry={() => void preview.refetch()} /> : !p ? <Skeleton h={120} count={1} /> : (
         <>
           <Card>
-            <h2>{t('mergeCompare')}</h2>
+            <h2>مقارنة الملفين</h2>
             <div className="table-wrap mt">
               <table className="compare-table">
-                <thead><tr><th scope="col" /><th scope="col">{t('mergeKeeps')}</th><th scope="col">{t('mergeMovesFrom')}</th></tr></thead>
+                <thead><tr><th scope="col" /><th scope="col">هذا الملف (يبقى)</th><th scope="col">الملف المكرر</th></tr></thead>
                 <tbody>
                   {SHOWN.map((f) => {
                     const differs = p.conflicts.some((c) => c.field === f);
                     return (
                       <tr key={f} className={differs ? 'is-diff' : undefined}>
-                        <th scope="row">{tOr(`field_${f}`, f)}</th>
+                        <th scope="row">{(patientFieldLabel[f] ?? f)}</th>
                         <td><bdi dir={LTR_FIELDS.has(f) ? 'ltr' : undefined}>{show(f === 'file_no' ? fmtNumber(p.survivor.file_no) : p.survivor[f])}</bdi></td>
-                        <td><bdi dir={LTR_FIELDS.has(f) ? 'ltr' : undefined}>{show(f === 'file_no' ? fmtNumber(p.merged.file_no) : p.merged[f])}</bdi>{differs && <Badge tone="warning">{t('differs')}</Badge>}</td>
+                        <td><bdi dir={LTR_FIELDS.has(f) ? 'ltr' : undefined}>{show(f === 'file_no' ? fmtNumber(p.merged.file_no) : p.merged[f])}</bdi>{differs && <Badge tone="warning">مختلف</Badge>}</td>
                       </tr>
                     );
                   })}
@@ -91,36 +91,36 @@ export function PatientMerge({ clinicId, id }: { clinicId: string; id?: string }
               </table>
             </div>
             {p.conflicts.filter((c) => !(SHOWN as readonly string[]).includes(c.field)).map((c) => (
-              <p key={c.field} className="small mt-sm">{tOr(`field_${c.field}`, c.field)}: <bdi>{show(c.survivor)}</bdi> ← <span className="muted"><bdi>{show(c.merged)}</bdi></span></p>
+              <p key={c.field} className="small mt-sm">{(patientFieldLabel[c.field] ?? c.field)}: <bdi>{show(c.survivor)}</bdi> ← <span className="muted"><bdi>{show(c.merged)}</bdi></span></p>
             ))}
-            <p className="muted small mt-sm">{t('mergeKeepsText')}</p>
+            <p className="muted small mt-sm">تبقى بيانات هذا الملف كما هي؛ لا يُحذف الملف المكرر بل يُحوَّل إلى هذا الملف ويختفي من القوائم.</p>
           </Card>
           <Card>
-            <h2>{t('mergeWhatMoves')}</h2>
-            {Object.keys(p.moves).length === 0 ? <p className="muted small mt-sm">{t('mergeNothingMoves')}</p> : (
+            <h2>ما سينتقل إلى هذا الملف</h2>
+            {Object.keys(p.moves).length === 0 ? <p className="muted small mt-sm">لا شيء مسجل على الملف المكرر.</p> : (
               <ul className="chips mt-sm">
-                {Object.entries(p.moves).map(([table, n]) => <li key={table}><Badge>{tOr(`moves_${table}`, table)}: {fmtNumber(n)}</Badge></li>)}
+                {Object.entries(p.moves).map(([table, n]) => <li key={table}><Badge>{(mergeMovesLabel[table] ?? table)}: {fmtNumber(n)}</Badge></li>)}
               </ul>
             )}
             {p.medicalHistory && (
               <div className="mt">
-                <h3>{t('mergeHistory')}</h3>
+                <h3>التاريخ الطبي بعد الدمج</h3>
                 {(['allergies', 'conditions', 'medications'] as const).map((k) => p.medicalHistory![k].length > 0 && (
-                  <div key={k} className="history-row"><span className="muted small">{t(k as Key)}</span><span><bdi>{p.medicalHistory![k].join('، ')}</bdi></span></div>
+                  <div key={k} className="history-row"><span className="muted small">{k}</span><span><bdi>{p.medicalHistory![k].join('، ')}</bdi></span></div>
                 ))}
-                {p.medicalHistory.conflicts.length > 0 && <p className="small muted">{t('mergeHistoryKeeps')}: {p.medicalHistory.conflicts.map((c) => tOr(`field_${c.field}`, c.field)).join('، ')}</p>}
+                {p.medicalHistory.conflicts.length > 0 && <p className="small muted">تبقى قيم هذا الملف في: {p.medicalHistory.conflicts.map((c) => (patientFieldLabel[c.field] ?? c.field)).join('، ')}</p>}
               </div>
             )}
           </Card>
-          <Alert tone="danger"><AlertIcon size={16} /> {t('mergeWarning')}</Alert>
+          <Alert tone="danger"><AlertIcon size={16} /> الدمج لا يمكن التراجع عنه من لوحة التحكم. تأكد أنه نفس الشخص.</Alert>
           <ErrorText error={merge.error} />
           <div className="row-end">
-            <Button variant="danger" onClick={() => setConfirming(true)}>{t('mergeConfirm')}</Button>
+            <Button variant="danger" onClick={() => setConfirming(true)}>دمج الملفين</Button>
           </div>
-          <ConfirmDialog open={confirming} title={t('mergeConfirm')} confirmLabel={t('mergeConfirm')} danger
-            onConfirm={() => merge.mutate(undefined, { onSuccess: () => leave(t('patientsMerged')), onSettled: () => setConfirming(false) })}
+          <ConfirmDialog open={confirming} title="دمج الملفين" confirmLabel="دمج الملفين" danger
+            onConfirm={() => merge.mutate(undefined, { onSuccess: () => leave('تم دمج الملفين.'), onSettled: () => setConfirming(false) })}
             onCancel={() => setConfirming(false)}>
-            <p>{t('mergeConfirmText').replace('{from}', p.merged.full_name).replace('{to}', p.survivor.full_name)}</p>
+            <p>{'سينتقل كل ما في ملف «{from}» إلى ملف «{to}».'.replace('{from}', p.merged.full_name).replace('{to}', p.survivor.full_name)}</p>
           </ConfirmDialog>
         </>
       ))}
