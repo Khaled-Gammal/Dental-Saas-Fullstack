@@ -36,3 +36,21 @@ sidebar.
 - Lint, typecheck, 123 unit tests, build.
 - Screenshots signed in as the platform admin (password, then the emailed code from Mailpit): requests and clinics at
   1440 px, the row menu, the requests page at 390 px.
+
+## A clinic's page (same day, second request)
+
+The user sent a screenshot of `#/platform/clinics/:id` and asked to improve it too.
+
+- **Header:** breadcrumbs (العيادات › the clinic) instead of a bare link; the clinic's initials, name and status badge,
+  slug and owner email (each isolated, so they keep their order); «إيقاف العيادة» moved to the header as a red outline
+  button («إعادة تفعيل العيادة» when suspended by an admin).
+- **Figures** with icons (members, branches, patients, appointments in 30 days), two per row on a phone.
+- **Two columns** (one below 1100 px): the subscription facts as tiles, then «إدارة الاشتراك» with one row per action:
+  label and explanation on one side, the control and its button on the other (change plan; activate, when trialing,
+  past due or suspended; extend the trial, when trialing). Notes and the action history are in the side column.
+- **History** is a timeline. On a clinic's own page it no longer offers «فتح العيادة» (the page you are on), and the
+  admin's name and the date are isolated, so «Platform Admin · 2026/10/20 5:23 م» no longer scrambles in Arabic text.
+- The suspension notice and the deletion card stay above the columns, where they are seen first.
+
+Checks: lint, typecheck, 123 unit tests, build; screenshots of an active clinic and a clinic on trial at 1440 px, and
+the trial clinic at 390 px.

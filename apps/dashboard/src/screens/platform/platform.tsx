@@ -12,7 +12,8 @@ import { DataTable, type Column } from '../../ui/data-table';
 import { ShieldIcon } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
 import { AuthLayout } from '../auth';
-import { Building2, ChevronsUpDown, FileText, History, Inbox, Layers, LogOut, Mail, Phone, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Ban, Building2, CalendarDays, ChevronsUpDown, FileText, History, Inbox, Layers, LogOut, Mail, MapPin, Phone, ShieldCheck, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -323,18 +324,38 @@ function ClinicPage({ id }: { id: string }) {
   const today = new Date().toLocaleDateString('en-CA');
   return (
     <>
-      <p><a href={platformHref({ page: 'clinics' })}>العيادات</a></p>
+      <Breadcrumb aria-label="مسار الصفحة">
+        <BreadcrumbList className="gap-1 text-sm text-muted-foreground sm:gap-1.5">
+          <BreadcrumbItem><BreadcrumbLink href={platformHref({ page: 'clinics' })} className="hover:text-primary-600">العيادات</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbSeparator className="rtl:rotate-180" />
+          <BreadcrumbItem><BreadcrumbPage className="font-semibold text-ink"><bdi>{clinicName(d)}</bdi></BreadcrumbPage></BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="page-head">
-        <div>
-          <h1><bdi>{clinicName(d)}</bdi> <Badge tone={STATUS_TONE[d.status] ?? 'neutral'}>{d.deletion ? 'بانتظار الحذف' : (clinicStatusLabel[d.status])}</Badge></h1>
-          <p dir="ltr" className="muted">{d.slug} · {d.owner_email ?? '—'}</p>
+        <div className="pl-clinic-head">
+          <span className="pl-clinic-mark" aria-hidden>{initials(clinicName(d))}</span>
+          <div className="min-w-0">
+            <h1><bdi>{clinicName(d)}</bdi> <Badge tone={STATUS_TONE[d.status] ?? 'neutral'} dot>{d.deletion ? 'بانتظار الحذف' : (clinicStatusLabel[d.status])}</Badge></h1>
+            <p className="muted"><bdi dir="ltr">{d.slug}</bdi> · <bdi dir="ltr">{d.owner_email ?? '—'}</bdi></p>
+          </div>
+        </div>
+        <div className="page-actions">
+          {d.status === 'suspended'
+            ? d.suspension_kind !== 'trial_ended' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>إعادة تفعيل العيادة</Button>
+            : d.status !== 'cancelled' && <Button variant="ghost" className="pl-danger-btn" onClick={() => { setReason(''); setSuspending(true); }}><Ban className="size-4" />إيقاف العيادة</Button>}
         </div>
       </div>
-      <div className="stats">
-        {([['الأعضاء', d.members], ['الفروع', d.branches], ['المرضى', d.patients], ['مواعيد آخر 30 يومًا', d.appointments_30d]] as const).map(([k, v]) => (
-          <div key={k} className="stat"><span className="stat-text"><small>{k}</small><strong>{v}</strong></span></div>
+
+      <div className="pl-figures">
+        {([['الأعضاء', d.members, Users], ['الفروع', d.branches, MapPin], ['المرضى', d.patients, UserRound], ['مواعيد آخر 30 يومًا', d.appointments_30d, CalendarDays]] as const).map(([k, v, Icon]) => (
+          <div key={k} className="pl-figure">
+            <span className="pl-figure-icon" aria-hidden><Icon className="size-[18px]" /></span>
+            <span className="pl-figure-text"><small>{k}</small><strong>{v}</strong></span>
+          </div>
         ))}
       </div>
+
       {d.deletion && (
         <Card className="card-danger">
           <h2>طلب مالك العيادة حذفها</h2>
@@ -343,77 +364,89 @@ function ClinicPage({ id }: { id: string }) {
           <div className="mt"><Button loading={act.isPending && act.variables?.path === 'restore'} onClick={() => act.mutate({ path: 'restore' })}>استعادة العيادة</Button></div>
         </Card>
       )}
-      <Card>
-        <h2>الاشتراك</h2>
-        <dl className="detail-list mt-sm">
-          <div><dt>الخطة</dt><dd>{d.plan_name_ar ?? '—'}</dd></div>
-          <div><dt>حالة الاشتراك</dt><dd>{d.subscription_status ? clinicStatusLabel[d.subscription_status] : '—'}</dd></div>
-          {d.subscription_status === 'active' && <div><dt>نهاية الاشتراك الحالي</dt><dd>{date(d.current_period_end)} ({billingCycleLabel[d.billing_cycle ?? 'monthly']})</dd></div>}
-          <div><dt>نهاية التجربة</dt><dd>{d.trial_ends_at ? `${date(d.trial_ends_at)}${left !== null ? ` (${left >= 0 ? 'باقي {n} يوم'.replace('{n}', String(left)) : 'انتهت التجربة'})` : ''}` : '—'}</dd></div>
-          <div><dt>تاريخ التسجيل</dt><dd>{date(d.created_at)}</dd></div>
-          <div><dt>آخر دخول</dt><dd>{date(d.last_login_at)}</dd></div>
-        </dl>
-        <div className="grid-2 mt">
-          {d.subscription_status === 'trialing' && (
-            <Field label="تمديد التجربة حتى">
-              {(a) => (
-                <div className="row-start">
-                  <DatePicker id={a.id} value={until} onChange={setUntil} min={today} placeholder="اختر التاريخ" />
-                  <Button variant="secondary" disabled={!until} loading={act.isPending && act.variables?.path === 'trial'}
-                    onClick={() => act.mutate({ path: 'trial', body: { until } })}>حفظ</Button>
-                </div>
-              )}
-            </Field>
-          )}
-          {(d.subscription_status === 'trialing' || d.subscription_status === 'past_due' || d.subscription_status === 'suspended') && (
-            <Field label="تفعيل الاشتراك" hint="بعد أن تدفع العيادة: يبدأ الاشتراك اليوم لشهر أو سنة، ويرفع الإيقاف بسبب انتهاء التجربة.">
-              {(a) => (
-                <div className="row-start">
-                  <Choice id={a.id} value={cycle} onChange={setCycle} options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: billingCycleLabel[c] }))} />
-                  <Button loading={act.isPending && act.variables?.path === 'activate'} onClick={() => act.mutate({ path: 'activate', body: { cycle } })}>تفعيل</Button>
-                </div>
-              )}
-            </Field>
-          )}
-          <Field label="تغيير الخطة">
-            {(a) => (
-              <div className="row-start">
-                <Choice id={a.id} value={planId} onChange={setPlanId} placeholder="اختر الخطة"
-                  options={(plans.data ?? []).map((p) => ({ value: p.id, label: p.name_ar }))} />
-                <Button variant="secondary" disabled={!planId} loading={act.isPending && act.variables?.path === 'plan'}
-                  onClick={() => act.mutate({ path: 'plan', body: { planId } })}>حفظ</Button>
+      {d.status === 'suspended' && (
+        <Alert tone="info">
+          {d.suspension_kind === 'trial_ended' ? 'أوقفت العيادة تلقائيًا لانتهاء الفترة التجريبية دون تفعيل خطة. فعّل الاشتراك بعد الدفع، أو مدّد التجربة.' : 'العيادة موقوفة: فريقها لا يستطيع الدخول وموقعها متوقف.'}
+          {d.suspension_kind === 'manual' && d.suspension_reason && <> السبب: <bdi>{d.suspension_reason}</bdi></>}
+        </Alert>
+      )}
+
+      {/* the subscription and what can be done to it; notes and history beside them (one column on narrow screens) */}
+      <div className="pl-clinic-grid">
+        <div className="pl-clinic-main">
+          <Card>
+            <h2>الاشتراك</h2>
+            <dl className="pl-facts mt">
+              <div><dt>الخطة</dt><dd>{d.plan_name_ar ?? '—'}</dd></div>
+              <div><dt>حالة الاشتراك</dt><dd>{d.subscription_status ? clinicStatusLabel[d.subscription_status] : '—'}</dd></div>
+              {d.subscription_status === 'active' && <div><dt>نهاية الاشتراك الحالي</dt><dd>{date(d.current_period_end)} <span className="muted">({billingCycleLabel[d.billing_cycle ?? 'monthly']})</span></dd></div>}
+              <div>
+                <dt>نهاية التجربة</dt>
+                <dd>{date(d.trial_ends_at)}{left !== null && <span className={left >= 0 ? 'muted' : 'text-destructive'}> ({left >= 0 ? `${'باقي'} ${left} ${'يوم'}` : 'انتهت التجربة'})</span>}</dd>
               </div>
+              <div><dt>تاريخ التسجيل</dt><dd>{date(d.created_at)}</dd></div>
+              <div><dt>آخر دخول</dt><dd>{date(d.last_login_at)}</dd></div>
+            </dl>
+          </Card>
+
+          <Card>
+            <h2>إدارة الاشتراك</h2>
+            <div className="pl-settings mt">
+              <div className="pl-setting">
+                <div><strong>تغيير الخطة</strong><p className="muted small">الأسعار والحدود من صفحة الخطط.</p></div>
+                <div className="pl-setting-control">
+                  <Choice value={planId} onChange={setPlanId} placeholder="اختر الخطة" label="الخطة" className="h-10 w-48 bg-card"
+                    options={(plans.data ?? []).map((p) => ({ value: p.id, label: p.name_ar }))} />
+                  <Button variant="secondary" disabled={!planId} loading={act.isPending && act.variables?.path === 'plan'}
+                    onClick={() => act.mutate({ path: 'plan', body: { planId } })}>حفظ</Button>
+                </div>
+              </div>
+              {(d.subscription_status === 'trialing' || d.subscription_status === 'past_due' || d.subscription_status === 'suspended') && (
+                <div className="pl-setting">
+                  <div><strong>تفعيل الاشتراك</strong><p className="muted small">بعد أن تدفع العيادة: يبدأ الاشتراك اليوم لشهر أو سنة، ويرفع الإيقاف بسبب انتهاء التجربة.</p></div>
+                  <div className="pl-setting-control">
+                    <Choice value={cycle} onChange={setCycle} label="المدة" className="h-10 w-36 bg-card" options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: billingCycleLabel[c] }))} />
+                    <Button loading={act.isPending && act.variables?.path === 'activate'} onClick={() => act.mutate({ path: 'activate', body: { cycle } })}>تفعيل</Button>
+                  </div>
+                </div>
+              )}
+              {d.subscription_status === 'trialing' && (
+                <div className="pl-setting">
+                  <div><strong>تمديد التجربة</strong><p className="muted small">حتى يوم تختاره، من اليوم فصاعدًا.</p></div>
+                  <div className="pl-setting-control">
+                    <DatePicker value={until} onChange={setUntil} min={today} placeholder="اختر التاريخ" label="تمديد التجربة حتى" />
+                    <Button variant="secondary" disabled={!until} loading={act.isPending && act.variables?.path === 'trial'}
+                      onClick={() => act.mutate({ path: 'trial', body: { until } })}>حفظ</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <ErrorText error={act.error} />
+          </Card>
+        </div>
+
+        <div className="pl-clinic-side">
+          <Card>
+            <h2>ملاحظات المنصة</h2>
+            <p className="muted small">لا تراها العيادة.</p>
+            <form className="stack mt-sm" onSubmit={(e) => { e.preventDefault(); if (note.trim()) addNote.mutate(); }}>
+              <TextArea value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={3} aria-label="ملاحظة جديدة" placeholder="اكتب ملاحظة…" />
+              <ErrorText error={addNote.error} />
+              <div className="row-end"><Button type="submit" variant="secondary" loading={addNote.isPending} disabled={!note.trim()}>إضافة</Button></div>
+            </form>
+            {d.notes.length > 0 && (
+              <ul className="pl-notes mt">
+                {d.notes.map((n) => <li key={n.id}><p><bdi>{n.body}</bdi></p><span className="muted small"><bdi>{n.author}</bdi> · <bdi>{when(n.created_at)}</bdi></span></li>)}
+              </ul>
             )}
-          </Field>
+          </Card>
+          <Card>
+            <h2>سجل الإجراءات</h2>
+            <AuditList rows={d.history} showClinic={false} />
+          </Card>
         </div>
-        <div className="row-end mt">
-          {d.status === 'suspended'
-            ? d.suspension_kind !== 'trial_ended' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>إعادة تفعيل العيادة</Button>
-            : d.status !== 'cancelled' && <Button variant="secondary" onClick={() => { setReason(''); setSuspending(true); }}>إيقاف العيادة</Button>}
-        </div>
-        {d.status === 'suspended' && (
-          <Alert tone="info">
-            {d.suspension_kind === 'trial_ended' ? 'أوقفت العيادة تلقائيًا لانتهاء الفترة التجريبية دون تفعيل خطة. فعّل الاشتراك بعد الدفع، أو مدّد التجربة.' : 'العيادة موقوفة: فريقها لا يستطيع الدخول وموقعها متوقف.'}
-            {d.suspension_kind === 'manual' && d.suspension_reason && <> السبب: <bdi>{d.suspension_reason}</bdi></>}
-          </Alert>
-        )}
-        <ErrorText error={act.error} />
-      </Card>
-      <Card>
-        <h2>ملاحظات المنصة</h2>
-        <form className="stack mt-sm" onSubmit={(e) => { e.preventDefault(); if (note.trim()) addNote.mutate(); }}>
-          <Field label="ملاحظة جديدة (لا تراها العيادة)">{(a) => <TextArea id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />}</Field>
-          <ErrorText error={addNote.error} />
-          <div className="row-end"><Button type="submit" variant="secondary" loading={addNote.isPending} disabled={!note.trim()}>إضافة</Button></div>
-        </form>
-        <ul className="line-list mt">
-          {d.notes.map((n) => <li key={n.id}><span><bdi>{n.body}</bdi><span className="muted small block">{n.author} · {when(n.created_at)}</span></span></li>)}
-        </ul>
-      </Card>
-      <Card>
-        <h2>سجل الإجراءات</h2>
-        <AuditList rows={d.history} />
-      </Card>
+      </div>
+
       <ConfirmDialog open={suspending} title="إيقاف العيادة" confirmLabel="إيقاف العيادة" danger
         onConfirm={() => { if (reason.trim().length >= 3) { setSuspending(false); act.mutate({ path: 'suspend', body: { reason: reason.trim() } }); } }}
         onCancel={() => setSuspending(false)}>
@@ -424,21 +457,24 @@ function ClinicPage({ id }: { id: string }) {
   );
 }
 
-function AuditList({ rows }: { rows: AuditRow[] }) {
+/** Platform actions, newest first, as a timeline. On a clinic's own page the link to that clinic is left out. */
+function AuditList({ rows, showClinic = true }: { rows: AuditRow[]; showClinic?: boolean }) {
   if (!rows.length) return <p className="muted small mt-sm">لا إجراءات بعد.</p>;
   return (
-    <ul className="line-list mt-sm">
+    <ol className="pl-timeline mt">
       {rows.map((r) => (
         <li key={r.id}>
-          <span>
+          <span className="pl-timeline-dot" aria-hidden />
+          <div className="min-w-0">
             <strong>{platformActionLabel[r.action.replace('.', '_')]}</strong>
             {typeof r.details?.reason === 'string' && <> — <bdi>{r.details.reason}</bdi></>}
-            <span className="muted small block">{r.actor ?? 'النظام'} · {when(r.created_at)}</span>
-          </span>
-          {r.tenant_id && <span className="line-end"><a href={platformHref({ page: 'clinic', id: r.tenant_id })}>فتح العيادة</a></span>}
+            {/* bdi: a Latin name next to an Arabic date would otherwise scramble the order */}
+            <span className="muted small block"><bdi>{r.actor ?? 'النظام'}</bdi> · <bdi>{when(r.created_at)}</bdi></span>
+          </div>
+          {showClinic && r.tenant_id && <a className="pl-timeline-link small" href={platformHref({ page: 'clinic', id: r.tenant_id })}>فتح العيادة</a>}
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }
 
