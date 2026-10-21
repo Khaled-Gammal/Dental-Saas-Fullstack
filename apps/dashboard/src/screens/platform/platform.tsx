@@ -6,11 +6,19 @@ import { DatePicker } from '../../components/date-picker';
 import { billingCycleLabel, clinicStatusLabel, leadStatusLabel, legalDocLabel, planFeatureLabel, planLimitLabel, platformActionLabel } from '../../labels';
 import { money } from '../../money';
 import { filterClinics, filterLeads, LEAD_STATUSES, papi, platformHref, trialDaysLeft, type LeadStatus, type PlatformRoute } from '../../platform-model';
-import { Alert, Badge, Button, Card, ErrorText, Field, Input, OtpInput, PageHeader, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
+import { Alert, Badge, Button, Card, ErrorText, Field, initials, Input, OtpInput, PageHeader, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { DataTable, type Column } from '../../ui/data-table';
 import { ShieldIcon } from '../../ui/icons';
+import { RowMenu } from '../../ui/row-menu';
 import { AuthLayout } from '../auth';
+import { Building2, ChevronsUpDown, FileText, History, Inbox, Layers, LogOut, Mail, Phone, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Separator } from '@/components/ui/separator';
+import {
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuBadge,
+  SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar,
+} from '@/components/ui/sidebar';
 
 interface Me { id: string; name: string; email: string }
 interface Clinic {
@@ -108,25 +116,122 @@ function PlatformLogin() {
   );
 }
 
+type PlatformPage = Exclude<PlatformRoute['page'], 'clinic'>;
+const PLATFORM_NAV: { page: PlatformPage; label: string; icon: LucideIcon }[] = [
+  { page: 'clinics', label: 'العيادات', icon: Building2 },
+  { page: 'leads', label: 'طلبات التواصل', icon: Inbox },
+  { page: 'plans', label: 'الخطط', icon: Layers },
+  { page: 'legal', label: 'المستندات القانونية', icon: FileText },
+  { page: 'activity', label: 'السجل', icon: History },
+];
+const NAV_ACTIVE = 'data-[active=true]:bg-primary-50 data-[active=true]:text-primary-700 data-[active=true]:font-semibold data-[active=true]:[&>svg]:text-primary-500';
+
+/**
+ * The panel's shell, like the clinic dashboard's (redesign R1): shadcn/ui's Sidebar on the right, collapsible to icons on
+ * desktop and a sheet on phones; the header with the toggle and the page's name. New contact requests are counted beside
+ * their page.
+ */
 function PlatformShell({ me, route, children }: { me: Me; route: PlatformRoute; children: ReactNode }) {
+  const current: PlatformPage = route.page === 'clinic' ? 'clinics' : route.page;
+  const newLeads = useQuery({ queryKey: [...KEY, 'leads'], queryFn: () => papi<Lead[]>('/platform/leads') }).data?.filter((l) => l.status === 'new').length ?? 0;
+  return (
+    <SidebarProvider>
+      <Sidebar side="right" collapsible="icon" aria-label="لوحة إدارة المنصة">
+        <SidebarHeader className="p-3">
+          <div className="flex items-center gap-2.5 px-1 pt-1">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-accent text-white"><ShieldCheck className="size-[18px]" /></span>
+            <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
+              <strong className="truncate text-sm text-ink">لوحة إدارة المنصة</strong>
+              <small className="truncate text-xs text-muted-foreground">منصة الأسنان</small>
+            </span>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupContent><PlatformNav current={current} newLeads={newLeads} /></SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter><AdminMenu me={me} /></SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset className="min-w-0 bg-surface">
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
+          <SidebarTrigger className="-ms-1 size-9" aria-label="القائمة" />
+          <Separator orientation="vertical" className="h-5" />
+          <span className="truncate font-semibold text-ink">{PLATFORM_NAV.find((n) => n.page === current)?.label}</span>
+        </header>
+        <main className="platform-main">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
+
+function PlatformNav({ current, newLeads }: { current: PlatformPage; newLeads: number }) {
+  const { setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenu>
+      {PLATFORM_NAV.map(({ page, label, icon: Icon }) => (
+        <SidebarMenuItem key={page}>
+          <SidebarMenuButton asChild isActive={current === page} tooltip={label} className={`h-9 text-sm text-sidebar-foreground ${NAV_ACTIVE}`}>
+            <a href={platformHref({ page } as PlatformRoute)} aria-current={current === page ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
+              <Icon /><span>{label}</span>
+            </a>
+          </SidebarMenuButton>
+          {page === 'leads' && newLeads > 0 && (
+            <SidebarMenuBadge className="right-auto left-1 rounded-full bg-primary-50 px-2 text-[0.6875rem] text-primary-700" aria-label={`${newLeads} ${'جديد'}`}>{newLeads}</SidebarMenuBadge>
+          )}
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
+}
+
+/** The admin at the foot of the sidebar; signing out from its menu. */
+function AdminMenu({ me }: { me: Me }) {
   const qc = useQueryClient();
   const out = useMutation({ mutationFn: () => papi('/platform/auth/logout', { method: 'POST' }), onSettled: () => qc.removeQueries({ queryKey: KEY }) });
-  const tab = (r: PlatformRoute, label: string) => (
-    <a href={platformHref(r)} className={`seg-btn${route.page === r.page || (r.page === 'clinics' && route.page === 'clinic') ? ' is-on' : ''}`}>{label}</a>
-  );
   return (
-    <div className="platform">
-      <header className="platform-bar">
-        <strong><ShieldIcon size={18} /> لوحة إدارة المنصة</strong>
-        <nav className="seg" aria-label="لوحة إدارة المنصة">
-          {tab({ page: 'clinics' }, 'العيادات')}{tab({ page: 'leads' }, 'طلبات التواصل')}{tab({ page: 'plans' }, 'الخطط')}{tab({ page: 'legal' }, 'المستندات القانونية')}{tab({ page: 'activity' }, 'السجل')}
-        </nav>
-        <span className="row-end">
-          <span className="muted small"><bdi>{me.name}</bdi></span>
-          <Button variant="ghost" loading={out.isPending} onClick={() => out.mutate()}>خروج</Button>
-        </span>
-      </header>
-      <main className="platform-main">{children}</main>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu dir="rtl">
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton size="lg" tooltip={me.name} className="data-[state=open]:bg-sidebar-accent">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">{initials(me.name)}</span>
+              <span className="flex min-w-0 flex-1 flex-col text-start leading-tight">
+                <strong className="truncate text-sm text-ink"><bdi>{me.name}</bdi></strong>
+                <small className="truncate text-xs text-muted-foreground" dir="ltr">{me.email}</small>
+              </span>
+              <ChevronsUpDown className="ms-auto size-4 text-muted-foreground" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="end" className="w-(--radix-dropdown-menu-trigger-width) min-w-56">
+            <DropdownMenuItem disabled={out.isPending} onSelect={() => out.mutate()} className="text-destructive focus:text-destructive">
+              <LogOut className="text-destructive" />خروج
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+type Tone = 'neutral' | 'primary' | 'success' | 'warning';
+/**
+ * Figures that filter the table under them (Untitled UI's metric cards): a press shows that status only, pressing it
+ * again (or «الكل») shows everything.
+ */
+function StatusCards({ label, items, value, onChange }: {
+  label: string; items: { value: string; label: string; count: number; tone: Tone }[]; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="pl-status" role="group" aria-label={label}>
+      {items.map((it) => (
+        <button key={it.value} type="button" aria-pressed={value === it.value} className={`pl-status-card tone-${it.tone}${value === it.value ? ' is-on' : ''}`}
+          onClick={() => onChange(value === it.value ? 'all' : it.value)}>
+          <span className="pl-status-label"><span className="pl-dot" aria-hidden />{it.label}</span>
+          <strong>{it.count}</strong>
+        </button>
+      ))}
     </div>
   );
 }
@@ -166,11 +271,10 @@ function ClinicsPage() {
     <>
       <PageHeader title="العيادات" sub="كل العيادات على المنصة: الخطة والحالة والأرقام (بدون بيانات المرضى)." count={clinics.data?.length} />
       {clinics.data && (
-        <div className="stats">
-          {(['trialing', 'active', 'past_due', 'suspended'] as const).map((s) => (
-            <div key={s} className="stat"><span className="stat-text"><small>{clinicStatusLabel[s]}</small><strong>{count(s)}</strong></span></div>
-          ))}
-        </div>
+        <StatusCards label="حالة العيادات" value={status} onChange={setStatus} items={[
+          { value: 'all', label: 'كل العيادات', count: clinics.data.length, tone: 'neutral' },
+          ...(['trialing', 'active', 'past_due', 'suspended'] as const).map((s) => ({ value: s, label: clinicStatusLabel[s], count: count(s), tone: STATUS_TONE[s] })),
+        ]} />
       )}
       <DataTable
         label="العيادات"
@@ -227,7 +331,7 @@ function ClinicPage({ id }: { id: string }) {
         </div>
       </div>
       <div className="stats">
-        {([['pl_members', d.members], ['pl_branches', d.branches], ['pl_patients', d.patients], ['pl_appointments30', d.appointments_30d]] as const).map(([k, v]) => (
+        {([['الأعضاء', d.members], ['الفروع', d.branches], ['المرضى', d.patients], ['مواعيد آخر 30 يومًا', d.appointments_30d]] as const).map(([k, v]) => (
           <div key={k} className="stat"><span className="stat-text"><small>{k}</small><strong>{v}</strong></span></div>
         ))}
       </div>
@@ -370,28 +474,33 @@ function LeadsPage() {
   const rows = leads.data ? filterLeads(leads.data, q, status) : undefined;
   const count = (s: LeadStatus) => leads.data?.filter((l) => l.status === s).length ?? 0;
   const columns: Column<Lead>[] = [
-    { id: 'received', header: 'وصل في', sortValue: (l) => l.created_at, cell: (l) => <span className="whitespace-nowrap">{when(l.created_at)}</span> },
     {
       id: 'person', header: 'صاحب الطلب', sortValue: (l) => l.full_name,
       cell: (l) => (
-        <>
-          <strong><bdi>{l.full_name}</bdi></strong>
-          <span className="block">
-            <Badge tone={l.kind === 'subscribe' ? 'success' : 'neutral'}>
-              {l.kind === 'subscribe' ? 'طلب اشتراك · {cycle}'.replace('{cycle}', l.billing_cycle === 'yearly' ? 'سنوي' : 'شهري') : 'طلب اتصال'}
-            </Badge>
-            {l.clinic_id && <> <a className="small" href={platformHref({ page: 'clinic', id: l.clinic_id })}>صفحة العيادة</a></>}
+        <span className="pl-person">
+          <span className="pl-avatar" aria-hidden>{initials(l.full_name)}</span>
+          <span className="min-w-0">
+            <strong className="block"><bdi>{l.full_name}</bdi></strong>
+            {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
           </span>
-          {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
-          {l.message && <span className="small block" style={{ whiteSpace: 'pre-wrap', maxWidth: 420 }}><bdi>{l.message}</bdi></span>}
-        </>
+        </span>
       ),
     },
+    {
+      id: 'kind', header: 'النوع', hideOnMobile: true, sortValue: (l) => l.kind,
+      cell: (l) => (
+        <Badge tone={l.kind === 'subscribe' ? 'success' : 'neutral'}>
+          {l.kind === 'subscribe' ? `${'طلب اشتراك'} · ${l.billing_cycle === 'yearly' ? 'سنوي' : 'شهري'}` : 'طلب اتصال'}
+        </Badge>
+      ),
+    },
+    // two lines at most; the whole message is in the tooltip
+    { id: 'message', header: 'الرسالة', hideOnMobile: true, cell: (l) => (l.message ? <span className="pl-message" title={l.message}><bdi>{l.message}</bdi></span> : <span className="muted">—</span>) },
     {
       id: 'contact', header: 'التواصل',
       cell: (l) => (
         <>
-          <a href={`tel:${l.phone}`} dir="ltr">{l.phone}</a>
+          <a href={`tel:${l.phone}`} dir="ltr" className="whitespace-nowrap">{l.phone}</a>
           {l.email && <a className="small block" href={`mailto:${l.email}`} dir="ltr">{l.email}</a>}
         </>
       ),
@@ -402,23 +511,20 @@ function LeadsPage() {
       cell: (l) => (
         <>
           <Badge tone={LEAD_TONE[l.status]} dot>{leadStatusLabel[l.status]}</Badge>
-          <Choice value={l.status} label="الحالة" className="h-9 w-full min-w-36 bg-card mt-sm" disabled={move.isPending}
-            onChange={(v) => { if (v !== l.status) move.mutate({ id: l.id, to: v as LeadStatus }); }}
-            options={LEAD_STATUSES.map((s) => ({ value: s, label: leadStatusLabel[s] }))} />
-          {l.updated_by_name && <span className="muted small block">{'آخر تغيير: {name}'.replace('{name}', l.updated_by_name)}</span>}
+          {l.updated_by_name && <span className="muted small block">{l.updated_by_name}</span>}
         </>
       ),
     },
+    { id: 'received', header: 'وصل في', hideOnMobile: true, sortValue: (l) => l.created_at, cell: (l) => <span className="muted whitespace-nowrap">{when(l.created_at)}</span> },
   ];
   return (
     <>
-      <PageHeader title="طلبات التواصل" sub="العيادات التي طلبت اتصالًا من صفحة المنصة، الأحدث أولًا. غيّر الحالة بعد كل خطوة." />
+      <PageHeader title="طلبات التواصل" sub="العيادات التي طلبت اتصالًا من صفحة المنصة، الأحدث أولًا. غيّر الحالة بعد كل خطوة." count={leads.data?.length} />
       {leads.data && (
-        <div className="stats">
-          {LEAD_STATUSES.map((s) => (
-            <div key={s} className="stat"><span className="stat-text"><small>{leadStatusLabel[s]}</small><strong>{count(s)}</strong></span></div>
-          ))}
-        </div>
+        <StatusCards label="حالة الطلبات" value={status} onChange={setStatus} items={[
+          { value: 'all', label: 'كل الطلبات', count: leads.data.length, tone: 'neutral' },
+          ...LEAD_STATUSES.map((s) => ({ value: s, label: leadStatusLabel[s], count: count(s), tone: LEAD_TONE[s] })),
+        ]} />
       )}
       {move.isError && <ErrorText error={move.error} />}
       <DataTable
@@ -430,11 +536,17 @@ function LeadsPage() {
         error={leads.isError ? leads.error : undefined}
         onRetry={() => void leads.refetch()}
         search={{ placeholder: 'الاسم أو العيادة أو المدينة أو الرقم', value: q, onChange: setQ }}
-        toolbar={(
-          <Choice value={status} onChange={setStatus} label="الحالة" className="h-10 w-48 bg-card"
-            options={['all', ...LEAD_STATUSES].map((s) => ({ value: s, label: s === 'all' ? 'كل الحالات' : (leadStatusLabel[s]) }))} />
-        )}
         pageSize={25}
+        isFetching={move.isPending}
+        // reach the person, open their clinic, then move the request on (the status was a dropdown in every row)
+        actions={(l) => (
+          <RowMenu label={l.full_name} actions={[
+            { label: 'اتصال', icon: <Phone className="size-4" />, onSelect: () => { window.location.href = `tel:${l.phone}`; } },
+            { label: 'إرسال بريد', icon: <Mail className="size-4" />, hidden: !l.email, onSelect: () => { window.location.href = `mailto:${l.email}`; } },
+            { label: 'صفحة العيادة', icon: <Building2 className="size-4" />, hidden: !l.clinic_id, onSelect: () => { window.location.hash = platformHref({ page: 'clinic', id: l.clinic_id! }); } },
+            ...LEAD_STATUSES.filter((s) => s !== l.status).map((s) => ({ label: `${'نقل إلى'}: ${leadStatusLabel[s]}`, onSelect: () => move.mutate({ id: l.id, to: s }) })),
+          ]} />
+        )}
         empty={{ icon: <ShieldIcon size={28} />, title: 'لا توجد طلبات', text: 'تظهر هنا طلبات التواصل التي تصل من نموذج صفحة المنصة.' }}
       />
     </>

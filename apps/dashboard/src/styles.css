@@ -633,11 +633,22 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .perm-list .check input { margin-top: 4px; flex: none; }
 
 /* H5: the platform admin panel (#/platform) — a top bar instead of the clinic sidebar */
-.platform { min-height: 100vh; background: var(--surface); }
-.platform-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 12px 24px;
-  background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
-.platform-bar > strong { display: inline-flex; align-items: center; gap: 8px; }
-.platform-bar .seg a { text-decoration: none; }
+/* platform panel (2026-10-21): status figures that filter the table, the person cell, a two-line message */
+.pl-status { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.pl-status-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 16px; text-align: start; font: inherit; color: var(--ink); cursor: pointer;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); transition: border-color var(--t-fast), box-shadow var(--t-fast); }
+.pl-status-card:hover { border-color: var(--primary-300); }
+.pl-status-card.is-on { border-color: var(--primary-500); box-shadow: 0 0 0 1px var(--primary-500), var(--shadow-sm); }
+.pl-status-card:focus-visible { outline: 0; box-shadow: var(--ring); }
+.pl-status-label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-sm); font-weight: 500; }
+.pl-status-card strong { font-size: var(--fs-2xl); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
+.tone-primary .pl-dot { background: var(--primary-500); }
+.tone-success .pl-dot { background: var(--success); }
+.tone-warning .pl-dot { background: var(--warning); }
+.pl-person { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pl-avatar { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: var(--primary-50); color: var(--primary-700); font-size: var(--fs-xs); font-weight: 700; }
+.pl-message { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 340px; white-space: pre-wrap; font-size: var(--fs-sm); }
 .platform-main { padding: clamp(16px, 2vw, 28px) clamp(16px, 2.5vw, 32px); display: grid; gap: 16px; min-width: 0; } /* full width, as the clinic pages (U1) */
 
 /* H6: legal documents — the reading page and the consent line */
