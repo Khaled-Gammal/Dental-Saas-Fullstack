@@ -147,8 +147,7 @@ export class PlatformService {
 
   // ---------- plans (ADM-04) ----------
   plans() {
-    this.admin();
-    return this.repo.plans();
+    return this.repo.plans(this.admin());
   }
 
   /** Prices, trial length, limits and features of a plan; limits and features merge into what the plan has (in the database). */
@@ -162,6 +161,6 @@ export class PlatformService {
       ...(input.features && { features: input.features }),
       ...(input.isPublic !== undefined && { is_public: input.isPublic }),
     }, ip);
-    return (await this.repo.plans()).find((p) => p.id === id);
+    return (await this.repo.plans(this.admin())).find((p) => p.id === id);
   }
 }

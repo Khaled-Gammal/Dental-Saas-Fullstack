@@ -130,13 +130,19 @@ export class PlatformRepository {
   }
 
   // ---------- plans (ADM-04) ----------
-  plans() {
-    return this.db.selectFrom('plans as p')
-      .select(['p.id', 'p.code', 'p.name_ar', 'p.name_en', 'p.price_monthly_minor', 'p.price_yearly_minor', 'p.currency', 'p.trial_days', 'p.limits',
-        'p.features', 'p.is_public', 'p.sort_order',
-        sql<number>`(select count(*)::int from subscriptions s where s.plan_id = p.id and s.status <> 'cancelled')`.as('clinics')])
-      .orderBy('p.sort_order').orderBy('p.price_monthly_minor').execute()
-      .then((rows) => rows.map((r) => ({ ...r, price_monthly_minor: Number(r.price_monthly_minor), price_yearly_minor: Number(r.price_yearly_minor) })));
+  /** Every plan with how many clinics are on it (counted by platform_plan_clinics: row-level security hides subscriptions here). */
+  async plans(actor: string) {
+    const [rows, counts] = await Promise.all([
+      this.db.selectFrom('plans as p')
+        .select(['p.id', 'p.code', 'p.name_ar', 'p.name_en', 'p.price_monthly_minor', 'p.price_yearly_minor', 'p.currency', 'p.trial_days', 'p.limits',
+          'p.features', 'p.is_public', 'p.sort_order'])
+        .orderBy('p.sort_order').orderBy('p.price_monthly_minor').execute(),
+      sql<{ plan_id: string; clinics: number }>`select * from platform_plan_clinics(${actor}::uuid)`.execute(this.db),
+    ]);
+    const clinics = new Map(counts.rows.map((c) => [c.plan_id, c.clinics]));
+    return rows.map((r) => ({
+      ...r, price_monthly_minor: Number(r.price_monthly_minor), price_yearly_minor: Number(r.price_yearly_minor), clinics: clinics.get(r.id) ?? 0,
+    }));
   }
 
   /** `changes`: name_ar, price_monthly_minor, price_yearly_minor, trial_days, limits, features, is_public (any of them) */

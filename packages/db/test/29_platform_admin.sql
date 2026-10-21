@@ -13,6 +13,10 @@ CREATE TEMP TABLE c AS SELECT * FROM platform_clinics('b0000000-0000-0000-0000-0
 SELECT test.ok((SELECT count(*) >= 2 FROM c), 'the admin lists every clinic');
 SELECT test.ok((SELECT members >= 4 AND patients > 0 AND plan_code IS NOT NULL AND owner_email = 'owner.a@demo.test' FROM c WHERE slug = 'clinic-a'),
   'with plan, member and patient counts and the owner''s email');
+-- clinics per plan (the plans page): counted past row-level security, for admins only
+SELECT test.ok((SELECT coalesce(sum(clinics), 0) >= 2 FROM platform_plan_clinics('b0000000-0000-0000-0000-0000000000f1')),
+  'the admin sees how many clinics each plan has');
+SELECT test.throws($$SELECT * FROM platform_plan_clinics('b0000000-0000-0000-0000-0000000000a1')$$, 'not a platform admin', 'a clinic owner does not');
 
 -- suspend clinic B: its staff are cut off at their next request and its website is offline
 RESET ROLE;

@@ -54,3 +54,25 @@ The user sent a screenshot of `#/platform/clinics/:id` and asked to improve it t
 
 Checks: lint, typecheck, 123 unit tests, build; screenshots of an active clinic and a clinic on trial at 1440 px, and
 the trial clinic at 390 px.
+
+## The plans page (same day, third request)
+
+The user sent a screenshot of `#/platform/plans` (two long forms of open inputs) and asked to improve it.
+
+- **Plans as pricing cards**, side by side: name and code, «تظهر في صفحة الأسعار» or «مخفية», how many clinics are on
+  it; the monthly price large, the yearly price with what it saves against twelve months (shown only, no stored
+  figure), trial days; the limits with icons (storage in GB from 1 GB, «غير محدود» when empty); the features as ✓/✗.
+- **«تعديل الخطة» opens a dialog** with the same fields in three sections (name and prices, limits, features and
+  visibility). It is mounted per opening, so cancelling discards the edits; it closes on save. Same API body as before.
+
+**Bug fixed: every plan said «0 عيادة على هذه الخطة».** The API counted subscriptions as app_user, where row-level
+security hides all of them (no clinic is selected in the panel). Migration `20261116000038_platform_plan_clinics` adds
+`platform_plan_clinics(actor)`, like `platform_clinics()`: platform admins only, run as app_definer, numbers only.
+`GET /platform/plans` merges its counts. DB test (`29_platform_admin.sql`, 2 new checks: the counts, and a clinic owner
+refused) and an e2e check (the seeded clinics are counted). The migration rolls back cleanly.
+
+Checks: lint, typecheck (dashboard and API), 123 unit tests, build, DB tests (583), the platform e2e suite (8 pass).
+Screenshots: the cards at 1440 px, the edit dialog, the dialog at 390 px.
+
+A local note: the platform e2e suite had been failing locally; it passes once the admin's sign-in counters in Redis are
+cleared, since the dev panel and the tests share that Redis.

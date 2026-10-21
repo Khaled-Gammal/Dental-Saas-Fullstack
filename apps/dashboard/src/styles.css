@@ -684,6 +684,32 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .pl-timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: 4px; top: 14px; bottom: 0; width: 2px; background: var(--line); }
 .pl-timeline-dot { width: 10px; height: 10px; margin-top: 6px; flex-shrink: 0; border-radius: 50%; background: var(--primary-500); box-shadow: 0 0 0 3px var(--primary-50); }
 .pl-timeline-link { margin-inline-start: auto; white-space: nowrap; }
+/* platform panel: plans as pricing cards, edited in a dialog */
+.pl-plans { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: stretch; }
+.pl-plan { display: flex; flex-direction: column; gap: 14px; }
+.pl-plan-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pl-plan-head h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-lg); }
+.pl-code { display: inline-block; padding: 1px 8px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: var(--fs-xs); font-weight: 500; }
+.pl-price { display: flex; align-items: baseline; gap: 6px; }
+.pl-price strong { font-size: var(--fs-2xl); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pl-price-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -8px 0 0; }
+.pl-limits, .pl-features { list-style: none; margin: 0; padding: 0; display: grid; }
+.pl-limits { padding-top: 12px; border-top: 1px solid var(--line); gap: 8px; }
+.pl-limits li { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.pl-limits li svg { color: var(--primary-500); flex-shrink: 0; }
+.pl-limits li strong { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
+.pl-features { padding-top: 12px; border-top: 1px solid var(--line); gap: 6px; flex: 1; align-content: start; }
+.pl-features li { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--faint); }
+.pl-features li.is-on { color: var(--ink); }
+.pl-features li.is-on svg { color: var(--success); }
+.pl-plan-form { display: grid; gap: 20px; }
+.pl-plan-form section { display: grid; gap: 10px; }
+.pl-plan-form section + section { padding-top: 18px; border-top: 1px solid var(--line); }
+.pl-plan-form h3 { margin: 0; font-size: var(--fs-md); font-weight: 700; }
+.pl-plan-form section > p { margin: -6px 0 0; }
+.pl-limit-fields { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.pl-switches { display: grid; gap: 10px; }
+.pl-plan-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .platform-main { padding: clamp(16px, 2vw, 28px) clamp(16px, 2.5vw, 32px); display: grid; gap: 16px; min-width: 0; } /* full width, as the clinic pages (U1) */
 
 /* H6: legal documents — the reading page and the consent line */

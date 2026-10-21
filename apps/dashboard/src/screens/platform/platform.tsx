@@ -12,7 +12,11 @@ import { DataTable, type Column } from '../../ui/data-table';
 import { ShieldIcon } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
 import { AuthLayout } from '../auth';
-import { Ban, Building2, CalendarDays, ChevronsUpDown, FileText, History, Inbox, Layers, LogOut, Mail, MapPin, Phone, ShieldCheck, UserRound, Users, type LucideIcon } from 'lucide-react';
+import {
+  Ban, Building2, CalendarDays, Check, ChevronsUpDown, FileText, HardDrive, History, Inbox, Layers, LogOut, Mail, MapPin, Pencil, Phone, ShieldCheck, Stethoscope,
+  UserRound, Users, X, type LucideIcon,
+} from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
@@ -656,18 +660,80 @@ function LegalAdminPage() {
 // ---------- ADM-04 plans ----------
 function PlansPage() {
   const plans = useQuery({ queryKey: [...KEY, 'plans'], queryFn: () => papi<Plan[]>('/platform/plans') });
+  const [editing, setEditing] = useState<Plan | null>(null);
   return (
     <>
-      <PageHeader title="الخطط" sub="أسعار الخطط ومدة التجربة والحدود والمزايا. التغيير يسري على كل عيادة على الخطة." />
-      {plans.isError ? <ErrorText error={plans.error} /> : !plans.data ? <Skeleton h={96} count={2} /> : plans.data.map((p) => <PlanCard key={p.id} p={p} />)}
+      <PageHeader title="الخطط" sub="أسعار الخطط ومدة التجربة والحدود والمزايا. التغيير يسري على كل عيادة على الخطة." count={plans.data?.length} />
+      {plans.isError ? <ErrorText error={plans.error} /> : !plans.data ? <Skeleton h={96} count={2} /> : (
+        <div className="pl-plans">
+          {plans.data.map((p) => <PlanCard key={p.id} p={p} onEdit={() => setEditing(p)} />)}
+        </div>
+      )}
+      {/* keyed: each opening starts from the plan as saved */}
+      {editing && <PlanEditDialog key={editing.id} p={editing} onClose={() => setEditing(null)} />}
     </>
+  );
+}
+
+const LIMIT_ICON: Record<(typeof LIMIT_KEYS)[number], LucideIcon> = { branches: MapPin, staff: Users, doctors: Stethoscope, patients: UserRound, storage_mb: HardDrive };
+const LIMIT_TITLE: Record<(typeof LIMIT_KEYS)[number], string> = { branches: 'الفروع', staff: 'أعضاء الفريق', doctors: 'الأطباء', patients: 'المرضى', storage_mb: 'مساحة الملفات' };
+const fmt = (n: number) => n.toLocaleString('en-US');
+/** A limit as people read it: "غير محدود", "2,000", storage in GB from 1 GB up. */
+function limitText(key: (typeof LIMIT_KEYS)[number], v: number | null | undefined): string {
+  if (v == null) return 'غير محدود';
+  if (key === 'storage_mb') return v >= 1024 ? `${fmt(Math.round((v / 1024) * 10) / 10)} ${'جيجابايت'}` : `${fmt(v)} ${'ميجابايت'}`;
+  return fmt(v);
+}
+
+/** One plan as a pricing card: what a clinic pays and gets; editing opens a dialog. */
+function PlanCard({ p, onEdit }: { p: Plan; onEdit: () => void }) {
+  // what a year costs against twelve months, shown only (prices themselves are set by the admin)
+  const saving = p.price_monthly_minor > 0 ? Math.round((1 - p.price_yearly_minor / (p.price_monthly_minor * 12)) * 100) : 0;
+  return (
+    <Card className="pl-plan">
+      <div className="pl-plan-head">
+        <div className="min-w-0">
+          <h2>{p.name_ar} <span className="pl-code" dir="ltr">{p.code}</span></h2>
+          <span className="muted small">{p.clinics} {p.clinics >= 3 && p.clinics <= 10 ? 'عيادات' : 'عيادة'} على هذه الخطة</span>
+        </div>
+        <Badge tone={p.is_public ? 'success' : 'neutral'} dot>{p.is_public ? 'تظهر في صفحة الأسعار' : 'مخفية'}</Badge>
+      </div>
+
+      <div className="pl-price">
+        <strong>{money(p.price_monthly_minor, p.currency)}</strong><span className="muted">/ شهريًا</span>
+      </div>
+      <p className="muted small pl-price-sub">
+        {money(p.price_yearly_minor, p.currency)} سنويًا
+        {saving > 0 && <Badge tone="success">توفير {saving}%</Badge>}
+        <span>· تجربة {p.trial_days} {p.trial_days >= 3 && p.trial_days <= 10 ? 'أيام' : 'يومًا'}</span>
+      </p>
+
+      <ul className="pl-limits">
+        {LIMIT_KEYS.map((k) => {
+          const Icon = LIMIT_ICON[k];
+          return <li key={k}><Icon className="size-4" aria-hidden /><span>{LIMIT_TITLE[k]}</span><strong>{limitText(k, p.limits[k])}</strong></li>;
+        })}
+      </ul>
+
+      <ul className="pl-features">
+        {FEATURE_KEYS.map((k) => (
+          <li key={k} className={p.features[k] ? 'is-on' : undefined}>
+            {p.features[k] ? <Check className="size-4" aria-label="متاح" /> : <X className="size-4" aria-label="غير متاح" />}
+            {planFeatureLabel[k]}
+          </li>
+        ))}
+      </ul>
+
+      <Button variant="secondary" block onClick={onEdit}><Pencil className="size-4" />تعديل الخطة</Button>
+    </Card>
   );
 }
 
 const pounds = (minor: number) => String(minor / 100);
 const toMinor = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Math.round(Number(v) * 100));
 
-function PlanCard({ p }: { p: Plan }) {
+/** The plan's edit form, in sections, in a dialog. Limits and features merge into the plan on the server. */
+function PlanEditDialog({ p, onClose }: { p: Plan; onClose: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState(p.name_ar);
   const [monthly, setMonthly] = useState(pounds(p.price_monthly_minor));
@@ -676,9 +742,9 @@ function PlanCard({ p }: { p: Plan }) {
   const [limits, setLimits] = useState<Record<string, string>>(() => Object.fromEntries(LIMIT_KEYS.map((k) => [k, p.limits[k] == null ? '' : String(p.limits[k])])));
   const [features, setFeatures] = useState<Record<string, boolean>>(() => Object.fromEntries(FEATURE_KEYS.map((k) => [k, !!p.features[k]])));
   const [isPublic, setPublic] = useState(p.is_public);
-  const [saved, setSaved] = useState(false);
   const m = toMinor(monthly), y = toMinor(yearly), days = Number(trial);
   const ok = name.trim().length >= 2 && m !== null && y !== null && Number.isInteger(days) && days >= 0 && days <= 90;
+  const currency = money(0, p.currency).replace(/^0\s*/, '');
   const save = useMutation({
     mutationFn: () => papi<Plan>(`/platform/plans/${p.id}`, {
       method: 'PATCH',
@@ -687,33 +753,50 @@ function PlanCard({ p }: { p: Plan }) {
         limits: Object.fromEntries(LIMIT_KEYS.map((k) => [k, limits[k].trim() === '' ? null : Math.max(0, Math.floor(Number(limits[k])))])),
       }),
     }),
-    onSuccess: () => { setSaved(true); void qc.invalidateQueries({ queryKey: [...KEY, 'plans'] }); },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...KEY, 'plans'] }); onClose(); },
   });
   return (
-    <Card as="form" className="stack">
-      <div className="row-between"><h2>{p.name_ar} <span className="muted small" dir="ltr">({p.code})</span></h2><span className="muted small">{'{n} عيادة على هذه الخطة'.replace('{n}', String(p.clinics))}</span></div>
-      <div className="grid-2">
-        <Field label="اسم الخطة">{(a) => <Input id={a.id} value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} maxLength={60} />}</Field>
-        <Field label="أيام التجربة">{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={trial} onChange={(e) => { setTrial(e.target.value); setSaved(false); }} />}</Field>
-        <Field label={`${'السعر الشهري'} (${money(0, p.currency).replace(/^0\s*/, '')})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={monthly} onChange={(e) => { setMonthly(e.target.value); setSaved(false); }} invalid={m === null} />}</Field>
-        <Field label={`${'السعر السنوي'} (${money(0, p.currency).replace(/^0\s*/, '')})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={yearly} onChange={(e) => { setYearly(e.target.value); setSaved(false); }} invalid={y === null} />}</Field>
-      </div>
-      <h3>الحدود</h3>
-      <p className="muted small">اتركه فارغًا لعدد غير محدود. الحد يسري على ما يُضاف بعد التغيير.</p>
-      <div className="grid-2">
-        {LIMIT_KEYS.map((k) => (
-          <Field key={k} label={planLimitLabel[k]}>
-            {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={limits[k]} placeholder="غير محدود" onChange={(e) => { setLimits((l) => ({ ...l, [k]: e.target.value })); setSaved(false); }} />}
-          </Field>
-        ))}
-      </div>
-      <h3>المزايا</h3>
-      {FEATURE_KEYS.map((k) => <Switch key={k} checked={features[k]} label={planFeatureLabel[k]} onChange={(v) => { setFeatures((f) => ({ ...f, [k]: v })); setSaved(false); }} />)}
-      <Switch checked={isPublic} label="تظهر في صفحة الأسعار" onChange={(v) => { setPublic(v); setSaved(false); }} />
-      {saved && <Alert tone="success">تم الحفظ</Alert>}
-      <ErrorText error={save.error} />
-      <div className="row-end"><Button onClick={() => save.mutate()} disabled={!ok} loading={save.isPending}>حفظ</Button></div>
-    </Card>
+    <Dialog open onOpenChange={(open) => { if (!open && !save.isPending) onClose(); }}>
+      <DialogContent dir="rtl" className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-card sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-start">تعديل الخطة: {p.name_ar} <span className="pl-code" dir="ltr">{p.code}</span></DialogTitle>
+          <DialogDescription className="text-start">{`${'يسري التغيير على'} ${p.clinics} ${p.clinics >= 3 && p.clinics <= 10 ? 'عيادات' : 'عيادة'} ${'على هذه الخطة.'}`}</DialogDescription>
+        </DialogHeader>
+        <form className="pl-plan-form" onSubmit={(e) => { e.preventDefault(); if (ok) save.mutate(); }}>
+          <section>
+            <h3>الاسم والأسعار</h3>
+            <div className="grid-2">
+              <Field label="اسم الخطة">{(a) => <Input id={a.id} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />}</Field>
+              <Field label="أيام التجربة" hint="من 0 إلى 90">{(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="numeric" value={trial} onChange={(e) => setTrial(e.target.value)} invalid={!(Number.isInteger(days) && days >= 0 && days <= 90)} />}</Field>
+              <Field label={`${'السعر الشهري'} (${currency})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} invalid={m === null} />}</Field>
+              <Field label={`${'السعر السنوي'} (${currency})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={yearly} onChange={(e) => setYearly(e.target.value)} invalid={y === null} />}</Field>
+            </div>
+          </section>
+          <section>
+            <h3>الحدود</h3>
+            <p className="muted small">اتركه فارغًا لعدد غير محدود. الحد يسري على ما يُضاف بعد التغيير.</p>
+            <div className="pl-limit-fields">
+              {LIMIT_KEYS.map((k) => (
+                <Field key={k} label={planLimitLabel[k]}>
+                  {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={limits[k]} placeholder="غير محدود" onChange={(e) => setLimits((l) => ({ ...l, [k]: e.target.value }))} />}
+                </Field>
+              ))}
+            </div>
+          </section>
+          <section>
+            <h3>المزايا والظهور</h3>
+            <div className="pl-switches">
+              {FEATURE_KEYS.map((k) => <Switch key={k} checked={features[k]} label={planFeatureLabel[k]} onChange={(v) => setFeatures((f) => ({ ...f, [k]: v }))} />)}
+              <Switch checked={isPublic} label="تظهر في صفحة الأسعار" onChange={setPublic} />
+            </div>
+          </section>
+          <ErrorText error={save.error} />
+          <div className="pl-plan-actions">
+            <Button type="submit" disabled={!ok} loading={save.isPending}>حفظ</Button>
+            <Button variant="ghost" onClick={onClose} disabled={save.isPending}>إلغاء</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
-

@@ -103,7 +103,9 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
   });
 
   it('edits a plan: prices, trial days, limits and features (merged), and refuses unknown keys', async () => {
-    const plans = (await http().get('/platform/plans').set(admin()).expect(200)).body as { id: string; trial_days: number; limits: Record<string, number> }[];
+    const plans = (await http().get('/platform/plans').set(admin()).expect(200)).body as { id: string; trial_days: number; limits: Record<string, number>; clinics: number }[];
+    // every seeded clinic is on a plan: the counts see past row-level security (they all read 0 before)
+    expect(plans.reduce((n, x) => n + x.clinics, 0)).toBeGreaterThanOrEqual(2);
     const p = plans[0];
     const edited = (await http().patch(`/platform/plans/${p.id}`).set(admin()).send({ trialDays: 21, limits: { staff: 99 } }).expect(200)).body;
     expect(edited).toMatchObject({ trial_days: 21, limits: { ...p.limits, staff: 99 } });
