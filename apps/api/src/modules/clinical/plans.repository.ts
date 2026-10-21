@@ -106,8 +106,11 @@ export class PlansRepository {
     return tx.selectFrom('appointments').select(['id', 'patient_id', 'status']).where('id', '=', id).executeTakeFirst();
   }
 
-  service(tx: Tx, id: string) {
-    return tx.selectFrom('services').select(['id', 'price_minor', 'price_max_minor']).where('id', '=', id).executeTakeFirst()
+  /** A service's price range: for a new item only while it is on the price list, for an item already planned even once deleted. */
+  service(tx: Tx, id: string, withDeleted = false) {
+    let q = tx.selectFrom('services').select(['id', 'price_minor', 'price_max_minor']).where('id', '=', id);
+    if (!withDeleted) q = q.where('deleted_at', 'is', null);
+    return q.executeTakeFirst()
       .then((s) => s && { id: s.id, price_minor: Number(s.price_minor), price_max_minor: s.price_max_minor === null ? null : Number(s.price_max_minor) });
   }
 

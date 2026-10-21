@@ -72,7 +72,7 @@ English" is now superseded. Treat §7.1 as a target list, not a status.
 | Clinic setup | IMPLEMENTED (profile, logo, brand colour, publish) |
 | Branch setup | IMPLEMENTED (branches, weekly hours with split shifts, main branch) — holidays and rooms have no API |
 | Staff and doctor setup | PARTIALLY — doctors + schedules done; **no staff invite / members / roles management** |
-| Services and pricing | IMPLEMENTED (catalogue + custom services, prices, durations, doctor assignment) |
+| Services and pricing | IMPLEMENTED (the clinic's own services, prices, durations, doctor assignment, delete; catalogue removed 2026-10-21) |
 | Appointment booking | IMPLEMENTED for website + staff booking; **no reschedule, no rooms, no calendar week view** |
 | Patient check-in | IMPLEMENTED (booking code / QR / manual with reason) |
 | Clinical visit | NOT_IMPLEMENTED (schema only) |
@@ -166,7 +166,7 @@ Columns: **SRS** = requirement IDs from the original SRS · **Where** = code and
 | Holidays | NOT_IMPLEMENTED (read only) | BOOK-02, DSH-12 | `holidays`; read by `dayContext()` | Availability honours holidays | No API or screen to add one | Add CRUD | Medium |
 | Rooms / chairs | NOT_IMPLEMENTED | §6.4, BOOK-09 (room) | `rooms`, `appointments_no_room_overlap` | Exclusion constraint | No API, no assignment on appointments | Add with the calendar work | Medium |
 | Doctors + branches + weekly schedule | IMPLEMENTED | ONB step 3 | `clinic-setup/doctors/*`, `catalog.e2e-spec.ts` | Schedule overlap rejected by DB, photo, plan limit | Doctor time off has no API (availability already honours it). Invite to log in (needs members) | Add time-off CRUD | Medium |
-| Services + prices + durations + doctor assignment | IMPLEMENTED | ONB step 4 | `clinic-setup/services/*` | Catalogue codes unique per clinic, price range | No service categories UI (table exists) | — | Low |
+| Services + prices + durations + doctor assignment | IMPLEMENTED | ONB step 4 | `clinic-setup/services/*`, `catalog.e2e-spec.ts` | Price range; doctors per service (until 2026-10-21 only the seed wrote `doctor_services`); delete: removed if unused, else hidden (`services_deleted_is_off`) | No service categories UI (table exists) | — | Low |
 | Booking settings (auto-confirm, OTP, notice, horizon, step, cancel window) | NOT_IMPLEMENTED (defaults only) | DSH-12 | `tenant_settings` | Rows created at sign-up; read by booking | No API or screen to change them | Add settings screen | Medium |
 | Onboarding wizard + checklist | PARTIALLY_IMPLEMENTED | ONB-01, ONB-02 | `onboarding.controller.ts`, `screens/overview.tsx` | Live checklist derived from data | No template/section step (ONB step 5) | Website-content roadmap | Low |
 

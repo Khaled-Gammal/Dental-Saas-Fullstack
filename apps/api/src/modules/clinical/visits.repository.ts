@@ -82,7 +82,7 @@ export class VisitsRepository {
 
   // ---------- procedures ----------
   service(tx: Tx, id: string) {
-    return tx.selectFrom('services').select(['id', 'price_minor', 'price_max_minor', 'is_active']).where('id', '=', id).executeTakeFirst()
+    return tx.selectFrom('services').select(['id', 'price_minor', 'price_max_minor', 'is_active', sql<boolean>`deleted_at is not null`.as('deleted')]).where('id', '=', id).executeTakeFirst()
       .then((s) => s && { ...s, price_minor: Number(s.price_minor), price_max_minor: n(s.price_max_minor) });
   }
 

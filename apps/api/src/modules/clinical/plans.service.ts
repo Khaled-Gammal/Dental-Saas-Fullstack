@@ -99,7 +99,7 @@ export class PlansService {
       await this.editableItems(tx, id);
       const item = await this.repo.item(tx, id, itemId);
       if (!item) throw Err.notFound('plan_item_not_found', 'Plan item not found');
-      const priceMinor = input.priceMinor !== undefined ? priceFor((await this.repo.service(tx, item.service_id))!, input.priceMinor) : item.price_minor;
+      const priceMinor = input.priceMinor !== undefined ? priceFor((await this.repo.service(tx, item.service_id, true))!, input.priceMinor) : item.price_minor;
       const discountMinor = input.discountMinor ?? item.discount_minor;
       if (discountMinor > priceMinor) throw Err.badRequest('discount_too_large', 'The discount cannot exceed the price');
       await this.repo.updateItem(tx, itemId, {

@@ -1001,6 +1001,7 @@ export interface Services {
   category_id: string | null;
   consent_key: string | null;
   created_at: Generated<Timestamp>;
+  deleted_at: Timestamp | null;
   description_ar: string | null;
   description_en: string | null;
   duration_minutes: number;

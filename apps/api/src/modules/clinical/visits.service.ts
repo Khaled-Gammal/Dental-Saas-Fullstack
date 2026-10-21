@@ -132,7 +132,8 @@ export class VisitsService {
       }
       const serviceId = input.serviceId ?? item!.service_id;
       const service = await this.repo.service(tx, serviceId);
-      if (!service) throw Err.badRequest('service_not_found', 'Service not found');
+      // a deleted service is gone from the price list, but an item the patient already accepted in a plan can still be done
+      if (!service || (service.deleted && !item)) throw Err.badRequest('service_not_found', 'Service not found');
       const priceMinor = priceFor(service, input.priceMinor ?? item?.price_minor);
       await this.repo.addProcedure(tx, tenantId, {
         visitId: id, serviceId, doctorId: v.doctor_id, planItemId: item?.id ?? null,

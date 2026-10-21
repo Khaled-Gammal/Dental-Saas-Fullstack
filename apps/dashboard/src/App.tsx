@@ -212,7 +212,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('doctors')} backLabel="الأطباء" />;
       return <DoctorsList clinicId={clinicId} canWrite={settings} />;
     case 'services':
-      if (action === 'new' && settings) return <ServiceFormPage clinicId={clinicId} catalogCode={route.query?.catalog} />;
+      if (action === 'new' && settings) return <ServiceFormPage clinicId={clinicId} />;
       if (action === 'edit' && settings) return <ServiceFormPage clinicId={clinicId} id={id} />;
       if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('services')} backLabel="الخدمات والأسعار" />;
       return <ServicesList clinicId={clinicId} canWrite={settings} />;

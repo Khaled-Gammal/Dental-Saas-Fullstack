@@ -79,6 +79,15 @@ export class DoctorsRepository {
   }
 
   /** Replaces where the doctor works. Schedule rows at a removed branch go with it (same transaction). */
+  /** A new doctor performs every service on the price list (as a new service gets every active doctor). */
+  async performAllServices(tx: Tx, tenantId: string, doctorId: string): Promise<void> {
+    await tx.insertInto('doctor_services')
+      .columns(['tenant_id', 'doctor_id', 'service_id'])
+      .expression((eb) => eb.selectFrom('services').select([sql<string>`${tenantId}::uuid`.as('tenant_id'), sql<string>`${doctorId}::uuid`.as('doctor_id'), 'id'])
+        .where('is_active', '=', true).where('deleted_at', 'is', null))
+      .execute();
+  }
+
   async replaceBranches(tx: Tx, tenantId: string, doctorId: string, branchIds: string[]): Promise<void> {
     await tx.deleteFrom('doctor_branches').where('doctor_id', '=', doctorId).execute();
     let drop = tx.deleteFrom('doctor_schedules').where('doctor_id', '=', doctorId);

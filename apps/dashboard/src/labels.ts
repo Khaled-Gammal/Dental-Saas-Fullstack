@@ -30,22 +30,6 @@ export const auditActionLabel: Record<string, string> = {
   patient_medical_history_update: 'عدّل التاريخ الطبي',
 };
 
-/** Service catalogue categories. */
-export const catalogCategoryLabel: Record<string, string> = {
-  general: 'عام',
-  preventive: 'وقائي',
-  restorative: 'ترميمي',
-  endodontic: 'علاج جذور',
-  cosmetic: 'تجميلي',
-  orthodontic: 'تقويم',
-  surgical: 'جراحي',
-  pediatric: 'أطفال',
-  prosthodontic: 'تركيبات',
-  periodontal: 'لثة',
-  surgery: 'جراحة',
-  implant: 'زراعة',
-};
-
 /** Tooth conditions. */
 export const toothConditionLabel: Record<string, string> = {
   healthy: 'سليم',
@@ -128,8 +112,6 @@ export const errorLabel: Record<string, string> = {
   schedule_overlap: 'فترتان متداخلتان في نفس اليوم.',
   branch_not_assigned: 'الطبيب غير مُضاف إلى هذا الفرع.',
   doctor_not_found: 'الطبيب غير موجود.',
-  catalog_code_unknown: 'هذه الخدمة غير موجودة في القائمة.',
-  service_already_added: 'هذه الخدمة مضافة بالفعل إلى قائمتك.',
   service_not_found: 'الخدمة غير موجودة.',
   code_invalid: 'الرمز غير صالح لهذا الفرع اليوم (خطأ، مستخدم، منتهٍ أو ملغي).',
   invalid_transition: 'لا يمكن تطبيق هذا الإجراء على حالة الموعد الحالية.',
@@ -758,5 +740,3 @@ export const roleLabel = (role: string, name?: string | null): string => name ||
 /** "5 دقائق" but "20 دقيقة": Arabic counts 3–10 with the plural form. */
 export const minutesLabel = (n: number): string => (n >= 3 && n <= 10 ? 'دقائق' : 'دقيقة');
 
-/** Catalogue category label; an unknown category shows its code rather than breaking the picker. */
-export const categoryLabel = (c: string): string => catalogCategoryLabel[c] ?? c;
