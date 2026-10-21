@@ -1,5 +1,5 @@
 /* tokens come from @dental/ui/tokens.css (imported in layout.tsx) */
-:root { --font: var(--font-plex), "IBM Plex Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif; }
+:root { --font: var(--font-tajawal), "Tajawal", "Segoe UI", Tahoma, system-ui, sans-serif; }
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 84px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

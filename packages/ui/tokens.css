@@ -41,7 +41,7 @@
   --danger-bg: #fdeceb;
 
   /* type: one family that covers Arabic and Latin, so mixed text keeps one rhythm */
-  --font: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+  --font: "Cairo", "Segoe UI", Tahoma, system-ui, sans-serif;
   --fs-xs: 0.75rem;
   --fs-sm: 0.875rem;
   --fs-md: 1rem;
