@@ -6,11 +6,24 @@ import { DatePicker } from '../../components/date-picker';
 import { billingCycleLabel, clinicStatusLabel, leadStatusLabel, legalDocLabel, planFeatureLabel, planLimitLabel, platformActionLabel } from '../../labels';
 import { money } from '../../money';
 import { filterClinics, filterLeads, LEAD_STATUSES, papi, platformHref, trialDaysLeft, type LeadStatus, type PlatformRoute } from '../../platform-model';
-import { Alert, Badge, Button, Card, ErrorText, Field, Input, OtpInput, PageHeader, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
+import { Alert, Badge, Button, Card, ErrorText, Field, initials, Input, OtpInput, PageHeader, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { DataTable, type Column } from '../../ui/data-table';
 import { ShieldIcon } from '../../ui/icons';
+import { RowMenu } from '../../ui/row-menu';
 import { AuthLayout } from '../auth';
+import {
+  Ban, Building2, CalendarDays, Check, ChevronsUpDown, FileText, HardDrive, History, Inbox, Layers, LogOut, Mail, MapPin, Pencil, Phone, ShieldCheck, Stethoscope,
+  UserRound, Users, X, type LucideIcon,
+} from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Separator } from '@/components/ui/separator';
+import {
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuBadge,
+  SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar,
+} from '@/components/ui/sidebar';
 
 interface Me { id: string; name: string; email: string }
 interface Clinic {
@@ -108,25 +121,122 @@ function PlatformLogin() {
   );
 }
 
+type PlatformPage = Exclude<PlatformRoute['page'], 'clinic'>;
+const PLATFORM_NAV: { page: PlatformPage; label: string; icon: LucideIcon }[] = [
+  { page: 'clinics', label: 'العيادات', icon: Building2 },
+  { page: 'leads', label: 'طلبات التواصل', icon: Inbox },
+  { page: 'plans', label: 'الخطط', icon: Layers },
+  { page: 'legal', label: 'المستندات القانونية', icon: FileText },
+  { page: 'activity', label: 'السجل', icon: History },
+];
+const NAV_ACTIVE = 'data-[active=true]:bg-primary-50 data-[active=true]:text-primary-700 data-[active=true]:font-semibold data-[active=true]:[&>svg]:text-primary-500';
+
+/**
+ * The panel's shell, like the clinic dashboard's (redesign R1): shadcn/ui's Sidebar on the right, collapsible to icons on
+ * desktop and a sheet on phones; the header with the toggle and the page's name. New contact requests are counted beside
+ * their page.
+ */
 function PlatformShell({ me, route, children }: { me: Me; route: PlatformRoute; children: ReactNode }) {
+  const current: PlatformPage = route.page === 'clinic' ? 'clinics' : route.page;
+  const newLeads = useQuery({ queryKey: [...KEY, 'leads'], queryFn: () => papi<Lead[]>('/platform/leads') }).data?.filter((l) => l.status === 'new').length ?? 0;
+  return (
+    <SidebarProvider>
+      <Sidebar side="right" collapsible="icon" aria-label="لوحة إدارة المنصة">
+        <SidebarHeader className="p-3">
+          <div className="flex items-center gap-2.5 px-1 pt-1">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-accent text-white"><ShieldCheck className="size-[18px]" /></span>
+            <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
+              <strong className="truncate text-sm text-ink">لوحة إدارة المنصة</strong>
+              <small className="truncate text-xs text-muted-foreground">منصة الأسنان</small>
+            </span>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupContent><PlatformNav current={current} newLeads={newLeads} /></SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter><AdminMenu me={me} /></SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset className="min-w-0 bg-surface">
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
+          <SidebarTrigger className="-ms-1 size-9" aria-label="القائمة" />
+          <Separator orientation="vertical" className="h-5" />
+          <span className="truncate font-semibold text-ink">{PLATFORM_NAV.find((n) => n.page === current)?.label}</span>
+        </header>
+        <main className="platform-main">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
+
+function PlatformNav({ current, newLeads }: { current: PlatformPage; newLeads: number }) {
+  const { setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenu>
+      {PLATFORM_NAV.map(({ page, label, icon: Icon }) => (
+        <SidebarMenuItem key={page}>
+          <SidebarMenuButton asChild isActive={current === page} tooltip={label} className={`h-9 text-sm text-sidebar-foreground ${NAV_ACTIVE}`}>
+            <a href={platformHref({ page } as PlatformRoute)} aria-current={current === page ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
+              <Icon /><span>{label}</span>
+            </a>
+          </SidebarMenuButton>
+          {page === 'leads' && newLeads > 0 && (
+            <SidebarMenuBadge className="right-auto left-1 rounded-full bg-primary-50 px-2 text-[0.6875rem] text-primary-700" aria-label={`${newLeads} ${'جديد'}`}>{newLeads}</SidebarMenuBadge>
+          )}
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
+}
+
+/** The admin at the foot of the sidebar; signing out from its menu. */
+function AdminMenu({ me }: { me: Me }) {
   const qc = useQueryClient();
   const out = useMutation({ mutationFn: () => papi('/platform/auth/logout', { method: 'POST' }), onSettled: () => qc.removeQueries({ queryKey: KEY }) });
-  const tab = (r: PlatformRoute, label: string) => (
-    <a href={platformHref(r)} className={`seg-btn${route.page === r.page || (r.page === 'clinics' && route.page === 'clinic') ? ' is-on' : ''}`}>{label}</a>
-  );
   return (
-    <div className="platform">
-      <header className="platform-bar">
-        <strong><ShieldIcon size={18} /> لوحة إدارة المنصة</strong>
-        <nav className="seg" aria-label="لوحة إدارة المنصة">
-          {tab({ page: 'clinics' }, 'العيادات')}{tab({ page: 'leads' }, 'طلبات التواصل')}{tab({ page: 'plans' }, 'الخطط')}{tab({ page: 'legal' }, 'المستندات القانونية')}{tab({ page: 'activity' }, 'السجل')}
-        </nav>
-        <span className="row-end">
-          <span className="muted small"><bdi>{me.name}</bdi></span>
-          <Button variant="ghost" loading={out.isPending} onClick={() => out.mutate()}>خروج</Button>
-        </span>
-      </header>
-      <main className="platform-main">{children}</main>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu dir="rtl">
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton size="lg" tooltip={me.name} className="data-[state=open]:bg-sidebar-accent">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">{initials(me.name)}</span>
+              <span className="flex min-w-0 flex-1 flex-col text-start leading-tight">
+                <strong className="truncate text-sm text-ink"><bdi>{me.name}</bdi></strong>
+                <small className="truncate text-xs text-muted-foreground" dir="ltr">{me.email}</small>
+              </span>
+              <ChevronsUpDown className="ms-auto size-4 text-muted-foreground" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="end" className="w-(--radix-dropdown-menu-trigger-width) min-w-56">
+            <DropdownMenuItem disabled={out.isPending} onSelect={() => out.mutate()} className="text-destructive focus:text-destructive">
+              <LogOut className="text-destructive" />خروج
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+type Tone = 'neutral' | 'primary' | 'success' | 'warning';
+/**
+ * Figures that filter the table under them (Untitled UI's metric cards): a press shows that status only, pressing it
+ * again (or «الكل») shows everything.
+ */
+function StatusCards({ label, items, value, onChange }: {
+  label: string; items: { value: string; label: string; count: number; tone: Tone }[]; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="pl-status" role="group" aria-label={label}>
+      {items.map((it) => (
+        <button key={it.value} type="button" aria-pressed={value === it.value} className={`pl-status-card tone-${it.tone}${value === it.value ? ' is-on' : ''}`}
+          onClick={() => onChange(value === it.value ? 'all' : it.value)}>
+          <span className="pl-status-label"><span className="pl-dot" aria-hidden />{it.label}</span>
+          <strong>{it.count}</strong>
+        </button>
+      ))}
     </div>
   );
 }
@@ -166,11 +276,10 @@ function ClinicsPage() {
     <>
       <PageHeader title="العيادات" sub="كل العيادات على المنصة: الخطة والحالة والأرقام (بدون بيانات المرضى)." count={clinics.data?.length} />
       {clinics.data && (
-        <div className="stats">
-          {(['trialing', 'active', 'past_due', 'suspended'] as const).map((s) => (
-            <div key={s} className="stat"><span className="stat-text"><small>{clinicStatusLabel[s]}</small><strong>{count(s)}</strong></span></div>
-          ))}
-        </div>
+        <StatusCards label="حالة العيادات" value={status} onChange={setStatus} items={[
+          { value: 'all', label: 'كل العيادات', count: clinics.data.length, tone: 'neutral' },
+          ...(['trialing', 'active', 'past_due', 'suspended'] as const).map((s) => ({ value: s, label: clinicStatusLabel[s], count: count(s), tone: STATUS_TONE[s] })),
+        ]} />
       )}
       <DataTable
         label="العيادات"
@@ -219,18 +328,38 @@ function ClinicPage({ id }: { id: string }) {
   const today = new Date().toLocaleDateString('en-CA');
   return (
     <>
-      <p><a href={platformHref({ page: 'clinics' })}>العيادات</a></p>
+      <Breadcrumb aria-label="مسار الصفحة">
+        <BreadcrumbList className="gap-1 text-sm text-muted-foreground sm:gap-1.5">
+          <BreadcrumbItem><BreadcrumbLink href={platformHref({ page: 'clinics' })} className="hover:text-primary-600">العيادات</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbSeparator className="rtl:rotate-180" />
+          <BreadcrumbItem><BreadcrumbPage className="font-semibold text-ink"><bdi>{clinicName(d)}</bdi></BreadcrumbPage></BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="page-head">
-        <div>
-          <h1><bdi>{clinicName(d)}</bdi> <Badge tone={STATUS_TONE[d.status] ?? 'neutral'}>{d.deletion ? 'بانتظار الحذف' : (clinicStatusLabel[d.status])}</Badge></h1>
-          <p dir="ltr" className="muted">{d.slug} · {d.owner_email ?? '—'}</p>
+        <div className="pl-clinic-head">
+          <span className="pl-clinic-mark" aria-hidden>{initials(clinicName(d))}</span>
+          <div className="min-w-0">
+            <h1><bdi>{clinicName(d)}</bdi> <Badge tone={STATUS_TONE[d.status] ?? 'neutral'} dot>{d.deletion ? 'بانتظار الحذف' : (clinicStatusLabel[d.status])}</Badge></h1>
+            <p className="muted"><bdi dir="ltr">{d.slug}</bdi> · <bdi dir="ltr">{d.owner_email ?? '—'}</bdi></p>
+          </div>
+        </div>
+        <div className="page-actions">
+          {d.status === 'suspended'
+            ? d.suspension_kind !== 'trial_ended' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>إعادة تفعيل العيادة</Button>
+            : d.status !== 'cancelled' && <Button variant="ghost" className="pl-danger-btn" onClick={() => { setReason(''); setSuspending(true); }}><Ban className="size-4" />إيقاف العيادة</Button>}
         </div>
       </div>
-      <div className="stats">
-        {([['pl_members', d.members], ['pl_branches', d.branches], ['pl_patients', d.patients], ['pl_appointments30', d.appointments_30d]] as const).map(([k, v]) => (
-          <div key={k} className="stat"><span className="stat-text"><small>{k}</small><strong>{v}</strong></span></div>
+
+      <div className="pl-figures">
+        {([['الأعضاء', d.members, Users], ['الفروع', d.branches, MapPin], ['المرضى', d.patients, UserRound], ['مواعيد آخر 30 يومًا', d.appointments_30d, CalendarDays]] as const).map(([k, v, Icon]) => (
+          <div key={k} className="pl-figure">
+            <span className="pl-figure-icon" aria-hidden><Icon className="size-[18px]" /></span>
+            <span className="pl-figure-text"><small>{k}</small><strong>{v}</strong></span>
+          </div>
         ))}
       </div>
+
       {d.deletion && (
         <Card className="card-danger">
           <h2>طلب مالك العيادة حذفها</h2>
@@ -239,77 +368,89 @@ function ClinicPage({ id }: { id: string }) {
           <div className="mt"><Button loading={act.isPending && act.variables?.path === 'restore'} onClick={() => act.mutate({ path: 'restore' })}>استعادة العيادة</Button></div>
         </Card>
       )}
-      <Card>
-        <h2>الاشتراك</h2>
-        <dl className="detail-list mt-sm">
-          <div><dt>الخطة</dt><dd>{d.plan_name_ar ?? '—'}</dd></div>
-          <div><dt>حالة الاشتراك</dt><dd>{d.subscription_status ? clinicStatusLabel[d.subscription_status] : '—'}</dd></div>
-          {d.subscription_status === 'active' && <div><dt>نهاية الاشتراك الحالي</dt><dd>{date(d.current_period_end)} ({billingCycleLabel[d.billing_cycle ?? 'monthly']})</dd></div>}
-          <div><dt>نهاية التجربة</dt><dd>{d.trial_ends_at ? `${date(d.trial_ends_at)}${left !== null ? ` (${left >= 0 ? 'باقي {n} يوم'.replace('{n}', String(left)) : 'انتهت التجربة'})` : ''}` : '—'}</dd></div>
-          <div><dt>تاريخ التسجيل</dt><dd>{date(d.created_at)}</dd></div>
-          <div><dt>آخر دخول</dt><dd>{date(d.last_login_at)}</dd></div>
-        </dl>
-        <div className="grid-2 mt">
-          {d.subscription_status === 'trialing' && (
-            <Field label="تمديد التجربة حتى">
-              {(a) => (
-                <div className="row-start">
-                  <DatePicker id={a.id} value={until} onChange={setUntil} min={today} placeholder="اختر التاريخ" />
-                  <Button variant="secondary" disabled={!until} loading={act.isPending && act.variables?.path === 'trial'}
-                    onClick={() => act.mutate({ path: 'trial', body: { until } })}>حفظ</Button>
-                </div>
-              )}
-            </Field>
-          )}
-          {(d.subscription_status === 'trialing' || d.subscription_status === 'past_due' || d.subscription_status === 'suspended') && (
-            <Field label="تفعيل الاشتراك" hint="بعد أن تدفع العيادة: يبدأ الاشتراك اليوم لشهر أو سنة، ويرفع الإيقاف بسبب انتهاء التجربة.">
-              {(a) => (
-                <div className="row-start">
-                  <Choice id={a.id} value={cycle} onChange={setCycle} options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: billingCycleLabel[c] }))} />
-                  <Button loading={act.isPending && act.variables?.path === 'activate'} onClick={() => act.mutate({ path: 'activate', body: { cycle } })}>تفعيل</Button>
-                </div>
-              )}
-            </Field>
-          )}
-          <Field label="تغيير الخطة">
-            {(a) => (
-              <div className="row-start">
-                <Choice id={a.id} value={planId} onChange={setPlanId} placeholder="اختر الخطة"
-                  options={(plans.data ?? []).map((p) => ({ value: p.id, label: p.name_ar }))} />
-                <Button variant="secondary" disabled={!planId} loading={act.isPending && act.variables?.path === 'plan'}
-                  onClick={() => act.mutate({ path: 'plan', body: { planId } })}>حفظ</Button>
+      {d.status === 'suspended' && (
+        <Alert tone="info">
+          {d.suspension_kind === 'trial_ended' ? 'أوقفت العيادة تلقائيًا لانتهاء الفترة التجريبية دون تفعيل خطة. فعّل الاشتراك بعد الدفع، أو مدّد التجربة.' : 'العيادة موقوفة: فريقها لا يستطيع الدخول وموقعها متوقف.'}
+          {d.suspension_kind === 'manual' && d.suspension_reason && <> السبب: <bdi>{d.suspension_reason}</bdi></>}
+        </Alert>
+      )}
+
+      {/* the subscription and what can be done to it; notes and history beside them (one column on narrow screens) */}
+      <div className="pl-clinic-grid">
+        <div className="pl-clinic-main">
+          <Card>
+            <h2>الاشتراك</h2>
+            <dl className="pl-facts mt">
+              <div><dt>الخطة</dt><dd>{d.plan_name_ar ?? '—'}</dd></div>
+              <div><dt>حالة الاشتراك</dt><dd>{d.subscription_status ? clinicStatusLabel[d.subscription_status] : '—'}</dd></div>
+              {d.subscription_status === 'active' && <div><dt>نهاية الاشتراك الحالي</dt><dd>{date(d.current_period_end)} <span className="muted">({billingCycleLabel[d.billing_cycle ?? 'monthly']})</span></dd></div>}
+              <div>
+                <dt>نهاية التجربة</dt>
+                <dd>{date(d.trial_ends_at)}{left !== null && <span className={left >= 0 ? 'muted' : 'text-destructive'}> ({left >= 0 ? `${'باقي'} ${left} ${'يوم'}` : 'انتهت التجربة'})</span>}</dd>
               </div>
+              <div><dt>تاريخ التسجيل</dt><dd>{date(d.created_at)}</dd></div>
+              <div><dt>آخر دخول</dt><dd>{date(d.last_login_at)}</dd></div>
+            </dl>
+          </Card>
+
+          <Card>
+            <h2>إدارة الاشتراك</h2>
+            <div className="pl-settings mt">
+              <div className="pl-setting">
+                <div><strong>تغيير الخطة</strong><p className="muted small">الأسعار والحدود من صفحة الخطط.</p></div>
+                <div className="pl-setting-control">
+                  <Choice value={planId} onChange={setPlanId} placeholder="اختر الخطة" label="الخطة" className="h-10 w-48 bg-card"
+                    options={(plans.data ?? []).map((p) => ({ value: p.id, label: p.name_ar }))} />
+                  <Button variant="secondary" disabled={!planId} loading={act.isPending && act.variables?.path === 'plan'}
+                    onClick={() => act.mutate({ path: 'plan', body: { planId } })}>حفظ</Button>
+                </div>
+              </div>
+              {(d.subscription_status === 'trialing' || d.subscription_status === 'past_due' || d.subscription_status === 'suspended') && (
+                <div className="pl-setting">
+                  <div><strong>تفعيل الاشتراك</strong><p className="muted small">بعد أن تدفع العيادة: يبدأ الاشتراك اليوم لشهر أو سنة، ويرفع الإيقاف بسبب انتهاء التجربة.</p></div>
+                  <div className="pl-setting-control">
+                    <Choice value={cycle} onChange={setCycle} label="المدة" className="h-10 w-36 bg-card" options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: billingCycleLabel[c] }))} />
+                    <Button loading={act.isPending && act.variables?.path === 'activate'} onClick={() => act.mutate({ path: 'activate', body: { cycle } })}>تفعيل</Button>
+                  </div>
+                </div>
+              )}
+              {d.subscription_status === 'trialing' && (
+                <div className="pl-setting">
+                  <div><strong>تمديد التجربة</strong><p className="muted small">حتى يوم تختاره، من اليوم فصاعدًا.</p></div>
+                  <div className="pl-setting-control">
+                    <DatePicker value={until} onChange={setUntil} min={today} placeholder="اختر التاريخ" label="تمديد التجربة حتى" />
+                    <Button variant="secondary" disabled={!until} loading={act.isPending && act.variables?.path === 'trial'}
+                      onClick={() => act.mutate({ path: 'trial', body: { until } })}>حفظ</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <ErrorText error={act.error} />
+          </Card>
+        </div>
+
+        <div className="pl-clinic-side">
+          <Card>
+            <h2>ملاحظات المنصة</h2>
+            <p className="muted small">لا تراها العيادة.</p>
+            <form className="stack mt-sm" onSubmit={(e) => { e.preventDefault(); if (note.trim()) addNote.mutate(); }}>
+              <TextArea value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={3} aria-label="ملاحظة جديدة" placeholder="اكتب ملاحظة…" />
+              <ErrorText error={addNote.error} />
+              <div className="row-end"><Button type="submit" variant="secondary" loading={addNote.isPending} disabled={!note.trim()}>إضافة</Button></div>
+            </form>
+            {d.notes.length > 0 && (
+              <ul className="pl-notes mt">
+                {d.notes.map((n) => <li key={n.id}><p><bdi>{n.body}</bdi></p><span className="muted small"><bdi>{n.author}</bdi> · <bdi>{when(n.created_at)}</bdi></span></li>)}
+              </ul>
             )}
-          </Field>
+          </Card>
+          <Card>
+            <h2>سجل الإجراءات</h2>
+            <AuditList rows={d.history} showClinic={false} />
+          </Card>
         </div>
-        <div className="row-end mt">
-          {d.status === 'suspended'
-            ? d.suspension_kind !== 'trial_ended' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>إعادة تفعيل العيادة</Button>
-            : d.status !== 'cancelled' && <Button variant="secondary" onClick={() => { setReason(''); setSuspending(true); }}>إيقاف العيادة</Button>}
-        </div>
-        {d.status === 'suspended' && (
-          <Alert tone="info">
-            {d.suspension_kind === 'trial_ended' ? 'أوقفت العيادة تلقائيًا لانتهاء الفترة التجريبية دون تفعيل خطة. فعّل الاشتراك بعد الدفع، أو مدّد التجربة.' : 'العيادة موقوفة: فريقها لا يستطيع الدخول وموقعها متوقف.'}
-            {d.suspension_kind === 'manual' && d.suspension_reason && <> السبب: <bdi>{d.suspension_reason}</bdi></>}
-          </Alert>
-        )}
-        <ErrorText error={act.error} />
-      </Card>
-      <Card>
-        <h2>ملاحظات المنصة</h2>
-        <form className="stack mt-sm" onSubmit={(e) => { e.preventDefault(); if (note.trim()) addNote.mutate(); }}>
-          <Field label="ملاحظة جديدة (لا تراها العيادة)">{(a) => <TextArea id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />}</Field>
-          <ErrorText error={addNote.error} />
-          <div className="row-end"><Button type="submit" variant="secondary" loading={addNote.isPending} disabled={!note.trim()}>إضافة</Button></div>
-        </form>
-        <ul className="line-list mt">
-          {d.notes.map((n) => <li key={n.id}><span><bdi>{n.body}</bdi><span className="muted small block">{n.author} · {when(n.created_at)}</span></span></li>)}
-        </ul>
-      </Card>
-      <Card>
-        <h2>سجل الإجراءات</h2>
-        <AuditList rows={d.history} />
-      </Card>
+      </div>
+
       <ConfirmDialog open={suspending} title="إيقاف العيادة" confirmLabel="إيقاف العيادة" danger
         onConfirm={() => { if (reason.trim().length >= 3) { setSuspending(false); act.mutate({ path: 'suspend', body: { reason: reason.trim() } }); } }}
         onCancel={() => setSuspending(false)}>
@@ -320,21 +461,24 @@ function ClinicPage({ id }: { id: string }) {
   );
 }
 
-function AuditList({ rows }: { rows: AuditRow[] }) {
+/** Platform actions, newest first, as a timeline. On a clinic's own page the link to that clinic is left out. */
+function AuditList({ rows, showClinic = true }: { rows: AuditRow[]; showClinic?: boolean }) {
   if (!rows.length) return <p className="muted small mt-sm">لا إجراءات بعد.</p>;
   return (
-    <ul className="line-list mt-sm">
+    <ol className="pl-timeline mt">
       {rows.map((r) => (
         <li key={r.id}>
-          <span>
+          <span className="pl-timeline-dot" aria-hidden />
+          <div className="min-w-0">
             <strong>{platformActionLabel[r.action.replace('.', '_')]}</strong>
             {typeof r.details?.reason === 'string' && <> — <bdi>{r.details.reason}</bdi></>}
-            <span className="muted small block">{r.actor ?? 'النظام'} · {when(r.created_at)}</span>
-          </span>
-          {r.tenant_id && <span className="line-end"><a href={platformHref({ page: 'clinic', id: r.tenant_id })}>فتح العيادة</a></span>}
+            {/* bdi: a Latin name next to an Arabic date would otherwise scramble the order */}
+            <span className="muted small block"><bdi>{r.actor ?? 'النظام'}</bdi> · <bdi>{when(r.created_at)}</bdi></span>
+          </div>
+          {showClinic && r.tenant_id && <a className="pl-timeline-link small" href={platformHref({ page: 'clinic', id: r.tenant_id })}>فتح العيادة</a>}
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }
 
@@ -370,28 +514,33 @@ function LeadsPage() {
   const rows = leads.data ? filterLeads(leads.data, q, status) : undefined;
   const count = (s: LeadStatus) => leads.data?.filter((l) => l.status === s).length ?? 0;
   const columns: Column<Lead>[] = [
-    { id: 'received', header: 'وصل في', sortValue: (l) => l.created_at, cell: (l) => <span className="whitespace-nowrap">{when(l.created_at)}</span> },
     {
       id: 'person', header: 'صاحب الطلب', sortValue: (l) => l.full_name,
       cell: (l) => (
-        <>
-          <strong><bdi>{l.full_name}</bdi></strong>
-          <span className="block">
-            <Badge tone={l.kind === 'subscribe' ? 'success' : 'neutral'}>
-              {l.kind === 'subscribe' ? 'طلب اشتراك · {cycle}'.replace('{cycle}', l.billing_cycle === 'yearly' ? 'سنوي' : 'شهري') : 'طلب اتصال'}
-            </Badge>
-            {l.clinic_id && <> <a className="small" href={platformHref({ page: 'clinic', id: l.clinic_id })}>صفحة العيادة</a></>}
+        <span className="pl-person">
+          <span className="pl-avatar" aria-hidden>{initials(l.full_name)}</span>
+          <span className="min-w-0">
+            <strong className="block"><bdi>{l.full_name}</bdi></strong>
+            {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
           </span>
-          {(l.clinic_name || l.city) && <span className="muted small block"><bdi>{[l.clinic_name, l.city].filter(Boolean).join(' · ')}</bdi></span>}
-          {l.message && <span className="small block" style={{ whiteSpace: 'pre-wrap', maxWidth: 420 }}><bdi>{l.message}</bdi></span>}
-        </>
+        </span>
       ),
     },
+    {
+      id: 'kind', header: 'النوع', hideOnMobile: true, sortValue: (l) => l.kind,
+      cell: (l) => (
+        <Badge tone={l.kind === 'subscribe' ? 'success' : 'neutral'}>
+          {l.kind === 'subscribe' ? `${'طلب اشتراك'} · ${l.billing_cycle === 'yearly' ? 'سنوي' : 'شهري'}` : 'طلب اتصال'}
+        </Badge>
+      ),
+    },
+    // two lines at most; the whole message is in the tooltip
+    { id: 'message', header: 'الرسالة', hideOnMobile: true, cell: (l) => (l.message ? <span className="pl-message" title={l.message}><bdi>{l.message}</bdi></span> : <span className="muted">—</span>) },
     {
       id: 'contact', header: 'التواصل',
       cell: (l) => (
         <>
-          <a href={`tel:${l.phone}`} dir="ltr">{l.phone}</a>
+          <a href={`tel:${l.phone}`} dir="ltr" className="whitespace-nowrap">{l.phone}</a>
           {l.email && <a className="small block" href={`mailto:${l.email}`} dir="ltr">{l.email}</a>}
         </>
       ),
@@ -402,23 +551,20 @@ function LeadsPage() {
       cell: (l) => (
         <>
           <Badge tone={LEAD_TONE[l.status]} dot>{leadStatusLabel[l.status]}</Badge>
-          <Choice value={l.status} label="الحالة" className="h-9 w-full min-w-36 bg-card mt-sm" disabled={move.isPending}
-            onChange={(v) => { if (v !== l.status) move.mutate({ id: l.id, to: v as LeadStatus }); }}
-            options={LEAD_STATUSES.map((s) => ({ value: s, label: leadStatusLabel[s] }))} />
-          {l.updated_by_name && <span className="muted small block">{'آخر تغيير: {name}'.replace('{name}', l.updated_by_name)}</span>}
+          {l.updated_by_name && <span className="muted small block">{l.updated_by_name}</span>}
         </>
       ),
     },
+    { id: 'received', header: 'وصل في', hideOnMobile: true, sortValue: (l) => l.created_at, cell: (l) => <span className="muted whitespace-nowrap">{when(l.created_at)}</span> },
   ];
   return (
     <>
-      <PageHeader title="طلبات التواصل" sub="العيادات التي طلبت اتصالًا من صفحة المنصة، الأحدث أولًا. غيّر الحالة بعد كل خطوة." />
+      <PageHeader title="طلبات التواصل" sub="العيادات التي طلبت اتصالًا من صفحة المنصة، الأحدث أولًا. غيّر الحالة بعد كل خطوة." count={leads.data?.length} />
       {leads.data && (
-        <div className="stats">
-          {LEAD_STATUSES.map((s) => (
-            <div key={s} className="stat"><span className="stat-text"><small>{leadStatusLabel[s]}</small><strong>{count(s)}</strong></span></div>
-          ))}
-        </div>
+        <StatusCards label="حالة الطلبات" value={status} onChange={setStatus} items={[
+          { value: 'all', label: 'كل الطلبات', count: leads.data.length, tone: 'neutral' },
+          ...LEAD_STATUSES.map((s) => ({ value: s, label: leadStatusLabel[s], count: count(s), tone: LEAD_TONE[s] })),
+        ]} />
       )}
       {move.isError && <ErrorText error={move.error} />}
       <DataTable
@@ -430,11 +576,17 @@ function LeadsPage() {
         error={leads.isError ? leads.error : undefined}
         onRetry={() => void leads.refetch()}
         search={{ placeholder: 'الاسم أو العيادة أو المدينة أو الرقم', value: q, onChange: setQ }}
-        toolbar={(
-          <Choice value={status} onChange={setStatus} label="الحالة" className="h-10 w-48 bg-card"
-            options={['all', ...LEAD_STATUSES].map((s) => ({ value: s, label: s === 'all' ? 'كل الحالات' : (leadStatusLabel[s]) }))} />
-        )}
         pageSize={25}
+        isFetching={move.isPending}
+        // reach the person, open their clinic, then move the request on (the status was a dropdown in every row)
+        actions={(l) => (
+          <RowMenu label={l.full_name} actions={[
+            { label: 'اتصال', icon: <Phone className="size-4" />, onSelect: () => { window.location.href = `tel:${l.phone}`; } },
+            { label: 'إرسال بريد', icon: <Mail className="size-4" />, hidden: !l.email, onSelect: () => { window.location.href = `mailto:${l.email}`; } },
+            { label: 'صفحة العيادة', icon: <Building2 className="size-4" />, hidden: !l.clinic_id, onSelect: () => { window.location.hash = platformHref({ page: 'clinic', id: l.clinic_id! }); } },
+            ...LEAD_STATUSES.filter((s) => s !== l.status).map((s) => ({ label: `${'نقل إلى'}: ${leadStatusLabel[s]}`, onSelect: () => move.mutate({ id: l.id, to: s }) })),
+          ]} />
+        )}
         empty={{ icon: <ShieldIcon size={28} />, title: 'لا توجد طلبات', text: 'تظهر هنا طلبات التواصل التي تصل من نموذج صفحة المنصة.' }}
       />
     </>
@@ -508,18 +660,80 @@ function LegalAdminPage() {
 // ---------- ADM-04 plans ----------
 function PlansPage() {
   const plans = useQuery({ queryKey: [...KEY, 'plans'], queryFn: () => papi<Plan[]>('/platform/plans') });
+  const [editing, setEditing] = useState<Plan | null>(null);
   return (
     <>
-      <PageHeader title="الخطط" sub="أسعار الخطط ومدة التجربة والحدود والمزايا. التغيير يسري على كل عيادة على الخطة." />
-      {plans.isError ? <ErrorText error={plans.error} /> : !plans.data ? <Skeleton h={96} count={2} /> : plans.data.map((p) => <PlanCard key={p.id} p={p} />)}
+      <PageHeader title="الخطط" sub="أسعار الخطط ومدة التجربة والحدود والمزايا. التغيير يسري على كل عيادة على الخطة." count={plans.data?.length} />
+      {plans.isError ? <ErrorText error={plans.error} /> : !plans.data ? <Skeleton h={96} count={2} /> : (
+        <div className="pl-plans">
+          {plans.data.map((p) => <PlanCard key={p.id} p={p} onEdit={() => setEditing(p)} />)}
+        </div>
+      )}
+      {/* keyed: each opening starts from the plan as saved */}
+      {editing && <PlanEditDialog key={editing.id} p={editing} onClose={() => setEditing(null)} />}
     </>
+  );
+}
+
+const LIMIT_ICON: Record<(typeof LIMIT_KEYS)[number], LucideIcon> = { branches: MapPin, staff: Users, doctors: Stethoscope, patients: UserRound, storage_mb: HardDrive };
+const LIMIT_TITLE: Record<(typeof LIMIT_KEYS)[number], string> = { branches: 'الفروع', staff: 'أعضاء الفريق', doctors: 'الأطباء', patients: 'المرضى', storage_mb: 'مساحة الملفات' };
+const fmt = (n: number) => n.toLocaleString('en-US');
+/** A limit as people read it: "غير محدود", "2,000", storage in GB from 1 GB up. */
+function limitText(key: (typeof LIMIT_KEYS)[number], v: number | null | undefined): string {
+  if (v == null) return 'غير محدود';
+  if (key === 'storage_mb') return v >= 1024 ? `${fmt(Math.round((v / 1024) * 10) / 10)} ${'جيجابايت'}` : `${fmt(v)} ${'ميجابايت'}`;
+  return fmt(v);
+}
+
+/** One plan as a pricing card: what a clinic pays and gets; editing opens a dialog. */
+function PlanCard({ p, onEdit }: { p: Plan; onEdit: () => void }) {
+  // what a year costs against twelve months, shown only (prices themselves are set by the admin)
+  const saving = p.price_monthly_minor > 0 ? Math.round((1 - p.price_yearly_minor / (p.price_monthly_minor * 12)) * 100) : 0;
+  return (
+    <Card className="pl-plan">
+      <div className="pl-plan-head">
+        <div className="min-w-0">
+          <h2>{p.name_ar} <span className="pl-code" dir="ltr">{p.code}</span></h2>
+          <span className="muted small">{p.clinics} {p.clinics >= 3 && p.clinics <= 10 ? 'عيادات' : 'عيادة'} على هذه الخطة</span>
+        </div>
+        <Badge tone={p.is_public ? 'success' : 'neutral'} dot>{p.is_public ? 'تظهر في صفحة الأسعار' : 'مخفية'}</Badge>
+      </div>
+
+      <div className="pl-price">
+        <strong>{money(p.price_monthly_minor, p.currency)}</strong><span className="muted">/ شهريًا</span>
+      </div>
+      <p className="muted small pl-price-sub">
+        {money(p.price_yearly_minor, p.currency)} سنويًا
+        {saving > 0 && <Badge tone="success">توفير {saving}%</Badge>}
+        <span>· تجربة {p.trial_days} {p.trial_days >= 3 && p.trial_days <= 10 ? 'أيام' : 'يومًا'}</span>
+      </p>
+
+      <ul className="pl-limits">
+        {LIMIT_KEYS.map((k) => {
+          const Icon = LIMIT_ICON[k];
+          return <li key={k}><Icon className="size-4" aria-hidden /><span>{LIMIT_TITLE[k]}</span><strong>{limitText(k, p.limits[k])}</strong></li>;
+        })}
+      </ul>
+
+      <ul className="pl-features">
+        {FEATURE_KEYS.map((k) => (
+          <li key={k} className={p.features[k] ? 'is-on' : undefined}>
+            {p.features[k] ? <Check className="size-4" aria-label="متاح" /> : <X className="size-4" aria-label="غير متاح" />}
+            {planFeatureLabel[k]}
+          </li>
+        ))}
+      </ul>
+
+      <Button variant="secondary" block onClick={onEdit}><Pencil className="size-4" />تعديل الخطة</Button>
+    </Card>
   );
 }
 
 const pounds = (minor: number) => String(minor / 100);
 const toMinor = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Math.round(Number(v) * 100));
 
-function PlanCard({ p }: { p: Plan }) {
+/** The plan's edit form, in sections, in a dialog. Limits and features merge into the plan on the server. */
+function PlanEditDialog({ p, onClose }: { p: Plan; onClose: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState(p.name_ar);
   const [monthly, setMonthly] = useState(pounds(p.price_monthly_minor));
@@ -528,9 +742,9 @@ function PlanCard({ p }: { p: Plan }) {
   const [limits, setLimits] = useState<Record<string, string>>(() => Object.fromEntries(LIMIT_KEYS.map((k) => [k, p.limits[k] == null ? '' : String(p.limits[k])])));
   const [features, setFeatures] = useState<Record<string, boolean>>(() => Object.fromEntries(FEATURE_KEYS.map((k) => [k, !!p.features[k]])));
   const [isPublic, setPublic] = useState(p.is_public);
-  const [saved, setSaved] = useState(false);
   const m = toMinor(monthly), y = toMinor(yearly), days = Number(trial);
   const ok = name.trim().length >= 2 && m !== null && y !== null && Number.isInteger(days) && days >= 0 && days <= 90;
+  const currency = money(0, p.currency).replace(/^0\s*/, '');
   const save = useMutation({
     mutationFn: () => papi<Plan>(`/platform/plans/${p.id}`, {
       method: 'PATCH',
@@ -539,33 +753,50 @@ function PlanCard({ p }: { p: Plan }) {
         limits: Object.fromEntries(LIMIT_KEYS.map((k) => [k, limits[k].trim() === '' ? null : Math.max(0, Math.floor(Number(limits[k])))])),
       }),
     }),
-    onSuccess: () => { setSaved(true); void qc.invalidateQueries({ queryKey: [...KEY, 'plans'] }); },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...KEY, 'plans'] }); onClose(); },
   });
   return (
-    <Card as="form" className="stack">
-      <div className="row-between"><h2>{p.name_ar} <span className="muted small" dir="ltr">({p.code})</span></h2><span className="muted small">{'{n} عيادة على هذه الخطة'.replace('{n}', String(p.clinics))}</span></div>
-      <div className="grid-2">
-        <Field label="اسم الخطة">{(a) => <Input id={a.id} value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} maxLength={60} />}</Field>
-        <Field label="أيام التجربة">{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={trial} onChange={(e) => { setTrial(e.target.value); setSaved(false); }} />}</Field>
-        <Field label={`${'السعر الشهري'} (${money(0, p.currency).replace(/^0\s*/, '')})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={monthly} onChange={(e) => { setMonthly(e.target.value); setSaved(false); }} invalid={m === null} />}</Field>
-        <Field label={`${'السعر السنوي'} (${money(0, p.currency).replace(/^0\s*/, '')})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={yearly} onChange={(e) => { setYearly(e.target.value); setSaved(false); }} invalid={y === null} />}</Field>
-      </div>
-      <h3>الحدود</h3>
-      <p className="muted small">اتركه فارغًا لعدد غير محدود. الحد يسري على ما يُضاف بعد التغيير.</p>
-      <div className="grid-2">
-        {LIMIT_KEYS.map((k) => (
-          <Field key={k} label={planLimitLabel[k]}>
-            {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={limits[k]} placeholder="غير محدود" onChange={(e) => { setLimits((l) => ({ ...l, [k]: e.target.value })); setSaved(false); }} />}
-          </Field>
-        ))}
-      </div>
-      <h3>المزايا</h3>
-      {FEATURE_KEYS.map((k) => <Switch key={k} checked={features[k]} label={planFeatureLabel[k]} onChange={(v) => { setFeatures((f) => ({ ...f, [k]: v })); setSaved(false); }} />)}
-      <Switch checked={isPublic} label="تظهر في صفحة الأسعار" onChange={(v) => { setPublic(v); setSaved(false); }} />
-      {saved && <Alert tone="success">تم الحفظ</Alert>}
-      <ErrorText error={save.error} />
-      <div className="row-end"><Button onClick={() => save.mutate()} disabled={!ok} loading={save.isPending}>حفظ</Button></div>
-    </Card>
+    <Dialog open onOpenChange={(open) => { if (!open && !save.isPending) onClose(); }}>
+      <DialogContent dir="rtl" className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-card sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-start">تعديل الخطة: {p.name_ar} <span className="pl-code" dir="ltr">{p.code}</span></DialogTitle>
+          <DialogDescription className="text-start">{`${'يسري التغيير على'} ${p.clinics} ${p.clinics >= 3 && p.clinics <= 10 ? 'عيادات' : 'عيادة'} ${'على هذه الخطة.'}`}</DialogDescription>
+        </DialogHeader>
+        <form className="pl-plan-form" onSubmit={(e) => { e.preventDefault(); if (ok) save.mutate(); }}>
+          <section>
+            <h3>الاسم والأسعار</h3>
+            <div className="grid-2">
+              <Field label="اسم الخطة">{(a) => <Input id={a.id} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />}</Field>
+              <Field label="أيام التجربة" hint="من 0 إلى 90">{(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="numeric" value={trial} onChange={(e) => setTrial(e.target.value)} invalid={!(Number.isInteger(days) && days >= 0 && days <= 90)} />}</Field>
+              <Field label={`${'السعر الشهري'} (${currency})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} invalid={m === null} />}</Field>
+              <Field label={`${'السعر السنوي'} (${currency})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={yearly} onChange={(e) => setYearly(e.target.value)} invalid={y === null} />}</Field>
+            </div>
+          </section>
+          <section>
+            <h3>الحدود</h3>
+            <p className="muted small">اتركه فارغًا لعدد غير محدود. الحد يسري على ما يُضاف بعد التغيير.</p>
+            <div className="pl-limit-fields">
+              {LIMIT_KEYS.map((k) => (
+                <Field key={k} label={planLimitLabel[k]}>
+                  {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={limits[k]} placeholder="غير محدود" onChange={(e) => setLimits((l) => ({ ...l, [k]: e.target.value }))} />}
+                </Field>
+              ))}
+            </div>
+          </section>
+          <section>
+            <h3>المزايا والظهور</h3>
+            <div className="pl-switches">
+              {FEATURE_KEYS.map((k) => <Switch key={k} checked={features[k]} label={planFeatureLabel[k]} onChange={(v) => setFeatures((f) => ({ ...f, [k]: v }))} />)}
+              <Switch checked={isPublic} label="تظهر في صفحة الأسعار" onChange={setPublic} />
+            </div>
+          </section>
+          <ErrorText error={save.error} />
+          <div className="pl-plan-actions">
+            <Button type="submit" disabled={!ok} loading={save.isPending}>حفظ</Button>
+            <Button variant="ghost" onClick={onClose} disabled={save.isPending}>إلغاء</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
-
