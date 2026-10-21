@@ -42,7 +42,8 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
   const doctor = doctorsHere.some((d) => d.id === doctorId) ? doctorId : '';
   const [serviceId, setServiceId] = useState(prefill?.service ?? '');
   const service = (services.data ?? []).find((s) => s.id === serviceId && s.is_active);
-  const [date, setDate] = useState(todayIso());
+  // ?date= from the appointments page: that day, unless it has passed
+  const [date, setDate] = useState(() => (prefill?.date && /^\d{4}-\d{2}-\d{2}$/.test(prefill.date) && prefill.date > todayIso() ? prefill.date : todayIso()));
   const [slot, setSlot] = useState('');
   const [override, setOverride] = useState(false);
   const [time, setTime] = useState('');

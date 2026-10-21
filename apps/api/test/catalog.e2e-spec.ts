@@ -9,6 +9,8 @@ import { AppModule } from '../src/app.module';
 const NASR = 'd0000000-0000-0000-0000-0000000000a1';
 const MAADI = 'd0000000-0000-0000-0000-0000000000a2';
 const HELIOPOLIS_B = 'd0000000-0000-0000-0000-0000000000b1';
+const AHMED = 'f0000000-0000-0000-0000-0000000000a1'; // seeded doctor, clinic A
+const run = Date.now().toString().slice(-7); // seven digits: a valid mobile is 010 + 8
 
 describe('Onboarding: doctors and services (e2e)', () => {
   let app: INestApplication;
@@ -20,15 +22,15 @@ describe('Onboarding: doctors and services (e2e)', () => {
     const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = mod.createNestApplication();
     await app.init();
-    for (const [who, email] of [['ownerA', 'owner.a@demo.test'], ['receptionA', 'reception.a@demo.test'], ['ownerB', 'owner.b@demo.test']]) {
+    for (const [who, email] of [['ownerA', 'owner.a@demo.test'], ['receptionA', 'reception.a@demo.test'], ['doctorA', 'doctor.a@demo.test'], ['ownerB', 'owner.b@demo.test']]) {
       token[who] = (await http().post('/auth/dev-login').send({ email }).expect(201)).body.accessToken;
     }
   });
   const made = { doctors: [] as string[], services: [] as string[] };
   afterAll(async () => {
-    // there is no delete API (the price list is history for invoices), so what the tests created is switched off
+    // doctors have no delete API, so test doctors are switched off; services are deleted (hidden when used)
     for (const id of made.doctors) await http().patch(`/doctors/${id}`).set(as('ownerA')).send({ isActive: false });
-    for (const id of made.services) await http().patch(`/services/${id}`).set(as('ownerA')).send({ isActive: false, showOnWebsite: false });
+    for (const id of made.services) await http().delete(`/services/${id}`).set(as('ownerA'));
     await app.close();
   });
 
@@ -96,41 +98,100 @@ describe('Onboarding: doctors and services (e2e)', () => {
   });
 
   describe('services', () => {
-    it('lists the dental catalogue', async () => {
-      const res = await http().get('/services/catalog').set(as('receptionA')).expect(200);
-      expect(res.body.map((c: { code: string }) => c.code)).toEqual(expect.arrayContaining(['consultation', 'scaling', 'rct']));
+    const ids = (rows: { id: string }[]) => rows.map((r) => r.id);
+    const activeDoctors = async () => ids((await http().get('/doctors').set(as('ownerA')).expect(200)).body.filter((d: { is_active: boolean }) => d.is_active)).sort();
+    let serviceId: string;
+
+    it('there is no ready-made list: the clinic types its services', async () => {
+      await http().get('/services/catalog').set(as('ownerA')).expect(404);
+      await http().post('/services').set(as('ownerA')).send({ catalogCode: 'rct', priceMinor: 250000, durationMinutes: 90 }).expect(400);
     });
 
-    it('adds a service from the catalogue with just a price; once', async () => {
-      const res = await http().post('/services').set(as('ownerA')).send({ catalogCode: 'rct', priceMinor: 250000 }).expect(201);
-      made.services.push(res.body.id);
-      expect(res.body).toMatchObject({ catalog_code: 'rct', name_ar: 'علاج عصب', duration_minutes: 90, price_minor: 250000, price_max_minor: null });
+    it('adds a service with a price range; every active doctor performs it unless chosen', async () => {
+      const res = await http().post('/services').set(as('ownerA'))
+        .send({ nameAr: `تنظيف للأطفال ${run}`, priceMinor: 20000, priceMaxMinor: 40000, durationMinutes: 30 }).expect(201);
+      serviceId = res.body.id;
+      made.services.push(serviceId);
+      expect(res.body).toMatchObject({ catalog_code: null, price_minor: 20000, price_max_minor: 40000, duration_minutes: 30 });
       expect(typeof res.body.price_minor).toBe('number');
-      const again = await http().post('/services').set(as('ownerA')).send({ catalogCode: 'rct', priceMinor: 250000 }).expect(409);
-      expect(again.body.code).toBe('service_already_added');
+      expect([...res.body.doctor_ids].sort()).toEqual(await activeDoctors());
+      const chosen = await http().post('/services').set(as('ownerA')).send({ nameAr: `زراعة ${run}`, priceMinor: 900000, durationMinutes: 60, doctorIds: [AHMED, AHMED] }).expect(201);
+      made.services.push(chosen.body.id);
+      expect(chosen.body.doctor_ids).toEqual([AHMED]); // the same doctor twice is one
+    });
+
+    it('validates; only a member with settings:write may add or delete', async () => {
+      await http().post('/services').set(as('ownerA')).send({ nameAr: 'بدون مدة', priceMinor: 100 }).expect(400); // no duration
+      await http().post('/services').set(as('ownerA')).send({ nameAr: 'مقلوب', priceMinor: 500, priceMaxMinor: 100, durationMinutes: 30 }).expect(400);
+      await http().post('/services').set(as('ownerA')).send({ priceMinor: 500, durationMinutes: 30 }).expect(400); // no name
+      await http().post('/services').set(as('receptionA')).send({ nameAr: 'استقبال', durationMinutes: 30 }).expect(403);
+      await http().delete(`/services/${serviceId}`).set(as('receptionA')).expect(403);
     });
 
     it('a PATCH is checked against the merged row, like a POST', async () => {
-      const id = made.services[0];
-      expect((await http().patch(`/services/${id}`).set(as('ownerA')).send({ priceMaxMinor: 100 }).expect(400)).body.code).toBe('validation_failed');
-      expect((await http().patch(`/services/${id}`).set(as('ownerA')).send({ nameAr: null, nameEn: null }).expect(400)).body.code).toBe('validation_failed');
-      const ok = await http().patch(`/services/${id}`).set(as('ownerA')).send({ priceMaxMinor: 300000 }).expect(200);
-      expect(ok.body.price_max_minor).toBe(300000);
+      expect((await http().patch(`/services/${serviceId}`).set(as('ownerA')).send({ priceMaxMinor: 100 }).expect(400)).body.code).toBe('validation_failed');
+      expect((await http().patch(`/services/${serviceId}`).set(as('ownerA')).send({ nameAr: null, nameEn: null }).expect(400)).body.code).toBe('validation_failed');
+      const ok = await http().patch(`/services/${serviceId}`).set(as('ownerA')).send({ priceMaxMinor: 30000 }).expect(200);
+      expect(ok.body.price_max_minor).toBe(30000);
     });
 
-    it('adds a custom service with a price range, and validates', async () => {
-      const res = await http().post('/services').set(as('ownerA'))
-        .send({ nameAr: 'تنظيف للأطفال', priceMinor: 20000, priceMaxMinor: 40000, durationMinutes: 30 }).expect(201);
-      made.services.push(res.body.id);
-      expect(res.body.price_max_minor).toBe(40000);
-      await http().post('/services').set(as('ownerA')).send({ nameAr: 'بدون مدة', priceMinor: 100 }).expect(400); // no duration
-      await http().post('/services').set(as('ownerA')).send({ nameAr: 'مقلوب', priceMinor: 500, priceMaxMinor: 100, durationMinutes: 30 }).expect(400);
-      expect((await http().post('/services').set(as('ownerA')).send({ catalogCode: 'nope_x', priceMinor: 1 }).expect(400)).body.code).toBe('catalog_code_unknown');
-      await http().post('/services').set(as('receptionA')).send({ catalogCode: 'rct', priceMinor: 1 }).expect(403);
-      const hidden = await http().patch(`/services/${res.body.id}`).set(as('ownerA')).send({ showOnWebsite: false }).expect(200);
+    it('who performs it decides who can be booked for it; another clinic\'s doctor is refused', async () => {
+      const res = await http().patch(`/services/${serviceId}`).set(as('ownerA')).send({ doctorIds: [AHMED] }).expect(200);
+      expect(res.body.doctor_ids).toEqual([AHMED]);
+      const options = (await http().get('/public/booking/options').query({ host: 'clinic-a.lvh.me' }).expect(200)).body;
+      const performs = (id: string) => options.doctors.find((d: { id: string }) => d.id === id)?.service_ids ?? [];
+      expect(performs(AHMED)).toContain(serviceId);
+      for (const d of options.doctors.filter((x: { id: string }) => x.id !== AHMED)) expect(d.service_ids).not.toContain(serviceId);
+      const bDoctor = (await http().get('/doctors').set(as('ownerB')).expect(200)).body[0]?.id;
+      expect(bDoctor).toBeTruthy();
+      expect((await http().patch(`/services/${serviceId}`).set(as('ownerA')).send({ doctorIds: [bDoctor] }).expect(400)).body.code).toBe('doctor_not_found');
+    });
+
+    it('a new doctor performs every service on the price list', async () => {
+      const doc = (await http().post('/doctors').set(as('ownerA')).send({ nameAr: `د. جديد ${run}`, branchIds: [NASR] }).expect(201)).body;
+      made.doctors.push(doc.id);
+      const list = (await http().get('/services').set(as('ownerA')).expect(200)).body;
+      expect(list.find((x: { id: string }) => x.id === serviceId).doctor_ids).toContain(doc.id);
+    });
+
+    it('hidden from the website = off the website', async () => {
+      const hidden = await http().patch(`/services/${serviceId}`).set(as('ownerA')).send({ showOnWebsite: false }).expect(200);
       expect(hidden.body.show_on_website).toBe(false);
       const site = await http().get('/public/site?host=clinic-a.lvh.me').expect(200);
-      expect(site.body.services.map((x: { id: string }) => x.id)).not.toContain(res.body.id); // hidden = off the website
+      expect(ids(site.body.services)).not.toContain(serviceId);
+    });
+
+    it('deletes a never-used service', async () => {
+      const id = (await http().post('/services').set(as('ownerA')).send({ nameAr: `للحذف ${run}`, priceMinor: 1000, durationMinutes: 15 }).expect(201)).body.id;
+      await http().delete(`/services/${id}`).set(as('ownerB')).expect(404); // another clinic's id is simply not found
+      await http().delete(`/services/${id}`).set(as('ownerA')).expect(204);
+      expect(ids((await http().get('/services').set(as('ownerA')).expect(200)).body)).not.toContain(id);
+      await http().delete(`/services/${id}`).set(as('ownerA')).expect(404);
+      await http().patch(`/services/${id}`).set(as('ownerA')).send({ priceMinor: 1 }).expect(404);
+    });
+
+    it('deleting a used service hides it everywhere and keeps the history', async () => {
+      const name = `خدمة مستخدمة ${run}`;
+      const id = (await http().post('/services').set(as('ownerA')).send({ nameAr: name, priceMinor: 5000, durationMinutes: 20 }).expect(201)).body.id;
+      const patientId = (await http().post('/patients').set(as('receptionA')).send({ fullName: `مريض حذف خدمة ${run}`, phone: `0107${run}` }).expect(201)).body.id;
+      const visitId = (await http().post('/visits').set(as('doctorA')).send({ patientId, branchId: NASR }).expect(201)).body.id;
+      await http().post(`/visits/${visitId}/procedures`).set(as('doctorA')).send({ serviceId: id }).expect(201);
+      const invoice = (await http().post('/invoices').set(as('receptionA')).send({ patientId, branchId: NASR, lines: [{ serviceId: id }] }).expect(201)).body;
+
+      await http().delete(`/services/${id}`).set(as('ownerA')).expect(204);
+      expect(ids((await http().get('/services').set(as('ownerA')).expect(200)).body)).not.toContain(id);
+      expect(ids((await http().get('/public/site?host=clinic-a.lvh.me').expect(200)).body.services)).not.toContain(id);
+      expect(ids((await http().get('/public/booking/options').query({ host: 'clinic-a.lvh.me' }).expect(200)).body.services)).not.toContain(id);
+      // history keeps its name
+      const visit = (await http().get(`/visits/${visitId}`).set(as('doctorA')).expect(200)).body;
+      expect(visit.procedures.map((p: { service_ar: string }) => p.service_ar)).toContain(name);
+      const inv = (await http().get(`/invoices/${invoice.id}`).set(as('receptionA')).expect(200)).body;
+      expect(inv.lines.map((l: { description: string }) => l.description)).toContain(name);
+      // nothing new can use it
+      expect((await http().post(`/visits/${visitId}/procedures`).set(as('doctorA')).send({ serviceId: id }).expect(400)).body.code).toBe('service_not_found');
+      expect((await http().post('/invoices').set(as('receptionA')).send({ patientId, branchId: NASR, lines: [{ serviceId: id }] }).expect(400)).body.code).toBe('service_not_found');
+      await http().patch(`/services/${id}`).set(as('ownerA')).send({ isActive: true }).expect(404);
+      await http().delete(`/services/${id}`).set(as('ownerA')).expect(404);
     });
   });
 });

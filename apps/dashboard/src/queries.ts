@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type {
-  Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, CatalogEntry, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
+  Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
   BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
   HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
 } from './types';
@@ -16,7 +16,6 @@ export const keys = {
   onboarding: (clinicId: string) => ['onboarding', clinicId] as const,
   doctors: (clinicId: string) => ['doctors', clinicId] as const,
   services: (clinicId: string) => ['services', clinicId] as const,
-  catalog: (clinicId: string) => ['catalog', clinicId] as const,
   appointments: (clinicId: string) => ['appointments', clinicId] as const,
   staff: (clinicId: string) => ['staff', clinicId] as const,
 };
@@ -55,10 +54,6 @@ export const useDoctors = (clinicId: string) =>
 
 export const useServices = (clinicId: string) =>
   useQuery({ queryKey: keys.services(clinicId), queryFn: () => api<Service[]>('/services') });
-
-/** The platform's dental catalogue: the same for every clinic, so it is cached for the whole session. */
-export const useCatalog = (clinicId: string) =>
-  useQuery({ queryKey: keys.catalog(clinicId), queryFn: () => api<CatalogEntry[]>('/services/catalog'), staleTime: Infinity });
 
 /** One item of a cached list, for an edit page: the list is small and already needed by the list screen. */
 export function useOne<T extends { id: string }>(list: ReturnType<typeof useQuery<T[]>>, id: string | undefined) {

@@ -38,4 +38,12 @@ DELETE FROM services WHERE catalog_code = 'rct';
 SELECT test.lives($$INSERT INTO services (tenant_id, catalog_code, name_en, duration_minutes) VALUES
   ('22222222-2222-2222-2222-222222222222','rct','Root canal',90)$$, 'the index is per clinic');
 
+-- a deleted service (kept for history, owner 2026-10-21) is off everywhere
+SELECT test.throws($$UPDATE services SET deleted_at = now() WHERE catalog_code = 'rct'$$,
+  'services_deleted_is_off', 'a deleted service cannot stay active, on the website or bookable');
+SELECT test.lives($$UPDATE services SET deleted_at = now(), is_active = false, show_on_website = false, bookable_online = false
+  WHERE catalog_code = 'rct'$$, 'a deleted service is switched off');
+SELECT test.throws($$UPDATE services SET is_active = true WHERE catalog_code = 'rct'$$,
+  'services_deleted_is_off', 'nor switched back on while deleted');
+
 ROLLBACK;

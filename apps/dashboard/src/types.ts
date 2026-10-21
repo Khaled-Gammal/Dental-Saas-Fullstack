@@ -89,9 +89,9 @@ export interface Service {
   image: MediaImage | null;
   /** H9: the consent text this treatment needs, if any */
   consent_key?: string | null;
+  /** the doctors who perform it (staff and online booking offer only them) */
+  doctor_ids: string[];
 }
-
-export interface CatalogEntry { code: string; category: string; name_en: string; name_ar: string; default_duration_minutes: number }
 
 export type AppointmentStatus = 'held' | 'expired' | 'pending' | 'confirmed' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
 export type AppointmentSource = 'website' | 'dashboard' | 'phone' | 'walk_in' | 'whatsapp';

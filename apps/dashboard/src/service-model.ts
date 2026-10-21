@@ -1,6 +1,6 @@
 import { toAsciiDigits } from '@dental/ui/text';
 import { imageFieldValue } from './media-model';
-import type { CatalogEntry, MediaImage, Service } from './types';
+import type { MediaImage, Service } from './types';
 
 /** Pure price-list logic for the service form (no React): mirrors the API's zod rules. */
 
@@ -14,6 +14,8 @@ export interface ServiceForm {
   bookableOnline: boolean; showOnWebsite: boolean; isActive: boolean; image: MediaImage | null;
   /** H9: a consent text's key, '' = none needed */
   consentKey: string;
+  /** the doctors who perform it, sorted (staff and online booking offer only them) */
+  doctorIds: string[];
 }
 export type ServiceFieldError = 'name' | 'price' | 'priceMax' | 'duration';
 
@@ -21,11 +23,12 @@ const pounds = (minor: number | null) => (minor ? String(Math.round(minor / PIAS
 export const toForm = (s: Service): ServiceForm => ({
   nameAr: s.name_ar ?? '', nameEn: s.name_en ?? '', descriptionAr: s.description_ar ?? '', price: pounds(s.price_minor), priceMax: pounds(s.price_max_minor),
   duration: String(s.duration_minutes), bookableOnline: s.bookable_online, showOnWebsite: s.show_on_website, isActive: s.is_active,
-  image: s.image ?? null, consentKey: s.consent_key ?? '',
+  image: s.image ?? null, consentKey: s.consent_key ?? '', doctorIds: [...(s.doctor_ids ?? [])].sort(),
 });
-export const fromCatalog = (c?: CatalogEntry): ServiceForm => ({
-  nameAr: c?.name_ar ?? '', nameEn: c?.name_en ?? '', descriptionAr: '', price: '', priceMax: '', duration: c ? String(c.default_duration_minutes) : '30',
-  bookableOnline: true, showOnWebsite: true, isActive: true, image: null, consentKey: '',
+/** A new service: the clinic types it (owner 2026-10-21: no ready-made list); every active doctor performs it until unticked. */
+export const emptyForm = (doctorIds: string[] = []): ServiceForm => ({
+  nameAr: '', nameEn: '', descriptionAr: '', price: '', priceMax: '', duration: '30',
+  bookableOnline: true, showOnWebsite: true, isActive: true, image: null, consentKey: '', doctorIds: [...doctorIds].sort(),
 });
 
 const digits = (v: string) => toAsciiDigits(v.trim());
@@ -47,25 +50,23 @@ export function validate(f: ServiceForm): Set<ServiceFieldError> {
 }
 
 /** The API body: everything for a create, only what changed for an edit (an emptied text is sent as null). */
-export function toBody(form: ServiceForm, orig: ServiceForm | null, catalog?: CatalogEntry): Record<string, unknown> {
+export function toBody(form: ServiceForm, orig: ServiceForm | null): Record<string, unknown> {
   const body: Record<string, unknown> = {};
-  if (!orig && catalog) body.catalogCode = catalog.code;
   for (const k of TEXT) {
     const v = form[k].trim();
     if (orig) { if (v !== orig[k].trim()) body[k] = v || null; continue; }
-    // create: a blank field is simply left out (the catalogue's name then applies); a catalogue name that was kept is not repeated
-    const preset = catalog && k !== 'descriptionAr' ? catalog[k === 'nameAr' ? 'name_ar' : 'name_en'] : '';
-    if (v && v !== preset) body[k] = v;
+    if (v) body[k] = v; // create: a blank field is simply left out
   }
   const price = toMinor(form.price);
   const max = form.priceMax.trim() ? toMinor(form.priceMax) : null;
   if (!orig || price !== toMinor(orig.price)) body.priceMinor = price;
   if (!orig ? max !== null : max !== (orig.priceMax.trim() ? toMinor(orig.priceMax) : null)) body.priceMaxMinor = max;
   const duration = Number(digits(form.duration));
-  if (!orig ? duration !== (catalog?.default_duration_minutes ?? NaN) : duration !== Number(orig.duration)) body.durationMinutes = duration;
+  if (!orig || duration !== Number(orig.duration)) body.durationMinutes = duration;
   for (const k of ['bookableOnline', 'showOnWebsite'] as const) if (!orig || form[k] !== orig[k]) body[k] = form[k];
   if (orig && form.isActive !== orig.isActive) body.isActive = form.isActive;
   if (orig ? form.consentKey !== orig.consentKey : !!form.consentKey) body.consentKey = form.consentKey || null;
+  if (!orig || form.doctorIds.join() !== orig.doctorIds.join()) body.doctorIds = form.doctorIds; // sorted, so order never counts as a change
   const image = imageFieldValue(form.image, orig ? orig.image : undefined);
   if (image !== undefined) body.imageFileId = image;
   return body;

@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { arName } from '@dental/ui/text';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button as IconButton } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { appointmentActionLabel, appointmentSourceLabel, appointmentStatusLabel } from '../../labels';
@@ -11,7 +14,7 @@ import { RouteLink } from '../../ui/page';
 import type { Appointment, AppointmentStatus, Branch } from '../../types';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, OtpInput, PageHeader, Skeleton } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { CalendarIcon, CheckIcon, EditIcon } from '../../ui/icons';
+import { CalendarIcon, CheckIcon, EditIcon, PlusIcon } from '../../ui/icons';
 import { fmtNumber, toAsciiDigits } from '../../util';
 import { money } from '../../money';
 
@@ -71,7 +74,8 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
   /** clinical:write: open the visit of an arrived patient (the API checks it is the doctor's own); clinical:read: open an existing one */
   canVisit?: boolean; canReadVisit?: boolean;
 }) {
-  const date = query?.date && ISO.test(query.date) ? query.date : isoDate(new Date());
+  const today = isoDate(new Date());
+  const date = query?.date && ISO.test(query.date) ? query.date : today;
   const branchId = query?.branch || undefined;
   const view: View = query?.view === 'waiting' || query?.view === 'mine' || query?.view === 'all' ? query.view : defaultView;
   const go = (next: { date?: string; branch?: string | null; view?: View }) => {
@@ -95,6 +99,11 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
   const [note, setNote] = useState('');
   const [reason, setReason] = useState('');
   const [actionError, setActionError] = useState<unknown>(null);
+  const [checkingIn, setCheckingIn] = useState(false);
+  // opens the form on the day and branch being looked at
+  const newButton = canWrite && (
+    <Button onClick={() => navigate(to.create('appointments', { date, ...(branchId && { branch: branchId }) }))}><PlusIcon size={18} />موعد جديد</Button>
+  );
   const run = (a: Appointment, action: AppointmentAction) => {
     setActionError(null);
     if (action === 'cancel') { setCancelling(a); setReason(''); return; }
@@ -109,29 +118,41 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
 
   return (
     <>
-      <PageHeader title="المواعيد" sub="مواعيد اليوم، تسجيل حضور المرضى، ومتابعة حالة كل زيارة" />
+      <PageHeader title="المواعيد" sub="مواعيد اليوم، تسجيل حضور المرضى، ومتابعة حالة كل زيارة" action={canWrite ? (
+        <>
+          {view !== 'mine' && <Button variant="secondary" onClick={() => setCheckingIn(true)}><CheckIcon size={18} />تسجيل الحضور</Button>}
+          {newButton}
+        </>
+      ) : undefined} />
+      {/* one row: the views on the start side; the day (stepper, today) and the branch on the end side */}
       <div className="day-toolbar">
-        <div className="day-nav">
-          <Button variant="secondary" onClick={() => go({ date: shiftDate(date, -1) })}>السابق</Button>
-          <DatePicker value={date} onChange={(d) => go({ date: d })} label="التاريخ" />
-          <Button variant="secondary" onClick={() => go({ date: shiftDate(date, 1) })}>التالي</Button>
-          <Button variant="ghost" onClick={() => go({ date: isoDate(new Date()) })}>اليوم</Button>
+        <div className="seg" role="group" aria-label="المواعيد">
+          {VIEWS.filter((x) => x.v !== 'mine' || canOwn).map((x) => (
+            <button key={x.v} type="button" aria-pressed={view === x.v} className={`seg-btn${view === x.v ? ' is-on' : ''}`} onClick={() => go({ view: x.v })}>
+              {x.key}{x.v === 'waiting' && queue.waiting.length > 0 && <Badge tone="warning">{fmtNumber(queue.waiting.length)}</Badge>}
+            </button>
+          ))}
         </div>
-        <BranchSelect branches={branches.data ?? []} value={branchId ?? ALL} onChange={(v) => go({ branch: v === ALL ? null : v })} allLabel="كل الفروع" />
+        <div className="day-nav">
+          {/* right-to-left: the previous day is on the right, its arrow points right */}
+          <div className="day-stepper">
+            <IconButton variant="outline" size="icon-lg" aria-label="اليوم السابق" onClick={() => go({ date: shiftDate(date, -1) })}><ChevronRight /></IconButton>
+            <DatePicker value={date} onChange={(d) => go({ date: d })} label="التاريخ" />
+            <IconButton variant="outline" size="icon-lg" aria-label="اليوم التالي" onClick={() => go({ date: shiftDate(date, 1) })}><ChevronLeft /></IconButton>
+          </div>
+          <IconButton variant="outline" className="h-10" disabled={date === today} onClick={() => go({ date: today })}>اليوم</IconButton>
+          <BranchSelect branches={branches.data ?? []} value={branchId ?? ALL} onChange={(v) => go({ branch: v === ALL ? null : v })} allLabel="كل الفروع" />
+        </div>
       </div>
 
-      <div className="seg mt" role="group" aria-label="المواعيد">
-        {VIEWS.filter((x) => x.v !== 'mine' || canOwn).map((x) => (
-          <button key={x.v} type="button" aria-pressed={view === x.v} className={`seg-btn${view === x.v ? ' is-on' : ''}`} onClick={() => go({ view: x.v })}>
-            {x.key}{x.v === 'waiting' && queue.waiting.length > 0 && <Badge tone="warning">{fmtNumber(queue.waiting.length)}</Badge>}
-          </button>
-        ))}
-      </div>
-
-      {canWrite && view !== 'mine' && <CheckInPanel clinicId={clinicId} branches={branches.data ?? []} defaultBranch={branchId} canSeeBalances={canSeeBalances} />}
+      {canWrite && <CheckInDialog open={checkingIn} onOpenChange={setCheckingIn} clinicId={clinicId} branches={branches.data ?? []} defaultBranch={branchId} canSeeBalances={canSeeBalances} />}
       {actionError != null && <ErrorText error={actionError} />}
 
-      <h2 className="day-title"><CalendarIcon size={18} />{new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`))}</h2>
+      <h2 className="day-title">
+        <CalendarIcon size={18} />{new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`))}
+        {date === today && <Badge tone="primary">اليوم</Badge>}
+        {!!day.data?.appointments.length && view !== 'waiting' && <span className="page-count">{fmtNumber(day.data.appointments.length)}</span>}
+      </h2>
       {day.isError ? (
         <ErrorText error={day.error} onRetry={() => void day.refetch()} />
       ) : day.isLoading ? (
@@ -139,7 +160,7 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
       ) : view === 'waiting' ? (
         <WaitingView queue={queue} time={time} canStart={canWrite} onStart={(a) => run(a, 'start')} balances={balances} />
       ) : !day.data?.appointments.length ? (
-        <Card><EmptyState icon={<CalendarIcon size={28} />} title="لا توجد مواعيد في هذا اليوم" text="المواعيد المحجوزة من الموقع تظهر هنا تلقائيًا." /></Card>
+        <Card><EmptyState icon={<CalendarIcon size={28} />} title="لا توجد مواعيد في هذا اليوم" text="المواعيد المحجوزة من الموقع تظهر هنا تلقائيًا." action={newButton || undefined} /></Card>
       ) : (
         <ul className="appts" aria-busy={day.isFetching || undefined}>
           {day.data.appointments.map((a) => {
@@ -202,7 +223,10 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
 }
 
 /** Reception types the 6-digit code the patient shows; the API consumes it once and reports what is still to be paid. */
-function CheckInPanel({ clinicId, branches, defaultBranch, canSeeBalances }: { clinicId: string; branches: Branch[]; defaultBranch?: string; canSeeBalances: boolean }) {
+/** Check-in by the patient's code, in a dialog opened from the header (it stays open for the next patient). */
+function CheckInDialog({ open, onOpenChange, clinicId, branches, defaultBranch, canSeeBalances }: {
+  open: boolean; onOpenChange: (open: boolean) => void; clinicId: string; branches: Branch[]; defaultBranch?: string; canSeeBalances: boolean;
+}) {
   const [code, setCode] = useState('');
   const [branch, setBranch] = useState('');
   const branchId = branch || defaultBranch || branches[0]?.id || '';
@@ -215,18 +239,22 @@ function CheckInPanel({ clinicId, branches, defaultBranch, canSeeBalances }: { c
     if (digits.length !== 6 || !branchId) return;
     checkIn.mutate({ code: digits, branchId }, { onSuccess: () => setCode('') });
   };
+  // a fresh start each time it opens: no old code, no old result
+  const change = (next: boolean) => { if (!next) { setCode(''); checkIn.reset(); } onOpenChange(next); };
   return (
-    <Card className="checkin">
-      <form onSubmit={submit} className="checkin-form">
-        <div className="checkin-head">
+    <Dialog open={open} onOpenChange={change}>
+      <DialogContent dir="rtl" className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-card sm:max-w-md">
+        <DialogHeader className="checkin-head">
           <span className="checkin-icon"><CheckIcon /></span>
-          <div><h2>تسجيل الحضور</h2><p className="muted">أدخل رمز الحضور الذي يظهره المريض (6 أرقام)</p></div>
-        </div>
-        <div className="checkin-row">
-          <OtpInput id="checkin-code" value={code} onChange={setCode} label="رمز الحضور" invalid={checkIn.isError} />
-          {branches.length > 1 && <BranchSelect branches={branches} value={branchId} onChange={setBranch} />}
-          <Button type="submit" loading={checkIn.isPending} disabled={digits.length !== 6 || !branchId}>تسجيل الحضور</Button>
-        </div>
+          <div>
+            <DialogTitle className="text-start">تسجيل الحضور</DialogTitle>
+            <DialogDescription className="text-start">أدخل رمز الحضور الذي يظهره المريض (6 أرقام)</DialogDescription>
+          </div>
+        </DialogHeader>
+      <form onSubmit={submit} className="checkin-form">
+        <OtpInput id="checkin-code" value={code} onChange={setCode} label="رمز الحضور" invalid={checkIn.isError} />
+        {branches.length > 1 && <BranchSelect branches={branches} value={branchId} onChange={setBranch} className="h-10 w-full" />}
+        <Button type="submit" loading={checkIn.isPending} disabled={digits.length !== 6 || !branchId}>تسجيل الحضور</Button>
         {checkIn.isError && <ErrorText error={checkIn.error} />}
         {checkIn.isSuccess && (
           <Alert tone="success">
@@ -236,7 +264,8 @@ function CheckInPanel({ clinicId, branches, defaultBranch, canSeeBalances }: { c
           </Alert>
         )}
       </form>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
 

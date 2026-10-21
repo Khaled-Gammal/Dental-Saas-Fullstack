@@ -109,8 +109,9 @@ export class BillingRepository {
     return q.orderBy('v.visit_at').orderBy('vp.created_at').execute().then((rows) => rows.map((r) => ({ ...r, price_minor: Number(r.price_minor) })));
   }
 
+  /** A service for a new invoice line (a deleted one is gone from the price list). */
   service(tx: Tx, id: string) {
-    return tx.selectFrom('services').select(['id', 'name_ar', 'name_en', 'price_minor', 'price_max_minor']).where('id', '=', id).executeTakeFirst()
+    return tx.selectFrom('services').select(['id', 'name_ar', 'name_en', 'price_minor', 'price_max_minor']).where('id', '=', id).where('deleted_at', 'is', null).executeTakeFirst()
       .then((s) => s && { ...s, price_minor: Number(s.price_minor), price_max_minor: n(s.price_max_minor) });
   }
 

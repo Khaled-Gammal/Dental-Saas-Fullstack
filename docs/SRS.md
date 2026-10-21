@@ -113,7 +113,7 @@ Each step lists the requirements that deliver it. Status per step is in `docs/im
 | 2 | Clinic setup | Owner | Name, logo, phones, WhatsApp number (display only), currency, brand colour | ONB step 1, L10N-005 |
 | 3 | Branch setup | Owner | Branches, weekly hours with breaks, holidays, rooms/chairs | ONB step 2, APPT-005, APPT-006 |
 | 4 | Staff and doctor setup | Owner | Doctors with branches and schedules, time off; staff invited by email with a role and branches | ONB step 3, ACCESS-001…003, APPT-005 |
-| 5 | Services and pricing | Owner | Catalogue or custom services, price, duration, doctors | ONB step 4 |
+| 5 | Services and pricing | Owner | The clinic's own services (typed in, deletable), price, duration, doctors | ONB step 4 |
 | 6 | Booking | Patient (website) / Receptionist | Website booking with email code; staff booking, reschedule, cancel | BOOK-01…11, APPT-001, APPT-002 |
 | 7 | Check-in | Receptionist | Booking code / QR / manual with reason; patient joins the waiting list | §4.10, APPT-003 |
 | 8 | Clinical visit | Doctor | Opens the visit from the waiting list, reviews allergies and medications, records chief complaint, diagnosis and notes, finalizes | VISIT-001, VISIT-002, PATIENT-005 |
@@ -398,7 +398,7 @@ The wizard runs after first login, saves after every step and can be resumed. Pr
 1. **Clinic profile** — brand name (AR/EN), logo, specialties, short about text, primary phone, WhatsApp, social links.
 2. **Branches** — address, city, map pin, phone, working hours per weekday, breaks, number of chairs/rooms.
 3. **Doctors** — name, title, photo, specialties, bio, branches they work in, consultation fee; option to send each an invite.
-4. **Services** — pick from a seeded dental catalog (cleaning, filling, root canal, implant, braces, whitening…) or add custom; set price, duration, which doctors perform it, show-on-website flag.
+4. **Services** — the clinic types its own services (owner 2026-10-21: no seeded catalog to pick from) and can delete them; set price, duration, which doctors perform it, show-on-website flag. A deleted service that history uses is hidden, not removed.
 5. **Website** — choose template, colours, fonts, sections to show; confirm subdomain.
 6. **Publish** — preview, then publish; success screen with the live link and share buttons.
 

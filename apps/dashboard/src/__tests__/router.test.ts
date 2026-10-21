@@ -25,7 +25,7 @@ describe('parseRoute', () => {
   });
 
   it('keeps a query on create pages', () => {
-    expect(parseRoute('#/services/new?catalog=rct')).toEqual({ page: 'services', action: 'new', query: { catalog: 'rct' } });
+    expect(parseRoute('#/roles/new?from=r1')).toEqual({ page: 'roles', action: 'new', query: { from: 'r1' } });
   });
 });
 
@@ -61,7 +61,7 @@ describe('calendar routes (Phase D2)', () => {
 
 describe('href', () => {
   it('round-trips every route shape', () => {
-    for (const r of [to.list('overview'), to.list('doctors'), to.create('doctors'), to.edit('services', 'x'), to.hours('b'), to.schedule('d'), to.create('services', { catalog: 'rct' }), to.view('patients', 'p'), to.edit('patients', 'p'), to.create('appointments', { patient: 'p' })]) {
+    for (const r of [to.list('overview'), to.list('doctors'), to.create('doctors'), to.edit('services', 'x'), to.hours('b'), to.schedule('d'), to.view('patients', 'p'), to.edit('patients', 'p'), to.create('appointments', { patient: 'p' })]) {
       expect(parseRoute(href(r))).toEqual(r);
     }
   });

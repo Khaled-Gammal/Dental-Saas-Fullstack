@@ -43,6 +43,7 @@ export class DoctorsService {
       await this.media.replace(tx, 'image', doctor.photoFileId, null);
       const { id } = await this.repo.create(tx, tenantId, doctor);
       if (branchIds.length) await this.repo.replaceBranches(tx, tenantId, id, branchIds);
+      await this.repo.performAllServices(tx, tenantId, id); // bookable at once; the service form narrows who performs what
       return this.present((await this.repo.get(tx, id))!);
     });
   }

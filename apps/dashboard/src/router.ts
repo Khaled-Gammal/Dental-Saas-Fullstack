@@ -6,7 +6,7 @@ export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patie
   | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles' | 'data' | 'consents';
 export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge' | 'sign' | 'consent';
 
-/** `query` carries optional, non-identifying hints such as `?catalog=rct` on a create page. */
+/** `query` carries optional, non-identifying hints for a page (e.g. `?patient=` on a create page). */
 export type Route = (
   | { page: Page; id?: undefined; action?: undefined }
   | { page: Page; id?: undefined; action: 'new' }
