@@ -339,12 +339,10 @@ a.btn, a.link-btn { text-decoration: none; }
 .day-title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); font-weight: 600; margin: 20px 0 12px; }
 .day-title svg { color: var(--primary-500); }
 .checkin-form { display: flex; flex-direction: column; gap: 14px; }
-.checkin-head { display: flex; align-items: flex-start; gap: 12px; }
+.checkin-head { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; }
 .checkin-head h2 { font-size: var(--fs-md); font-weight: 700; margin: 0; }
 .checkin-head p { margin: 2px 0 0; font-size: var(--fs-sm); }
 .checkin-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--success-bg); color: var(--success); flex-shrink: 0; }
-.checkin-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.checkin-row .otp { max-width: 300px; flex: 1 1 240px; }
 .appts { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .appt { display: grid; grid-template-columns: 72px 1fr auto; align-items: center; gap: 16px; }
 .appt.is-cancelled, .appt.is-no_show, .appt.is-expired { opacity: 0.6; }
@@ -725,3 +723,5 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .ov-table-card .data-table { gap: 0; }
 .ov-table-card [data-slot="table-container"] { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
 .ov-table-card .data-table-pager { padding: 12px clamp(16px, 2.5vw, 24px); border-top: 1px solid var(--line); }
+/* the sidebar's menu scrolls on short screens: a slim scrollbar instead of the system one */
+[data-sidebar="content"] { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
