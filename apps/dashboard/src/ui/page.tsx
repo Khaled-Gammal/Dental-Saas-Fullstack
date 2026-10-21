@@ -44,11 +44,13 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
  * The one layout for every create/edit screen: breadcrumbs, a focused heading, the form body,
  * and a sticky footer with Cancel + Save. The caller owns the state; this owns the chrome.
  */
-export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, error, notice, children, extra, saveLabel }: {
+export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, error, notice, children, extra, saveLabel, aside }: {
   title: string; sub?: string; crumbs: Crumb[]; back: Route; onSubmit: (e: FormEvent) => void;
   saving: boolean; canSave: boolean; error?: unknown; notice?: ReactNode; children: ReactNode; extra?: ReactNode;
   /** the save button's words when "save" is not what happens (a new invoice is created as a draft) */
   saveLabel?: string;
+  /** a side column beside the form (a summary of what is being made); below it on narrow screens */
+  aside?: ReactNode;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -66,8 +68,9 @@ export function FormPage({ title, sub, crumbs, back, onSubmit, saving, canSave, 
         </div>
         {extra && <div className="page-actions">{extra}</div>}
       </div>
-      <form onSubmit={onSubmit} className="form-page" noValidate>
+      <form onSubmit={onSubmit} className={`form-page${aside ? ' has-aside' : ''}`} noValidate>
         <div className="stack">{children}</div>
+        {aside && <aside className="form-aside">{aside}</aside>}
         {notice}
         <ErrorText error={error} />
         <div className="form-footer">

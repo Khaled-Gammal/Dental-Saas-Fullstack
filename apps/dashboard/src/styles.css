@@ -48,7 +48,7 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 
 /* ---------- forms ---------- */
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.field > label { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.field > label, .field > .field-label { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
 .optional { font-weight: 400; color: var(--muted); }
 .hint { font-size: var(--fs-xs); color: var(--muted); }
 .field-error { font-size: var(--fs-xs); color: var(--danger); font-weight: 500; }
@@ -328,6 +328,11 @@ fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-wid
 .form-page { display: flex; flex-direction: column; gap: 16px; max-width: 880px; }
 .form-footer { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 0; margin-top: 4px;
   background: linear-gradient(180deg, transparent, var(--surface) 30%); }
+/* a form with a side column (FormPage aside): the summary stays in view beside the form; below it on narrow screens */
+.form-page.has-aside { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 16px; max-width: 1200px; align-items: start; }
+.form-page.has-aside > :not(.form-aside) { grid-column: 1; }
+.form-aside { grid-column: 2; grid-row: 1; position: sticky; top: 16px; }
+@media (max-width: 1100px) { .form-page.has-aside { grid-template-columns: minmax(0, 1fr); } .form-aside { grid-column: 1; grid-row: auto; position: static; } }
 .not-found { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; max-width: 520px; }
 .dialog-body { display: flex; flex-direction: column; gap: 12px; color: var(--muted); font-size: var(--fs-sm); }
 a.btn, a.link-btn { text-decoration: none; }
@@ -420,6 +425,47 @@ a.btn, a.link-btn { text-decoration: none; }
 .pick-item { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
 .pick-item:hover:not(:disabled) { border-color: var(--primary-300); background: var(--primary-50); }
 .pick-item:disabled { opacity: 0.5; cursor: not-allowed; }
+/* new appointment: numbered steps, doctors as cards, times by part of the day, a summary beside the form */
+.appt-step { display: flex; flex-direction: column; gap: 16px; }
+.appt-step-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.appt-step-head h2 { margin: 0; }
+.appt-step-num { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: var(--surface); border: 1px solid var(--line-strong);
+  color: var(--muted); font-size: var(--fs-xs); font-weight: 700; }
+.appt-step-num.is-done { background: var(--primary-500); border-color: var(--primary-500); color: #fff; }
+.appt-step-action { margin-inline-start: auto; }
+.appt-patient { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--primary-100); border-radius: var(--r-md); background: var(--primary-50); }
+.appt-patient > .min-w-0, .appt-pick > .min-w-0, .appt-doctor > .min-w-0 { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.appt-patient .btn { margin-inline-start: auto; }
+.appt-patient-search { display: flex; gap: 8px; flex-wrap: wrap; }
+.appt-search { position: relative; flex: 1; min-width: 220px; }
+.appt-search > svg { position: absolute; inset-inline-start: 12px; top: 50%; translate: 0 -50%; color: var(--faint); pointer-events: none; }
+.appt-search > .input { padding-inline-start: 36px; }
+.pick-item.appt-pick { flex-direction: row; align-items: center; gap: 10px; }
+.appt-doctors { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.appt-doctor { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  background: var(--card); color: var(--ink); font: inherit; text-align: start; cursor: pointer; transition: border-color var(--t-fast), background var(--t-fast); }
+.appt-doctor:hover { border-color: var(--primary-300); background: var(--primary-50); }
+.appt-doctor.is-on { border-color: var(--primary-500); background: var(--primary-50); box-shadow: 0 0 0 1px var(--primary-500); }
+.appt-doctor-check { color: var(--primary-600); flex-shrink: 0; }
+.appt-day { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.appt-day > .field { flex: 0 1 280px; }
+.appt-day > .seg { min-height: 42px; align-items: center; }
+.appt-slots { display: flex; flex-direction: column; gap: 14px; }
+.appt-period h3 { margin: 0 0 8px; font-size: var(--fs-sm); font-weight: 700; }
+.appt-slots-note { padding: 14px; border: 1px dashed var(--line-strong); border-radius: var(--r-md); text-align: center; margin: 0; }
+.appt-sources { align-self: flex-start; }
+@media (max-width: 640px) { .seg.appt-sources { display: grid; grid-template-columns: 1fr 1fr; align-self: stretch; } .appt-sources > .seg-btn { justify-content: center; } }
+.appt-summary { display: flex; flex-direction: column; gap: 14px; }
+.appt-summary dl { display: flex; flex-direction: column; margin: 0; }
+.appt-summary-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.appt-summary-row:first-child { border-top: 0; padding-top: 0; }
+.appt-summary-row dt { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); flex-shrink: 0; }
+.appt-summary-row dt svg { color: var(--faint); }
+.appt-summary-row dd { margin: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; font-weight: 600; min-width: 0; }
+.appt-summary-row dd .small { font-weight: 400; }
+.appt-summary-row .faint { color: var(--faint); font-weight: 400; }
+.appt-summary-missing { margin: 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.appt-summary-ready { display: flex; align-items: center; gap: 6px; margin: 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--success); font-weight: 600; }
 
 /* ===== gallery + uploader ===== */
 .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
