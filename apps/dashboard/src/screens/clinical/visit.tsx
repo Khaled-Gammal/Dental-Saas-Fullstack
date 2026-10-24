@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { arName } from '@dental/ui/text';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { addMonths, nextBookingQuery, planOpen, SURFACES, toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
@@ -170,7 +171,7 @@ function ProceduresCard({ clinicId, v, canInvoice }: { clinicId: string; v: Visi
         <h2>الإجراءات المنفذة</h2>
         <div className="row-end">
           {canInvoice && v.procedures.some((p) => !p.billed) && <RouteLink route={to.create('invoices', { patient: v.patient_id, visit: v.id })} className="btn btn-ghost">فاتورة لهذه الزيارة</RouteLink>}
-          {v.can.procedures && !adding && <Button variant="secondary" onClick={() => setAdding(true)}><PlusIcon size={16} />إضافة إجراء</Button>}
+          {v.can.procedures && <Button variant="secondary" onClick={() => setAdding(true)}><PlusIcon size={16} />إضافة إجراء</Button>}
         </div>
       </div>
       {v.procedures.length === 0 ? <p className="muted small mt-sm">لم يُسجَّل إجراء بعد.</p> : (
@@ -222,48 +223,65 @@ function ProcedureForm({ clinicId, v, onDone }: { clinicId: string; v: Visit; on
   const ready = (!!item || !!serviceId) && (!price.trim() || toMinor(price) !== null) && (!tooth.trim() || /^[1-8][1-8]$/.test(tooth));
   const submit = (e: FormEvent) => { e.preventDefault(); if (ready) add.mutate(undefined, { onSuccess: onDone }); };
   return (
-    <form className="stack mt tooth-panel" onSubmit={submit}>
-      {openPlans.length > 0 && (
+    <FormDialog title="إضافة إجراء" description="سجّل ما تم في هذه الزيارة." busy={add.isPending} onClose={onDone}>
+      <form className="stack" onSubmit={submit}>
+        {openPlans.length > 0 && (
+          <div className="grid-2">
+            {openPlans.length > 1 && (
+              <Field label="الخطة">
+                {(a) => <Choice id={a.id} value={planId || openPlans[0].id} onChange={(x) => { setPlanId(x); setItemId(''); }} options={openPlans.map((p) => ({ value: p.id, label: p.title }))} />}
+              </Field>
+            )}
+            <Field label="بند من خطة العلاج" optional="اختياري">
+              {(a) => <Choice id={a.id} value={itemId} onChange={(x) => { setItemId(x); setPrice(''); }} noneLabel="ليس من الخطة"
+                options={items.map((i) => ({ value: i.id, label: `${arName(i.service_ar, i.service_en)}${i.tooth_code ? ` · ${i.tooth_code}` : ''} · ${money(i.price_minor)}` }))} />}
+            </Field>
+          </div>
+        )}
         <div className="grid-2">
-          {openPlans.length > 1 && (
-            <Field label="الخطة">
-              {(a) => <Choice id={a.id} value={planId || openPlans[0].id} onChange={(x) => { setPlanId(x); setItemId(''); }} options={openPlans.map((p) => ({ value: p.id, label: p.title }))} />}
+          {!item && (
+            <Field label="الخدمة">
+              {(a) => <Choice id={a.id} value={serviceId} onChange={(x) => { setServiceId(x); setPrice(''); }} placeholder="اختر خدمة"
+                options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: arName(s.name_ar, s.name_en) }))} />}
             </Field>
           )}
-          <Field label="بند من خطة العلاج" optional="اختياري">
-            {(a) => <Choice id={a.id} value={itemId} onChange={(x) => { setItemId(x); setPrice(''); }} noneLabel="ليس من الخطة"
-              options={items.map((i) => ({ value: i.id, label: `${arName(i.service_ar, i.service_en)}${i.tooth_code ? ` · ${i.tooth_code}` : ''} · ${money(i.price_minor)}` }))} />}
+          <Field label="رقم السن (FDI)" optional="اختياري">
+            {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={tooth || (item?.tooth_code ? String(item.tooth_code) : '')} onChange={(e) => setTooth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="36" />}
           </Field>
+          <Field label={`${'السعر'} (${currencyLabel()})`} hint={service ? priceHint(service) : undefined}>
+            {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)}
+              placeholder={item ? String(item.price_minor / 100) : service && service.price_minor ? String(service.price_minor / 100) : ''} />}
+          </Field>
+          <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={300} />}</Field>
         </div>
-      )}
-      <div className="grid-2">
-        {!item && (
-          <Field label="الخدمة">
-            {(a) => <Choice id={a.id} value={serviceId} onChange={(x) => { setServiceId(x); setPrice(''); }} placeholder="اختر خدمة"
-              options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: arName(s.name_ar, s.name_en) }))} />}
-          </Field>
-        )}
-        <Field label="رقم السن (FDI)" optional="اختياري">
-          {(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={tooth || (item?.tooth_code ? String(item.tooth_code) : '')} onChange={(e) => setTooth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="36" />}
-        </Field>
-        <Field label={`${'السعر'} (${currencyLabel()})`} hint={service ? priceHint(service) : undefined}>
-          {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)}
-            placeholder={item ? String(item.price_minor / 100) : service && service.price_minor ? String(service.price_minor / 100) : ''} />}
-        </Field>
-        <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={300} />}</Field>
-      </div>
-      <div className="chips" dir="ltr" role="group" aria-label="الأسطح">
-        {SURFACES.map((s) => (
-          <button key={s} type="button" className={`chip-toggle${surfaces.includes(s) ? ' is-on' : ''}`} aria-pressed={surfaces.includes(s)} title={toothSurfaceLabel[s]}
-            onClick={() => setSurfaces((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]))}>{s}</button>
-        ))}
-      </div>
-      <ErrorText error={add.error} />
-      <div className="row-end">
-        <Button variant="ghost" onClick={onDone}>إلغاء</Button>
-        <Button type="submit" loading={add.isPending} disabled={!ready}>إضافة إجراء</Button>
-      </div>
-    </form>
+        <div className="chips" dir="ltr" role="group" aria-label="الأسطح">
+          {SURFACES.map((s) => (
+            <button key={s} type="button" className={`chip-toggle${surfaces.includes(s) ? ' is-on' : ''}`} aria-pressed={surfaces.includes(s)} title={toothSurfaceLabel[s]}
+              onClick={() => setSurfaces((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]))}>{s}</button>
+          ))}
+        </div>
+        <ErrorText error={add.error} />
+        <div className="row-end">
+          <Button variant="ghost" onClick={onDone}>إلغاء</Button>
+          <Button type="submit" loading={add.isPending} disabled={!ready}>إضافة إجراء</Button>
+        </div>
+      </form>
+    </FormDialog>
+  );
+}
+
+/** A visit form (a procedure, a prescription) opened over the page; Escape or a click outside closes it unless it is saving. */
+function FormDialog({ title, description, busy, onClose, children }: { title: string; description: string; busy: boolean; onClose: () => void; children: ReactNode }) {
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
+      <DialogContent dir="rtl" className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-card sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-start">{title}</DialogTitle>
+          <DialogDescription className="text-start">{description}</DialogDescription>
+        </DialogHeader>
+        {children}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -281,7 +299,7 @@ function PrescriptionsCard({ clinicId, v }: { clinicId: string; v: Visit }) {
     <Card>
       <div className="row-between">
         <h2>الروشتات</h2>
-        {v.can.prescribe && !writing && <Button variant="secondary" onClick={() => setWriting({})}><PlusIcon size={16} />روشتة جديدة</Button>}
+        {v.can.prescribe && <Button variant="secondary" onClick={() => setWriting({})}><PlusIcon size={16} />روشتة جديدة</Button>}
       </div>
       {v.prescriptions.length === 0 ? <p className="muted small mt-sm">لا توجد روشتات لهذه الزيارة.</p> : (
         <ul className="stack mt">
@@ -328,29 +346,31 @@ function PrescriptionForm({ clinicId, visitId, replaces, onDone }: { clinicId: s
   const set = (i: number, k: keyof Line, x: string) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: x } : l)));
   const ready = lines.some((l) => l.drugName.trim());
   return (
-    <form className="stack mt tooth-panel" onSubmit={(e) => { e.preventDefault(); if (ready) issue.mutate(undefined, { onSuccess: (rx) => onDone(rx.id) }); }}>
-      {replaces && <Alert tone="info">تُصدر روشتة جديدة بدل هذه، وتبقى القديمة محفوظة ومعلَّمة بأنها استُبدلت.</Alert>}
-      {lines.map((l, i) => (
-        <fieldset key={i} className="rx-line-form">
-          <legend className="small">الدواء {fmtNumber(i + 1)}</legend>
-          <div className="grid-2">
-            <Field label="اسم الدواء">{(a) => <Input id={a.id} dir="auto" value={l.drugName} onChange={(e) => set(i, 'drugName', e.target.value)} maxLength={200} placeholder="Amoxicillin 500mg" />}</Field>
-            <Field label="الجرعة" optional="اختياري">{(a) => <Input id={a.id} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} maxLength={100} />}</Field>
-            <Field label="عدد المرات" optional="اختياري">{(a) => <Input id={a.id} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} maxLength={100} />}</Field>
-            <Field label="المدة" optional="اختياري">{(a) => <Input id={a.id} value={l.duration} onChange={(e) => set(i, 'duration', e.target.value)} maxLength={100} />}</Field>
-          </div>
-          <Field label="تعليمات" optional="اختياري">{(a) => <Input id={a.id} value={l.instructions} onChange={(e) => set(i, 'instructions', e.target.value)} maxLength={500} />}</Field>
-          {lines.length > 1 && <LinkButton onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>إزالة</LinkButton>}
-        </fieldset>
-      ))}
-      {lines.length < 20 && <LinkButton onClick={() => setLines((ls) => [...ls, { ...EMPTY_LINE }])}><PlusIcon size={14} /> إضافة دواء</LinkButton>}
-      <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
-      <ErrorText error={issue.error} />
-      <div className="row-end">
-        <Button variant="ghost" onClick={() => onDone()}>إلغاء</Button>
-        <Button type="submit" loading={issue.isPending} disabled={!ready}>{replaces ? 'إصدار التصحيح' : 'إصدار الروشتة'}</Button>
-      </div>
-    </form>
+    <FormDialog title={replaces ? 'تصحيح الروشتة' : 'روشتة جديدة'} description="تُصدر الروشتة عند الحفظ ولا تُعدَّل بعدها." busy={issue.isPending} onClose={() => onDone()}>
+      <form className="stack" onSubmit={(e) => { e.preventDefault(); if (ready) issue.mutate(undefined, { onSuccess: (rx) => onDone(rx.id) }); }}>
+        {replaces && <Alert tone="info">تُصدر روشتة جديدة بدل هذه، وتبقى القديمة محفوظة ومعلَّمة بأنها استُبدلت.</Alert>}
+        {lines.map((l, i) => (
+          <fieldset key={i} className="rx-line-form">
+            <legend className="small">الدواء {fmtNumber(i + 1)}</legend>
+            <div className="grid-2">
+              <Field label="اسم الدواء">{(a) => <Input id={a.id} dir="auto" value={l.drugName} onChange={(e) => set(i, 'drugName', e.target.value)} maxLength={200} placeholder="Amoxicillin 500mg" />}</Field>
+              <Field label="الجرعة" optional="اختياري">{(a) => <Input id={a.id} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} maxLength={100} />}</Field>
+              <Field label="عدد المرات" optional="اختياري">{(a) => <Input id={a.id} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} maxLength={100} />}</Field>
+              <Field label="المدة" optional="اختياري">{(a) => <Input id={a.id} value={l.duration} onChange={(e) => set(i, 'duration', e.target.value)} maxLength={100} />}</Field>
+            </div>
+            <Field label="تعليمات" optional="اختياري">{(a) => <Input id={a.id} value={l.instructions} onChange={(e) => set(i, 'instructions', e.target.value)} maxLength={500} />}</Field>
+            {lines.length > 1 && <LinkButton onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>إزالة</LinkButton>}
+          </fieldset>
+        ))}
+        {lines.length < 20 && <LinkButton onClick={() => setLines((ls) => [...ls, { ...EMPTY_LINE }])}><PlusIcon size={14} /> إضافة دواء</LinkButton>}
+        <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
+        <ErrorText error={issue.error} />
+        <div className="row-end">
+          <Button variant="ghost" onClick={() => onDone()}>إلغاء</Button>
+          <Button type="submit" loading={issue.isPending} disabled={!ready}>{replaces ? 'إصدار التصحيح' : 'إصدار الروشتة'}</Button>
+        </div>
+      </form>
+    </FormDialog>
   );
 }
 
