@@ -28,7 +28,7 @@ describe('sidebar navigation (redesign R1)', () => {
     const reception = keys(['patients:read', 'patients:write', 'appointments:read', 'appointments:write', 'invoices:read', 'payments:write', 'cash:operate']);
     expect(reception).toEqual([
       [null, ['overview', 'appointments', 'patients', 'followups']],
-      ['clinic', ['profile', 'branches', 'doctors', 'services']], // consents need settings:write
+      ['clinic', ['profile', 'branches', 'doctors', 'services']],
       ['finance', ['invoices', 'cash']],
     ]);
     const { has, canSeePage } = as(['patients:read']);

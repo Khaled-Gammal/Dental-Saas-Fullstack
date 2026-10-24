@@ -6,7 +6,6 @@ import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { inMonthsLabel, recallReasonLabel, toothSurfaceLabel } from '../../labels';
 import { ageOn } from '../../patient-model';
-import { missingConsents } from '../../consents-model';
 import { send, useClinicalMutation, usePatientPlans, usePlan, useServices, useVisit } from '../../queries';
 import { to } from '../../router';
 import type { NoteField, PlanItem, Prescription, RecallReason, Surface, Visit } from '../../types';
@@ -56,18 +55,6 @@ export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: stri
           <AlertIcon size={16} /> <strong>تنبيهات:</strong>{' '}
           {[...h.allergies.map((a) => `${'حساسية من'} ${a}`), ...(h.is_pregnant ? ['حامل'] : []), ...h.conditions].join(' · ')}
           {h.medications.length > 0 && <div className="small mt-sm">الأدوية الحالية: <bdi>{h.medications.join('، ')}</bdi></div>}
-        </Alert>
-      )}
-      {missingConsents(v.consents).length > 0 && (
-        <Alert tone="danger">
-          <AlertIcon size={16} /> <strong>موافقة غير موقّعة:</strong>{' '}
-          {missingConsents(v.consents).map((c, i) => (
-            <span key={c.key}>
-              {i > 0 && ' · '}<bdi>{c.title ?? c.key}</bdi>{' '}
-              <RouteLink route={{ page: 'patients', id: v.patient_id, action: 'sign', query: { consent: c.key, visit: v.id } }} className="btn btn-secondary btn-sm">وقّع الآن</RouteLink>
-            </span>
-          ))}
-          <div className="small mt-sm">العلاج مسجّل؛ هذا تنبيه فقط حتى يوقّع المريض.</div>
         </Alert>
       )}
       <div className="profile-grid">

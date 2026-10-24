@@ -29,7 +29,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'الفروع', icon: 'pin', page: 'branches' },
       { label: 'الأطباء', icon: 'stethoscope', page: 'doctors' },
       { label: 'الخدمات والأسعار', icon: 'list', page: 'services' },
-      { label: 'نماذج الموافقات', icon: 'edit', page: 'consents' },
     ],
   },
   {

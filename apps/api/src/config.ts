@@ -158,18 +158,6 @@ export const CLINICAL_FILE_POLICY = {
 } as const;
 export type ClinicalFileKind = (typeof CLINICAL_FILE_POLICY.kinds)[number];
 
-/**
- * Patient consents (H9, DSH-16; owner 2026-10-20). A signature drawn on screen arrives as a small PNG; a paper form as
- * a photo or scan. A consent counts for a treatment when signed (and not withdrawn) for that visit or within
- * validDays before it: the visit then shows no warning (never a block).
- */
-export const CONSENT_POLICY = {
-  maxSignatureBytes: 300 * 1024,
-  maxPaperBytes: 20 * 1024 * 1024,
-  linkSeconds: 5 * 60,
-  validDays: 365,
-} as const;
-
 /** An expense's supporting document (EXP-001): PDF or image, private, same checks and link lifetime as clinical files. */
 export const EXPENSE_FILE_POLICY = {
   maxUploadBytes: 20 * 1024 * 1024,

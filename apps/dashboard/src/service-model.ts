@@ -12,8 +12,6 @@ export const MAX_MINOR = 100_000_000; // 1,000,000 EGP, same cap as the API
 export interface ServiceForm {
   nameAr: string; nameEn: string; descriptionAr: string; price: string; priceMax: string; duration: string;
   bookableOnline: boolean; showOnWebsite: boolean; isActive: boolean; image: MediaImage | null;
-  /** H9: a consent text's key, '' = none needed */
-  consentKey: string;
   /** the doctors who perform it, sorted (staff and online booking offer only them) */
   doctorIds: string[];
 }
@@ -23,12 +21,12 @@ const pounds = (minor: number | null) => (minor ? String(Math.round(minor / PIAS
 export const toForm = (s: Service): ServiceForm => ({
   nameAr: s.name_ar ?? '', nameEn: s.name_en ?? '', descriptionAr: s.description_ar ?? '', price: pounds(s.price_minor), priceMax: pounds(s.price_max_minor),
   duration: String(s.duration_minutes), bookableOnline: s.bookable_online, showOnWebsite: s.show_on_website, isActive: s.is_active,
-  image: s.image ?? null, consentKey: s.consent_key ?? '', doctorIds: [...(s.doctor_ids ?? [])].sort(),
+  image: s.image ?? null, doctorIds: [...(s.doctor_ids ?? [])].sort(),
 });
 /** A new service: the clinic types it (owner 2026-10-21: no ready-made list); every active doctor performs it until unticked. */
 export const emptyForm = (doctorIds: string[] = []): ServiceForm => ({
   nameAr: '', nameEn: '', descriptionAr: '', price: '', priceMax: '', duration: '30',
-  bookableOnline: true, showOnWebsite: true, isActive: true, image: null, consentKey: '', doctorIds: [...doctorIds].sort(),
+  bookableOnline: true, showOnWebsite: true, isActive: true, image: null, doctorIds: [...doctorIds].sort(),
 });
 
 const digits = (v: string) => toAsciiDigits(v.trim());
@@ -65,7 +63,6 @@ export function toBody(form: ServiceForm, orig: ServiceForm | null): Record<stri
   if (!orig || duration !== Number(orig.duration)) body.durationMinutes = duration;
   for (const k of ['bookableOnline', 'showOnWebsite'] as const) if (!orig || form[k] !== orig[k]) body[k] = form[k];
   if (orig && form.isActive !== orig.isActive) body.isActive = form.isActive;
-  if (orig ? form.consentKey !== orig.consentKey : !!form.consentKey) body.consentKey = form.consentKey || null;
   if (!orig || form.doctorIds.join() !== orig.doctorIds.join()) body.doctorIds = form.doctorIds; // sorted, so order never counts as a change
   const image = imageFieldValue(form.image, orig ? orig.image : undefined);
   if (image !== undefined) body.imageFileId = image;
