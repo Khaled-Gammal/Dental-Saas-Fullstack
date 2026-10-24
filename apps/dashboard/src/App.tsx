@@ -58,10 +58,6 @@ const GalleryList = lazyScreen(() => import('./screens/gallery/list'), 'GalleryL
 const GalleryUpload = lazyScreen(() => import('./screens/gallery/new'), 'GalleryUpload');
 const Profile = lazyScreen(() => import('./screens/profile'), 'Profile');
 const ClinicData = lazyScreen(() => import('./screens/clinic-data'), 'ClinicData');
-const ConsentTextForm = lazyScreen(() => import('./screens/consents/templates'), 'ConsentTextForm');
-const ConsentTexts = lazyScreen(() => import('./screens/consents/templates'), 'ConsentTexts');
-const ConsentView = lazyScreen(() => import('./screens/consents/patient-consents'), 'ConsentView');
-const SignConsent = lazyScreen(() => import('./screens/consents/sign'), 'SignConsent');
 const ServiceFormPage = lazyScreen(() => import('./screens/services/form'), 'ServiceFormPage');
 const ServicesList = lazyScreen(() => import('./screens/services/list'), 'ServicesList');
 
@@ -165,10 +161,6 @@ function Screen({ route, session }: { route: Route; session: Session }) {
     case 'overview': return <Overview session={session} />;
     case 'profile': return <Profile clinicId={clinicId} canEdit={settings} />;
     case 'data': return <ClinicData session={session} />;
-    case 'consents':
-      if (action === 'new') return <ConsentTextForm clinicId={clinicId} />;
-      if (action === 'edit') return <ConsentTextForm clinicId={clinicId} textKey={id} />;
-      return <ConsentTexts clinicId={clinicId} canWrite={can(session, 'settings:write')} />;
     case 'branches': {
       const w = can(session, 'branches:write');
       if (action === 'new' && w) return <BranchForm clinicId={clinicId} />;
@@ -199,8 +191,6 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action === 'edit' && write) return <PatientForm clinicId={clinicId} id={id} />;
       if (action === 'view') return <PatientProfile clinicId={clinicId} id={id} session={session} />;
       if (action === 'merge' && can(session, 'patients:merge')) return <PatientMerge clinicId={clinicId} id={id} />;
-      if (action === 'sign' && canOpen(has, route)) return <SignConsent clinicId={clinicId} patientId={id} query={route.query} />;
-      if (action === 'consent' && route.query?.c) return <ConsentView clinicId={clinicId} patientId={id} consentId={route.query.c} />;
       if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('patients')} backLabel="المرضى" />;
       return <PatientsList clinicId={clinicId} canWrite={write} canBook={can(session, 'appointments:write')} />;
     }

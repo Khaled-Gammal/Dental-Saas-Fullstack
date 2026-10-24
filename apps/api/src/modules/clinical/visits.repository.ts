@@ -124,23 +124,6 @@ export class VisitsRepository {
       .then((rows) => rows.map((r) => ({ ...r, price_minor: Number(r.price_minor) })));
   }
 
-  /**
-   * H9: the consents this visit's treatments need (services with a consent text), each with the patient's signed,
-   * not withdrawn consent for this visit or from the last `validDays` days, if any. A missing one only warns.
-   */
-  consentsNeeded(tx: Tx, visitId: string, patientId: string, validDays: number) {
-    return sql<{ key: string; title: string | null; consent_id: string | null }>`
-      select s.consent_key as key,
-             (select t.title_ar from consent_templates t where t.key = s.consent_key order by t.version desc limit 1) as title,
-             (select c.id from patient_consents c join consent_templates t on t.id = c.template_id
-               where t.key = s.consent_key and c.patient_id = ${patientId} and c.revoked_at is null
-                 and (c.visit_id = ${visitId} or c.signed_at > now() - make_interval(days => ${validDays}))
-               order by c.signed_at desc limit 1) as consent_id
-      from visit_procedures vp join services s on s.id = vp.service_id
-      where vp.visit_id = ${visitId} and s.consent_key is not null
-      group by s.consent_key order by min(vp.created_at)`.execute(tx).then((r) => r.rows);
-  }
-
   // ---------- prescriptions ----------
   async addPrescription(tx: Tx, tenantId: string, p: {
     visitId: string; patientId: string; doctorId: string; notes: string | null; replacesId: string | null; issuedBy: string;

@@ -10,7 +10,6 @@ const Description = z.string().trim().max(1000).transform((v) => v || null);
 /** Whole piastres, up to 1,000,000 EGP. 0 = "price on consultation". */
 const Minor = z.number().int().min(0).max(100_000_000);
 const Duration = z.number().int().min(5).max(480);
-const ConsentKey = z.string().trim().regex(/^[a-z0-9][a-z0-9_-]{1,39}$/);
 /** The doctors who perform it (staff and online booking offer only them): the whole set, replacing the previous one. */
 const DoctorIds = z.array(z.string().uuid()).max(200).transform((ids) => [...new Set(ids)]);
 
@@ -25,7 +24,6 @@ const CreateService = z.object({
   bookableOnline: z.boolean().optional(),
   showOnWebsite: z.boolean().optional(),
   imageFileId: z.string().uuid().nullable().optional(), // an image uploaded with ?purpose=photo
-  consentKey: ConsentKey.nullable().optional(), // H9: the consent this treatment needs
   doctorIds: DoctorIds.optional(), // left out: every active doctor
 }).strict();
 
@@ -41,7 +39,6 @@ const UpdateService = z.object({
   showOnWebsite: z.boolean().optional(),
   isActive: z.boolean().optional(),
   imageFileId: z.string().uuid().nullable().optional(), // null removes the image
-  consentKey: ConsentKey.nullable().optional(), // null: no consent needed
   doctorIds: DoctorIds.optional(),
 }).strict();
 

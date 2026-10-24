@@ -10,8 +10,6 @@ import { emptyForm, toBody, toForm, validate, type ServiceFieldError, type Servi
 import type { Doctor, Service } from '../../types';
 import { Badge, Card, Field, Input, Switch, TextArea } from '../../ui/components';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Choice } from '../../components/choice';
-import { useConsentTexts } from '../consents/templates';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { FormPage, ResourceState } from '../../ui/page';
 import { currencyLabel } from '../../money';
@@ -35,7 +33,6 @@ function ServiceFormBody({ clinicId, service, doctors }: { clinicId: string; ser
   const [touched, setTouched] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
   const invalidate = useInvalidate(clinicId);
-  const texts = useConsentTexts(clinicId);
   const leave = useLeave(to.list('services'));
   const errors = validate(form);
   const body = toBody(form, orig);
@@ -117,16 +114,6 @@ function ServiceFormBody({ clinicId, service, doctors }: { clinicId: string; ser
           ) : <p className="muted small">لا يوجد أطباء بعد. أضفهم من صفحة الأطباء؛ كل طبيب جديد يقدّم كل الخدمات حتى تغيّر ذلك هنا.</p>}
           {shownDoctors.length > 0 && form.doctorIds.length === 0 && <p className="field-error">لن يمكن حجز هذه الخدمة حتى تختار طبيبًا واحدًا على الأقل.</p>}
         </fieldset>
-      </Card>
-
-      <Card>
-        <h2>موافقة المريض</h2>
-        <Field label="تحتاج موافقة" hint="عند تسجيل هذا العلاج في زيارة دون موافقة موقّعة يظهر تنبيه للطبيب.">
-          {(a) => (
-            <Choice id={a.id} value={form.consentKey} onChange={set('consentKey')} noneLabel="لا تحتاج"
-              options={(texts.data ?? []).filter((x) => x.is_active).map((x) => ({ value: x.key, label: x.is_draft ? `${x.title_ar} (${'مسودة'})` : x.title_ar }))} />
-          )}
-        </Field>
       </Card>
 
       <ConfirmDialog open={confirmOff} title="إيقاف الخدمة؟" confirmLabel="إيقاف" danger

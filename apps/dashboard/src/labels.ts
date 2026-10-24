@@ -119,17 +119,6 @@ export const errorLabel: Record<string, string> = {
   outside_schedule: 'الطبيب غير مجدول في هذا الوقت.',
   slot_taken: 'هذا الوقت محجوز بالفعل.',
   unsupported_file_type: 'ارفع ملف PDF أو صورة (JPEG أو PNG أو WebP).',
-  consent_draft: 'هذا النموذج مسودة: يراجعه مالك العيادة ويحفظه قبل التوقيع.',
-  consent_archived: 'هذا النموذج مؤرشف.',
-  consent_outdated: 'صدر إصدار أحدث من هذا النموذج؛ حدّث الصفحة.',
-  consent_not_found: 'النموذج غير موجود.',
-  consent_text_locked: 'لا يُعدَّل إصدار محفوظ؛ احفظ إصدارًا جديدًا.',
-  consent_text_conflict: 'حفظ شخص آخر النموذج في اللحظة نفسها؛ حاول مرة أخرى.',
-  consent_locked: 'الموافقة الموقّعة لا تُعدَّل؛ يمكن سحبها مرة واحدة.',
-  consent_record_not_found: 'الموافقة غير موجودة.',
-  consent_revoked: 'سُحبت هذه الموافقة من قبل.',
-  visit_not_this_patient: 'هذه الزيارة لمريض آخر.',
-  signature_required: 'وقّع داخل المربع أولًا.',
   file_too_large: 'الملف أكبر من المسموح.',
   owner_only: 'هذا الإجراء لمالك العيادة فقط.',
   export_in_progress: 'هناك نسخة من البيانات قيد التجهيز بالفعل.',
@@ -636,7 +625,7 @@ export const referenceHintLabel: Record<string, string> = {
   instapay: 'رقم مرجع إنستاباي',
 };
 
-/** Who signed a consent (the patient's relation). */
+/** A guardian's relation to the patient. */
 export const signerRelationLabel: Record<string, string> = {
   self: 'المريض نفسه',
   father: 'الأب',

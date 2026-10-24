@@ -14,13 +14,11 @@ export interface ServiceInput {
   showOnWebsite?: boolean;
   isActive?: boolean;
   imageFileId?: string | null;
-  /** H9: the consent this treatment needs (a consent text's key); null = none */
-  consentKey?: string | null;
   /** the doctors who perform it; undefined = unchanged (on create: every active doctor) */
   doctorIds?: string[];
 }
 
-const plain = ['id', 'catalog_code', 'name_ar', 'name_en', 'description_ar', 'description_en', 'duration_minutes', 'bookable_online', 'show_on_website', 'is_active', 'sort_order', 'consent_key'] as const;
+const plain = ['id', 'catalog_code', 'name_ar', 'name_en', 'description_ar', 'description_en', 'duration_minutes', 'bookable_online', 'show_on_website', 'is_active', 'sort_order'] as const;
 // bigint prices come back from pg as strings; cast to int so JSON carries numbers (prices here never exceed 2^31 piastres)
 const columns = () => [...plain, sql<number>`price_minor::int`.as('price_minor'), sql<number | null>`price_max_minor::int`.as('price_max_minor'),
   imageJson('services.image_file_id').as('image'),
@@ -44,11 +42,6 @@ export class ServicesRepository {
   lock(tx: Tx, id: string) {
     return tx.selectFrom('services').select(['name_ar', 'name_en', 'image_file_id', sql<number>`price_minor::int`.as('price_minor'), sql<number | null>`price_max_minor::int`.as('price_max_minor')])
       .where('id', '=', id).where('deleted_at', 'is', null).forUpdate().executeTakeFirst();
-  }
-
-  /** H9: a consent text of this clinic with this key, not archived (any version). */
-  async consentExists(tx: Tx, key: string): Promise<boolean> {
-    return !!(await tx.selectFrom('consent_templates').select('id').where('key', '=', key).where('is_active', '=', true).executeTakeFirst());
   }
 
   /** How many of these ids are this clinic's doctors (row-level security hides the others). */
@@ -80,7 +73,6 @@ export class ServicesRepository {
         description_ar: s.descriptionAr ?? null, description_en: s.descriptionEn ?? null,
         price_minor: s.priceMinor ?? 0, price_max_minor: s.priceMaxMinor ?? null, duration_minutes: s.durationMinutes,
         bookable_online: s.bookableOnline ?? true, show_on_website: s.showOnWebsite ?? true, image_file_id: s.imageFileId ?? null,
-        consent_key: s.consentKey ?? null,
       })
       .returning('id').executeTakeFirstOrThrow();
   }
@@ -98,7 +90,6 @@ export class ServicesRepository {
       ...(s.showOnWebsite !== undefined && { show_on_website: s.showOnWebsite }),
       ...(s.isActive !== undefined && { is_active: s.isActive }),
       ...(s.imageFileId !== undefined && { image_file_id: s.imageFileId }),
-      ...(s.consentKey !== undefined && { consent_key: s.consentKey }),
     };
     const row = await tx.updateTable('services').set({ ...set, updated_at: sql<Date>`now()` })
       .where('id', '=', id).where('deleted_at', 'is', null).returning('id').executeTakeFirst();

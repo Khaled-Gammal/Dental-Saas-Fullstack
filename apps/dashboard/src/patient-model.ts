@@ -48,7 +48,7 @@ export function ageOn(dob: string, today: string): number | null {
   return ty - y - (tm < m || (tm === m && td < d) ? 1 : 0);
 }
 
-/** Children need a guardian to sign consents (SRS DSH-16): the form opens that section for anyone under 18. */
+/** Children need a guardian (SRS DSH-16): the form opens that section for anyone under 18. */
 export const isMinor = (dob: string, today: string) => { const a = ageOn(dob, today); return a !== null && a < 18; };
 
 /** A mobile the API will accept: 010…, +20…, 0020…, Arabic digits (the API normalises to E.164). */

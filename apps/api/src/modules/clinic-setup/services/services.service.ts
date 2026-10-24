@@ -26,11 +26,6 @@ export class ServicesService {
     return { ...s, image: this.media.present(s.image) };
   }
 
-  /** H9: a treatment can only need a consent text the clinic has (and has not archived). */
-  private async assertConsent(tx: Tx, key: string | null | undefined): Promise<void> {
-    if (key && !(await this.repo.consentExists(tx, key))) throw Err.badRequest('consent_not_found', 'No such consent text');
-  }
-
   /** Every id must be one of this clinic's doctors. */
   private async assertDoctors(tx: Tx, ids: string[] | undefined): Promise<void> {
     if (ids?.length && (await this.repo.countDoctors(tx, ids)) !== ids.length) throw Err.badRequest('doctor_not_found', 'Doctor not found');
@@ -44,7 +39,6 @@ export class ServicesService {
   create(input: ServiceInput & { durationMinutes: number }) {
     return this.site.run(async (tx, tenantId) => {
       checkRules(input);
-      await this.assertConsent(tx, input.consentKey);
       await this.assertDoctors(tx, input.doctorIds);
       await this.media.replace(tx, 'image', input.imageFileId, null);
       const { id } = await this.repo.create(tx, tenantId, input);
@@ -66,7 +60,6 @@ export class ServicesService {
         priceMinor: patch.priceMinor ?? current.price_minor,
         priceMaxMinor: patch.priceMaxMinor === undefined ? current.price_max_minor : patch.priceMaxMinor,
       });
-      await this.assertConsent(tx, patch.consentKey);
       await this.assertDoctors(tx, patch.doctorIds);
       if (!(await this.repo.update(tx, id, patch))) throw notFound();
       if (patch.doctorIds) await this.repo.setDoctors(tx, tenantId, id, patch.doctorIds);

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import type { Tx } from '@dental/db';
-import { CONSENT_POLICY } from '../../config';
 import { AuditLog } from '../../shared/audit/audit-log';
 import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
@@ -67,15 +66,12 @@ export class VisitsService {
       if (!v) throw visitNotFound();
       const a = await this.access.actor(tx);
       await this.audit.recordView(tx, tenantId, 'visit', id);
-      const [patient, amendments, procedures, prescriptions, chart, consents] = await Promise.all([
+      const [patient, amendments, procedures, prescriptions, chart] = await Promise.all([
         this.patients.clinicalSummary(tx, tenantId, v.patient_id),
         this.repo.amendments(tx, id), this.repo.procedures(tx, id), this.repo.prescriptions(tx, { visitId: id }), this.repo.chart(tx, v.patient_id, id),
-        this.repo.consentsNeeded(tx, id, v.patient_id, CONSENT_POLICY.validDays),
       ]);
       return {
         ...v, patient, amendments, procedures, prescriptions, chart,
-        // H9: treatments that need a consent; consent_id null = not signed (a warning, never a block)
-        consents,
         // what this member may do here; the server checks again on every write
         can: {
           writeNotes: v.status === 'draft' && ClinicalAccess.writesVisit(a, v.doctor_id),

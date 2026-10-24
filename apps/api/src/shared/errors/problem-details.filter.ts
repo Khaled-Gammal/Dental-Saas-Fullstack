@@ -110,17 +110,6 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   // data export and clinic deletion (Phase H8)
   data_exports_one_open: { status: 409, code: 'export_in_progress', title: 'An export of this clinic is already being prepared' },
   clinic_owner_only: { status: 403, code: 'owner_only', title: 'Only the clinic owner can do this' },
-  // patient consents (Phase H9): the database decides what may be signed and that nothing signed changes
-  consent_template_draft: { status: 409, code: 'consent_draft', title: 'This consent text is a draft: review and save it before it is signed' },
-  consent_template_archived: { status: 409, code: 'consent_archived', title: 'This consent text is archived' },
-  consent_template_outdated: { status: 409, code: 'consent_outdated', title: 'A newer version of this consent text exists' },
-  consent_template_missing: { status: 404, code: 'consent_not_found', title: 'No such consent text' },
-  consent_templates_locked: { status: 409, code: 'consent_text_locked', title: 'A consent text is never edited: save a new version' },
-  patient_consents_locked: { status: 409, code: 'consent_locked', title: 'A signed consent is never changed; it can be withdrawn once' },
-  patient_consents_visit: { status: 400, code: 'visit_not_this_patient', title: 'The visit belongs to another patient' },
-  patient_consents_signer: { status: 400, code: 'validation_failed', title: 'Write the name of the person signing' },
-  patient_consents_revoke_reason: { status: 400, code: 'reason_required', title: 'Give the reason (3 characters at least)' },
-  consent_templates_tenant_id_key_version_key: { status: 409, code: 'consent_text_conflict', title: 'Saved by someone else at the same moment; try again' },
   tenants_suspension_reason: { status: 400, code: 'reason_required', title: 'Give the reason (3 characters at least)' },
   // custom roles (Phase H4): the service checks these first; the database is the last word
   roles_owner_fixed: { status: 409, code: 'owner_role_fixed', title: 'The owner role keeps every permission' },
