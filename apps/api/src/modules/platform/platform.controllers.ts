@@ -7,7 +7,7 @@ import { AUTH_POLICY } from '../../config';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { requestMeta } from '../identity/session-cookie';
-import { Activate, ChangePlan, EditPlan, PublishLegal, ExtendTrial, LeadStatus, NewNote, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
+import { Activate, ChangePlan, EditPlan, PublishLegal, ExtendTrial, LeadStatus, NewNote, NewPlan, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
 import { PlatformCookie, PlatformGuard } from './platform-session';
 import { PlatformService } from './platform.service';
 
@@ -115,6 +115,11 @@ export class PlatformController {
 
   @Get('plans')
   plans() { return this.platform.plans(); }
+
+  @Post('plans')
+  createPlan(@Body(new ZodBody(NewPlan)) b: Body<typeof NewPlan>, @Req() req: Request) {
+    return this.platform.createPlan(b, req.ip ?? null);
+  }
 
   @Patch('plans/:id')
   editPlan(@Param('id', id) planId: string, @Body(new ZodBody(EditPlan)) b: Body<typeof EditPlan>, @Req() req: Request) {

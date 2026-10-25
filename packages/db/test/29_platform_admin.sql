@@ -100,4 +100,20 @@ SELECT id AS any_plan, limits->>'patients' AS patients_limit FROM plans ORDER BY
 SELECT platform_update_plan('b0000000-0000-0000-0000-0000000000f1', :'any_plan', '{"trial_days": 21, "limits": {"staff": 99}}', NULL);
 SELECT test.ok((SELECT trial_days = 21 AND limits->>'staff' = '99' AND limits->>'patients' = :'patients_limit' FROM plans WHERE id = :'any_plan'),
   'a plan edit changes what it names and keeps the other limits');
+-- a new plan (2026-10-24): admins only, a free Latin code, placed after the others
+SELECT test.throws($$INSERT INTO plans (code, name_en, name_ar, price_monthly_minor, price_yearly_minor) VALUES ('x1', 'x', 'x', 0, 0)$$,
+  'permission denied', 'the API role adds no plan directly');
+SELECT test.throws($$SELECT platform_create_plan('b0000000-0000-0000-0000-0000000000a1', '{"code":"enterprise","name_ar":"المؤسسات","price_monthly_minor":1,"price_yearly_minor":1}', NULL)$$,
+  'not a platform admin', 'a clinic user adds no plan');
+SELECT test.throws($$SELECT platform_create_plan('b0000000-0000-0000-0000-0000000000f1', '{"code":"مؤسسات","name_ar":"المؤسسات","price_monthly_minor":1,"price_yearly_minor":1}', NULL)$$,
+  'plan code is a Latin slug', 'a plan code is a Latin slug');
+SELECT test.throws($$SELECT platform_create_plan('b0000000-0000-0000-0000-0000000000f1', '{"code":"basic","name_ar":"مكررة","price_monthly_minor":1,"price_yearly_minor":1}', NULL)$$,
+  'plans_code_key', 'nor one another plan has');
+SELECT platform_create_plan('b0000000-0000-0000-0000-0000000000f1',
+  '{"code":"Enterprise","name_ar":" المؤسسات ","price_monthly_minor":250000,"price_yearly_minor":2500000,"trial_days":30,"limits":{"branches":null},"features":{"custom_domain":true}}', NULL) AS new_plan \gset
+RESET ROLE;
+SELECT test.ok((SELECT code = 'enterprise' AND name_ar = 'المؤسسات' AND trial_days = 30 AND is_public AND limits = '{"branches":null}' AND features->>'custom_domain' = 'true'
+  AND sort_order > (SELECT max(sort_order) FROM plans WHERE id <> :'new_plan') FROM plans WHERE id = :'new_plan'),
+  'a new plan keeps what it was given and goes after the others');
+SELECT test.ok((SELECT details->>'plan' = 'enterprise' FROM platform_audit_log WHERE action = 'plan.created' ORDER BY id DESC LIMIT 1), 'and is in the platform audit log');
 ROLLBACK;

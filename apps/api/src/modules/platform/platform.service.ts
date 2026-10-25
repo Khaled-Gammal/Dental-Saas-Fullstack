@@ -9,7 +9,7 @@ import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { DUMMY_HASH, verifyPassword } from '../identity/crypto';
 import type { RequestMeta } from '../identity/identity.types';
 import { OtpService } from '../identity/otp.service';
-import type { EditPlanInput } from './platform.schemas';
+import type { EditPlanInput, NewPlanInput } from './platform.schemas';
 import { PlatformRepository } from './platform.repository';
 
 const { login: L } = AUTH_POLICY;
@@ -152,15 +152,26 @@ export class PlatformService {
 
   /** Prices, trial length, limits and features of a plan; limits and features merge into what the plan has (in the database). */
   async editPlan(id: string, input: EditPlanInput, ip: string | null) {
-    await this.repo.updatePlan(this.admin(), id, {
-      ...(input.nameAr !== undefined && { name_ar: input.nameAr }),
-      ...(input.priceMonthlyMinor !== undefined && { price_monthly_minor: input.priceMonthlyMinor }),
-      ...(input.priceYearlyMinor !== undefined && { price_yearly_minor: input.priceYearlyMinor }),
-      ...(input.trialDays !== undefined && { trial_days: input.trialDays }),
-      ...(input.limits && { limits: input.limits }),
-      ...(input.features && { features: input.features }),
-      ...(input.isPublic !== undefined && { is_public: input.isPublic }),
-    }, ip);
+    await this.repo.updatePlan(this.admin(), id, planColumns(input), ip);
     return (await this.repo.plans(this.admin())).find((p) => p.id === id);
   }
+
+  /** A new plan (owner 2026-10-24), placed after the others; its code must be free. */
+  async createPlan(input: NewPlanInput, ip: string | null) {
+    const id = await this.repo.createPlan(this.admin(), { code: input.code, ...planColumns(input) }, ip);
+    return (await this.repo.plans(this.admin())).find((p) => p.id === id);
+  }
+}
+
+/** The API's plan fields as the database's columns, only those given. */
+function planColumns(input: EditPlanInput): Record<string, unknown> {
+  return {
+    ...(input.nameAr !== undefined && { name_ar: input.nameAr }),
+    ...(input.priceMonthlyMinor !== undefined && { price_monthly_minor: input.priceMonthlyMinor }),
+    ...(input.priceYearlyMinor !== undefined && { price_yearly_minor: input.priceYearlyMinor }),
+    ...(input.trialDays !== undefined && { trial_days: input.trialDays }),
+    ...(input.limits && { limits: input.limits }),
+    ...(input.features && { features: input.features }),
+    ...(input.isPublic !== undefined && { is_public: input.isPublic }),
+  };
 }

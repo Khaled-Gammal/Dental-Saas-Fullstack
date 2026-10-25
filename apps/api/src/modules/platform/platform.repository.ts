@@ -149,4 +149,10 @@ export class PlatformRepository {
   updatePlan(actor: string, id: string, changes: Record<string, unknown>, ip: string | null) {
     return sql`select platform_update_plan(${actor}::uuid, ${id}::uuid, ${JSON.stringify(changes)}::jsonb, ${ip}::inet)`.execute(this.db);
   }
+
+  /** `plan`: code and name_ar, prices and trial_days, and any of limits, features, is_public. Returns the new plan's id. */
+  async createPlan(actor: string, plan: Record<string, unknown>, ip: string | null): Promise<string> {
+    const { rows } = await sql<{ id: string }>`select platform_create_plan(${actor}::uuid, ${JSON.stringify(plan)}::jsonb, ${ip}::inet) as id`.execute(this.db);
+    return rows[0].id;
+  }
 }

@@ -36,3 +36,9 @@ export const EditPlan = z.object({
   isPublic: z.boolean().optional(),
 }).strict();
 export type EditPlanInput = z.infer<typeof EditPlan>;
+
+/** A new plan: the same fields, all required but limits and features, plus its code (the slug the landing page's «اشترك الآن» link carries; never changes). */
+export const NewPlan = EditPlan.required({ nameAr: true, priceMonthlyMinor: true, priceYearlyMinor: true, trialDays: true }).extend({
+  code: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9_-]{1,39}$/, 'Latin letters, digits, - and _'),
+}).strict();
+export type NewPlanInput = z.infer<typeof NewPlan>;

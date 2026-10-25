@@ -13,7 +13,7 @@ import { ShieldIcon } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
 import { AuthLayout } from '../auth';
 import {
-  Ban, Building2, CalendarDays, Check, ChevronsUpDown, FileText, HardDrive, History, Inbox, Layers, LogOut, Mail, MapPin, Pencil, Phone, ShieldCheck, Stethoscope,
+  Ban, Building2, CalendarDays, Check, ChevronsUpDown, FileText, HardDrive, History, Inbox, Layers, LogOut, Mail, MapPin, Pencil, Phone, Plus, ShieldCheck, Stethoscope,
   UserRound, Users, X, type LucideIcon,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -660,17 +660,19 @@ function LegalAdminPage() {
 // ---------- ADM-04 plans ----------
 function PlansPage() {
   const plans = useQuery({ queryKey: [...KEY, 'plans'], queryFn: () => papi<Plan[]>('/platform/plans') });
-  const [editing, setEditing] = useState<Plan | null>(null);
+  // a plan being edited, 'new' for the new-plan form
+  const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   return (
     <>
-      <PageHeader title="الخطط" sub="أسعار الخطط ومدة التجربة والحدود والمزايا. التغيير يسري على كل عيادة على الخطة." count={plans.data?.length} />
+      <PageHeader title="الخطط" sub="أسعار الخطط ومدة التجربة والحدود والمزايا. التغيير يسري على كل عيادة على الخطة." count={plans.data?.length}
+        action={<Button onClick={() => setEditing('new')}><Plus className="size-4" />خطة جديدة</Button>} />
       {plans.isError ? <ErrorText error={plans.error} /> : !plans.data ? <Skeleton h={96} count={2} /> : (
         <div className="pl-plans">
           {plans.data.map((p) => <PlanCard key={p.id} p={p} onEdit={() => setEditing(p)} />)}
         </div>
       )}
       {/* keyed: each opening starts from the plan as saved */}
-      {editing && <PlanEditDialog key={editing.id} p={editing} onClose={() => setEditing(null)} />}
+      {editing && <PlanEditDialog key={editing === 'new' ? 'new' : editing.id} p={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </>
   );
 }
@@ -730,46 +732,72 @@ function PlanCard({ p, onEdit }: { p: Plan; onEdit: () => void }) {
 }
 
 const pounds = (minor: number) => String(minor / 100);
+const PLAN_CODE = /^[a-z0-9][a-z0-9_-]{1,39}$/;
 const toMinor = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Math.round(Number(v) * 100));
 
-/** The plan's edit form, in sections, in a dialog. Limits and features merge into the plan on the server. */
-function PlanEditDialog({ p, onClose }: { p: Plan; onClose: () => void }) {
+/** The plan's form, in sections, in a dialog: a plan's edit (limits and features merge into it on the server), or a new plan when `p` is null. */
+function PlanEditDialog({ p, onClose }: { p: Plan | null; onClose: () => void }) {
   const qc = useQueryClient();
-  const [name, setName] = useState(p.name_ar);
-  const [monthly, setMonthly] = useState(pounds(p.price_monthly_minor));
-  const [yearly, setYearly] = useState(pounds(p.price_yearly_minor));
-  const [trial, setTrial] = useState(String(p.trial_days));
-  const [limits, setLimits] = useState<Record<string, string>>(() => Object.fromEntries(LIMIT_KEYS.map((k) => [k, p.limits[k] == null ? '' : String(p.limits[k])])));
-  const [features, setFeatures] = useState<Record<string, boolean>>(() => Object.fromEntries(FEATURE_KEYS.map((k) => [k, !!p.features[k]])));
-  const [isPublic, setPublic] = useState(p.is_public);
+  const [code, setCode] = useState('');
+  const [name, setName] = useState(p?.name_ar ?? '');
+  const [monthly, setMonthly] = useState(p ? pounds(p.price_monthly_minor) : '');
+  const [yearly, setYearly] = useState(p ? pounds(p.price_yearly_minor) : '');
+  const [trial, setTrial] = useState(String(p?.trial_days ?? 14));
+  const [limits, setLimits] = useState<Record<string, string>>(() => Object.fromEntries(LIMIT_KEYS.map((k) => [k, p?.limits[k] == null ? '' : String(p.limits[k])])));
+  const [features, setFeatures] = useState<Record<string, boolean>>(() => Object.fromEntries(FEATURE_KEYS.map((k) => [k, !!p?.features[k]])));
+  const [isPublic, setPublic] = useState(p?.is_public ?? true);
   const m = toMinor(monthly), y = toMinor(yearly), days = Number(trial);
-  const ok = name.trim().length >= 2 && m !== null && y !== null && Number.isInteger(days) && days >= 0 && days <= 90;
-  const currency = money(0, p.currency).replace(/^0\s*/, '');
+  // the code goes in the landing page's «اشترك الآن» link: a short Latin slug, set once
+  const codeOk = !!p || PLAN_CODE.test(code.trim().toLowerCase());
+  const ok = codeOk && name.trim().length >= 2 && m !== null && y !== null && Number.isInteger(days) && days >= 0 && days <= 90;
+  const currency = money(0, p?.currency ?? 'EGP').replace(/^0\s*/, '');
   const save = useMutation({
-    mutationFn: () => papi<Plan>(`/platform/plans/${p.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
+    mutationFn: () => {
+      const values = {
         nameAr: name.trim(), priceMonthlyMinor: m, priceYearlyMinor: y, trialDays: days, isPublic, features,
         limits: Object.fromEntries(LIMIT_KEYS.map((k) => [k, limits[k].trim() === '' ? null : Math.max(0, Math.floor(Number(limits[k])))])),
-      }),
-    }),
+      };
+      return p
+        ? papi<Plan>(`/platform/plans/${p.id}`, { method: 'PATCH', body: JSON.stringify(values) })
+        : papi<Plan>('/platform/plans', { method: 'POST', body: JSON.stringify({ code: code.trim().toLowerCase(), ...values }) });
+    },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: [...KEY, 'plans'] }); onClose(); },
   });
+  // beside the name when editing; after the prices on a new plan, where the code sits beside the name
+  const trialField = (
+    <Field label="أيام التجربة" hint="من 0 إلى 90">{(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="numeric" value={trial} onChange={(e) => setTrial(e.target.value)} invalid={!(Number.isInteger(days) && days >= 0 && days <= 90)} />}</Field>
+  );
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !save.isPending) onClose(); }}>
       <DialogContent dir="rtl" className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-card sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-start">تعديل الخطة: {p.name_ar} <span className="pl-code" dir="ltr">{p.code}</span></DialogTitle>
-          <DialogDescription className="text-start">{`${'يسري التغيير على'} ${p.clinics} ${p.clinics >= 3 && p.clinics <= 10 ? 'عيادات' : 'عيادة'} ${'على هذه الخطة.'}`}</DialogDescription>
+          {p ? (
+            <>
+              <DialogTitle className="text-start">تعديل الخطة: {p.name_ar} <span className="pl-code" dir="ltr">{p.code}</span></DialogTitle>
+              <DialogDescription className="text-start">{`${'يسري التغيير على'} ${p.clinics} ${p.clinics >= 3 && p.clinics <= 10 ? 'عيادات' : 'عيادة'} ${'على هذه الخطة.'}`}</DialogDescription>
+            </>
+          ) : (
+            <>
+              <DialogTitle className="text-start">خطة جديدة</DialogTitle>
+              <DialogDescription className="text-start">تُضاف بعد الخطط الحالية. إن كانت ظاهرة تظهر في صفحة الأسعار فورًا.</DialogDescription>
+            </>
+          )}
         </DialogHeader>
         <form className="pl-plan-form" onSubmit={(e) => { e.preventDefault(); if (ok) save.mutate(); }}>
           <section>
             <h3>الاسم والأسعار</h3>
             <div className="grid-2">
               <Field label="اسم الخطة">{(a) => <Input id={a.id} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />}</Field>
-              <Field label="أيام التجربة" hint="من 0 إلى 90">{(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" inputMode="numeric" value={trial} onChange={(e) => setTrial(e.target.value)} invalid={!(Number.isInteger(days) && days >= 0 && days <= 90)} />}</Field>
-              <Field label={`${'السعر الشهري'} (${currency})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} invalid={m === null} />}</Field>
-              <Field label={`${'السعر السنوي'} (${currency})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={yearly} onChange={(e) => setYearly(e.target.value)} invalid={y === null} />}</Field>
+              {!p && (
+                <Field label="رمز الخطة" hint="حروف إنجليزية صغيرة وأرقام. يظهر في رابط الاشتراك ولا يتغير بعد الإنشاء.">
+                  {(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" value={code} onChange={(e) => setCode(e.target.value)} maxLength={40} invalid={code.trim() !== '' && !codeOk} />}
+                </Field>
+              )}
+              {p && trialField}
+              {/* a new plan's empty prices are not marked until typed in */}
+              <Field label={`${'السعر الشهري'} (${currency})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} invalid={m === null && (!!p || monthly !== '')} />}</Field>
+              <Field label={`${'السعر السنوي'} (${currency})`}>{(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={yearly} onChange={(e) => setYearly(e.target.value)} invalid={y === null && (!!p || yearly !== '')} />}</Field>
+              {!p && trialField}
             </div>
           </section>
           <section>
@@ -792,7 +820,7 @@ function PlanEditDialog({ p, onClose }: { p: Plan; onClose: () => void }) {
           </section>
           <ErrorText error={save.error} />
           <div className="pl-plan-actions">
-            <Button type="submit" disabled={!ok} loading={save.isPending}>حفظ</Button>
+            <Button type="submit" disabled={!ok} loading={save.isPending}>{p ? 'حفظ' : 'إضافة الخطة'}</Button>
             <Button variant="ghost" onClick={onClose} disabled={save.isPending}>إلغاء</Button>
           </div>
         </form>

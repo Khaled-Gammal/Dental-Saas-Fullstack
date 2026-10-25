@@ -106,6 +106,9 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   platform_already_active: { status: 409, code: 'already_active', title: 'The subscription is already active' },
   platform_cycle: { status: 400, code: 'validation_failed', title: 'A subscription is monthly or yearly' },
   platform_plan_missing: { status: 404, code: 'subscription_plan_not_found', title: 'Plan not found' },
+  platform_plan_code: { status: 400, code: 'plan_code_invalid', title: 'A plan code is a short Latin slug' },
+  platform_plan_name: { status: 400, code: 'validation_failed', title: 'A plan name is 2 to 60 characters' },
+  plans_code_key: { status: 409, code: 'plan_code_taken', title: 'A plan with this code exists' },
   lead_not_found: { status: 404, code: 'lead_not_found', title: 'Request not found' },
   // data export and clinic deletion (Phase H8)
   data_exports_one_open: { status: 409, code: 'export_in_progress', title: 'An export of this clinic is already being prepared' },

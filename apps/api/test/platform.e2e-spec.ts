@@ -115,6 +115,22 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
     expect(audit).toEqual(expect.arrayContaining(['plan.updated', 'platform.sign_in']));
   });
 
+  it('adds a plan after the others with a free code (owner 2026-10-24)', async () => {
+    // the test database keeps what tests add and plans are never deleted: a fresh code, hidden from the landing page
+    const code = `e2e-${Date.now().toString(36)}`;
+    const body = { code, nameAr: 'المؤسسات', priceMonthlyMinor: 250000, priceYearlyMinor: 2500000, trialDays: 30, isPublic: false, limits: { branches: null } };
+    const before = (await http().get('/platform/plans').set(admin()).expect(200)).body as { sort_order: number }[];
+    const p = (await http().post('/platform/plans').set(admin()).send(body).expect(201)).body;
+    expect(p).toMatchObject({ code, name_ar: 'المؤسسات', price_monthly_minor: 250000, trial_days: 30, is_public: false, clinics: 0 });
+    expect(p.sort_order).toBeGreaterThan(Math.max(...before.map((x) => x.sort_order)));
+    expect((await http().post('/platform/plans').set(admin()).send(body).expect(409)).body.code).toBe('plan_code_taken');
+    await http().post('/platform/plans').set(admin()).send({ ...body, code: 'مؤسسات' }).expect(400);
+    await http().post('/platform/plans').set(admin()).send({ code: `${code}-x`, nameAr: 'ناقصة' }).expect(400);
+    await http().post('/platform/plans').send({ ...body, code: `${code}-y` }).expect(401);
+    const audit = (await http().get('/platform/audit').set(admin()).expect(200)).body.map((a: { action: string }) => a.action);
+    expect(audit).toContain('plan.created');
+  });
+
   it('activates a paid clinic for a month or a year (owner 2026-10-20: trials end in suspension otherwise)', async () => {
     expect((await http().post(`/platform/clinics/${CLINIC_B}/activate`).set(admin()).send({ cycle: 'weekly' }).expect(400)).body.code).toBe('validation_failed');
     const a = (await http().post(`/platform/clinics/${CLINIC_B}/activate`).set(admin()).send({ cycle: 'monthly' }).expect(200)).body;
