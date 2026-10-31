@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useCan } from '../../can';
 import { arName } from '@dental/ui/text';
 import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
@@ -7,7 +8,7 @@ import { invoiceStatusLabel, paymentMethodLabel, paymentStatusLabel, referenceHi
 import { currencyLabel, money } from '../../money';
 import { send, useBillingMutation, useInvoice, useServices } from '../../queries';
 import { to } from '../../router';
-import type { InvoiceDetail, InvoiceStatus, Payment, PaymentMethod } from '../../types';
+import type { InvoiceDetail, InvoiceLine, InvoiceStatus, Payment, PaymentMethod } from '../../types';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
@@ -26,9 +27,10 @@ const newKey = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? 
  * `#/invoices/<id>/view` (SRS BILLING-001…004, PAY-001…003, PAY-005): the invoice, its lines and totals (all derived
  * by the database), issue / void, the payments with who received each, reversals and refunds, and printing.
  */
-export function InvoicePage({ clinicId, id }: { clinicId: string; id?: string }) {
+export function InvoicePage({ clinicId, id, query }: { clinicId: string; id?: string; query?: Record<string, string> }) {
   const inv = useInvoice(clinicId, id);
-  const [dialog, setDialog] = useState<'issue' | 'void' | 'delete' | null>(null);
+  const has = useCan();
+  const [dialog, setDialog] = useState<'issue' | 'issue-pay' | 'void' | 'delete' | null>(null);
   const [reason, setReason] = useState('');
   const act = useBillingMutation(clinicId, (op: 'issue' | 'void' | 'delete') =>
     op === 'delete' ? send(`/invoices/${id}`, 'DELETE') : send(`/invoices/${id}/${op}`, 'POST', op === 'void' ? { reason: reason.trim() } : undefined));
@@ -46,7 +48,8 @@ export function InvoicePage({ clinicId, id }: { clinicId: string; id?: string })
         action={<div className="row-end">
           <Badge tone={STATUS_TONE[v.status]}>{invoiceStatusLabel[v.status]}</Badge>
           {v.status !== 'draft' && <RouteLink route={to.printInvoice(v.id)} className="btn btn-secondary">طباعة</RouteLink>}
-          {v.can.issue && <Button onClick={() => setDialog('issue')} disabled={!v.lines.length}>إصدار الفاتورة</Button>}
+          {v.can.issue && has('payments:write') && <Button onClick={() => setDialog('issue-pay')} disabled={!v.lines.length}>إصدار وتحصيل</Button>}
+          {v.can.issue && <Button variant={has('payments:write') ? 'secondary' : 'primary'} onClick={() => setDialog('issue')} disabled={!v.lines.length}>{has('payments:write') ? 'إصدار فقط' : 'إصدار الفاتورة'}</Button>}
           {v.can.edit && <Button variant="ghost" onClick={() => setDialog('delete')}>حذف المسودة</Button>}
           {v.can.void && <Button variant="ghost" onClick={() => { setReason(''); setDialog('void'); }}>إلغاء الفاتورة</Button>}
         </div>}
@@ -59,6 +62,8 @@ export function InvoicePage({ clinicId, id }: { clinicId: string; id?: string })
           <PaymentsCard clinicId={clinicId} v={v} />
         </div>
         <div className="stack">
+          {/* redesign R7: collecting is what reception does most, so the payment form comes first */}
+          {v.can.pay && <PayForm key={`${v.paid_minor}-${v.adjusted_minor}`} clinicId={clinicId} v={v} focus={query?.pay === '1'} />}
           <DiscountCard clinicId={clinicId} v={v} />
           <Card>
             <h2>الإجماليات</h2>
@@ -77,12 +82,19 @@ export function InvoicePage({ clinicId, id }: { clinicId: string; id?: string })
           </Card>
           <PlanCard clinicId={clinicId} v={v} />
           <AdjustmentsCard clinicId={clinicId} v={v} />
-          {v.can.pay && <PayForm key={`${v.paid_minor}-${v.adjusted_minor}`} clinicId={clinicId} v={v} />}
         </div>
       </div>
       <ConfirmDialog open={dialog === 'issue'} title="إصدار الفاتورة" confirmLabel="إصدار الفاتورة"
         onConfirm={() => act.mutate('issue', { onSettled: () => setDialog(null) })} onCancel={() => setDialog(null)}>
         <p>ستأخذ الفاتورة رقمها وتاريخها وتُحسب الضريبة، ولا يمكن تعديلها بعد ذلك.</p>
+      </ConfirmDialog>
+      {/* redesign R7: issue, then the payment form opens focused (the same page with ?pay=1) */}
+      <ConfirmDialog open={dialog === 'issue-pay'} title="إصدار وتحصيل" confirmLabel="إصدار ثم تحصيل"
+        onConfirm={() => act.mutate('issue', {
+          onSuccess: () => navigate({ page: 'invoices', id: v.id, action: 'view', query: { pay: '1' } }),
+          onSettled: () => setDialog(null),
+        })} onCancel={() => setDialog(null)}>
+        <p>ستأخذ الفاتورة رقمها وتاريخها وتُحسب الضريبة ولا تُعدَّل بعد ذلك، ثم يُفتح نموذج الدفعة بالمبلغ المتبقي.</p>
       </ConfirmDialog>
       <ConfirmDialog open={dialog === 'delete'} title="حذف المسودة" confirmLabel="حذف المسودة" danger
         onConfirm={() => act.mutate('delete', { onSuccess: () => navigate(to.view('patients', v.patient.id)), onSettled: () => setDialog(null) })} onCancel={() => setDialog(null)}>
@@ -100,6 +112,7 @@ export function InvoicePage({ clinicId, id }: { clinicId: string; id?: string })
 function LinesCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   const remove = useBillingMutation(clinicId, (lineId: string) => send(`/invoices/${v.id}/lines/${lineId}`, 'DELETE'));
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<InvoiceLine | null>(null);
   return (
     <Card>
       <div className="row-between">
@@ -114,12 +127,16 @@ function LinesCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
             <span className="line-end">
               <bdi>{money(l.line_total_minor, v.currency)}</bdi>
               {v.can.discount && <LineDiscount clinicId={clinicId} invoiceId={v.id} currency={v.currency} line={l} />}
-              {v.can.edit && <LinkButton onClick={() => remove.mutate(l.id)}>إزالة</LinkButton>}
+              {v.can.edit && <LinkButton onClick={() => setRemoving(l)}>إزالة</LinkButton>}
             </span>
           </li>
         ))}
       </ul>
       <ErrorText error={remove.error} />
+      <ConfirmDialog open={!!removing} title="إزالة البند" confirmLabel="إزالة البند" danger
+        onConfirm={() => { if (removing) remove.mutate(removing.id, { onSettled: () => setRemoving(null) }); }} onCancel={() => setRemoving(null)}>
+        <p>سيُزال «<bdi>{removing?.description}</bdi>» من مسودة الفاتورة.</p>
+      </ConfirmDialog>
       {adding && <LineForm clinicId={clinicId} invoiceId={v.id} onDone={() => setAdding(false)} />}
     </Card>
   );
@@ -156,7 +173,14 @@ function LineForm({ clinicId, invoiceId, onDone }: { clinicId: string; invoiceId
 }
 
 /** PAY-001: the receiver is always the signed-in member; one key per form, so a double click records once. */
-function PayForm({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
+function PayForm({ clinicId, v, focus = false }: { clinicId: string; v: InvoiceDetail; focus?: boolean }) {
+  // opened from the list's "collect" or "issue and collect": bring the form into view, ready for the amount
+  useEffect(() => {
+    if (!focus) return;
+    const card = document.getElementById('pay');
+    card?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    card?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+  }, [focus]);
   const open = v.plan?.status === 'active' ? v.plan.installments.filter((i) => i.status === 'due' || i.status === 'partially_paid') : [];
   const [installmentId, setInstallmentId] = useState(open[0]?.id ?? '');
   const installment = open.find((i) => i.id === installmentId);
@@ -172,7 +196,7 @@ function PayForm({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   }));
   const ready = !!minor && minor > 0 && minor <= limit && (!NEEDS_REF.includes(method) || reference.trim().length > 0);
   return (
-    <Card>
+    <Card id="pay" className={`pay-card${focus ? ' is-focus' : ''}`}>
       <h2>تسجيل دفعة</h2>
       <form className="stack mt" onSubmit={(e) => { e.preventDefault(); if (ready) pay.mutate(undefined); }}>
         {open.length > 0 && (

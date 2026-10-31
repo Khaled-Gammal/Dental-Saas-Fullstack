@@ -1,9 +1,9 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type {
-  Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
-  HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
+  Appointment, AuditEntry, Branch, CashBranch, CashDay, CashMovements, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
+  BookingSettings, DrugSuggestion, HistoryVersion, Holiday, InvoiceDetail, InvoiceFilters, InvoiceRow, InvoiceTotals, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
+  HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, UnbilledGroup, Visit, VisitsPage, VisitsView, VisitSummary, WebsiteStatus,
 } from './types';
 
 /**
@@ -261,6 +261,22 @@ export const useVisit = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: clinicalKeys.visit(clinicId, id ?? ''), queryFn: () => api<Visit>(`/visits/${id}`), enabled: !!id });
 export const usePatientVisits = (clinicId: string, patientId: string, enabled: boolean) =>
   useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'visits'] as const, queryFn: () => api<VisitSummary[]>(`/patients/${patientId}/visits`), enabled });
+/** visits per request; a full page means there may be more */
+export const VISIT_PAGE = 100;
+/** Redesign R5: the visits list. `mine`: 'auto' lets the API pick (a doctor's own visits). */
+export const useVisits = (clinicId: string, view: VisitsView, mine: 'auto' | '1' | '0') =>
+  useInfiniteQuery({
+    queryKey: [...clinicalKeys.all(clinicId), 'visits', view, mine] as const,
+    queryFn: ({ pageParam }) => api<VisitsPage>(`/visits?${new URLSearchParams({ view, mine, limit: String(VISIT_PAGE), ...(pageParam && { after: pageParam }) })}`),
+    initialPageParam: '',
+    getNextPageParam: (last) => (last.items.length === VISIT_PAGE ? last.items[last.items.length - 1].id : undefined),
+  });
+/**
+ * Redesign R5: the clinic's unbilled work. Kept under the clinical keys on purpose: recording a procedure (a clinical
+ * mutation) adds to it and issuing an invoice (a billing mutation, which refreshes clinical data too) takes from it.
+ */
+export const useUnbilled = (clinicId: string) =>
+  useQuery({ queryKey: [...clinicalKeys.all(clinicId), 'unbilled'] as const, queryFn: () => api<{ currency: string; items: UnbilledGroup[] }>('/invoices/unbilled') });
 export const usePatientChart = (clinicId: string, patientId: string, enabled: boolean) =>
   useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'chart'] as const, queryFn: () => api<PatientChart>(`/patients/${patientId}/chart`), enabled });
 export const usePatientPlans = (clinicId: string, patientId: string) =>
@@ -269,6 +285,9 @@ export const usePatientRecalls = (clinicId: string, patientId: string) =>
   useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'recalls'] as const, queryFn: () => api<Recall[]>(`/patients/${patientId}/recalls`) });
 export const usePlan = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: clinicalKeys.plan(clinicId, id ?? ''), queryFn: () => api<PlanDetail>(`/plans/${id}`), enabled: !!id });
+/** Redesign R8: the drugs to suggest in the prescription form (the doctor's own usual ones first); kept for the session. */
+export const useDrugSuggestions = (clinicId: string) =>
+  useQuery({ queryKey: [...clinicalKeys.all(clinicId), 'drugs'] as const, queryFn: () => api<DrugSuggestion[]>('/prescriptions/drugs?limit=100'), staleTime: 5 * 60_000 });
 export const usePrescription = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: clinicalKeys.prescription(clinicId, id ?? ''), queryFn: () => api<PrescriptionPrint>(`/prescriptions/${id}`), enabled: !!id });
 export const useRecalls = (clinicId: string, view: 'due' | 'upcoming' | 'closed') =>
@@ -300,12 +319,23 @@ export const billingKeys = {
 };
 /** invoices per request; a full page means there may be more ("load more" asks for the ones after its last) */
 export const INVOICE_PAGE = 100;
-export const useInvoices = (clinicId: string, status: string) =>
+/** The filters as query parameters: the status tab ('all' sends none) and, redesign R7, the search and the period. */
+const invoiceParams = (status: string, f: InvoiceFilters) => ({
+  ...(status !== 'all' && { status }), ...(f.q && { q: f.q }), ...(f.from && { from: f.from }), ...(f.to && { to: f.to }),
+});
+export const useInvoices = (clinicId: string, status: string, filters: InvoiceFilters = {}) =>
   useInfiniteQuery({
-    queryKey: billingKeys.list(clinicId, status),
-    queryFn: ({ pageParam }) => api<InvoiceRow[]>(`/invoices?${new URLSearchParams({ ...(status !== 'all' && { status }), limit: String(INVOICE_PAGE), ...(pageParam && { after: pageParam }) })}`),
+    queryKey: [...billingKeys.list(clinicId, status), filters] as const,
+    queryFn: ({ pageParam }) => api<InvoiceRow[]>(`/invoices?${new URLSearchParams({ ...invoiceParams(status, filters), limit: String(INVOICE_PAGE), ...(pageParam && { after: pageParam }) })}`),
     initialPageParam: '',
     getNextPageParam: (last) => (last.length === INVOICE_PAGE ? last[last.length - 1].id : undefined),
+  });
+/** Redesign R7: the totals row of the list, over every page of the same filters. */
+export const useInvoiceTotals = (clinicId: string, status: string, filters: InvoiceFilters, enabled = true) =>
+  useQuery({
+    queryKey: [...billingKeys.all(clinicId), 'totals', status, filters] as const,
+    queryFn: () => api<InvoiceTotals>(`/invoices/totals?${new URLSearchParams(invoiceParams(status, filters))}`),
+    enabled,
   });
 export const useInvoice = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: billingKeys.invoice(clinicId, id ?? ''), queryFn: () => api<InvoiceDetail>(`/invoices/${id}`), enabled: !!id });
@@ -363,6 +393,9 @@ export const useCashBranches = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-branches'] as const, queryFn: () => api<CashBranch[]>('/cash/branches') });
 export const useCashDay = (clinicId: string, branchId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-day', branchId] as const, queryFn: () => api<CashDay>(`/cash/today?branchId=${branchId}`), enabled: !!branchId });
+/** Redesign R9: the movements behind a session's figures, loaded when a figure is opened. */
+export const useCashMovements = (clinicId: string, sessionId: string, enabled: boolean) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-movements', sessionId] as const, queryFn: () => api<CashMovements>(`/cash/sessions/${sessionId}/movements`), enabled });
 export const useCashHistory = (clinicId: string, branchId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-history', branchId] as const, queryFn: () => api<CashSession[]>(`/cash/sessions?branchId=${branchId}`), enabled: !!branchId });
 export const useCashSession = (clinicId: string, id: string | null) =>

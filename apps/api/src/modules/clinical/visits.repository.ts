@@ -80,6 +80,33 @@ export class VisitsRepository {
       .then((rows) => rows.map((r) => ({ ...(r as unknown as VisitRow), procedures: Number(r.procedures ?? 0) })));
   }
 
+  /** The clinic's timezone, for "today" (redesign R5). */
+  timezone(tx: Tx, tenantId: string) {
+    return tx.selectFrom('tenants').select('timezone').where('id', '=', tenantId).executeTakeFirstOrThrow().then((t) => t.timezone);
+  }
+
+  /**
+   * The visits list (redesign R5), newest first, keyset-paged on (visit_at, id). Each row carries the patient, how many
+   * procedures it has and how many of them are on no invoice yet. RLS limits a branch-limited member to their branches.
+   */
+  async list(tx: Tx, q: { from?: Date; to?: Date; draftsOnly: boolean; doctorId: string | null; limit: number; after?: string }) {
+    let query = this.visits(tx).innerJoin('patients as p', 'p.id', 'v.patient_id').select((eb) => [
+      sql<{ id: string; full_name: string; file_no: number }>`json_build_object('id', p.id, 'full_name', p.full_name, 'file_no', p.file_no)`.as('patient'),
+      eb.selectFrom('visit_procedures as vp').select((e) => e.fn.countAll<string>().as('c')).whereRef('vp.visit_id', '=', 'v.id').as('procedures'),
+      eb.selectFrom('visit_procedures as vp').select((e) => e.fn.countAll<string>().as('c')).whereRef('vp.visit_id', '=', 'v.id')
+        .where(sql<boolean>`not exists (select 1 from invoice_items ii join invoices i on i.id = ii.invoice_id where ii.visit_procedure_id = vp.id and i.status <> 'void')`)
+        .as('unbilled'),
+    ]);
+    if (q.from) query = query.where('v.visit_at', '>=', q.from);
+    if (q.to) query = query.where('v.visit_at', '<', q.to);
+    if (q.draftsOnly) query = query.where('v.status', '=', 'draft');
+    if (q.doctorId) query = query.where('v.doctor_id', '=', q.doctorId);
+    // an id this clinic cannot see (RLS) matches no row, so nothing comes back
+    if (q.after) query = query.where(sql<boolean>`(v.visit_at, v.id) < (select a.visit_at, a.id from visits a where a.id = ${q.after})`);
+    const rows = await query.orderBy('v.visit_at', 'desc').orderBy('v.id', 'desc').limit(q.limit).execute();
+    return rows.map((r) => ({ ...(r as unknown as VisitRow & { patient: { id: string; full_name: string; file_no: number } }), procedures: Number(r.procedures ?? 0), unbilled: Number(r.unbilled ?? 0) }));
+  }
+
   // ---------- procedures ----------
   service(tx: Tx, id: string) {
     return tx.selectFrom('services').select(['id', 'price_minor', 'price_max_minor', 'is_active', sql<boolean>`deleted_at is not null`.as('deleted')]).where('id', '=', id).executeTakeFirst()
@@ -155,6 +182,30 @@ export class VisitsRepository {
     const items = await tx.selectFrom('prescription_items').select(['id', 'prescription_id', 'drug_name', 'dose', 'frequency', 'duration', 'instructions'])
       .where('prescription_id', 'in', rx.map((r) => r.id)).orderBy('sort_order').execute();
     return rx.map((r) => ({ ...r, items: items.filter((i) => i.prescription_id === r.id).map(({ prescription_id: _p, ...i }) => i) }));
+  }
+
+  /**
+   * Redesign R8: the drugs this clinic has prescribed (by name, case and spaces aside), the doctor's own first, then
+   * the most used; each with the dose, frequency, duration and instructions last written for it (by this doctor when
+   * they have prescribed it), so picking a name can fill the line.
+   */
+  async drugSuggestions(tx: Tx, doctorId: string | null, q: string | undefined, limit: number) {
+    const like = q ? `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
+    const { rows } = await sql<{ drug_name: string; dose: string | null; frequency: string | null; duration: string | null; instructions: string | null; uses: string; mine: string }>`
+      with used as (
+        select pi.drug_name, pi.dose, pi.frequency, pi.duration, pi.instructions, p.issued_at, p.doctor_id, lower(btrim(pi.drug_name)) as k
+          from prescription_items pi join prescriptions p on p.id = pi.prescription_id
+         where (${like}::text is null or pi.drug_name ilike ${like}::text)
+      ), counted as (
+        select k, count(*) as uses, count(*) filter (where doctor_id = ${doctorId}::uuid) as mine from used group by k
+      )
+      select distinct on (u.k) u.drug_name, u.dose, u.frequency, u.duration, u.instructions, c.uses, c.mine
+        from used u join counted c on c.k = u.k
+       order by u.k, coalesce(u.doctor_id = ${doctorId}::uuid, false) desc, u.issued_at desc`.execute(tx);
+    return rows
+      .map((r) => ({ ...r, uses: Number(r.uses), mine: Number(r.mine) }))
+      .sort((a, b) => b.mine - a.mine || b.uses - a.uses || a.drug_name.localeCompare(b.drug_name))
+      .slice(0, limit);
   }
 
   // ---------- chart ----------

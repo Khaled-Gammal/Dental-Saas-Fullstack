@@ -3,10 +3,11 @@ import type { Tx } from '@dental/db';
 import { AuditLog } from '../../shared/audit/audit-log';
 import { TenantDb } from '../../shared/database/tenant-db.service';
 import { Err } from '../../shared/errors/app-error';
+import { dateInZone, dayWindow, safeTimeZone } from '../../shared/time/clinic-time';
 import { PatientDirectory } from '../patients';
 import { ClinicalAccess } from './clinical-access';
 import { cleanSurfaces, currentChart, priceFor, type NoteField } from './clinical-rules';
-import type { AmendmentInput, ChartEntriesInput, NewPrescriptionInput, NewProcedureInput, OpenVisitInput, VisitNotesInput } from './clinical.schemas';
+import type { AmendmentInput, ChartEntriesInput, NewPrescriptionInput, NewProcedureInput, OpenVisitInput, VisitNotesInput, VisitsQueryInput, DrugsQueryInput } from './clinical.schemas';
 import { VisitsRepository } from './visits.repository';
 
 const visitNotFound = () => Err.notFound('visit_not_found', 'Visit not found');
@@ -167,6 +168,15 @@ export class VisitsService {
     }).then((rxId) => this.prescription(rxId));
   }
 
+  /** Redesign R8: drug names to suggest while writing a prescription, the doctor's own usual ones first. */
+  drugSuggestions(q: DrugsQueryInput) {
+    this.access.assertRead();
+    return this.db.run(async (tx) => {
+      const a = await this.access.actor(tx);
+      return this.repo.drugSuggestions(tx, a.doctorId, q.q, q.limit);
+    });
+  }
+
   /** One prescription with what its printout needs (clinic name/logo and branch details come from the profile). */
   prescription(id: string) {
     this.access.assertRead();
@@ -180,6 +190,29 @@ export class VisitsService {
         ...rx, branch_id: v.branch_id, doctor: v.doctor,
         patient: p && { id: p.id, full_name: p.full_name, file_no: p.file_no, date_of_birth: p.date_of_birth, gender: p.gender },
       };
+    });
+  }
+
+  /**
+   * The clinic's visits (redesign R5): today's, the drafts left open, or all. A doctor sees their own by default
+   * (`mine=auto`); an owner, or anyone who asks `mine=0`, sees every doctor's. `mine` in the answer says which applied,
+   * `isDoctor` whether the member can switch.
+   */
+  list(q: VisitsQueryInput) {
+    this.access.assertRead();
+    return this.db.run(async (tx, tenantId) => {
+      const a = await this.access.actor(tx);
+      const mine = !!a.doctorId && (q.mine === '1' || (q.mine === 'auto' && !a.isOwner));
+      let window: { start: number; end: number } | undefined;
+      if (q.view === 'today') {
+        const tz = safeTimeZone(await this.repo.timezone(tx, tenantId));
+        window = dayWindow(dateInZone(Date.now(), tz), tz);
+      }
+      const items = await this.repo.list(tx, {
+        from: window && new Date(window.start), to: window && new Date(window.end), draftsOnly: q.view === 'drafts',
+        doctorId: mine ? a.doctorId : null, limit: q.limit, after: q.after,
+      });
+      return { isDoctor: !!a.doctorId, mine, items };
     });
   }
 

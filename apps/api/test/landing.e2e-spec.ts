@@ -8,8 +8,8 @@ process.env.RATE_LIMIT_ENABLED = 'false';
 import { AppModule } from '../src/app.module';
 import type { DevEmailSender } from '../src/shared/notifications/dev-email.sender';
 import { EMAIL_SENDER } from '../src/shared/notifications/ports';
+import { createTestAdmin, type TestAdmin } from './test-admin';
 
-const ADMIN = 'admin@demo.test';
 const PASSWORD = 'Demo@12345';
 // a fresh number per run: the test database keeps the requests of earlier runs
 const local = `010${String(Date.now()).slice(-8)}`;
@@ -19,6 +19,9 @@ describe('Landing page: plans and the contact form (e2e, Phase H7)', () => {
   let app: INestApplication;
   let mail: DevEmailSender;
   let pt = '';
+  let adm: TestAdmin;
+  /** this suite's own admin: it signs in, and receives the announcements every active admin gets */
+  let ADMIN = '';
   const http = () => request(app.getHttpServer());
   const admin = () => ({ Cookie: pt.split(';')[0] });
   const codeFor = (email: string) => /(\d{6})/.exec(mail.outbox.get(email)?.text ?? '')?.[1] ?? '';
@@ -28,11 +31,13 @@ describe('Landing page: plans and the contact form (e2e, Phase H7)', () => {
     app = mod.createNestApplication();
     await app.init();
     mail = app.get(EMAIL_SENDER);
+    adm = await createTestAdmin('landing', PASSWORD);
+    ADMIN = adm.email;
     await http().post('/platform/auth/login').send({ email: ADMIN, password: PASSWORD }).expect(200);
     const res = await http().post('/platform/auth/verify').send({ email: ADMIN, code: codeFor(ADMIN) }).expect(200);
     pt = (res.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('pt=')) ?? '';
   });
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => { await adm?.done(); await app.close(); });
 
   it('lists the public plans for the pricing table, cached, without features or internal fields', async () => {
     const res = await http().get('/public/plans').expect(200);

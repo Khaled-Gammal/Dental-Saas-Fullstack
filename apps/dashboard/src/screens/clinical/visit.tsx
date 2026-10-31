@@ -7,12 +7,13 @@ import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { inMonthsLabel, recallReasonLabel, toothSurfaceLabel } from '../../labels';
 import { ageOn } from '../../patient-model';
-import { send, useClinicalMutation, usePatientPlans, usePlan, useServices, useVisit } from '../../queries';
+import { send, useClinicalMutation, useDrugSuggestions, usePatientPlans, usePlan, useServices, useVisit } from '../../queries';
 import { to } from '../../router';
 import type { NoteField, PlanItem, Prescription, RecallReason, Surface, Visit } from '../../types';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { AlertIcon, CalendarIcon, PlusIcon } from '../../ui/icons';
+import { CalendarIcon, PlusIcon } from '../../ui/icons';
+import { MedicalAlerts } from '../../ui/medical-alerts';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
 import { fmtNumber } from '../../util';
 import { ChartCard } from './chart';
@@ -35,6 +36,8 @@ const todayIso = () => new Date().toLocaleDateString('en-CA');
  */
 export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: string; id?: string; canInvoice?: boolean }) {
   const visit = useVisit(clinicId, id);
+  // redesign R8: a tooth picked on the chart opens "add procedure" with that tooth filled in
+  const [procTooth, setProcTooth] = useState<number | null>(null);
   if (!visit.data) {
     return <ResourceState isLoading={visit.isLoading} isError={visit.isError} error={visit.error} notFound={false} refetch={() => void visit.refetch()} back={to.list('appointments')} backLabel="المواعيد" />;
   }
@@ -51,22 +54,16 @@ export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: stri
         sub={[p && `${'ملف رقم'} ${fmtNumber(p.file_no)}`, age !== null && `${fmtNumber(age)} ${'سنة'}`, arName(v.doctor.name_ar, v.doctor.name_en), arName(v.branch.name_ar, v.branch.name_en), when].filter(Boolean).join(' · ')}
         action={<Badge tone={v.status === 'final' ? 'neutral' : 'warning'}>{v.status === 'final' ? 'نهائية' : 'مسودة'}</Badge>}
       />
-      {h && (h.allergies.length > 0 || h.is_pregnant || h.conditions.length > 0) && (
-        <Alert tone="danger">
-          <AlertIcon size={16} /> <strong>تنبيهات:</strong>{' '}
-          {[...h.allergies.map((a) => `${'حساسية من'} ${a}`), ...(h.is_pregnant ? ['حامل'] : []), ...h.conditions].join(' · ')}
-          {h.medications.length > 0 && <div className="small mt-sm">الأدوية الحالية: <bdi>{h.medications.join('، ')}</bdi></div>}
-        </Alert>
-      )}
+      <MedicalAlerts history={h} />
       <div className="profile-grid">
         <div className="stack">
           <NotesCard clinicId={clinicId} v={v} />
-          <ProceduresCard clinicId={clinicId} v={v} canInvoice={canInvoice} />
+          <ProceduresCard clinicId={clinicId} v={v} canInvoice={canInvoice} tooth={procTooth} onToothDone={() => setProcTooth(null)} />
           <PrescriptionsCard clinicId={clinicId} v={v} />
         </div>
         <div className="stack">
           <NextVisitCard clinicId={clinicId} v={v} />
-          {p && <ChartCard clinicId={clinicId} patientId={p.id} canWrite={v.can.chart} age={age} visitId={v.id} />}
+          {p && <ChartCard clinicId={clinicId} patientId={p.id} canWrite={v.can.chart} age={age} visitId={v.id} onProcedure={v.can.procedures ? setProcTooth : undefined} />}
         </div>
       </div>
     </>
@@ -161,7 +158,7 @@ function AmendDialog({ clinicId, visitId, field, onClose }: { clinicId: string; 
 }
 
 /** VISIT-003: what was done. A procedure from the plan takes the item's service, tooth and estimated price. */
-function ProceduresCard({ clinicId, v, canInvoice }: { clinicId: string; v: Visit; canInvoice: boolean }) {
+function ProceduresCard({ clinicId, v, canInvoice, tooth = null, onToothDone }: { clinicId: string; v: Visit; canInvoice: boolean; tooth?: number | null; onToothDone?: () => void }) {
   const [adding, setAdding] = useState(false);
   const remove = useClinicalMutation(clinicId, (procId: string) => send(`/visits/${v.id}/procedures/${procId}`, 'DELETE'));
   const total = v.procedures.reduce((s, p) => s + p.price_minor, 0);
@@ -195,22 +192,26 @@ function ProceduresCard({ clinicId, v, canInvoice }: { clinicId: string; v: Visi
         </ul>
       )}
       <ErrorText error={remove.error} />
-      {adding && <ProcedureForm clinicId={clinicId} v={v} onDone={() => setAdding(false)} />}
+      {(adding || tooth !== null) && (
+        <ProcedureForm key={tooth ?? 'new'} clinicId={clinicId} v={v} initialTooth={tooth ?? undefined} onDone={() => { setAdding(false); onToothDone?.(); }} />
+      )}
     </Card>
   );
 }
 
-function ProcedureForm({ clinicId, v, onDone }: { clinicId: string; v: Visit; onDone: () => void }) {
+function ProcedureForm({ clinicId, v, onDone, initialTooth }: { clinicId: string; v: Visit; onDone: () => void; initialTooth?: number }) {
   const services = useServices(clinicId);
   const plans = usePatientPlans(clinicId, v.patient_id);
   const openPlans = (plans.data ?? []).filter((p) => p.status === 'accepted' || p.status === 'in_progress');
   const [planId, setPlanId] = useState('');
   const plan = usePlan(clinicId, planId || openPlans[0]?.id);
-  const items = (plan.data?.items ?? []).filter((i) => i.status === 'planned' || i.status === 'scheduled');
+  const items = (plan.data?.items ?? []).filter((i) => i.status === 'planned' || i.status === 'scheduled')
+    // a tooth picked on the chart: that tooth's planned items first
+    .sort((a, b) => Number(b.tooth_code === initialTooth) - Number(a.tooth_code === initialTooth));
   const [itemId, setItemId] = useState('');
   const item: PlanItem | undefined = items.find((i) => i.id === itemId);
   const [serviceId, setServiceId] = useState('');
-  const [tooth, setTooth] = useState('');
+  const [tooth, setTooth] = useState(initialTooth ? String(initialTooth) : '');
   const [surfaces, setSurfaces] = useState<Surface[]>([]);
   const [price, setPrice] = useState('');
   const [notes, setNotes] = useState('');
@@ -339,6 +340,14 @@ function PrescriptionForm({ clinicId, visitId, replaces, onDone }: { clinicId: s
     ? replaces.items.map((i) => ({ drugName: i.drug_name, dose: i.dose ?? '', frequency: i.frequency ?? '', duration: i.duration ?? '', instructions: i.instructions ?? '' }))
     : [{ ...EMPTY_LINE }]);
   const [notes, setNotes] = useState(replaces?.notes ?? '');
+  // redesign R8: the clinic's drugs as suggestions; picking a known name fills the empty fields with its usual line
+  const drugs = useDrugSuggestions(clinicId);
+  const pickDrug = (i: number, name: string) => setLines((ls) => ls.map((l, j) => {
+    if (j !== i) return l;
+    const d = (drugs.data ?? []).find((x) => x.drug_name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (!d) return { ...l, drugName: name };
+    return { drugName: name, dose: l.dose || d.dose || '', frequency: l.frequency || d.frequency || '', duration: l.duration || d.duration || '', instructions: l.instructions || d.instructions || '' };
+  }));
   const issue = useClinicalMutation(clinicId, () => send<Prescription>(`/visits/${visitId}/prescriptions`, 'POST', {
     items: lines.filter((l) => l.drugName.trim()).map((l) => Object.fromEntries(Object.entries(l).map(([k, x]) => [k, x.trim() || null]).filter(([k, x]) => k === 'drugName' || x))),
     ...(notes.trim() && { notes: notes.trim() }), ...(replaces && { replacesId: replaces.id }),
@@ -353,7 +362,7 @@ function PrescriptionForm({ clinicId, visitId, replaces, onDone }: { clinicId: s
           <fieldset key={i} className="rx-line-form">
             <legend className="small">الدواء {fmtNumber(i + 1)}</legend>
             <div className="grid-2">
-              <Field label="اسم الدواء">{(a) => <Input id={a.id} dir="auto" value={l.drugName} onChange={(e) => set(i, 'drugName', e.target.value)} maxLength={200} placeholder="Amoxicillin 500mg" />}</Field>
+              <Field label="اسم الدواء">{(a) => <Input id={a.id} dir="auto" list="rx-drugs" autoComplete="off" value={l.drugName} onChange={(e) => pickDrug(i, e.target.value)} maxLength={200} placeholder="Amoxicillin 500mg" />}</Field>
               <Field label="الجرعة" optional="اختياري">{(a) => <Input id={a.id} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} maxLength={100} />}</Field>
               <Field label="عدد المرات" optional="اختياري">{(a) => <Input id={a.id} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} maxLength={100} />}</Field>
               <Field label="المدة" optional="اختياري">{(a) => <Input id={a.id} value={l.duration} onChange={(e) => set(i, 'duration', e.target.value)} maxLength={100} />}</Field>
@@ -363,6 +372,9 @@ function PrescriptionForm({ clinicId, visitId, replaces, onDone }: { clinicId: s
           </fieldset>
         ))}
         {lines.length < 20 && <LinkButton onClick={() => setLines((ls) => [...ls, { ...EMPTY_LINE }])}><PlusIcon size={14} /> إضافة دواء</LinkButton>}
+        <datalist id="rx-drugs">
+          {(drugs.data ?? []).map((d) => <option key={d.drug_name} value={d.drug_name}>{[d.dose, d.frequency, d.duration].filter(Boolean).join(' · ')}</option>)}
+        </datalist>
         <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
         <ErrorText error={issue.error} />
         <div className="row-end">

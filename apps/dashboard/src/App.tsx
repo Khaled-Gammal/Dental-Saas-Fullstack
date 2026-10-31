@@ -49,6 +49,7 @@ const FollowUps = lazyScreen(() => import('./screens/clinical/followups'), 'Foll
 const PlanPage = lazyScreen(() => import('./screens/clinical/plans'), 'PlanPage');
 const PrescriptionPrint = lazyScreen(() => import('./screens/clinical/prescription-print'), 'PrescriptionPrint');
 const VisitPage = lazyScreen(() => import('./screens/clinical/visit'), 'VisitPage');
+const VisitsList = lazyScreen(() => import('./screens/clinical/visits-list'), 'VisitsList');
 const PatientForm = lazyScreen(() => import('./screens/patients/form'), 'PatientForm');
 const PatientsList = lazyScreen(() => import('./screens/patients/list'), 'PatientsList');
 const PatientMerge = lazyScreen(() => import('./screens/patients/merge'), 'PatientMerge');
@@ -189,7 +190,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (!can(session, 'patients:read')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       if (action === 'new' && write) return <PatientForm clinicId={clinicId} />;
       if (action === 'edit' && write) return <PatientForm clinicId={clinicId} id={id} />;
-      if (action === 'view') return <PatientProfile clinicId={clinicId} id={id} session={session} />;
+      if (action === 'view') return <PatientProfile clinicId={clinicId} id={id} session={session} query={route.query} />;
       if (action === 'merge' && can(session, 'patients:merge')) return <PatientMerge clinicId={clinicId} id={id} />;
       if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('patients')} backLabel="المرضى" />;
       return <PatientsList clinicId={clinicId} canWrite={write} canBook={can(session, 'appointments:write')} />;
@@ -208,6 +209,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       return <ServicesList clinicId={clinicId} canWrite={settings} />;
     case 'visits':
       if (!can(session, 'clinical:read') && !can(session, 'clinical:write')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
+      if (!action) return <VisitsList clinicId={clinicId} query={route.query} canInvoice={can(session, 'invoices:write')} />;
       return <VisitPage clinicId={clinicId} id={id} canInvoice={can(session, 'invoices:write')} />;
     case 'plans': return <PlanPage clinicId={clinicId} id={id} />;
     case 'prescriptions': return <PrescriptionPrint clinicId={clinicId} id={id} />;
@@ -215,10 +217,10 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       return <FollowUps clinicId={clinicId} canWrite={can(session, 'patients:write')} canBook={can(session, 'appointments:write')} query={route.query} />;
     case 'invoices':
       if (action === 'new' && can(session, 'invoices:write')) return <NewInvoice clinicId={clinicId} query={route.query} />;
-      if (action === 'view') return <InvoicePage clinicId={clinicId} id={id} />;
+      if (action === 'view') return <InvoicePage clinicId={clinicId} id={id} query={route.query} />;
       if (action === 'print') return <InvoicePrint clinicId={clinicId} id={id} />;
       if (action || !can(session, 'invoices:read')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
-      return <InvoicesList clinicId={clinicId} query={route.query} />;
+      return <InvoicesList clinicId={clinicId} query={route.query} canWrite={can(session, 'invoices:write')} />;
     case 'discounts':
       if (!can(session, 'discounts:approve')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       return <Discounts clinicId={clinicId} canSetLimits={can(session, 'staff:manage')} />;
@@ -227,7 +229,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (!rights.read) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       if (action === 'new' && rights.all) return <NewExpense clinicId={clinicId} />;
       if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('expenses')} backLabel="المصروفات" />;
-      return <Expenses clinicId={clinicId} rights={rights} />;
+      return <Expenses clinicId={clinicId} rights={rights} query={route.query} />;
     }
     case 'cash':
       if (!can(session, 'cash:operate')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;

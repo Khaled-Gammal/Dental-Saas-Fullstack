@@ -136,4 +136,27 @@ describe('Billing: invoices, payments, reversals, refunds (e2e, Phase E1)', () =
     expect((await http().get(`/invoices?after=${first[0]}`).set(as('ownerB')).expect(200)).body).toEqual([]);
     await http().get('/invoices?after=not-an-id').set(as('accountantA')).expect(400);
   });
+
+  it('searches every invoice by patient name, mobile ending or number, and totals what it finds (redesign R7)', async () => {
+    type Row = { id: string; number: string | null; status: string; total_minor: number; paid_minor: number; balance_minor: number };
+    const mine = (await http().get(`/patients/${patientId}/billing`).set(as('accountantA')).expect(200)).body.invoices as Row[];
+    expect(mine.length).toBeGreaterThan(0);
+    const ids = (r: request.Response) => (r.body as Row[]).map((x) => x.id).sort();
+    const name = `مريض فاتورة ${run}`;
+    expect(ids(await http().get('/invoices').query({ q: name, limit: 200 }).set(as('accountantA')).expect(200))).toEqual(mine.map((x) => x.id).sort());
+    expect(ids(await http().get('/invoices').query({ q: run.slice(-5), limit: 200 }).set(as('accountantA')).expect(200))).toEqual(expect.arrayContaining(mine.map((x) => x.id)));
+    const numbered = mine.find((x) => x.number)!;
+    expect(ids(await http().get('/invoices').query({ q: numbered.number, limit: 200 }).set(as('accountantA')).expect(200))).toContain(numbered.id);
+    // the totals add up every matching invoice; drafts and void ones are not money, and only open ones are owed
+    const money = mine.filter((x) => x.status !== 'draft' && x.status !== 'void');
+    const totals = (await http().get('/invoices/totals').query({ q: name }).set(as('accountantA')).expect(200)).body;
+    expect(totals).toMatchObject({
+      currency: 'EGP', count: mine.length,
+      total_minor: money.reduce((n, x) => n + x.total_minor, 0),
+      paid_minor: money.reduce((n, x) => n + x.paid_minor, 0),
+      balance_minor: mine.filter((x) => x.status === 'issued' || x.status === 'partially_paid').reduce((n, x) => n + x.balance_minor, 0),
+    });
+    expect((await http().get('/invoices/totals').query({ q: name }).set(as('ownerB')).expect(200)).body.count).toBe(0);
+    await http().get('/invoices/totals').set(as('doctorA')).expect(403);
+  });
 });

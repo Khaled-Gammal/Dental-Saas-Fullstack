@@ -303,6 +303,18 @@ export interface Visit {
   can: { writeNotes: boolean; amend: boolean; procedures: boolean; prescribe: boolean; chart: boolean };
 }
 export type VisitSummary = Omit<Visit, 'patient' | 'amendments' | 'procedures' | 'prescriptions' | 'chart' | 'can'> & { procedures: number };
+/** A row of the visits list (redesign R5): the visit, its patient, and how many of its procedures are on no invoice yet. */
+/** Redesign R8: a drug the clinic has prescribed, with the line last written for it; `mine` = by this doctor. */
+export interface DrugSuggestion { drug_name: string; dose: string | null; frequency: string | null; duration: string | null; instructions: string | null; uses: number; mine: number }
+export type VisitListRow = VisitSummary & { patient: { id: string; full_name: string; file_no: number }; unbilled: number };
+export type VisitsView = 'today' | 'drafts' | 'all';
+/** `mine`: the list is the member's own visits; `isDoctor`: the member is a doctor, so they may switch. */
+export interface VisitsPage { isDoctor: boolean; mine: boolean; items: VisitListRow[] }
+/** The unbilled work of one patient at one branch (redesign R5): what reception still has to invoice. */
+export interface UnbilledGroup {
+  patient_id: string; full_name: string; file_no: number; phone: string; branch_id: string; branch_ar: string | null; branch_en: string | null;
+  procedures: number; visits: number; total_minor: number; oldest_at: string; latest_at: string;
+}
 
 export type PlanStatus = 'draft' | 'proposed' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 export type PlanItemStatus = 'planned' | 'scheduled' | 'done' | 'cancelled';
@@ -338,6 +350,10 @@ export interface Recall {
 // ---------- billing (Phase E1) ----------
 export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void';
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'wallet' | 'instapay';
+/** Redesign R7: what the filtered invoice list adds up to, over every page. */
+export interface InvoiceTotals { currency: string; count: number; total_minor: number; paid_minor: number; balance_minor: number }
+/** The invoice list's server-side filters (redesign R7). */
+export interface InvoiceFilters { q?: string; from?: string; to?: string }
 export interface InvoiceRow {
   id: string; number: string | null; status: InvoiceStatus; currency: string; patient_id: string; branch_id: string;
   subtotal_minor: number; discount_minor: number; tax_minor: number; total_minor: number; paid_minor: number; adjusted_minor: number; balance_minor: number;
@@ -416,6 +432,13 @@ export interface CashSession {
   reopen_count: number; branch: { name_ar: string | null; name_en: string | null };
   totals?: DayTotals; reopenings?: CashReopening[]; can?: { close: boolean; reopen: boolean };
 }
+/** Redesign R9: one payment, refund or expense behind a cash day's figures. */
+export interface CashMovement {
+  kind: 'payment' | 'refund' | 'expense'; id: string; method: PaymentMethod; amount_minor: number; at: string; reference: string | null;
+  invoice_id: string | null; invoice_number: string | null; patient_id: string | null; patient_name: string | null; payment_id: string | null;
+  category: string | null; note: string | null; by_name: string | null;
+}
+export interface CashMovements { currency: string; business_date: string; items: CashMovement[] }
 export interface CashDay { business_date: string; session: CashSession | null; earlier_open: CashSession | null; suggested_opening: number | null; totals?: DayTotals }
 export interface CashBranch { id: string; name_ar: string | null; name_en: string | null; is_main: boolean }
 

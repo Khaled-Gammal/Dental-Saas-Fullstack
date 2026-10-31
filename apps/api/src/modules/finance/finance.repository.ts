@@ -206,6 +206,45 @@ export class FinanceRepository {
     return dayTotals(r.rows[0]?.t);
   }
 
+  /**
+   * Redesign R9: the movements behind a cash day's figures, one row each, in time order. The same rules as
+   * cash_day_totals (the database function the figures come from), so every figure is the sum of its rows: payments
+   * paid that business day and not reversed, refunds made that day, expenses dated that day, not void, with a method.
+   * The day is the same time window too (cash_day_window, review R10), which the indexes on paid_at and refunded_at serve.
+   */
+  async movements(tx: Tx, branchId: string, date: string) {
+    const by = (col: string) => sql<string | null>`(select u.full_name from tenant_members m join users u on u.id = m.user_id where m.id = ${sql.ref(col)})`;
+    const { rows } = await sql<{
+      kind: 'payment' | 'refund' | 'expense'; id: string; method: string; amount_minor: string; at: Date; reference: string | null;
+      invoice_id: string | null; invoice_number: string | null; patient_id: string | null; patient_name: string | null; payment_id: string | null;
+      category: string | null; note: string | null; by_name: string | null;
+    }>`
+      with w as (select * from cash_day_window(${branchId}, ${date}::date))
+      select * from (
+        select 'payment' as kind, p.id, p.method, p.amount_minor, p.paid_at as at, p.reference,
+               i.id as invoice_id, i.number as invoice_number, pt.id as patient_id, pt.full_name as patient_name, p.id as payment_id,
+               null::text as category, p.notes as note, ${by('p.received_by')} as by_name
+          from w, payments p join patients pt on pt.id = p.patient_id left join invoices i on i.id = p.invoice_id
+         where p.tenant_id = w.tenant_id and p.branch_id = ${branchId} and p.status in ('succeeded', 'partially_refunded', 'refunded')
+           and p.paid_at >= w.day_start and p.paid_at < w.day_end
+        union all
+        select 'refund', r.id, r.method, r.amount_minor, r.refunded_at, r.reference,
+               i.id, i.number, pt.id, pt.full_name, r.payment_id,
+               null::text, r.reason, ${by('r.created_by')}
+          from w, refunds r join payments p on p.id = r.payment_id join patients pt on pt.id = p.patient_id left join invoices i on i.id = p.invoice_id
+         where r.tenant_id = w.tenant_id and r.branch_id = ${branchId} and r.refunded_at >= w.day_start and r.refunded_at < w.day_end
+        union all
+        select 'expense', e.id, e.payment_method, e.amount_minor, e.created_at, e.reference,
+               null, null, null, null, null,
+               c.name, coalesce(e.description, e.supplier_name), ${by('e.created_by')}
+          from expenses e join expense_categories c on c.id = e.category_id
+         where e.branch_id = ${branchId} and e.spent_on = ${date}::date and e.status <> 'void' and e.payment_method is not null
+      ) m
+      order by m.at, m.id
+      limit 2000`.execute(tx);
+    return rows.map((r) => ({ ...r, amount_minor: Number(r.amount_minor) }));
+  }
+
   open(tx: Tx, tenantId: string, s: { branchId: string; date: string; currency: string; openingMinor: number; by: string }) {
     return tx.insertInto('cash_sessions').values({
       tenant_id: tenantId, branch_id: s.branchId, business_date: s.date, currency: s.currency, opening_minor: s.openingMinor, opened_by: s.by,

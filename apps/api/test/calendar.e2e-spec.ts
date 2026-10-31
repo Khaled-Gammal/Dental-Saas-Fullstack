@@ -202,7 +202,9 @@ describe('Calendar: moves, rooms, holidays, time off, booking rules, my day (e2e
 
   describe('my day (APPT-004)', () => {
     it('a doctor sees only their own appointments with mine=true; others see nothing as "mine"', async () => {
-      const day = plusDays(date, 28);
+      let day = plusDays(date, 28);
+      // the free day picked in beforeAll says nothing about this one: earlier runs' bookings may have filled it
+      for (let i = 0; i < 10 && ((await slots(MONA, day)).length < 1 || (await slots(AHMED, day)).length < 2); i++) day = plusDays(day, 7);
       const mona = await book(OMAR, MONA, (await slots(MONA, day))[0]);
       const ahmed = await book(NOUR, AHMED, (await slots(AHMED, day))[1]);
       const ids = async (who: string, mine?: boolean) =>

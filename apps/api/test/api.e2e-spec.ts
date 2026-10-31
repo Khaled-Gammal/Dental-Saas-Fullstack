@@ -71,13 +71,15 @@ describe('API (e2e)', () => {
 
   it('ignores a tenant_id in the body: a branch is always created in the caller\'s own clinic', async () => {
     const slug = `ext-${Date.now().toString().slice(-6)}`;
-    await request(app.getHttpServer())
+    const made = await request(app.getHttpServer())
       .post('/branches')
       .set('Authorization', `Bearer ${token.ownerA}`)
       .send({ nameEn: 'Sneaky', slug, tenant_id: '22222222-2222-2222-2222-222222222222', tenantId: '22222222-2222-2222-2222-222222222222' })
       .expect(201);
     const b = await request(app.getHttpServer()).get('/branches').set('Authorization', `Bearer ${token.ownerB}`).expect(200);
     expect(b.body.map((x: { slug: string }) => x.slug)).not.toContain(slug);
+    // frees the plan's branch seat: the test database keeps it, and repeated runs would fill clinic A's limit
+    await request(app.getHttpServer()).patch(`/branches/${made.body.id}`).set('Authorization', `Bearer ${token.ownerA}`).send({ isActive: false }).expect(200);
   });
 
   it('database errors never leak table or constraint names', async () => {

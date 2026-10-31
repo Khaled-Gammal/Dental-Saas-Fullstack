@@ -26,7 +26,7 @@ describe('Clinical: visits, notes, procedures, plans, prescriptions, chart, foll
   const http = () => request(app.getHttpServer());
   const as = (who: string) => ({ Authorization: `Bearer ${token[who]}` });
   const run = `${Date.now()}`.slice(-7);
-  const date = farSaturday();
+  let date = farSaturday(); // re-picked in beforeAll until both doctors have a mostly free day
   let patientId: string;
 
   /** A staff booking at a free slot of the day (asked each time: a booking also blocks its neighbours); checked in when asked. */
@@ -46,7 +46,12 @@ describe('Clinical: visits, notes, procedures, plans, prescriptions, chart, foll
       ['accountantA', 'accountant.a@demo.test'], ['ownerB', 'owner.b@demo.test']]) {
       token[who] = (await http().post('/auth/dev-login').send({ email }).expect(201)).body.accessToken;
     }
-    patientId = (await http().post('/patients').set(as('receptionA')).send({ fullName: `منى زيارة ${run}`, phone: `0108${run}`, dateOfBirth: '1988-03-02' }).expect(201)).body.id;
+    // The test database keeps earlier runs' bookings, and other suites book these doctors on random far Saturdays
+    // too; a day that is already nearly full leaves the later tests without a free slot. Pick a free day.
+    const slots = async (doctorId: string): Promise<number> =>
+      (await http().get('/appointments/availability').query({ branchId: NASR, doctorId, date }).set(as('receptionA')).expect(200)).body.slots.length;
+    for (let i = 0; i < 20 && ((await slots(MONA)) < 15 || (await slots(AHMED)) < 15); i++) date = farSaturday();
+    patientId =(await http().post('/patients').set(as('receptionA')).send({ fullName: `منى زيارة ${run}`, phone: `0108${run}`, dateOfBirth: '1988-03-02' }).expect(201)).body.id;
     await http().put(`/patients/${patientId}/medical-history`).set(as('doctorA'))
       .send({ allergies: ['Penicillin'], conditions: ['سكري'], medications: [], isPregnant: null, isSmoker: false, notes: null }).expect(200);
   });
@@ -200,6 +205,17 @@ describe('Clinical: visits, notes, procedures, plans, prescriptions, chart, foll
       expect((await http().post(`/visits/${visitId}/prescriptions`).set(as('doctorA')).send({ items: [{ drugName: 'x' }], replacesId: rx.id }).expect(409)).body.code)
         .toBe('prescription_already_corrected');
       await http().get(`/prescriptions/${rx.id}`).set(as('accountantA')).expect(403);
+    });
+
+    it('suggests the drugs the clinic prescribes, the doctor\'s own first, with the line last written (redesign R8)', async () => {
+      const list = (await http().get('/prescriptions/drugs').query({ q: 'amoxi' }).set(as('doctorA')).expect(200)).body as
+        { drug_name: string; frequency: string | null; uses: number; mine: number }[];
+      const amox = list.find((d) => d.drug_name === 'Amoxicillin 500mg');
+      expect(amox).toBeDefined();
+      expect(amox!.mine).toBeGreaterThanOrEqual(2); // the prescription and its correction above
+      expect(list.every((d) => /amoxi/i.test(d.drug_name))).toBe(true);
+      await http().get('/prescriptions/drugs').set(as('accountantA')).expect(403);
+      await http().get('/prescriptions/drugs?limit=0').set(as('doctorA')).expect(400);
     });
   });
 

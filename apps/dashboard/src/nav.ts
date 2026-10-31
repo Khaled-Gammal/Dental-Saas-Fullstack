@@ -5,7 +5,7 @@
  */
 import type { Page } from './router';
 
-export type NavIcon = 'home' | 'calendar' | 'users' | 'phone' | 'clinic' | 'team' | 'pin' | 'stethoscope' | 'list' | 'edit' | 'receipt' | 'tag' | 'cash'
+export type NavIcon = 'home' | 'calendar' | 'users' | 'clipboard' | 'phone' | 'clinic' | 'team' | 'pin' | 'stethoscope' | 'list' | 'edit' | 'receipt' | 'tag' | 'cash'
   | 'wallet' | 'chart' | 'image' | 'globe' | 'shield' | 'database';
 /** A page link, or an item shown as "soon" to who holds `perm` (the website editor). */
 export interface NavItem { label: string; icon: NavIcon; page?: Page; perm?: string }
@@ -19,6 +19,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'نظرة عامة', icon: 'home', page: 'overview' },
       { label: 'المواعيد', icon: 'calendar', page: 'appointments' },
       { label: 'المرضى', icon: 'users', page: 'patients' },
+      { label: 'الزيارات', icon: 'clipboard', page: 'visits' }, // redesign R5: today's visits and the open drafts
       { label: 'المتابعات', icon: 'phone', page: 'followups' },
     ],
   },
@@ -62,7 +63,7 @@ export const NAV_FOOT: NavItem[] = [{ label: 'بيانات العيادة', icon
 
 /** Pages without their own menu item belong to the item they are opened from (a visit to the patients, a payment to billing). */
 const PARENT: Partial<Record<Page, Page>> = {
-  visits: 'patients', plans: 'patients', prescriptions: 'patients', payments: 'invoices', holidays: 'branches', booking: 'branches',
+  plans: 'patients', prescriptions: 'patients', payments: 'invoices', holidays: 'branches', booking: 'branches',
 };
 export const navPageOf = (page: Page | 'not-found'): Page | null => (page === 'not-found' ? null : PARENT[page] ?? page);
 

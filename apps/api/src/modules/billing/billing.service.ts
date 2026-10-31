@@ -10,7 +10,7 @@ import { PatientDirectory } from '../patients';
 import { AuditLog } from '../../shared/audit/audit-log';
 import { canReverse, cleanReference, discountDecision, procedureLine, servicePrice, taxOf } from './billing-rules';
 import { BillingRepository } from './billing.repository';
-import type { InvoicesQueryInput, NewInvoiceInput, NewLineInput, NewPaymentInput, NewRefundInput, ServiceLineInput } from './billing.schemas';
+import type { InvoicesQueryInput, InvoiceTotalsQueryInput, NewInvoiceInput, NewLineInput, NewPaymentInput, NewRefundInput, ServiceLineInput } from './billing.schemas';
 
 const invoiceNotFound = () => Err.notFound('invoice_not_found', 'Invoice not found');
 const PAYABLE = ['issued', 'partially_paid'];
@@ -60,6 +60,24 @@ export class BillingService {
   list(q: InvoicesQueryInput) {
     if (!this.can('invoices:read')) throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
     return this.db.run((tx) => this.repo.list(tx, q));
+  }
+
+  /** Redesign R7: the totals row of the invoice list (the same filters, every page), in the clinic currency. */
+  totals(q: InvoiceTotalsQueryInput) {
+    if (!this.can('invoices:read')) throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
+    return this.db.run(async (tx, tenantId) => {
+      const [clinic, totals] = await Promise.all([this.repo.clinic(tx, tenantId), this.repo.totals(tx, q)]);
+      return { currency: clinic.currency, ...totals };
+    });
+  }
+
+  /** Redesign R5: everything done and not billed yet, per patient and branch, so no finished work is forgotten. */
+  unbilled(limit: number) {
+    if (!this.can('invoices:read')) throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
+    return this.db.run(async (tx, tenantId) => {
+      const [clinic, items] = await Promise.all([this.repo.clinic(tx, tenantId), this.repo.unbilledByPatient(tx, limit)]);
+      return { currency: clinic.currency, items };
+    });
   }
 
   /** A patient's money at a glance (BILLING-005): balance, invoices, and what is still to bill. */

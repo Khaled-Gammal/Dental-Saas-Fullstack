@@ -43,10 +43,19 @@ export const NewRefund = z.object({
 export const InvoicesQuery = z.object({
   status: z.enum(['draft', 'issued', 'partially_paid', 'paid', 'void', 'open']).optional(),
   from: z.string().regex(ISO_DATE).optional(), to: z.string().regex(ISO_DATE).optional(),
+  /** redesign R7: search every invoice (not only the loaded page) by number, patient name, file number or mobile */
+  q: z.string().trim().max(100).optional().transform((v) => v || undefined),
   limit: z.coerce.number().int().min(1).max(200).default(100),
   /** "load more": the invoices listed after this one (the last of the previous page) */
   after: Uuid.optional(),
 }).strict();
+
+/** Redesign R7: the totals of what the list shows (the same filters, every page). */
+export const InvoiceTotalsQuery = InvoicesQuery.omit({ limit: true, after: true });
+export type InvoiceTotalsQueryInput = z.infer<typeof InvoiceTotalsQuery>;
+
+/** The unbilled-work list (redesign R5). */
+export const UnbilledQuery = z.object({ limit: z.coerce.number().int().min(1).max(500).default(200) }).strict();
 
 export type NewInvoiceInput = z.infer<typeof NewInvoice>;
 export type ServiceLineInput = z.infer<typeof ServiceLine>;

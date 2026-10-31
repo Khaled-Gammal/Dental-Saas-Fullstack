@@ -31,6 +31,8 @@ describe('sidebar navigation (redesign R1)', () => {
       ['clinic', ['profile', 'branches', 'doctors', 'services']],
       ['finance', ['invoices', 'cash']],
     ]);
+    // a doctor reads clinical data: the visits list sits beside the patients
+    expect(keys(['patients:read', 'clinical:read', 'clinical:write', 'appointments:read'])[0]).toEqual([null, ['overview', 'appointments', 'patients', 'visits', 'followups']]);
     const { has, canSeePage } = as(['patients:read']);
     expect(visibleNav([{ id: null, label: null, items: NAV_FOOT }], canSeePage, has)).toEqual([]); // not the owner: no clinic data page
   });
@@ -39,7 +41,8 @@ describe('sidebar navigation (redesign R1)', () => {
     expect(keys(['patients:read']).find(([k]) => k === 'website')).toBeUndefined();
   });
   it('a page without its own item lights its parent, and opens its group', () => {
-    expect(navPageOf('visits')).toBe('patients');
+    expect(navPageOf('visits')).toBe('visits'); // redesign R5: the visits list has its own item
+    expect(navPageOf('plans')).toBe('patients');
     expect(navPageOf('payments')).toBe('invoices');
     expect(navPageOf('holidays')).toBe('branches');
     expect(navPageOf('not-found')).toBeNull();

@@ -70,6 +70,15 @@ export class CashService {
     });
   }
 
+  /** Redesign R9: what each figure of a cash day is made of (the screen opens it from the figure). */
+  movements(id: string) {
+    return this.db.run(async (tx) => {
+      const s = await this.repo.sessionById(tx, id);
+      if (!s) throw notFound();
+      return { currency: s.currency, business_date: s.business_date, items: await this.repo.movements(tx, s.branch_id, s.business_date) };
+    });
+  }
+
   history(q: CashHistoryQueryInput) {
     return this.db.run((tx) => this.repo.history(tx, q));
   }

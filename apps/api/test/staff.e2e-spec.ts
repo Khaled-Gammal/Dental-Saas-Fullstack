@@ -53,6 +53,11 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
     let link: string;
     let session: { token: string; cookie: string };
     let memberId: string;
+    // frees clinic B's staff seat (the Basic plan allows 5): the test database keeps members, and repeated runs filled it
+    afterAll(async () => {
+      const inB = (await http().get('/staff/members').set(as('ownerB')).expect(200)).body.find((m: { user: { email: string } }) => m.user.email === email);
+      if (inB) await http().patch(`/staff/members/${inB.id}`).set(as('ownerB')).send({ status: 'disabled' }).expect(200);
+    });
 
     it('is invited by email; the same email cannot be invited twice, nor an existing member', async () => {
       const inv = await http().post('/staff/invitations').set(as('ownerA'))

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { navigate, useDebounced, useFlash } from '../../hooks';
+import { genderLabel } from '../../labels';
 import { ageOn } from '../../patient-model';
 import { usePatients } from '../../queries';
 import { to } from '../../router';
@@ -44,7 +45,7 @@ export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string
       id: 'age', header: 'السن', hideOnMobile: true,
       cell: (p) => { const age = ageOn(p.date_of_birth ?? '', today()); return age === null ? <span className="muted">—</span> : `${fmtNumber(age)} ${'سنة'}`; },
     },
-    { id: 'gender', header: 'النوع', hideOnMobile: true, cell: (p) => (p.gender ? p.gender === 'male' ? 'ذكر' : 'أنثى' : <span className="muted">—</span>) },
+    { id: 'gender', header: 'النوع', hideOnMobile: true, cell: (p) => (p.gender ? genderLabel[p.gender] ?? p.gender : <span className="muted">—</span>) },
     {
       id: 'status', header: 'الحالة', hideOnMobile: true,
       cell: (p) => (

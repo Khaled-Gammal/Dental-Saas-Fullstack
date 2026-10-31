@@ -60,16 +60,18 @@ describe('Onboarding: profile, branches, hours (e2e)', () => {
 
   describe('website publish', () => {
     it('a draft colour is not live until published; publish makes it live and clears pendingChanges', async () => {
-      await http().patch('/clinic/profile').set(as('ownerA')).send({ brandColor: '#123456' }).expect(200);
+      // a fresh colour per run: the test database keeps the one an earlier run published, and saving it again changes nothing
+      const colour = `#${Date.now().toString(16).slice(-6)}`;
+      await http().patch('/clinic/profile').set(as('ownerA')).send({ brandColor: colour }).expect(200);
       expect((await http().get('/clinic/website').set(as('ownerA')).expect(200)).body.pendingChanges).toBe(true);
       expect((await http().get('/clinic/onboarding').set(as('ownerA')).expect(200)).body.pendingChanges).toBe(true);
-      expect((await http().get('/public/site?host=clinic-a.lvh.me').expect(200)).body.theme.primary).not.toBe('#123456');
+      expect((await http().get('/public/site?host=clinic-a.lvh.me').expect(200)).body.theme.primary).not.toBe(colour);
 
       await http().post('/clinic/website/publish').set(as('receptionA')).expect(403);
       const pub = await http().post('/clinic/website/publish').set(as('ownerA')).expect(200);
       expect(pub.body).toMatchObject({ status: 'published', pendingChanges: false });
       expect(pub.body.version).toBeGreaterThan(1);
-      expect((await http().get('/public/site?host=clinic-a.lvh.me').expect(200)).body.theme.primary).toBe('#123456');
+      expect((await http().get('/public/site?host=clinic-a.lvh.me').expect(200)).body.theme.primary).toBe(colour);
     });
   });
 

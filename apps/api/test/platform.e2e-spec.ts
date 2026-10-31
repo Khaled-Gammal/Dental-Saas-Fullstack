@@ -1,6 +1,7 @@
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { sql, type Db } from '@dental/db';
 import '../src/config'; // loads the root .env
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 process.env.DEV_LOGIN_ENABLED = 'true';
@@ -8,15 +9,29 @@ process.env.RATE_LIMIT_ENABLED = 'false';
 import { AppModule } from '../src/app.module';
 import type { DevEmailSender } from '../src/shared/notifications/dev-email.sender';
 import { EMAIL_SENDER } from '../src/shared/notifications/ports';
+import { createTestAdmin, type TestAdmin } from './test-admin';
 
 const CLINIC_B = '22222222-2222-2222-2222-222222222222';
 const PASSWORD = 'Demo@12345';
+/**
+ * Clinic B as the seed left it: on a 14-day trial, not suspended. The suite activates it at the end, and the test
+ * database keeps what tests change, so without this a second run finds it active ("not_trialing", "already_active").
+ */
+async function resetClinicB(db: Db): Promise<void> {
+  await sql`update subscriptions set status = 'trialing', billing_cycle = 'monthly', trial_ends_at = now() + interval '14 days',
+            current_period_start = null, current_period_end = null, updated_at = now()
+            where tenant_id = ${CLINIC_B} and status <> 'cancelled'`.execute(db);
+  await sql`update tenants set status = 'trialing', suspended_at = null, suspension_reason = null, suspension_kind = null,
+            status_before_suspension = null, updated_at = now() where id = ${CLINIC_B}`.execute(db);
+}
 const cookieOf = (res: request.Response) =>
   (res.headers['set-cookie'] as unknown as string[] | undefined)?.find((c) => c.startsWith('pt='));
 
 describe('Platform admin panel (e2e, Phase H5)', () => {
   let app: INestApplication;
   let mail: DevEmailSender;
+  let adm: TestAdmin;
+  let ADMIN = '';
   let pt = '';
   let ownerB = '';
   let originalPlan = '';
@@ -29,6 +44,9 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
     app = mod.createNestApplication();
     await app.init();
     mail = app.get(EMAIL_SENDER);
+    adm = await createTestAdmin('platform', PASSWORD);
+    ADMIN = adm.email;
+    await resetClinicB(adm.db);
     ownerB = (await http().post('/auth/dev-login').send({ email: 'owner.b@demo.test' }).expect(201)).body.accessToken;
   });
   afterAll(async () => {
@@ -37,16 +55,17 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
       await http().post(`/platform/clinics/${CLINIC_B}/reactivate`).set(admin());
       if (originalPlan) await http().post(`/platform/clinics/${CLINIC_B}/plan`).set(admin()).send({ planId: originalPlan });
     }
+    if (adm) { await resetClinicB(adm.db); await adm.done(); }
     await app.close();
   });
 
   it('signs in with the password and then the emailed code; clinic users and wrong passwords get the same answer', async () => {
     expect((await http().post('/platform/auth/login').send({ email: 'owner.a@demo.test', password: PASSWORD }).expect(401)).body.code).toBe('invalid_credentials');
-    expect((await http().post('/platform/auth/login').send({ email: 'admin@demo.test', password: 'wrong-pass' }).expect(401)).body.code).toBe('invalid_credentials');
-    expect((await http().post('/platform/auth/login').send({ email: 'admin@demo.test', password: PASSWORD }).expect(200)).body).toMatchObject({ codeSent: true });
-    expect((await http().post('/platform/auth/verify').send({ email: 'admin@demo.test', code: '000000' }).expect(400)).body.code).toBe('otp_invalid');
-    const res = await http().post('/platform/auth/verify').send({ email: 'admin@demo.test', code: codeFor('admin@demo.test') }).expect(200);
-    expect(res.body).toMatchObject({ name: 'Platform Admin', email: 'admin@demo.test' });
+    expect((await http().post('/platform/auth/login').send({ email: ADMIN, password: 'wrong-pass' }).expect(401)).body.code).toBe('invalid_credentials');
+    expect((await http().post('/platform/auth/login').send({ email: ADMIN, password: PASSWORD }).expect(200)).body).toMatchObject({ codeSent: true });
+    expect((await http().post('/platform/auth/verify').send({ email: ADMIN, code: '000000' }).expect(400)).body.code).toBe('otp_invalid');
+    const res = await http().post('/platform/auth/verify').send({ email: ADMIN, code: codeFor(ADMIN) }).expect(200);
+    expect(res.body).toMatchObject({ name: 'Platform Admin', email: ADMIN });
     pt = cookieOf(res) ?? '';
     expect(pt).toMatch(/HttpOnly/i);
     expect(pt).toMatch(/SameSite=Strict/i);

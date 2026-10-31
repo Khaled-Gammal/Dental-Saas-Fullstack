@@ -62,6 +62,24 @@ export const RecallsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(100),
 }).strict();
 
+/** The clinic's visits list (redesign R5): today's, the drafts not yet finalized, or all; the doctor's own by default. */
+export const VisitsQuery = z.object({
+  view: z.enum(['today', 'drafts', 'all']).default('today'),
+  /** auto = the doctor's own visits when the member is a doctor (owners see everyone's) */
+  mine: z.enum(['auto', '1', '0']).default('auto'),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  /** "load more": the visits listed after this one (the last of the previous page) */
+  after: Uuid.optional(),
+}).strict();
+
+export type VisitsQueryInput = z.infer<typeof VisitsQuery>;
+
+/** Redesign R8: the drugs the clinic has prescribed, to suggest while writing a prescription. */
+export const DrugsQuery = z.object({
+  q: z.string().trim().max(100).optional().transform((v) => v || undefined),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+}).strict();
+export type DrugsQueryInput = z.infer<typeof DrugsQuery>;
 export type OpenVisitInput = z.infer<typeof OpenVisit>;
 export type VisitNotesInput = z.infer<typeof VisitNotes>;
 export type AmendmentInput = z.infer<typeof Amendment>;

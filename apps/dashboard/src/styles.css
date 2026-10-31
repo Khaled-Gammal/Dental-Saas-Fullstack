@@ -838,3 +838,44 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .ov-table-card .data-table-pager { padding: 12px clamp(16px, 2.5vw, 24px); border-top: 1px solid var(--line); }
 /* the sidebar's menu scrolls on short screens: a slim scrollbar instead of the system one */
 [data-sidebar="content"] { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+
+/* ---------- patient profile: header facts and tabs (redesign R6) ---------- */
+.profile-sub { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.profile-facts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.fact { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; min-height: 44px; padding: 8px 14px; border: 1px solid var(--line);
+  border-radius: var(--r-md); background: var(--card); color: var(--ink); text-decoration: none; box-shadow: var(--shadow-sm); }
+.fact:hover { border-color: var(--line-strong); }
+.fact:focus-visible { outline: 0; box-shadow: var(--ring); }
+.fact-label { color: var(--muted); font-size: var(--fs-xs); }
+.fact.is-owed { border-color: color-mix(in srgb, var(--danger) 30%, transparent); background: var(--danger-bg); }
+.fact.is-owed strong { color: var(--danger); }
+/* the tab bar stays under the app header (h-14) while the record scrolls, with the patient's name once the header is gone */
+.profile-tabs { position: sticky; top: 56px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap;
+  margin: 16px -4px 0; padding: 8px 4px; background: var(--surface); }
+.profile-tabs .seg { overflow-x: auto; flex-wrap: nowrap; }
+.profile-tabs .seg-btn { white-space: nowrap; }
+.profile-tabs-who { font-weight: 600; font-size: var(--fs-sm); color: var(--muted); }
+.profile-tabs + .profile-grid, .profile-tabs + .card { margin-top: 8px; }
+.tab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+@media (max-width: 640px) {
+  .profile-tabs { position: static; }
+  .profile-tabs .seg { width: 100%; }
+  .profile-tabs-who { display: none; }
+  .fact { flex: 1 1 100%; }
+}
+
+/* ---------- invoice list totals (redesign R7) ---------- */
+.totals-row { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface); }
+.totals-row > div { display: flex; align-items: baseline; gap: 8px; }
+.totals-row dt { color: var(--muted); font-size: var(--fs-xs); }
+.totals-row dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.totals-row .is-owed dd { color: var(--danger); }
+/* the payment form at the top of the invoice, highlighted when the list's "collect" opened it */
+.pay-card.is-focus { box-shadow: var(--ring), var(--shadow-sm); }
+/* a filter that belongs to the whole page, in its header (redesign R8: the cash box's branch) */
+.header-select { min-width: 200px; }
+/* a cash-day figure that opens its movements (redesign R9) */
+.figure-link { padding: 0; border: 0; background: none; font: inherit; color: var(--primary-700); text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
+.figure-link:hover { text-decoration-style: solid; }
+.figure-link:focus-visible { outline: 0; border-radius: 4px; box-shadow: var(--ring); }
+.movements .line-end { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }

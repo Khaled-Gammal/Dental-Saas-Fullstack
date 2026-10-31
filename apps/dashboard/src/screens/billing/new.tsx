@@ -14,8 +14,8 @@ import { Checkbox } from '../../components/ui/checkbox';
 type Line = { serviceId: string; description: string; price: string; qty: string };
 
 /**
- * `#/invoices/new?patient=<id>[&visit=<id>]` (BILLING-001): a draft for one patient and one branch, from the
- * patient's unbilled procedures (a visit's are pre-selected) and/or service lines. Issuing happens on the invoice.
+ * `#/invoices/new?patient=<id>[&visit=<id>|&branch=<id>]` (BILLING-001): a draft for one patient and one branch, from the
+ * patient's unbilled procedures (a visit's, or a branch's from the unbilled-work list, are pre-selected) and/or service lines. Issuing happens on the invoice.
  */
 export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Record<string, string> }) {
   const patientId = query?.patient;
@@ -25,9 +25,9 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
   const services = useServices(clinicId);
   const unbilled = billing.data?.unbilled ?? [];
   const [picked, setPicked] = useState<Set<string> | null>(null);
-  const chosen = picked ?? new Set(unbilled.filter((p) => !query?.visit || p.visit_id === query.visit).map((p) => p.id));
+  const chosen = picked ?? new Set(unbilled.filter((p) => (!query?.visit || p.visit_id === query.visit) && (!query?.branch || p.branch_id === query.branch)).map((p) => p.id));
   const active = (branches.data ?? []).filter((b) => b.is_active);
-  const visitBranch = unbilled.find((p) => p.visit_id === query?.visit)?.branch_id;
+  const visitBranch = unbilled.find((p) => p.visit_id === query?.visit)?.branch_id ?? unbilled.find((p) => p.branch_id === query?.branch)?.branch_id;
   const [branchId, setBranchId] = useState('');
   const branch = branchId || visitBranch || patient.data?.preferred_branch_id || (active.length === 1 ? active[0].id : '');
   const [lines, setLines] = useState<Line[]>([]);

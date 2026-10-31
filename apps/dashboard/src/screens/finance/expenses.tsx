@@ -8,7 +8,7 @@ import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { FilePicker } from '../../components/file-picker';
 import { DatePicker } from '../../components/date-picker';
-import { EXPENSE_METHODS, localToday, monthOf, needsReference } from '../../finance-model';
+import { EXPENSE_METHODS, localToday, needsReference, PERIOD_PRESETS, periodFromQuery, presetOf, presetPeriod, type PeriodPreset } from '../../finance-model';
 import { expenseStatusLabel, paymentMethodLabel, referenceHintLabel } from '../../labels';
 import { money } from '../../money';
 import { send, useBranches, useExpenseCategories, useExpenses, useFinanceMutation, usePendingExpenses } from '../../queries';
@@ -21,6 +21,7 @@ import { RowMenu } from '../../ui/row-menu';
 
 const STATUS_TONE: Record<ExpenseStatus, 'neutral' | 'primary' | 'success' | 'warning'> = { pending: 'warning', approved: 'success', rejected: 'neutral', void: 'neutral' };
 const FILTERS = ['all', 'pending', 'approved', 'rejected', 'void'] as const;
+const PRESET_LABEL: Record<PeriodPreset, string> = { today: 'اليوم', week: 'هذا الأسبوع', month: 'هذا الشهر', last_month: 'الشهر الماضي' };
 const DOC_MAX_BYTES = 20 * 1024 * 1024; // same cap as the API (EXPENSE_FILE_POLICY)
 const DOC_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
 
@@ -31,9 +32,17 @@ export interface ExpenseRights { all: boolean; read: boolean; approve: boolean }
  * 2026-10-20). They record any expense, approved on entry; wrong ones are voided with a reason and stay listed.
  * Expenses reception recorded before still wait for the owner here. The owner also keeps the categories.
  */
-export function Expenses({ clinicId, rights }: { clinicId: string; rights: ExpenseRights }) {
-  const [period, setPeriod] = useState(() => monthOf(localToday()));
-  const [status, setStatus] = useState<(typeof FILTERS)[number]>('all');
+export function Expenses({ clinicId, rights, query }: { clinicId: string; rights: ExpenseRights; query?: Record<string, string> }) {
+  // redesign R8: the status and the period live in the link (?status=&from=&to=), so a refresh or a shared link keeps them
+  const today = localToday();
+  const period = periodFromQuery(query, today);
+  const status: (typeof FILTERS)[number] = (FILTERS as readonly string[]).includes(query?.status ?? '') ? (query!.status as (typeof FILTERS)[number]) : 'all';
+  const go = (next: { status?: string; from?: string; to?: string }) =>
+    navigate({ page: 'expenses', query: { status: next.status ?? status, from: next.from ?? period.from, to: next.to ?? period.to } });
+  const setStatus = (s: string) => go({ status: s });
+  const setPeriod = (p: { from: string; to: string }) => go(p);
+  const preset = presetOf(period, today);
+  const [showCategories, setShowCategories] = useState(false);
   const flash = useFlash(); // "saved", or "saved without its document" when the upload failed
   const list = useExpenses(clinicId, { ...period, status: status === 'all' ? undefined : status });
   const rows = list.data?.pages.flatMap((p) => p.items);
@@ -44,6 +53,20 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
         action={rights.all && <Button onClick={() => navigate(to.create('expenses'))}><PlusIcon size={18} />تسجيل مصروف</Button>} />
       {flash && <Alert tone={flash === 'سُجّل المصروف لكن لم يُرفع المستند. يمكنك إرفاقه من القائمة.' ? 'info' : 'success'}>{flash}</Alert>}
       {rights.approve && <PendingExpenses clinicId={clinicId} />}
+      {byCategory && (
+        <div className="profile-facts">
+          <div className="fact"><span className="fact-label">إجمالي الفترة</span><strong><bdi>{money(byCategory.reduce((s, c) => s + c.amount, 0))}</bdi></strong></div>
+          {byCategory.length > 0 && (() => {
+            const top = byCategory.reduce((a, b) => (b.amount > a.amount ? b : a));
+            return <div className="fact"><span className="fact-label">أكبر بند</span><strong>{top.name}</strong><span className="muted small"><bdi>{money(top.amount)}</bdi></span></div>;
+          })()}
+        </div>
+      )}
+      <div className="seg" role="group" aria-label="فترة سريعة">
+        {PERIOD_PRESETS.map((p) => (
+          <button key={p} type="button" className={`seg-btn${p === preset ? ' is-on' : ''}`} aria-pressed={p === preset} onClick={() => setPeriod(presetPeriod(p, today))}>{PRESET_LABEL[p]}</button>
+        ))}
+      </div>
       <div className="row-between">
         <div className="seg" role="group" aria-label="المصروفات">
           {FILTERS.map((f) => (
@@ -53,8 +76,8 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
           ))}
         </div>
         <div className="period">
-          <DatePicker label="من" value={period.from} onChange={(from) => setPeriod((p) => ({ ...p, from }))} max={period.to} />
-          <DatePicker label="إلى" value={period.to} onChange={(to) => setPeriod((p) => ({ ...p, to }))} min={period.from} />
+          <DatePicker label="من" value={period.from} onChange={(from) => setPeriod({ ...period, from })} max={period.to} />
+          <DatePicker label="إلى" value={period.to} onChange={(to) => setPeriod({ ...period, to })} min={period.from} />
         </div>
       </div>
       {/* the tabs and the period ask the API; the table searches, sorts and pages what it returned (redesign R4) */}
@@ -88,7 +111,13 @@ export function Expenses({ clinicId, rights }: { clinicId: string; rights: Expen
           </ul>
         </Card>
       )}
-      {rights.approve && <ExpenseSettingsCard clinicId={clinicId} />}
+      {/* redesign R8: the categories are set up once and rarely changed, so they stay folded away under the list */}
+      {rights.approve && (
+        <div className="row-start">
+          <Button variant="ghost" onClick={() => setShowCategories((v) => !v)} aria-expanded={showCategories}>{showCategories ? 'إخفاء بنود المصروفات' : 'إدارة بنود المصروفات'}</Button>
+        </div>
+      )}
+      {rights.approve && showCategories && <ExpenseSettingsCard clinicId={clinicId} />}
     </>
   );
 }

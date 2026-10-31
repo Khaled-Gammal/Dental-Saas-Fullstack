@@ -154,6 +154,13 @@ export class CashController {
     return this.cash.get(sessionId);
   }
 
+  /** Redesign R9: the payments, refunds and expenses behind the session's figures. */
+  @Get('sessions/:id/movements')
+  @RequirePermission('cash:operate')
+  movements(@Param('id', id) sessionId: string) {
+    return this.cash.movements(sessionId);
+  }
+
   @Post('sessions/:id/close') @HttpCode(200)
   @RequirePermission('cash:operate')
   close(@Param('id', id) sessionId: string, @Body(new ZodBody(CloseCash)) body: Body<typeof CloseCash>) {

@@ -5,6 +5,12 @@
  */
 
 /** An appointment's next steps. */
+/** Patient profile tabs (redesign R6). */
+export const profileTabLabel: Record<string, string> = {
+  overview: 'نظرة عامة', clinical: 'السجل السريري', billing: 'الحساب', appointments: 'المواعيد والمتابعات', activity: 'سجل الوصول',
+};
+export const genderLabel: Record<string, string> = { male: 'ذكر', female: 'أنثى' };
+export const medicalListLabel: Record<string, string> = { allergies: 'الحساسية', conditions: 'الأمراض المزمنة', medications: 'الأدوية الحالية' };
 export const appointmentActionLabel: Record<string, string> = {
   confirm: 'تأكيد',
   start: 'بدء الزيارة',
@@ -383,6 +389,7 @@ export const invoiceStatusLabel: Record<string, string> = {
 /** Invoice list tabs. */
 export const invoiceFilterLabel: Record<string, string> = {
   open: 'غير مسددة',
+  unbilled: 'لم تُفوتر',
   draft: 'مسودات',
   paid: 'مسددة',
   void: 'ملغاة',
