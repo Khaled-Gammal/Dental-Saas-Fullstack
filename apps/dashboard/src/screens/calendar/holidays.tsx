@@ -12,8 +12,8 @@ import { DataTable } from '../../ui/data-table';
 import { RowMenu } from '../../ui/row-menu';
 import { CalendarIcon } from '../../ui/icons';
 import { Conflicts } from './conflicts';
+import { clinicToday, LOC } from '../../util';
 
-const loc = () => ('ar-EG-u-nu-latn');
 const ALL = '';
 
 /** `#/holidays`: closed days for the whole clinic or one branch (SRS APPT-005). Reception can see them; the owner edits. */
@@ -34,7 +34,7 @@ export function Holidays({ clinicId, canWrite }: { clinicId: string; canWrite: b
   const [removing, setRemoving] = useState<Holiday | null>(null); // U2: removing a closed day asks first (it reopens the day for booking)
   const submit = (e: FormEvent) => { e.preventDefault(); if (date && name.trim()) add.mutate(); };
   const branchName = (id: string | null) => (id ? arName(branches.find((b) => b.id === id)?.name_ar ?? null, branches.find((b) => b.id === id)?.name_en ?? null, '—') : 'كل الفروع');
-  const fmtDate = (d: string) => new Intl.DateTimeFormat(loc(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
+  const fmtDate = (d: string) => new Intl.DateTimeFormat(LOC, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
 
   return (
     <>
@@ -43,7 +43,7 @@ export function Holidays({ clinicId, canWrite }: { clinicId: string; canWrite: b
         <Card>
           <h2>إضافة يوم إجازة</h2>
           <form onSubmit={submit} className="grid-2 mt">
-            <Field label="التاريخ">{(a) => <DatePicker id={a.id} value={date} onChange={setDate} min={new Date().toLocaleDateString('en-CA')} />}</Field>
+            <Field label="التاريخ">{(a) => <DatePicker id={a.id} value={date} onChange={setDate} min={clinicToday()} />}</Field>
             <Field label="الفرع">
               {(a) => <Choice id={a.id} value={branchId} onChange={setBranchId} noneLabel="كل الفروع"
                 options={branches.filter((b) => b.is_active).map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en, b.slug) }))} />}

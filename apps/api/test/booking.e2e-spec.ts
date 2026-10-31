@@ -86,7 +86,7 @@ describe('Online booking and reception (e2e)', () => {
       const res = await http().post('/public/booking/holds').send({ host: HOST, branchId: NASR, serviceId: CONSULT, doctorId: AHMED, startsAt: slot }).expect(201);
       holdId = res.body.holdId;
       made.push(holdId);
-      expect(res.body).toMatchObject({ doctorId: AHMED, startsAt: new Date(slot).toISOString(), otpRequired: true });
+      expect(res.body).toMatchObject({ doctorId: AHMED, startsAt: new Date(slot).toISOString(), otpRequired: true, ttlSeconds: 600 }); // the countdown's own length (review R11)
       expect(new Date(res.body.expiresAt).getTime() - Date.now()).toBeGreaterThan(9 * 60_000);
       const after = await http().get('/public/booking/slots').query({ host: HOST, branchId: NASR, serviceId: CONSULT, doctorId: AHMED, date }).expect(200);
       expect(after.body.slots.map((s: { startsAt: string }) => s.startsAt)).not.toContain(new Date(slot).toISOString());
@@ -109,8 +109,12 @@ describe('Online booking and reception (e2e)', () => {
       const ok = await http().post(`/public/booking/holds/${holdId}/confirm`).send({ host: HOST, code: otp }).expect(201);
       expect(ok.body).toMatchObject({ appointmentId: holdId, status: 'confirmed' }); // clinic A auto-confirms
       expect(ok.body.code).toMatch(/^\d{6}$/);
-      expect(ok.body.appointment.patient.full_name).toBe('Test Patient');
-      expect(ok.body.appointment.patient_notes).toBe('ألم في الضرس');
+      // the anonymous caller gets the confirmation screen only, never the patient's record or internal notes (review R11)
+      expect(Object.keys(ok.body.appointment).sort()).toEqual(['branch_id', 'doctor', 'service']);
+      expect(ok.body.appointment.doctor.name_en).toBe('Dr. Ahmed Salah');
+      const staffView = await http().get(`/appointments/${holdId}`).set(as('receptionA')).expect(200);
+      expect(staffView.body.patient.full_name).toBe('Test Patient');
+      expect(staffView.body.patient_notes).toBe('ألم في الضرس');
       code = ok.body.code;
       expect(mail.outbox.get(email)?.text).toContain(code); // the reception code was emailed after commit
       const twice = await http().post(`/public/booking/holds/${holdId}/confirm`).send({ host: HOST, code: otp }).expect(409);
@@ -163,6 +167,10 @@ describe('Online booking and reception (e2e)', () => {
   });
 
   describe('review fixes', () => {
+    /** The public summary carries no patient (review R11): staff look the appointment up. */
+    const patientOf = async (appointmentId: string): Promise<string> =>
+      (await http().get(`/appointments/${appointmentId}`).set(as('receptionA')).expect(200)).body.patient.id;
+
     /** The whole website flow for one visitor; returns the booking summary. */
     async function bookOnline(o: { fullName: string; phone: string; email: string; doctorId?: string }) {
       const free = await http().get('/public/booking/slots').query({ host: HOST, branchId: NASR, serviceId: CONSULT, doctorId: o.doctorId ?? AHMED, date }).expect(200);
@@ -186,21 +194,26 @@ describe('Online booking and reception (e2e)', () => {
       expect(late.body.code).toBe('hold_expired');
     });
 
-    it('a returning patient who verifies a new email gets it saved on their record (audited as the patient)', async () => {
+    it('a returning patient booking with a different email keeps the one on file: flagged for review, audited (review R11)', async () => {
+      const before = (await http().get(`/patients/${await patientOf((await bookOnline({ fullName: 'Test Patient', phone, email })).body.appointmentId)}`).set(as('ownerA')).expect(200)).body;
+      if (before.needs_review) await http().patch(`/patients/${before.id}`).set(as('ownerA')).send({ needsReview: false }).expect(200);
       const newEmail = `returning.${Date.now()}@example.test`;
       const res = await bookOnline({ fullName: 'Test Patient', phone, email: newEmail });
       expect(res.status).toBe(201);
-      const patientId = res.body.appointment.patient.id;
+      const patientId = await patientOf(res.body.appointmentId);
+      expect(patientId).toBe(before.id);
       const profile = await http().get(`/patients/${patientId}`).set(as('ownerA')).expect(200);
-      expect(profile.body.email).toBe(newEmail);
+      expect(profile.body.email).toBe(before.email);
+      expect(profile.body.needs_review).toBe(true);
+      expect(mail.outbox.get(newEmail)?.text).toContain(res.body.code); // this booking's code still goes to the verified address
       const log = await http().get(`/patients/${patientId}/activity`).set(as('ownerA')).expect(200);
-      expect(log.body.find((e: { action: string; changes: { via?: string } }) => e.action === 'patient.update' && e.changes?.via === 'website_booking')).toBeTruthy();
+      expect(log.body.find((e: { action: string; changes: { via?: string } }) => e.action === 'patient.booking_contact_differs' && e.changes?.via === 'website_booking')).toBeTruthy();
     });
 
     it('a blocked patient is refused online and gets no duplicate record', async () => {
       const blockedPhone = `+20101${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
       const first = await bookOnline({ fullName: 'Blocked Person', phone: blockedPhone, email: `b1.${Date.now()}@example.test` });
-      const patientId = first.body.appointment.patient.id;
+      const patientId = await patientOf(first.body.appointmentId);
       await http().patch(`/patients/${patientId}`).set(as('receptionA')).send({ isBlocked: true }).expect(200);
       const again = await bookOnline({ fullName: 'Blocked Person', phone: blockedPhone, email: `b2.${Date.now()}@example.test` });
       expect(again.status).toBe(403);
@@ -221,7 +234,7 @@ describe('Online booking and reception (e2e)', () => {
       expect((await http().post(`/appointments/${staff.body.id}/complete`).set(as('receptionA')).expect(200)).body.status).toBe('completed');
 
       const web = await bookOnline({ fullName: 'Code Holder', phone: `+20102${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`, email: `code.${Date.now()}@example.test` });
-      expect(web.body.appointment.has_code).toBe(true);
+      expect((await http().get(`/appointments/${web.body.appointmentId}`).set(as('receptionA')).expect(200)).body.has_code).toBe(true);
       const noNote = await http().post(`/appointments/${web.body.appointmentId}/arrive`).set(as('receptionA')).send({}).expect(400);
       expect(noNote.body.code).toBe('note_required');
       const withNote = await http().post(`/appointments/${web.body.appointmentId}/arrive`).set(as('receptionA')).send({ note: 'ID checked, phone lost' }).expect(200);

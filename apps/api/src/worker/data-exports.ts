@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { finished } from 'node:stream/promises';
-import { sql, type Db, type Tx } from '@dental/db';
+import { sql, type Db, type RawBuilder, type Tx } from '@dental/db';
 import { DATA_POLICY } from '../config';
 import type { EmailSender } from '../shared/notifications/ports';
 import type { ObjectStorage } from '../shared/storage/ports';
@@ -45,14 +45,21 @@ async function writeTables(tx: Tx, tenantId: string, dir: string): Promise<{ tab
   }
 
   const tables: { name: string; rows: number }[] = [];
-  const dump = async (name: string, columns: string[], page: (offset: number) => Promise<Record<string, unknown>[]>) => {
+  // review R11: each table is read through a cursor in the snapshot, page by page. The old LIMIT/OFFSET over
+  // ORDER BY ctid sorted all of the clinic's rows again for every page (quadratic in the table's size).
+  // The clinic id is inlined: DECLARE takes no bind parameters; it is a uuid checked here and by the cast.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId)) throw new Error('export: bad clinic id');
+  const tenant = sql`${sql.lit(tenantId)}::uuid`;
+  const dump = async (name: string, columns: string[], query: RawBuilder<unknown>) => {
+    const cursor = sql.raw(`export_c${tables.length}`);
+    await sql`declare ${cursor} no scroll cursor for ${query}`.execute(tx);
     const csv = createWriteStream(path.join(dir, `${name}.csv`));
     const json = createWriteStream(path.join(dir, `${name}.json`));
     await write(csv, CSV_BOM + csvLine(columns));
     await write(json, '[');
     let count = 0;
-    for (let offset = 0; ; offset += DATA_POLICY.pageRows) {
-      const rows = await page(offset);
+    for (;;) {
+      const rows = (await sql<Record<string, unknown>>`fetch forward ${sql.raw(String(DATA_POLICY.pageRows))} from ${cursor}`.execute(tx)).rows;
       for (const r of rows) {
         await write(csv, csvLine(columns.map((c) => r[c])));
         await write(json, `${count ? ',' : ''}\n${JSON.stringify(jsonRow(r, columns))}`);
@@ -60,6 +67,7 @@ async function writeTables(tx: Tx, tenantId: string, dir: string): Promise<{ tab
       }
       if (rows.length < DATA_POLICY.pageRows) break;
     }
+    await sql`close ${cursor}`.execute(tx);
     await write(json, '\n]\n');
     await Promise.all([close(csv), close(json)]);
     tables.push({ name, rows: count });
@@ -68,15 +76,13 @@ async function writeTables(tx: Tx, tenantId: string, dir: string): Promise<{ tab
   for (const [table, columns] of byTable) {
     const keep = exportColumns(columns);
     const list = sql.join(keep.map((c) => sql.ref(c)));
-    // ctid: a stable order inside this snapshot, for every table whatever its key
-    await dump(table, keep, async (offset) => (await sql<Record<string, unknown>>`
-      select ${list} from ${sql.table(table)} where tenant_id = ${tenantId} order by ctid limit ${DATA_POLICY.pageRows} offset ${offset}`.execute(tx)).rows);
+    await dump(table, keep, sql`select ${list} from ${sql.table(table)} where tenant_id = ${tenant}`);
   }
   const staff = ['member_id', 'full_name', 'email', 'phone', 'role', 'status', 'joined_at', 'last_login_at'];
-  await dump('staff', staff, async (offset) => (await sql<Record<string, unknown>>`
+  await dump('staff', staff, sql`
     select m.id as member_id, u.full_name, u.email, u.phone, coalesce(r.name_ar, r.key) as role, m.status, m.created_at as joined_at, u.last_login_at
     from tenant_members m join users u on u.id = m.user_id join roles r on r.id = m.role_id
-    where m.tenant_id = ${tenantId} order by m.created_at limit ${DATA_POLICY.pageRows} offset ${offset}`.execute(tx)).rows);
+    where m.tenant_id = ${tenant} order by m.created_at`);
 
   const { rows: files } = await sql<FileRow>`
     select id, kind, object_key, mime_type, variant_widths, size_bytes from files where tenant_id = ${tenantId} order by created_at`.execute(tx);

@@ -107,11 +107,17 @@ export class SessionService {
     if (new Date(row.expires_at).getTime() < Date.now() || familyAge > this.cfg.SESSION_MAX_DAYS * DAY_MS) {
       throw sessionExpired(); // expired, or past the absolute limit: refreshing cannot keep a session alive forever
     }
-    if (!(await this.repo.revokeIfLive(row.id))) throw Err.unauthorized('refresh_race', 'Session refreshed elsewhere, retry');
-
     const clinic = await this.repo.tenantSlug(row.tenant_id);
     if (!clinic) throw sessionExpired();
-    return this.start(row.user_id, clinic.slug, meta, { familyId: row.family_id, familyStartedAt: new Date(row.family_started_at) });
+    // review R11: the new token is stored first and the old one retired after, so a failure in between leaves the
+    // visitor signed in (the old token still works) instead of with neither. Of two tabs racing, the one that loses
+    // the retirement drops the token it just made.
+    const session = await this.start(row.user_id, clinic.slug, meta, { familyId: row.family_id, familyStartedAt: new Date(row.family_started_at) });
+    if (!(await this.repo.revokeIfLive(row.id))) {
+      await this.repo.revokeByHash(sha256(session.refreshToken));
+      throw Err.unauthorized('refresh_race', 'Session refreshed elsewhere, retry');
+    }
+    return session;
   }
 
   async logout(token: string | undefined, meta: RequestMeta): Promise<void> {

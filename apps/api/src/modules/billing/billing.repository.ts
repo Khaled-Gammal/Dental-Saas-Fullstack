@@ -264,9 +264,14 @@ export class BillingRepository {
     await tx.updateTable('payments').set({ status: 'reversed', reversed_at: sql<Date>`now()`, reversed_by: by, reversal_reason: reason }).where('id', '=', id).execute();
   }
 
-  async addRefund(tx: Tx, tenantId: string, r: { paymentId: string; amountMinor: number; method: string; reason: string; reference: string | null; createdBy: string }): Promise<void> {
+  refundByIdempotencyKey(tx: Tx, key: string) {
+    return tx.selectFrom('refunds').select(['id', 'payment_id']).where('idempotency_key', '=', key).executeTakeFirst();
+  }
+
+  async addRefund(tx: Tx, tenantId: string, r: { paymentId: string; amountMinor: number; method: string; reason: string; reference: string | null; createdBy: string; idempotencyKey: string | null }): Promise<void> {
     await tx.insertInto('refunds').values({
       tenant_id: tenantId, payment_id: r.paymentId, amount_minor: r.amountMinor, method: r.method, reason: r.reason, reference: r.reference, created_by: r.createdBy,
+      idempotency_key: r.idempotencyKey,
       branch_id: sql<string>`(select branch_id from payments where id = ${r.paymentId})`,
     }).execute();
   }

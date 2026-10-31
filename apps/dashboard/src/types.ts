@@ -33,6 +33,8 @@ export interface ClinicProfile {
   defaultLocale: 'ar' | 'en';
   /** CLR-09: ISO code, default EGP; fixed once an invoice is issued */
   currency: string;
+  /** the clinic's IANA zone (review R11: every date and time on the dashboard is shown in it) */
+  timezone?: string;
   brandColor: string | null;
   logo: MediaImage | null;
 }

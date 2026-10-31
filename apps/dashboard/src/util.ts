@@ -36,3 +36,31 @@ export function zonedToUtc(date: string, time: string, tz: string): number {
   };
   return asUtc - offsetAt(asUtc - offsetAt(asUtc));
 }
+
+// ---------- one locale and one clock for the whole dashboard (review R11) ----------
+
+/** Arabic text with Western digits (CLR-08): every date and number formatter uses it. */
+export const LOC = 'ar-EG-u-nu-latn';
+
+const DEFAULT_TZ = 'Africa/Cairo';
+let clinicTz = DEFAULT_TZ;
+
+/**
+ * The signed-in clinic's IANA zone (its profile), used for every date and time the dashboard shows. It was written as
+ * 'Africa/Cairo' in about thirty places, so a clinic elsewhere saw every time shifted. Set by the app shell from the
+ * clinic profile; Cairo until then (the clinics so far are in Egypt). A branch's own zone, when an API reply carries
+ * one, still wins where it is passed explicitly.
+ */
+export const clinicTimeZone = () => clinicTz;
+export function setClinicTimeZone(tz: string | null | undefined): void {
+  if (!tz) return;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz });
+    clinicTz = tz;
+  } catch {
+    clinicTz = DEFAULT_TZ; // an unknown zone string must not break every screen
+  }
+}
+
+/** Today's date ("YYYY-MM-DD") on the clinic's calendar, not the browser's. */
+export const clinicToday = (at = new Date()) => at.toLocaleDateString('en-CA', { timeZone: clinicTz });

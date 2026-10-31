@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api';
 import { useDebounced, useLeave } from '../../hooks';
 import { mergeMovesLabel, patientFieldLabel } from '../../labels';
-import { send, useClinicalMutation, usePatient, usePatients } from '../../queries';
+import { useMergePatients, usePatient, usePatients } from '../../queries';
 import { to } from '../../router';
 import type { PatientDetail } from '../../types';
 import { Alert, Badge, Button, Card, ErrorText, Input, PageHeader, Skeleton } from '../../ui/components';
@@ -40,7 +40,7 @@ export function PatientMerge({ clinicId, id }: { clinicId: string; id?: string }
   });
   const [confirming, setConfirming] = useState(false);
   const leave = useLeave(to.view('patients', id ?? ''));
-  const merge = useClinicalMutation(clinicId, () => send<PatientDetail>(`/patients/${id}/merge`, 'POST', { mergedId: other }));
+  const merge = useMergePatients(clinicId, id ?? '');
 
   if (!survivor.data) {
     return <ResourceState isLoading={survivor.isLoading} isError={survivor.isError} error={survivor.error} notFound={false} refetch={() => void survivor.refetch()} back={to.list('patients')} backLabel="المرضى" />;
@@ -117,8 +117,8 @@ export function PatientMerge({ clinicId, id }: { clinicId: string; id?: string }
           <div className="row-end">
             <Button variant="danger" onClick={() => setConfirming(true)}>دمج الملفين</Button>
           </div>
-          <ConfirmDialog open={confirming} title="دمج الملفين" confirmLabel="دمج الملفين" danger
-            onConfirm={() => merge.mutate(undefined, { onSuccess: () => leave('تم دمج الملفين.'), onSettled: () => setConfirming(false) })}
+          <ConfirmDialog open={confirming} title="دمج الملفين" confirmLabel="دمج الملفين" danger pending={merge.isPending}
+            onConfirm={() => other && merge.mutate(other, { onSuccess: () => leave('تم دمج الملفين.'), onSettled: () => setConfirming(false) })}
             onCancel={() => setConfirming(false)}>
             <p>{'سينتقل كل ما في ملف «{from}» إلى ملف «{to}».'.replace('{from}', p.merged.full_name).replace('{to}', p.survivor.full_name)}</p>
           </ConfirmDialog>

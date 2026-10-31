@@ -57,6 +57,15 @@ export class IdentityRepository {
       .where('email', '=', email).returning('id').executeTakeFirst();
   }
 
+  /**
+   * Review R11: replaces a hash made before the pepper after a successful sign-in. Only if it is still the hash that
+   * was checked: a password reset in between wins.
+   */
+  async replacePasswordHash(userId: string, checked: string, next: string): Promise<void> {
+    await this.db.platform().updateTable('users').set({ password_hash: next })
+      .where('id', '=', userId).where('password_hash', '=', checked).execute();
+  }
+
   async touchLastLogin(userId: string): Promise<void> {
     await this.db.platform().updateTable('users').set({ last_login_at: sql<Date>`now()` }).where('id', '=', userId).execute();
   }
@@ -139,9 +148,9 @@ export class IdentityRepository {
       .returning(['user_id', 'family_id']).executeTakeFirst();
   }
 
-  /** Ends every session of a user (after a password reset). */
-  async revokeAllSessions(userId: string): Promise<void> {
-    await this.db.platform().updateTable('refresh_tokens').set({ revoked_at: sql<Date>`now()` })
+  /** Ends every session of a user (after a password reset); `tx` to do it in the caller's transaction. */
+  async revokeAllSessions(userId: string, tx?: Tx): Promise<void> {
+    await (tx ?? this.db.platform()).updateTable('refresh_tokens').set({ revoked_at: sql<Date>`now()` })
       .where('user_id', '=', userId).where('revoked_at', 'is', null).execute();
   }
 

@@ -12,7 +12,7 @@ import { Alert, Badge, Button, Card, ErrorText, PageHeader } from '../../ui/comp
 import { CalendarIcon, EditIcon, PhoneIcon, ShieldIcon } from '../../ui/icons';
 import { MedicalAlerts } from '../../ui/medical-alerts';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, clinicToday, fmtNumber, LOC } from '../../util';
 import { ChartCard } from '../clinical/chart';
 import { PatientFollowUpsCard } from '../clinical/followups';
 import { PlansCard } from '../clinical/plans';
@@ -20,8 +20,6 @@ import { PatientBillingCard } from '../billing/list';
 import { FilesCard } from './files-card';
 import { MedicalHistoryCard } from './medical-history';
 
-const today = () => new Date().toLocaleDateString('en-CA');
-const loc = () => ('ar-EG-u-nu-latn');
 
 /**
  * `#/patients/:id/view[?tab=]` (redesign R6): the patient's header (who, how to reach them, what they owe, the next
@@ -55,7 +53,7 @@ function ProfileBody({ clinicId, p, session, query }: { clinicId: string; p: Pat
   const owed = billing.data && billing.data.balance_minor > 0 ? billing.data.balance_minor : 0;
   const unbilled = billing.data?.unbilled.length ?? 0;
   const next = nextAppointment(p.appointments, Date.now());
-  const age = ageOn(p.date_of_birth ?? '', today());
+  const age = ageOn(p.date_of_birth ?? '', clinicToday());
   const tabRoute = (t: ProfileTab) => ({ page: 'patients' as const, id: p.id, action: 'view' as const, query: { tab: t } });
   const canBook = has('appointments:write') && !p.is_blocked;
 
@@ -90,7 +88,7 @@ function ProfileBody({ clinicId, p, session, query }: { clinicId: string; p: Pat
         )}
         <RouteLink route={tabRoute('appointments')} className="fact">
           <span className="fact-label">الموعد القادم</span>
-          <strong>{next ? <bdi>{shortWhen.format(new Date(next.starts_at))}</bdi> : 'لا يوجد'}</strong>
+          <strong>{next ? <bdi>{shortWhen().format(new Date(next.starts_at))}</bdi> : 'لا يوجد'}</strong>
           {next && <span className="muted small"><bdi>{arName(next.doctor_ar, next.doctor_en)}</bdi></span>}
         </RouteLink>
       </div>
@@ -147,7 +145,7 @@ function ProfileBody({ clinicId, p, session, query }: { clinicId: string; p: Pat
   );
 }
 
-const shortWhen = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' });
+const shortWhen = () => new Intl.DateTimeFormat(LOC, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: clinicTimeZone() });
 
 /** The overview's at-a-glance card: the next appointment, the last clinical visit, the account; each opens its tab. */
 function SummaryCard({ clinicId, p, seesClinical, tabRoute, next, canBook }: {
@@ -164,7 +162,7 @@ function SummaryCard({ clinicId, p, seesClinical, tabRoute, next, canBook }: {
           <dt>الموعد القادم</dt>
           <dd>
             {next ? (
-              <><bdi>{shortWhen.format(new Date(next.starts_at))}</bdi> · <bdi>{arName(next.service_ar, next.service_en, 'موعد')}</bdi> · <bdi>{arName(next.doctor_ar, next.doctor_en)}</bdi></>
+              <><bdi>{shortWhen().format(new Date(next.starts_at))}</bdi> · <bdi>{arName(next.service_ar, next.service_en, 'موعد')}</bdi> · <bdi>{arName(next.doctor_ar, next.doctor_en)}</bdi></>
             ) : canBook ? <RouteLink route={to.create('appointments', { patient: p.id })}>لا يوجد · حجز موعد</RouteLink> : <span className="muted">لا يوجد</span>}
           </dd>
         </div>
@@ -173,7 +171,7 @@ function SummaryCard({ clinicId, p, seesClinical, tabRoute, next, canBook }: {
             <dt>آخر زيارة</dt>
             <dd>
               {last ? (
-                <><RouteLink route={to.visit(last.id)}>{shortWhen.format(new Date(last.visit_at))}</RouteLink> · <bdi>{arName(last.doctor.name_ar, last.doctor.name_en)}</bdi>
+                <><RouteLink route={to.visit(last.id)}>{shortWhen().format(new Date(last.visit_at))}</RouteLink> · <bdi>{arName(last.doctor.name_ar, last.doctor.name_en)}</bdi>
                   {last.diagnosis && <> · <bdi>{last.diagnosis}</bdi></>}</>
               ) : <span className="muted">لا توجد زيارات بعد</span>}
               {drafts > 0 && <> <RouteLink route={tabRoute('clinical')}><Badge tone="warning">{fmtNumber(drafts)} مسودة</Badge></RouteLink></>}
@@ -185,13 +183,16 @@ function SummaryCard({ clinicId, p, seesClinical, tabRoute, next, canBook }: {
   );
 }
 
-/** Website bookings create records flagged for review (SRS BOOK-11): reception confirms it is a real, new person. */
+/**
+ * Website bookings flag records for review (SRS BOOK-11): a new record (is it a real, new person?) or a matched one
+ * booked with a different email (review R11: the address on file is kept; the one used is in the activity log).
+ */
 function ReviewBanner({ clinicId, patient, canWrite }: { clinicId: string; patient: PatientDetail; canWrite: boolean }) {
   const save = useSavePatient(clinicId, patient.id);
   return (
     <Alert tone="info">
       <div className="row-between">
-        <span>سُجّل هذا الملف تلقائيًا من حجز عبر الموقع. تأكد أنه شخص جديد وليس ملفًا مكررًا.</span>
+        <span>هذا الملف يحتاج مراجعة بسبب حجز عبر الموقع: تأكد أنه ليس ملفًا مكررًا، وإن حُجز ببريد مختلف فراجع البريد المستخدم في سجل النشاط قبل تعديله.</span>
         {canWrite && <Button variant="secondary" loading={save.isPending} onClick={() => save.mutate({ needsReview: false })}>تمت المراجعة</Button>}
       </div>
       <ErrorText error={save.error} />
@@ -200,12 +201,12 @@ function ReviewBanner({ clinicId, patient, canWrite }: { clinicId: string; patie
 }
 
 function DetailsCard({ p }: { p: PatientDetail }) {
-  const age = ageOn(p.date_of_birth ?? '', today());
+  const age = ageOn(p.date_of_birth ?? '', clinicToday());
   const rows: [string, React.ReactNode][] = [
     ['رقم الموبايل', <a href={`tel:${p.phone}`} dir="ltr" className="link-plain"><PhoneIcon size={14} /> {p.phone}</a>],
     ...(p.phone_alt ? [['موبايل آخر', <span dir="ltr">{p.phone_alt}</span>] as [string, React.ReactNode]] : []),
     ...(p.email ? [['البريد الإلكتروني', <span dir="ltr">{p.email}</span>] as [string, React.ReactNode]] : []),
-    ...(p.date_of_birth ? [['تاريخ الميلاد', <span>{new Intl.DateTimeFormat(loc(), { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${p.date_of_birth}T00:00:00Z`))}{age !== null && <> · {fmtNumber(age)} سنة</>}</span>] as [string, React.ReactNode]] : []),
+    ...(p.date_of_birth ? [['تاريخ الميلاد', <span>{new Intl.DateTimeFormat(LOC, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${p.date_of_birth}T00:00:00Z`))}{age !== null && <> · {fmtNumber(age)} سنة</>}</span>] as [string, React.ReactNode]] : []),
     ...(p.gender ? [['النوع', genderLabel[p.gender] ?? p.gender] as [string, React.ReactNode]] : []),
     ...(p.city || p.address ? [['العنوان', <bdi>{[p.address, p.city].filter(Boolean).join('، ')}</bdi>] as [string, React.ReactNode]] : []),
     ...(p.occupation ? [['المهنة', <bdi>{p.occupation}</bdi>] as [string, React.ReactNode]] : []),
@@ -235,7 +236,7 @@ function DetailsCard({ p }: { p: PatientDetail }) {
 }
 
 function VisitsCard({ p }: { p: PatientDetail }) {
-  const fmt = new Intl.DateTimeFormat(loc(), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: clinicTimeZone() });
   const now = Date.now();
   return (
     <Card>
@@ -260,7 +261,7 @@ function VisitsCard({ p }: { p: PatientDetail }) {
 /** The clinical visits (VISIT-001): the doctor, the diagnosis, what was done; each opens the visit. */
 function ClinicalVisitsCard({ clinicId, patientId }: { clinicId: string; patientId: string }) {
   const visits = usePatientVisits(clinicId, patientId, true);
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() });
   return (
     <Card>
       <h2>الزيارات السريرية</h2>
@@ -289,7 +290,7 @@ function ClinicalVisitsCard({ clinicId, patientId }: { clinicId: string; patient
 function ActivityCard({ clinicId, patientId, defaultOpen = false }: { clinicId: string; patientId: string; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const activity = usePatientActivity(clinicId, patientId, open);
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <Card>
       <div className="row-between">

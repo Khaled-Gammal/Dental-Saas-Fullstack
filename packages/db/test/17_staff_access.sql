@@ -11,7 +11,7 @@ SELECT test.throws($$UPDATE tenant_members SET status = 'disabled' WHERE id = 'c
 SELECT test.throws($$UPDATE tenant_members SET role_id = 'a0000000-0000-0000-0000-0000000000a2' WHERE id = 'c0000000-0000-0000-0000-0000000000a1'$$,
   'at least one active owner', 'the only owner cannot be demoted');
 SELECT test.throws($$DELETE FROM tenant_members WHERE id = 'c0000000-0000-0000-0000-0000000000a1'$$,
-  'at least one active owner', 'the only owner cannot be removed');
+  'permission denied', 'the only owner cannot be removed (members are disabled, never deleted by the API: review R11)');
 
 -- access version: role, status and branch changes bump it; other edits do not
 SELECT access_version AS v0 FROM tenant_members WHERE id = 'c0000000-0000-0000-0000-0000000000a2' \gset

@@ -13,7 +13,7 @@ import { Badge, Button, Card, ErrorText, LinkButton, PageHeader } from '../../ui
 import { DataTable, type Column } from '../../ui/data-table';
 import { CashIcon, ReceiptIcon, UsersIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, fmtNumber, LOC } from '../../util';
 import { OverdueInstallments } from './discounts';
 import { STATUS_TONE } from './invoice';
 import { RowMenu } from '../../ui/row-menu';
@@ -129,7 +129,7 @@ function TotalsRow({ t }: { t: InvoiceTotals }) {
   );
 }
 
-const fmtDay = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Cairo' }).format(new Date(iso));
+const fmtDay = (iso: string) => new Intl.DateTimeFormat(LOC, { day: 'numeric', month: 'short', year: 'numeric', timeZone: clinicTimeZone() }).format(new Date(iso));
 
 /**
  * The "not invoiced yet" tab (redesign R5): procedures done in visits and on no invoice, one row per patient and branch,

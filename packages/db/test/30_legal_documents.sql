@@ -16,6 +16,9 @@ SELECT test.ok((SELECT array_agg(kind) = '{dpa}' FROM legal_pending('b0000000-00
 -- only the platform publishes
 SELECT test.throws($$INSERT INTO legal_documents (kind, version, title_ar, body_ar) VALUES ('terms', 9, 'شروط', 'نص طويل بما يكفي للاختبار هنا')$$,
   'permission denied', 'the API role does not write documents');
+SELECT test.throws($$SELECT platform_publish_legal('b0000000-0000-0000-0000-0000000000f1', 'terms', 'شروط', 'نص طويل بما يكفي للاختبار هنا', true)$$,
+  'permission denied', 'the clinic API role cannot call the panel''s functions (review R11)');
+SET LOCAL ROLE app_platform; -- the panel's own role from here
 SELECT test.throws($$SELECT platform_publish_legal('b0000000-0000-0000-0000-0000000000a1', 'terms', 'شروط', 'نص طويل بما يكفي للاختبار هنا', true)$$,
   'not a platform admin', 'a clinic owner does not publish');
 SELECT test.throws($$SELECT platform_publish_legal('b0000000-0000-0000-0000-0000000000f1', 'cookies', 'ملفات', 'نص طويل بما يكفي للاختبار هنا', false)$$,
@@ -24,6 +27,7 @@ SELECT test.throws($$SELECT platform_publish_legal('b0000000-0000-0000-0000-0000
 -- a new version that asks to be accepted again: those who accepted an older one owe it; one that does not ask: nobody
 SELECT platform_publish_legal('b0000000-0000-0000-0000-0000000000f1', 'terms', 'شروط الاستخدام', 'الإصدار الثاني من شروط الاستخدام للاختبار', true);
 SELECT platform_publish_legal('b0000000-0000-0000-0000-0000000000f1', 'privacy', 'سياسة الخصوصية', 'الإصدار الثاني من سياسة الخصوصية للاختبار', false);
+SET LOCAL ROLE app_user;
 SELECT test.ok((SELECT array_agg(kind || version) = '{terms2}' FROM legal_pending('b0000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', true)),
   'version 2 of the Terms is owed again; the new Privacy is not');
 INSERT INTO legal_acceptances (user_id, document_id) SELECT 'b0000000-0000-0000-0000-0000000000a1', id FROM legal_documents WHERE kind = 'terms' AND version = 2;
@@ -33,5 +37,7 @@ SELECT test.throws($$INSERT INTO legal_acceptances (user_id, document_id) SELECT
   'legal_acceptances_once', 'an acceptance is recorded once');
 SELECT test.throws($$UPDATE legal_acceptances SET accepted_at = now() - interval '1 year'$$, 'permission denied', 'an acceptance is never changed');
 SELECT test.throws($$DELETE FROM legal_acceptances$$, 'permission denied', 'nor deleted');
+SET LOCAL ROLE app_platform;
 SELECT test.ok((SELECT count(*) = 2 FROM platform_audit_log WHERE action = 'legal.published'), 'publishing is in the platform audit log');
+SET LOCAL ROLE app_user;
 ROLLBACK;

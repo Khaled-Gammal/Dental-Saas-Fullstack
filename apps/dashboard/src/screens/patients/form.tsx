@@ -11,8 +11,8 @@ import type { PatientDetail } from '../../types';
 import { Badge, Card, Field, Input, Switch, TextArea } from '../../ui/components';
 import { FormPage, ResourceState, RouteLink } from '../../ui/page';
 import { useCan } from '../../can';
+import { clinicToday } from '../../util';
 
-const today = () => new Date().toLocaleDateString('en-CA');
 const RELATIONS = ['father', 'mother', 'sibling', 'spouse', 'legal_guardian', 'other'] as const;
 
 /** `#/patients/new` and `#/patients/:id/edit`. */
@@ -49,7 +49,7 @@ function PatientFormBody({ clinicId, patient }: { clinicId: string; patient?: Pa
   const dupQuery = JSON.parse(dupKey) as { phone: string; fullName: string; dateOfBirth: string };
   const duplicates = usePossibleDuplicates(clinicId, dupQuery).data ?? [];
 
-  const minor = isMinor(form.dateOfBirth, today());
+  const minor = isMinor(form.dateOfBirth, clinicToday());
   const guardianOpen = showGuardian || minor;
   const set = <K extends keyof Form>(k: K) => (v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const text = (k: keyof Form) => (e: { target: { value: string } }) => set(k)(e.target.value as never);
@@ -78,7 +78,7 @@ function PatientFormBody({ clinicId, patient }: { clinicId: string; patient?: Pa
               options={[{ value: 'male', label: 'ذكر' }, { value: 'female', label: 'أنثى' }]} />}
           </Field>
           <Field label="تاريخ الميلاد" optional="اختياري" hint={form.dateOfBirth && minor ? 'أقل من 18 سنة: أضف ولي الأمر لتوقيع الموافقات.' : undefined}>
-            {(a) => <DatePicker id={a.id} value={form.dateOfBirth} onChange={set('dateOfBirth')} placeholder="اختر التاريخ" max={today()} min="1920-01-01" years />}
+            {(a) => <DatePicker id={a.id} value={form.dateOfBirth} onChange={set('dateOfBirth')} placeholder="اختر التاريخ" max={clinicToday()} min="1920-01-01" years />}
           </Field>
           <Field label="الفرع المفضّل" optional="اختياري">
             {(a) => <Choice id={a.id} value={form.preferredBranchId} onChange={set('preferredBranchId')} options={branchOptions} noneLabel="غير محدد" />}

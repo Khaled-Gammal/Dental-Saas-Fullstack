@@ -13,7 +13,13 @@ export interface BookingOptions {
 }
 export interface Slot { startsAt: string; doctorIds: string[] }
 export interface SlotsResponse { date: string; timezone: string; durationMinutes: number; slots: Slot[] }
-export interface Hold { holdId: string; doctorId: string; startsAt: string; endsAt: string; expiresAt: string; otpRequired: boolean }
+export interface Hold {
+  holdId: string; doctorId: string; startsAt: string; endsAt: string; expiresAt: string; otpRequired: boolean;
+  /** seconds the hold lasts from the moment the API answered (an older API may not send it) */
+  ttlSeconds?: number;
+  /** set by the wizard on receipt: the deadline on this device's own clock */
+  deadline?: number;
+}
 export interface BookingSummary {
   appointmentId: string; status: 'pending' | 'confirmed'; startsAt: string; endsAt: string; timezone: string; code: string;
   appointment: { doctor: { name_ar: string | null; name_en: string | null }; service: { name_ar: string | null; name_en: string | null } | null; branch_id: string };

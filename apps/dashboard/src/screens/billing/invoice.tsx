@@ -12,7 +12,7 @@ import type { InvoiceDetail, InvoiceLine, InvoiceStatus, Payment, PaymentMethod 
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, fmtNumber, LOC } from '../../util';
 import { AdjustmentsCard, DiscountCard, LineDiscount, PlanCard } from './controls';
 
 export const METHODS: PaymentMethod[] = ['cash', 'card', 'bank_transfer', 'wallet', 'instapay'];
@@ -20,7 +20,6 @@ const NEEDS_REF: PaymentMethod[] = ['bank_transfer', 'wallet', 'instapay'];
 export const STATUS_TONE: Record<InvoiceStatus, 'neutral' | 'primary' | 'success' | 'warning'> = {
   draft: 'neutral', issued: 'warning', partially_paid: 'primary', paid: 'success', void: 'neutral',
 };
-const loc = () => ('ar-EG-u-nu-latn');
 const newKey = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
 /**
@@ -84,23 +83,23 @@ export function InvoicePage({ clinicId, id, query }: { clinicId: string; id?: st
           <AdjustmentsCard clinicId={clinicId} v={v} />
         </div>
       </div>
-      <ConfirmDialog open={dialog === 'issue'} title="إصدار الفاتورة" confirmLabel="إصدار الفاتورة"
+      <ConfirmDialog open={dialog === 'issue'} title="إصدار الفاتورة" confirmLabel="إصدار الفاتورة" pending={act.isPending}
         onConfirm={() => act.mutate('issue', { onSettled: () => setDialog(null) })} onCancel={() => setDialog(null)}>
         <p>ستأخذ الفاتورة رقمها وتاريخها وتُحسب الضريبة، ولا يمكن تعديلها بعد ذلك.</p>
       </ConfirmDialog>
       {/* redesign R7: issue, then the payment form opens focused (the same page with ?pay=1) */}
-      <ConfirmDialog open={dialog === 'issue-pay'} title="إصدار وتحصيل" confirmLabel="إصدار ثم تحصيل"
+      <ConfirmDialog open={dialog === 'issue-pay'} title="إصدار وتحصيل" confirmLabel="إصدار ثم تحصيل" pending={act.isPending}
         onConfirm={() => act.mutate('issue', {
           onSuccess: () => navigate({ page: 'invoices', id: v.id, action: 'view', query: { pay: '1' } }),
           onSettled: () => setDialog(null),
         })} onCancel={() => setDialog(null)}>
         <p>ستأخذ الفاتورة رقمها وتاريخها وتُحسب الضريبة ولا تُعدَّل بعد ذلك، ثم يُفتح نموذج الدفعة بالمبلغ المتبقي.</p>
       </ConfirmDialog>
-      <ConfirmDialog open={dialog === 'delete'} title="حذف المسودة" confirmLabel="حذف المسودة" danger
+      <ConfirmDialog open={dialog === 'delete'} title="حذف المسودة" confirmLabel="حذف المسودة" danger pending={act.isPending}
         onConfirm={() => act.mutate('delete', { onSuccess: () => navigate(to.view('patients', v.patient.id)), onSettled: () => setDialog(null) })} onCancel={() => setDialog(null)}>
         <p>تُحذف المسودة وتعود إجراءاتها إلى غير المفوترة.</p>
       </ConfirmDialog>
-      <ConfirmDialog open={dialog === 'void'} title="إلغاء الفاتورة" confirmLabel="إلغاء الفاتورة" danger
+      <ConfirmDialog open={dialog === 'void'} title="إلغاء الفاتورة" confirmLabel="إلغاء الفاتورة" danger pending={act.isPending}
         onConfirm={() => { if (reason.trim().length >= 3) act.mutate('void', { onSettled: () => setDialog(null) }); }} onCancel={() => setDialog(null)}>
         <p>تبقى الفاتورة محفوظة ومعلّمة بأنها ملغاة، وتعود إجراءاتها قابلة للفوترة.</p>
         <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
@@ -133,7 +132,7 @@ function LinesCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
         ))}
       </ul>
       <ErrorText error={remove.error} />
-      <ConfirmDialog open={!!removing} title="إزالة البند" confirmLabel="إزالة البند" danger
+      <ConfirmDialog open={!!removing} title="إزالة البند" confirmLabel="إزالة البند" danger pending={remove.isPending}
         onConfirm={() => { if (removing) remove.mutate(removing.id, { onSettled: () => setRemoving(null) }); }} onCancel={() => setRemoving(null)}>
         <p>سيُزال «<bdi>{removing?.description}</bdi>» من مسودة الفاتورة.</p>
       </ConfirmDialog>
@@ -227,7 +226,7 @@ function PayForm({ clinicId, v, focus = false }: { clinicId: string; v: InvoiceD
 function PaymentsCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }) {
   const [reversing, setReversing] = useState<Payment | null>(null);
   const [refunding, setRefunding] = useState<Payment | null>(null);
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() });
   if (v.status === 'draft') return null;
   return (
     <Card>
@@ -268,7 +267,7 @@ function ReverseDialog({ clinicId, payment, onClose }: { clinicId: string; payme
   const [reason, setReason] = useState('');
   const reverse = useBillingMutation(clinicId, () => send(`/payments/${payment.id}/reverse`, 'POST', { reason: reason.trim() }));
   return (
-    <ConfirmDialog open title="إلغاء الدفعة (خطأ إدخال)" confirmLabel="إلغاء الدفعة (خطأ إدخال)" danger
+    <ConfirmDialog open title="إلغاء الدفعة (خطأ إدخال)" confirmLabel="إلغاء الدفعة (خطأ إدخال)" danger pending={reverse.isPending}
       onConfirm={() => { if (reason.trim().length >= 3) reverse.mutate(undefined, { onSuccess: onClose }); }} onCancel={onClose}>
       <p>للدفعات المسجلة بالخطأ فقط: تبقى ظاهرة ومعلّمة بأنها ملغاة ويعود المبلغ مستحقًا. للمال المُعاد فعلًا استخدم الاسترداد.</p>
       <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
@@ -283,12 +282,13 @@ function RefundDialog({ clinicId, payment, onClose }: { clinicId: string; paymen
   const [method, setMethod] = useState<PaymentMethod>(payment.method);
   const [reason, setReason] = useState('');
   const [reference, setReference] = useState('');
+  const [key] = useState(newKey); // review R11: one refund per dialog, however often the request is sent
   const minor = toMinor(amount);
   const refund = useBillingMutation(clinicId, () => send(`/payments/${payment.id}/refunds`, 'POST', {
-    amountMinor: minor, method, reason: reason.trim(), ...(method !== 'cash' && reference.trim() && { reference: reference.trim() }),
+    amountMinor: minor, method, reason: reason.trim(), idempotencyKey: key, ...(method !== 'cash' && reference.trim() && { reference: reference.trim() }),
   }));
   return (
-    <ConfirmDialog open title="استرداد" confirmLabel="استرداد" danger
+    <ConfirmDialog open title="استرداد" confirmLabel="استرداد" danger pending={refund.isPending}
       onConfirm={() => { if (minor && minor <= left && reason.trim().length >= 3) refund.mutate(undefined, { onSuccess: onClose }); }} onCancel={onClose}>
       <p>مال أُعيد للمريض. يُسجل المبلغ والطريقة والسبب ومن قام به، ويعود المبلغ مستحقًا على الفاتورة.</p>
       <Field label="المبلغ" hint={`${'المتاح للاسترداد'}: ${money(left, payment.currency)}`}>

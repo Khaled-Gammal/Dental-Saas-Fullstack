@@ -102,7 +102,12 @@ describe('Billing: invoices, payments, reversals, refunds (e2e, Phase E1)', () =
 
   it('refunds: the accountant returns money by any method with a reason; the balance reopens', async () => {
     await http().post(`/payments/${cardId}/refunds`).set(as('receptionA')).send({ amountMinor: 1000, method: 'cash', reason: 'ارجاع' }).expect(403); // no payments:refund
-    const after = (await http().post(`/payments/${cardId}/refunds`).set(as('accountantA')).send({ amountMinor: 20000, method: 'cash', reason: 'إلغاء التنظيف' }).expect(201)).body;
+    const refundOnce = { amountMinor: 20000, method: 'cash', reason: 'إلغاء التنظيف', idempotencyKey: `refund-${Date.now()}` };
+    const after = (await http().post(`/payments/${cardId}/refunds`).set(as('accountantA')).send(refundOnce).expect(201)).body;
+    // review R11: the same request again (a double click, a retry) records one refund
+    const twice = (await http().post(`/payments/${cardId}/refunds`).set(as('accountantA')).send(refundOnce).expect(201)).body;
+    expect(twice.balance_minor).toBe(after.balance_minor);
+    expect(twice.payments[1].refunds).toHaveLength(1);
     expect(after.payments[1]).toMatchObject({ status: 'partially_refunded', refunds: [expect.objectContaining({ amount_minor: 20000, method: 'cash', created_by_name: 'Mahmoud Ibrahim' })] });
     expect(after.balance_minor).toBe(80000);
     expect((await http().post(`/payments/${cardId}/refunds`).set(as('accountantA')).send({ amountMinor: 10_000_000, method: 'cash', reason: 'كثير' }).expect(400)).body.code).toBe('refund_exceeds_payment');

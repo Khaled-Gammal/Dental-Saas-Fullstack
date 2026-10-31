@@ -121,6 +121,13 @@ export class PatientsRepository {
     await tx.updateTable('patients').set({ ...f, updated_at: sql<Date>`now()` }).where('id', '=', id).execute();
   }
 
+  /** Adds the tag once (no duplicates). */
+  async addTag(tx: Tx, id: string, tag: string): Promise<void> {
+    await tx.updateTable('patients')
+      .set({ tags: sql<string[]>`case when ${tag} = any(tags) then tags else array_append(tags, ${tag}) end`, updated_at: sql<Date>`now()` })
+      .where('id', '=', id).execute();
+  }
+
   async removeTag(tx: Tx, id: string, tag: string): Promise<void> {
     await tx.updateTable('patients').set({ tags: sql<string[]>`array_remove(tags, ${tag})`, updated_at: sql<Date>`now()` }).where('id', '=', id).execute();
   }

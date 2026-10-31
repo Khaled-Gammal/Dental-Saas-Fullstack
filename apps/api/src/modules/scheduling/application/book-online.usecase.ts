@@ -24,8 +24,24 @@ export interface BookingSummary {
   timezone: string;
   /** the one-time reception code; also emailed, never stored in clear */
   code: string;
-  appointment: AppointmentView;
+  /**
+   * Only what the confirmation screen shows (review R11): the full AppointmentView carried the patient's record
+   * (name, phone, file no.) and the clinic's internal notes to an anonymous caller.
+   */
+  appointment: PublicAppointment;
 }
+
+export interface PublicAppointment {
+  doctor: { name_ar: string | null; name_en: string | null };
+  service: { name_ar: string | null; name_en: string | null } | null;
+  branch_id: string;
+}
+
+const publicView = (a: AppointmentView): PublicAppointment => ({
+  doctor: { name_ar: a.doctor.name_ar, name_en: a.doctor.name_en },
+  service: a.service ? { name_ar: a.service.name_ar, name_en: a.service.name_en } : null,
+  branch_id: a.branch_id,
+});
 
 export type DetailsOutcome = { status: 'otp_required'; maskedEmail: string } | { status: 'booked'; booking: BookingSummary };
 
@@ -75,8 +91,9 @@ export class BookOnline {
       await this.repo.enterTenant(tx, tenantId);
       return this.finalize(tx, tenantId, holdId, details);
     });
-    await this.details.delete(holdId);
+    // the booking is committed: the email and the cleanup are best-effort and must not turn it into an error
     await this.emailCode(booking, details.email);
+    await this.forget(holdId);
     return booking;
   }
 
@@ -96,7 +113,7 @@ export class BookOnline {
     await this.repo.addOutboxEvent(tx, tenantId, 'appointment.created', { appointmentId: holdId, source: 'website', status });
     const appointment = await this.repo.get(tx, holdId);
     if (!appointment) throw Err.conflict('hold_expired', 'The reserved time ran out; pick a slot again');
-    return { appointmentId: holdId, status, startsAt: hold.starts_at, endsAt: hold.ends_at, timezone, code, appointment };
+    return { appointmentId: holdId, status, startsAt: hold.starts_at, endsAt: hold.ends_at, timezone, code, appointment: publicView(appointment) };
   }
 
   /**
@@ -115,7 +132,16 @@ export class BookOnline {
   /** The visitor went back or left: free the slot now, forget what they typed. Unknown or ended holds are fine. */
   async release(scope: TenantScope, holdId: string): Promise<void> {
     await scope.run((tx) => this.repo.releaseHold(tx, holdId));
-    await this.details.delete(holdId);
+    await this.forget(holdId);
+  }
+
+  /** The details expire with the hold anyway (TTL); a Redis hiccup here is logged, never surfaced. */
+  private async forget(holdId: string): Promise<void> {
+    try {
+      await this.details.delete(holdId);
+    } catch (err) {
+      this.logger.warn(`Could not clear booking details for hold ${holdId}: ${(err as Error).message}`);
+    }
   }
 
   /** The code is shown on the confirmation screen; the email is a convenience and must never fail the booking. */

@@ -78,11 +78,25 @@ export const useAppointments = (clinicId: string, date: string, branchId?: strin
     refetchInterval: 30_000, // reception keeps the day open; website bookings appear without a reload
   });
 
-export function useCheckIn(clinicId: string) {
+/**
+ * Review R11: an appointment change also changes what the clinical screens and the patient's profile show (completing
+ * one closes its visit for editing; the profile lists the appointments), so those caches are refreshed with it.
+ */
+function useAppointmentsChanged(clinicId: string) {
+  const qc = useQueryClient();
   const invalidate = useInvalidate(clinicId);
+  return () => void Promise.all([
+    invalidate('appointments'),
+    qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) }),
+    qc.invalidateQueries({ queryKey: patientKeys.all(clinicId) }),
+  ]);
+}
+
+export function useCheckIn(clinicId: string) {
+  const changed = useAppointmentsChanged(clinicId);
   return useMutation({
     mutationFn: (body: { code: string; branchId: string }) => api<CheckInResponse>('/appointments/check-in', { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: () => void invalidate('appointments'),
+    onSuccess: changed,
   });
 }
 
@@ -90,12 +104,12 @@ export type AppointmentAction = 'arrive' | 'confirm' | 'start' | 'complete' | 'c
 const ACTION_PATH: Record<AppointmentAction, string> = { arrive: 'arrive', confirm: 'confirm', start: 'start', complete: 'complete', cancel: 'cancel', noShow: 'no-show' };
 
 export function useAppointmentAction(clinicId: string) {
-  const invalidate = useInvalidate(clinicId);
+  const changed = useAppointmentsChanged(clinicId);
   return useMutation({
     /** `reason` goes with a cancellation, `note` with a check-in without the code */
     mutationFn: ({ id, action, reason, note }: { id: string; action: AppointmentAction; reason?: string; note?: string }) =>
       api<Appointment>(`/appointments/${id}/${ACTION_PATH[action]}`, { method: 'POST', body: JSON.stringify({ ...(reason && { reason }), ...(note && { note }) }) }),
-    onSuccess: () => void invalidate('appointments'),
+    onSuccess: changed,
   });
 }
 
@@ -159,7 +173,8 @@ export function useSaveMedicalHistory(clinicId: string, id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Record<string, unknown>) => api<MedicalHistory>(`/patients/${id}/medical-history`, { method: 'PUT', body: JSON.stringify(body) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: patientKeys.all(clinicId) }),
+    // review R11: the visit screen shows the allergies and conditions too (clinical safety: never the old ones)
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: patientKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) })]),
   });
 }
 
@@ -180,10 +195,10 @@ export const useAppointment = (clinicId: string, id: string | undefined) =>
 
 /** Reschedule and/or set the room (POST /appointments/:id/move); only changed fields are sent. */
 export function useMoveAppointment(clinicId: string) {
-  const invalidate = useInvalidate(clinicId);
+  const changed = useAppointmentsChanged(clinicId);
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api<Appointment>(`/appointments/${id}/move`, { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: () => void invalidate('appointments'),
+    onSuccess: changed,
   });
 }
 
@@ -306,6 +321,19 @@ export function useClinicalMutation<V, R = unknown>(clinicId: string, fn: (v: V)
   return useMutation({
     mutationFn: fn,
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: keys.appointments(clinicId) })]),
+  });
+}
+
+/**
+ * Merging two files moves visits, appointments, invoices and payments to the kept one (review R11): every view of
+ * either patient is refreshed, the balance and the appointments included.
+ */
+export function useMergePatients(clinicId: string, id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (mergedId: string) => send<PatientDetail>(`/patients/${id}/merge`, 'POST', { mergedId }),
+    onSuccess: () => Promise.all([patientKeys.all(clinicId), clinicalKeys.all(clinicId), billingKeys.all(clinicId), keys.appointments(clinicId)]
+      .map((queryKey) => qc.invalidateQueries({ queryKey }))),
   });
 }
 

@@ -931,6 +931,7 @@ export interface Refunds {
   created_at: Generated<Timestamp>;
   created_by: string | null;
   id: Generated<string>;
+  idempotency_key: string | null;
   method: string;
   payment_id: string;
   provider_ref: string | null;
@@ -1224,6 +1225,7 @@ export interface Users {
   phone: string | null;
   phone_verified_at: Timestamp | null;
   platform_role: string | null;
+  sessions_revoked_at: Timestamp | null;
   totp_secret_enc: Buffer | null;
   updated_at: Generated<Timestamp>;
 }

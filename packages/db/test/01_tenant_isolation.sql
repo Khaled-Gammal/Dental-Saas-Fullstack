@@ -33,8 +33,11 @@ SET LOCAL ROLE app_user;
 SET LOCAL app.tenant_id = '22222222-2222-2222-2222-222222222222';
 SELECT test.lives($$INSERT INTO domains (tenant_id, hostname, type, status) VALUES ('22222222-2222-2222-2222-222222222222','clinic-a.lvh.me','custom','pending')$$,
   'pending claim of another clinic''s hostname is allowed but inert');
+SELECT test.throws($$UPDATE domains SET status = 'verified' WHERE hostname = 'clinic-a.lvh.me'$$, 'permission denied',
+  'the API role cannot mark a domain verified (review R11: only sign-up and the platform write domains)');
+RESET ROLE;
 SELECT test.throws($$UPDATE domains SET status = 'verified' WHERE hostname = 'clinic-a.lvh.me'$$, 'domains_live_hostname',
-  'it can never become verified while the real owner holds it');
+  'and it can never become verified while the real owner holds it');
 ROLLBACK;
 
 -- Review fixes: RLS policies use the tenant_id index; API role cannot touch platform data

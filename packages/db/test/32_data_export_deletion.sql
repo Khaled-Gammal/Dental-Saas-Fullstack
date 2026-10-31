@@ -29,6 +29,7 @@ SELECT test.ok((SELECT tenant_status = 'cancelled' FROM member_access_state('c00
 SELECT test.ok(resolve_tenant_by_host('clinic-a.lvh.me') IS NULL, 'and its website is offline');
 SELECT test.throws($$SELECT request_clinic_deletion('b0000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111')$$,
   'the clinic is cancelled', 'asked once');
+SET LOCAL ROLE app_platform;
 SELECT test.ok((SELECT count(*) = 1 FROM platform_audit_log WHERE action = 'tenant.deletion_requested' AND actor_user_id IS NULL),
   'the request is in the platform audit log');
 
@@ -36,12 +37,15 @@ SELECT test.ok((SELECT count(*) = 1 FROM platform_audit_log WHERE action = 'tena
 SELECT test.throws($$SELECT platform_restore_clinic('b0000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111')$$,
   'not a platform admin', 'only a platform admin restores');
 SELECT platform_restore_clinic('b0000000-0000-0000-0000-0000000000f1', '11111111-1111-1111-1111-111111111111');
+SET LOCAL ROLE app_user;
 SELECT test.ok((SELECT tenant_status <> 'cancelled' FROM member_access_state('c0000000-0000-0000-0000-0000000000a2')), 'restored as it was');
 SELECT test.ok(resolve_tenant_by_host('clinic-a.lvh.me') IS NOT NULL, 'website back');
+SET LOCAL ROLE app_platform;
 SELECT test.throws($$SELECT platform_restore_clinic('b0000000-0000-0000-0000-0000000000f1', '11111111-1111-1111-1111-111111111111')$$,
   'not waiting for deletion', 'a clinic that is not waiting for deletion is not restored');
 
 -- ---------- 90 days later: the worker erases it ----------
+SET LOCAL ROLE app_user;
 SELECT request_clinic_deletion('b0000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111');
 SELECT test.throws($$SELECT purge_clinic('11111111-1111-1111-1111-111111111111')$$, 'permission denied', 'the API cannot erase a clinic');
 RESET ROLE;

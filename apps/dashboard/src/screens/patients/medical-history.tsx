@@ -5,6 +5,7 @@ import { useHistoryVersions, useSaveMedicalHistory } from '../../queries';
 import type { MedicalHistory } from '../../types';
 import { Badge, Button, Card, ErrorText, Field, Input, LinkButton, Switch, TextArea } from '../../ui/components';
 import { CloseIcon, EditIcon } from '../../ui/icons';
+import { clinicTimeZone, LOC } from '../../util';
 
 type ListKey = 'allergies' | 'conditions' | 'medications';
 const LISTS: ListKey[] = ['allergies', 'conditions', 'medications'];
@@ -52,7 +53,7 @@ export function MedicalHistoryCard({ clinicId, patientId, history, canEdit }: { 
 function Versions({ clinicId, patientId }: { clinicId: string; patientId: string }) {
   const [open, setOpen] = useState(false);
   const versions = useHistoryVersions(clinicId, patientId, open);
-  const fmt = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(iso));
+  const fmt = (iso: string) => new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() }).format(new Date(iso));
   return (
     <div className="mt">
       <LinkButton onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'إخفاء النسخ السابقة' : 'النسخ السابقة'}</LinkButton>

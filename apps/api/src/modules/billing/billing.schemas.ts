@@ -38,6 +38,8 @@ export const NewPayment = z.object({
 export const Reverse = z.object({ reason: Reason }).strict();
 export const NewRefund = z.object({
   amountMinor: Money, method: z.enum(PAYMENT_METHODS), reason: Reason, reference: Text(100).nullable().optional(),
+  /** review R11: the same key twice records one refund (a double click, a retried request); optional for old clients */
+  idempotencyKey: z.string().trim().min(8).max(100).optional(),
 }).strict();
 
 export const InvoicesQuery = z.object({

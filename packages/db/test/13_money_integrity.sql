@@ -24,7 +24,7 @@ SELECT test.throws($$UPDATE payments SET method = 'card' WHERE id = '2c000000-00
 SELECT test.throws($$UPDATE payments SET received_by = 'c0000000-0000-0000-0000-0000000000a1' WHERE id = '2c000000-0000-0000-0000-000000000001'$$,
   'cannot be changed', 'who received a payment cannot be changed');
 SELECT test.throws($$DELETE FROM payments WHERE id = '2c000000-0000-0000-0000-000000000001'$$,
-  'cannot be deleted', 'a payment cannot be deleted');
+  'permission denied', 'a payment cannot be deleted (the API role has no DELETE right since review R11; the guard stays)');
 SELECT test.throws($$UPDATE payments SET status = 'pending' WHERE id = '2c000000-0000-0000-0000-000000000001'$$,
   'cannot go from', 'a succeeded payment cannot go back to pending');
 SELECT test.lives($$UPDATE payments SET notes = 'paid by the father' WHERE id = '2c000000-0000-0000-0000-000000000001'$$,

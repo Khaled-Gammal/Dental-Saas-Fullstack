@@ -33,6 +33,7 @@ export const auditActionLabel: Record<string, string> = {
   patient_view: 'فتح الملف',
   patient_create: 'أنشأ الملف',
   patient_update: 'عدّل البيانات',
+  patient_booking_contact_differs: 'حجز من الموقع ببريد مختلف عن المسجّل',
   patient_medical_history_update: 'عدّل التاريخ الطبي',
 };
 
@@ -155,6 +156,8 @@ export const errorLabel: Record<string, string> = {
   permission_not_held: 'تستطيع إعطاء الصلاحيات التي تملكها فقط.',
   own_role: 'لا يمكنك تغيير دورك أو صلاحياتك بنفسك.',
   owner_role_only: 'دور المالك يعطيه أو يسحبه المالك فقط.',
+  own_branches: 'لا يمكنك تغيير فروعك بنفسك.',
+  branch_scope: 'تستطيع إدارة الموظفين وإعطاء الوصول داخل فروعك فقط.',
   visit_finalized: 'الزيارة معتمدة؛ أضف تعديلًا بدل التغيير.',
   not_your_visit: 'هذه زيارة طبيب آخر.',
   not_your_appointment: 'هذا موعد طبيب آخر.',

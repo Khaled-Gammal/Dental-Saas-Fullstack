@@ -5,8 +5,8 @@ import { toothConditionLabel, toothSurfaceLabel } from '../../labels';
 import { send, useClinicalMutation, usePatientChart } from '../../queries';
 import type { ChartEntry, PatientChart, Surface, ToothCondition } from '../../types';
 import { Button, Card, ErrorText, Field, Input, Skeleton, Switch } from '../../ui/components';
+import { clinicTimeZone, LOC } from '../../util';
 
-const loc = () => ('ar-EG-u-nu-latn');
 const cond = (c: ToothCondition) => toothConditionLabel[c];
 
 /**
@@ -95,7 +95,7 @@ function ToothPanel({ clinicId, patientId, tooth, history, canWrite, visitId, on
   const add = useClinicalMutation(clinicId, () => send(`/patients/${patientId}/chart`, 'POST', {
     ...(visitId && { visitId }), entries: [{ toothCode: tooth, condition, surfaces, ...(notes.trim() && { notes: notes.trim() }) }],
   }));
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeZone: clinicTimeZone() });
   const toggle = (s: Surface) => setSurfaces((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]));
   return (
     <div className="tooth-panel mt">

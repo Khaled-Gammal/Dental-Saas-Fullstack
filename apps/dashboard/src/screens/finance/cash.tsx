@@ -9,16 +9,16 @@ import { money } from '../../money';
 import { send, useCashBranches, useCashDay, useCashHistory, useCashMovements, useFinanceMutation } from '../../queries';
 import { to } from '../../router';
 import type { CashMovement, CashSession, DayTotals, PaymentMethod } from '../../types';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, fmtNumber, LOC } from '../../util';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
 import { CashIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 
 /** Redesign R8: a business day ("YYYY-MM-DD") and an instant in words, not ISO. */
-const fmtDay = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
-const fmtShortDay = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
-const fmtAt = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(iso));
+const fmtDay = (iso: string) => new Intl.DateTimeFormat(LOC, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const fmtShortDay = (iso: string) => new Intl.DateTimeFormat(LOC, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const fmtAt = (iso: string) => new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() }).format(new Date(iso));
 
 /**
  * `#/cash` (SRS CASH-001…004, CLR-04): one cash session per branch per business day. Reception or the accountant
@@ -166,7 +166,7 @@ function OtherMethods({ totals, currency, onOpen }: { totals: DayTotals; currenc
 }
 
 const KIND_LABEL: Record<CashMovement['kind'], string> = { payment: 'دفعة', refund: 'مرتجع', expense: 'مصروف' };
-const timeOf = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' }).format(new Date(iso));
+const timeOf = (iso: string) => new Intl.DateTimeFormat(LOC, { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: clinicTimeZone() }).format(new Date(iso));
 
 /** Redesign R9: the movements behind one figure of the day, with their total (the same as the figure), each opening its source. */
 function MovementsDialog({ clinicId, s, title, f, onClose }: { clinicId: string; s: CashSession; title: string; f: FigureFilter; onClose: () => void }) {

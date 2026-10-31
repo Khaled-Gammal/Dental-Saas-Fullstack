@@ -4,7 +4,7 @@ import { sql } from '@dental/db';
 import { AUTH_POLICY } from '../../config';
 import { Err } from '../../shared/errors/app-error';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
-import { DUMMY_HASH, hashPassword, passwordProblem, verifyPassword } from './crypto';
+import { DUMMY_HASH, hashPassword, needsRehash, passwordProblem, verifyPassword } from './crypto';
 import { IdentityRepository } from './identity.repository';
 
 const { login: L } = AUTH_POLICY;
@@ -19,6 +19,19 @@ export class Accounts {
     private readonly repo: IdentityRepository,
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
   ) {}
+
+  /**
+   * Review R11: after a password was verified, an old (unpeppered) hash is replaced by a peppered one. Best effort:
+   * a failure here never fails the sign-in; the next one tries again.
+   */
+  async upgradeHash(userId: string, stored: string | null | undefined, password: string): Promise<void> {
+    if (!stored || !needsRehash(stored)) return;
+    try {
+      await this.repo.replacePasswordHash(userId, stored, await hashPassword(password));
+    } catch {
+      // ignored on purpose (see above)
+    }
+  }
 
   async exists(email: string): Promise<boolean> {
     return !!(await this.repo.findUserIdByEmail(email.trim().toLowerCase()));
@@ -35,6 +48,7 @@ export class Accounts {
     const ok = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
     if (!user || !ok) throw Err.unauthorized('invalid_credentials', 'Email or password is not correct');
     if (!user.is_active) throw Err.unauthorized('account_disabled', 'Account disabled');
+    await this.upgradeHash(user.id, user.password_hash, password);
     return { id: user.id };
   }
 

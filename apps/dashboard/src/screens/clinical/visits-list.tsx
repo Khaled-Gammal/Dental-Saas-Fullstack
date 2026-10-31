@@ -8,7 +8,7 @@ import { DataTable, type Column } from '../../ui/data-table';
 import { ReceiptIcon, StethoscopeIcon, UsersIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
 import { RowMenu } from '../../ui/row-menu';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, fmtNumber, LOC } from '../../util';
 
 const VIEWS: VisitsView[] = ['today', 'drafts', 'all'];
 const VIEW_LABEL: Record<VisitsView, string> = { today: 'اليوم', drafts: 'مسودات لم تُعتمد', all: 'الكل' };
@@ -17,9 +17,8 @@ const EMPTY: Record<VisitsView, { title: string; text: string }> = {
   drafts: { title: 'لا توجد مسودات مفتوحة', text: 'كل الزيارات معتمدة.' },
   all: { title: 'لا توجد زيارات بعد', text: 'تُفتح الزيارة من المواعيد عند حضور المريض.' },
 };
-const loc = 'ar-EG-u-nu-latn';
-const timeFmt = new Intl.DateTimeFormat(loc, { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' });
-const dateTimeFmt = new Intl.DateTimeFormat(loc, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' });
+const timeFmt = () => new Intl.DateTimeFormat(LOC, { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: clinicTimeZone() });
+const dateTimeFmt = () => new Intl.DateTimeFormat(LOC, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: clinicTimeZone() });
 
 /**
  * `#/visits` (redesign R5): the clinic's visits in one place, so a doctor finds today's patients and the drafts they
@@ -39,7 +38,7 @@ export function VisitsList({ clinicId, query, canInvoice }: { clinicId: string; 
   const columns: Column<VisitListRow>[] = [
     {
       id: 'when', header: view === 'today' ? 'الوقت' : 'التاريخ', sortValue: (v) => v.visit_at,
-      cell: (v) => <span className="whitespace-nowrap tabular-nums">{(view === 'today' ? timeFmt : dateTimeFmt).format(new Date(v.visit_at))}</span>,
+      cell: (v) => <span className="whitespace-nowrap tabular-nums">{(view === 'today' ? timeFmt : dateTimeFmt)().format(new Date(v.visit_at))}</span>,
     },
     {
       id: 'patient', header: 'المريض', sortValue: (v) => v.patient.full_name,

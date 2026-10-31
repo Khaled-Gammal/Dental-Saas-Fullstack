@@ -6,6 +6,7 @@ import { normalizePhone } from '../../shared/phone';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { AuthEventsRepository } from './auth-events.repository';
 import { DUMMY_HASH, verifyPassword } from './crypto';
+import { Accounts } from './accounts.service';
 import { IdentityRepository } from './identity.repository';
 import type { RequestMeta, Session } from './identity.types';
 import { OtpService } from './otp.service';
@@ -21,6 +22,7 @@ export class LoginService {
   constructor(
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
     private readonly repo: IdentityRepository,
+    private readonly accounts: Accounts,
     private readonly otp: OtpService,
     private readonly sessions: SessionService,
     private readonly events: AuthEventsRepository,
@@ -52,6 +54,7 @@ export class LoginService {
       });
     }
     await this.limiter.reset(deviceKey); // a correct password clears this device's counter
+    await this.accounts.upgradeHash(user.id, user.password_hash, password); // review R11: peppered from now on
     return this.sessions.start(user.id, clinicSlug, meta);
   }
 }

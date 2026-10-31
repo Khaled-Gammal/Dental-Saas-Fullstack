@@ -60,6 +60,7 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   treatment_plan_items_status: { status: 409, code: 'invalid_item_status', title: 'The plan item cannot move to that status' },
   treatment_plan_items_tooth: { status: 400, code: 'invalid_tooth', title: 'Use an FDI tooth number (11–48, 51–85)' },
   visit_procedures_billed: { status: 409, code: 'procedure_billed', title: 'The procedure is on an invoice' },
+  invoice_item_patient: { status: 400, code: 'procedure_not_billable', title: 'The procedure belongs to another patient' }, // review R11
   visit_procedures_price_range: { status: 400, code: 'price_out_of_range', title: 'The price must be within the service price range' },
   visit_procedures_plan_not_accepted: { status: 409, code: 'plan_not_accepted', title: 'Record the patient’s acceptance of the plan first' },
   visit_procedures_plan_item_closed: { status: 409, code: 'plan_item_closed', title: 'The plan item is already done or cancelled' },

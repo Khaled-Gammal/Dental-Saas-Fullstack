@@ -12,25 +12,23 @@ import { DataTable } from '../../ui/data-table';
 import { RowMenu } from '../../ui/row-menu';
 import { CalendarIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState } from '../../ui/page';
-import { zonedToUtc } from '../../util';
+import { clinicTimeZone, clinicToday, LOC, zonedToUtc } from '../../util';
 import { Conflicts } from './conflicts';
 import { TimeField } from '../../components/time-field';
 
-const loc = () => ('ar-EG-u-nu-latn');
-const TZ = 'Africa/Cairo'; // the clinic's zone (branches default to it); the API stores instants
 
 /** `#/doctors/<id>/timeoff`: a doctor's leave (SRS APPT-005). No times can be booked with them during it. */
 export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id?: string; canWrite: boolean }) {
   const one = useOne(useDoctors(clinicId), id);
   const list = useTimeOff(clinicId, id);
   const qc = useQueryClient();
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = clinicToday();
   const [from, setFrom] = useState({ date: today, time: '00:00' });
   const [until, setUntil] = useState({ date: today, time: '23:59' });
   const [reason, setReason] = useState('');
   const [conflicts, setConflicts] = useState<CalendarConflict[] | null>(null);
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: calendarKeys.timeOff(clinicId, id ?? '') }), qc.invalidateQueries({ queryKey: keys.appointments(clinicId) })]);
-  const instant = (v: { date: string; time: string }) => new Date(zonedToUtc(v.date, v.time, TZ)).toISOString();
+  const instant = (v: { date: string; time: string }) => new Date(zonedToUtc(v.date, v.time, clinicTimeZone())).toISOString();
   const add = useMutation({
     mutationFn: () => api<{ timeOff: TimeOff; conflicts: CalendarConflict[] }>(`/doctors/${id}/time-off`, {
       method: 'POST', body: JSON.stringify({ startsAt: instant(from), endsAt: instant(until), reason: reason.trim() || null }),
@@ -41,7 +39,7 @@ export function DoctorTimeOff({ clinicId, id, canWrite }: { clinicId: string; id
   const [removing, setRemoving] = useState<TimeOff | null>(null); // U2: removing leave asks first (the doctor becomes bookable again)
   if (!one.data) return <ResourceState {...one} back={to.list('doctors')} backLabel="الأطباء" />;
   const name = arName(one.data.name_ar, one.data.name_en, '—');
-  const fmt = (iso: string) => new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: TZ }).format(new Date(iso));
+  const fmt = (iso: string) => new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() }).format(new Date(iso));
   const submit = (e: FormEvent) => { e.preventDefault(); add.mutate(); };
 
   return (

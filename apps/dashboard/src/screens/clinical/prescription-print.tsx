@@ -5,7 +5,7 @@ import { useBranches, usePrescription, useProfile } from '../../queries';
 import { to } from '../../router';
 import { Alert, Button } from '../../ui/components';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, clinicToday, fmtNumber, LOC } from '../../util';
 
 type Paper = 'A5' | 'A4';
 
@@ -26,8 +26,8 @@ export function PrescriptionPrint({ clinicId, id }: { clinicId: string; id?: str
   const clinic = profile.data;
   const branch = branches.data?.find((b) => b.id === r.branch_id);
   const issued = new Date(r.issued_at);
-  const age = r.patient?.date_of_birth ? ageOn(r.patient.date_of_birth, issued.toLocaleDateString('en-CA')) : null;
-  const date = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'long', timeZone: 'Africa/Cairo' }).format(issued);
+  const age = r.patient?.date_of_birth ? ageOn(r.patient.date_of_birth, clinicToday(issued)) : null;
+  const date = new Intl.DateTimeFormat(LOC, { dateStyle: 'long', timeZone: clinicTimeZone() }).format(issued);
   return (
     <>
       <div className="no-print">

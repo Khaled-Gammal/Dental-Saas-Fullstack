@@ -9,6 +9,7 @@ import { roleLabel } from '../labels';
 import { Badge, initials } from '../ui/components';
 import { ToothIcon } from '../ui/icons';
 import { setClinicCurrency } from '../money';
+import { setClinicTimeZone } from '../util';
 import { useProfile } from '../queries';
 import { canSee } from '../access';
 import { href, to, type Page } from '../router';
@@ -55,6 +56,7 @@ export function AppShell({ session, page, children }: { session: Session; page: 
   // the profile query is updated on save, so a renamed clinic shows everywhere at once
   const profile = useProfile(session.clinic.id).data;
   setClinicCurrency(profile?.currency); // before the screens below render their amounts (idempotent)
+  setClinicTimeZone(profile?.timezone); // and their dates and times (review R11)
   const name = profile ? arName(profile.nameAr, profile.nameEn, session.clinic.slug) : clinicName(session);
   const skipToMain = (e: MouseEvent) => {
     e.preventDefault(); // a plain #main link would change the hash route

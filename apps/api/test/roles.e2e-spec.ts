@@ -12,6 +12,9 @@ import { TenantDb } from '../src/shared/database/tenant-db.service';
 
 const ACCOUNTANT_MEMBER = 'c0000000-0000-0000-0000-0000000000a5';
 const OWNER_MEMBER = 'c0000000-0000-0000-0000-0000000000a1';
+const MAADI_RECEPTION = 'c0000000-0000-0000-0000-0000000000a4';
+const NASR = 'd0000000-0000-0000-0000-0000000000a1';
+const MAADI = 'd0000000-0000-0000-0000-0000000000a2';
 
 describe('Roles the owner creates (e2e, Phase H4)', () => {
   let app: INestApplication;
@@ -79,6 +82,24 @@ describe('Roles the owner creates (e2e, Phase H4)', () => {
     await http().get('/patients').set(as('acct')).expect(200);
     await http().get('/staff/roles').set(as('acct')).expect(200);
     expect((await http().delete(`/staff/roles/${manager}`).set(as('ownerA')).expect(409)).body.code).toBe('role_in_use');
+  });
+
+  it('a branch-limited manager stays in their branches: not their own, not other branches\' staff, not every branch (review R11)', async () => {
+    await http().patch(`/staff/members/${ACCOUNTANT_MEMBER}`).set(as('ownerA')).send({ allBranches: false, branchIds: [MAADI] }).expect(200);
+    await login('acct', 'accountant.a@demo.test');
+    try {
+      expect((await http().patch(`/staff/members/${ACCOUNTANT_MEMBER}`).set(as('acct')).send({ allBranches: true }).expect(403)).body.code).toBe('own_branches');
+      expect((await http().patch(`/staff/members/${MAADI_RECEPTION}`).set(as('acct')).send({ allBranches: true }).expect(403)).body.code).toBe('branch_scope');
+      expect((await http().patch(`/staff/members/${MAADI_RECEPTION}`).set(as('acct')).send({ branchIds: [NASR] }).expect(403)).body.code).toBe('branch_scope');
+      const small = (await http().post('/staff/roles').set(as('ownerA')).send({ nameAr: `قراءة ${run}`, permissions: ['patients:read'] }).expect(201)).body;
+      const invite = (body: object) => http().post('/staff/invitations').set(as('acct')).send({ email: `scope.${run}@staff.test`, roleId: small.id, ...body });
+      expect((await invite({ allBranches: true }).expect(403)).body.code).toBe('branch_scope');
+      expect((await invite({ allBranches: false, branchIds: [NASR] }).expect(403)).body.code).toBe('branch_scope');
+      await invite({ allBranches: false, branchIds: [MAADI] }).expect(201);
+    } finally {
+      await http().patch(`/staff/members/${ACCOUNTANT_MEMBER}`).set(as('ownerA')).send({ allBranches: true }).expect(200);
+      await login('acct', 'accountant.a@demo.test');
+    }
   });
 
   it('a manager who is not the owner cannot raise anyone\'s rights, their own included', async () => {

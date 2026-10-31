@@ -33,7 +33,7 @@ describe('appointmentMessages', () => {
     expect(riyadh).toMatch(/5:00 م/); // 14:00Z is 5 pm in Riyadh, 4 pm in Cairo (12-hour clock, CLR-08)
   });
   it('emails are Arabic only, with Latin digits (L10N-004, CLR-08)', () => {
-    for (const x of [...appointmentMessages(base, now), ...rescheduleMessages(base, now)]) {
+    for (const x of [...appointmentMessages(base, now), ...rescheduleMessages(base, now, 1)]) {
       // names are data and may be Latin (brand names, CLR-07 note); everything else is Arabic
       expect(`${x.subject}\n${x.body}`.replaceAll(base.patient_name!, '')).not.toMatch(/[A-Za-z]{2,}/);
       expect(x.body).not.toMatch(/[٠-٩]/);
@@ -42,18 +42,22 @@ describe('appointmentMessages', () => {
 });
 
 describe('rescheduleMessages', () => {
-  const stamp = Math.floor(base.starts_at.getTime() / 1000);
-  it('tells the patient the new time and re-plans the reminders under keys of the new start', () => {
-    const m = rescheduleMessages(base, now);
-    expect(m.map((x) => x.dedupe)).toEqual([`moved:a1:${stamp}`, `reminder:a1:1440:${stamp}`, `reminder:a1:120:${stamp}`]);
+  it('tells the patient the new time and re-plans the reminders under keys of this move', () => {
+    const m = rescheduleMessages(base, now, 41);
+    expect(m.map((x) => x.dedupe)).toEqual(['moved:a1:m41', 'reminder:a1:1440:m41', 'reminder:a1:120:m41']);
     expect(m[0].subject).toContain('تغيّر موعدك');
     expect(m.some((x) => x.event === 'booking.created')).toBe(false); // no second confirmation, no clinic notice
   });
   it('a later move gets its own keys, so its reminders are not swallowed as duplicates', () => {
-    const later = rescheduleMessages({ ...base, starts_at: new Date('2026-10-25T14:00:00Z') }, now).map((x) => x.dedupe);
-    expect(later).not.toContain(`reminder:a1:1440:${stamp}`);
+    const later = rescheduleMessages({ ...base, starts_at: new Date('2026-10-25T14:00:00Z') }, now, 42).map((x) => x.dedupe);
+    expect(later).not.toContain('reminder:a1:1440:m41');
+  });
+  it('moving back to a time used before still plans its reminders (review R11)', () => {
+    const first = rescheduleMessages(base, now, 41).map((x) => x.dedupe);
+    const back = rescheduleMessages(base, now, 43).map((x) => x.dedupe);
+    expect(back.filter((k) => first.includes(k))).toEqual([]);
   });
   it('without an email there is nothing to send', () => {
-    expect(rescheduleMessages({ ...base, patient_email: null }, now)).toEqual([]);
+    expect(rescheduleMessages({ ...base, patient_email: null }, now, 41)).toEqual([]);
   });
 });

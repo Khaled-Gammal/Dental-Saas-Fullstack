@@ -15,14 +15,14 @@ import type { Appointment, AppointmentStatus, Branch } from '../../types';
 import { Alert, Badge, Button, Card, EmptyState, ErrorText, Field, Input, OtpInput, PageHeader, Skeleton } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { CalendarIcon, CheckIcon, EditIcon, PlusIcon } from '../../ui/icons';
-import { fmtNumber, toAsciiDigits } from '../../util';
+import { clinicTimeZone, fmtNumber, LOC, toAsciiDigits } from '../../util';
 import { money } from '../../money';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const ALL = 'all'; // Radix Select cannot carry an empty value
 const isoDate = (d: Date) => d.toLocaleDateString('en-CA'); // YYYY-MM-DD in the browser's zone
 const shiftDate = (date: string, days: number) => { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + days); return isoDate(d); };
-const locale = () => ('ar-EG-u-nu-latn');
+const locale = () => (LOC);
 
 const TONE: Record<AppointmentStatus, 'neutral' | 'primary' | 'success' | 'warning'> = {
   held: 'neutral', expired: 'neutral', pending: 'warning', confirmed: 'primary', checked_in: 'success', in_progress: 'success', completed: 'neutral', cancelled: 'neutral', no_show: 'neutral',
@@ -90,7 +90,7 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
   const queue = waitingList(day.data?.appointments ?? [], Date.now());
   const patientIds = [...new Set((day.data?.appointments ?? []).flatMap((a) => (a.patient ? [a.patient.id] : [])))];
   const balances = useBalances(clinicId, patientIds, canSeeBalances).data ?? {};
-  const tz = day.data?.timezone ?? 'Africa/Cairo';
+  const tz = day.data?.timezone ?? clinicTimeZone();
   const time = (iso: string) => new Intl.DateTimeFormat(locale(), { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
 
   const act = useAppointmentAction(clinicId);

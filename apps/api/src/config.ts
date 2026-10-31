@@ -6,12 +6,18 @@ import { z } from 'zod';
 loadDotenv({ path: path.resolve(__dirname, '../../../.env') });
 
 const DEV_OTP_SECRET = 'dev-only-otp-secret-change-me';
+const DEV_PASSWORD_PEPPER = 'dev-only-password-pepper-change-me-in-production';
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().default(4000),
   DATABASE_URL: z.string().min(1),
   DATABASE_WORKER_URL: z.string().min(1),
+  /**
+   * Review R11: the platform admin panel's own connection (role app_platform), the only role allowed to call the
+   * platform_*() functions. Its database name is ignored: the panel always uses the API's database (DATABASE_URL).
+   */
+  DATABASE_PLATFORM_URL: z.string().min(1),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   BOOKING_CODE_SECRET: z.string().min(16),
@@ -19,6 +25,8 @@ const schema = z.object({
   DASHBOARD_URL: z.string().default('http://localhost:5173'),
   ROOT_DOMAIN: z.string().default('lvh.me'),
   OTP_SECRET: z.string().min(16).default(DEV_OTP_SECRET),
+  /** review R11: mixed into every password hash (identity/crypto.ts); set once per environment, never changed */
+  PASSWORD_PEPPER: z.string().min(16).default(DEV_PASSWORD_PEPPER),
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().default(1025),
   MAIL_FROM: z.string().default('Dental SaaS <no-reply@lvh.me>'),
@@ -64,10 +72,11 @@ export function loadConfig(overrides: Partial<Record<keyof AppConfig, string>> =
   if (c.NODE_ENV === 'production') {
     const problems = [
       c.DEV_LOGIN_ENABLED && 'DEV_LOGIN_ENABLED must be false',
+      dbUser(c.DATABASE_PLATFORM_URL) === dbUser(c.DATABASE_URL) && 'DATABASE_PLATFORM_URL must use its own role (app_platform), not the API\'s',
       !c.RATE_LIMIT_ENABLED && 'RATE_LIMIT_ENABLED must be true',
       c.STORAGE_DRIVER === 'local' && 'STORAGE_DRIVER=local keeps uploads on one machine; use s3 (R2, S3 or another S3-compatible service)',
       c.STORAGE_DRIVER === 's3' && !(c.S3_ENDPOINT && c.S3_ACCESS_KEY && c.S3_SECRET_KEY) && 'S3_ENDPOINT, S3_ACCESS_KEY and S3_SECRET_KEY are required for STORAGE_DRIVER=s3',
-      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET', 'MEDIA_URL_SECRET'] as const)
+      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET', 'MEDIA_URL_SECRET', 'PASSWORD_PEPPER'] as const)
         .filter((k) => c[k] === DEV_OTP_SECRET || c[k].startsWith('dev-only') || c[k].length < 32)
         .map((k) => `${k} must be a long random value (not the development one)`),
     ].filter(Boolean);
@@ -75,6 +84,14 @@ export function loadConfig(overrides: Partial<Record<keyof AppConfig, string>> =
   }
   return c;
 }
+
+/**
+ * The password pepper for identity/crypto.ts, read where it is used (the hashing helpers are plain functions, also
+ * called by test helpers outside the Nest container). loadConfig() refuses the development value in production.
+ */
+export const passwordPepper = (): string => process.env.PASSWORD_PEPPER || DEV_PASSWORD_PEPPER;
+
+const dbUser = (url: string) => { try { return decodeURIComponent(new URL(url).username); } catch { return url; } };
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
 

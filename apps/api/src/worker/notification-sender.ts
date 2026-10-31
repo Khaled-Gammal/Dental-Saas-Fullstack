@@ -13,8 +13,17 @@ const LEASE_MINUTES = 10;
  * sent. Delivery is at-least-once: a crash between the send and the final update sends again after the lease.
  * Reminders for appointments that are no longer pending/confirmed are cancelled instead of sent, and so is anything a
  * suspended clinic would send (H5, owner 2026-10-20) — cancelled, not held back, so a reactivated clinic gets no stale mail.
+ * A deleted clinic (review R11) is treated the same way.
  */
 export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: object) => void): Promise<number> {
+  // review R11: a row claimed for its last attempt whose worker died mid-send kept status 'queued' with no attempts
+  // left, so no pass would ever pick it up again or mark it failed. Once its lease is over it is failed, visibly.
+  const stuck = await db.updateTable('notifications')
+    .set({ status: 'failed', last_error: sql<string>`coalesce(last_error, 'the worker stopped during the last attempt')` })
+    .where('status', '=', 'queued').where('attempts', '>=', MAX_ATTEMPTS).where('scheduled_at', '<=', sql<Date>`now()`)
+    .executeTakeFirst();
+  if (Number(stuck.numUpdatedRows) > 0) log({ level: 'error', notifications_failed_stuck: Number(stuck.numUpdatedRows) });
+
   const claimed = await db.transaction().execute(async (tx) => {
     const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; appointment_status: string | null; tenant_status: string | null }>`
       with due as (
@@ -35,6 +44,8 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
     const cancel = (why: string) => db.updateTable('notifications').set({ status: 'cancelled', last_error: why }).where('id', '=', n.id).execute();
     if (n.channel !== 'email') { await cancel('channel disabled: email only'); continue; }
     if (n.tenant_status === 'suspended') { await cancel('clinic suspended'); continue; }
+    // review R11: a clinic its owner deleted (kept 90 days before erasure) writes to nobody, like a suspended one
+    if (n.tenant_status === 'cancelled' || n.tenant_status === null) { await cancel('clinic deleted'); continue; }
     if (n.event === 'appointment.reminder' && !['pending', 'confirmed'].includes(n.appointment_status ?? '')) { await cancel(`appointment ${n.appointment_status ?? 'missing'}`); continue; }
     try {
       await email.send(n.recipient, n.subject ?? '', n.body);

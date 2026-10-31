@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { sql, type Db } from '@dental/db';
-import { TenantDb } from '../../shared/database/tenant-db.service';
+import { PLATFORM_DB } from '../../shared/database/tokens';
 
 export interface ClinicRow {
   id: string; slug: string; name_ar: string | null; name_en: string | null; status: string; created_at: Date; suspended_at: Date | null;
@@ -21,11 +21,14 @@ export interface LeadView {
  * SECURITY DEFINER `platform_*()` functions, which check the admin and write the platform audit log themselves. Since
  * 0004 the API role may not write platform tables (plans, the platform audit log, notes), so every write goes through
  * them too; plans and the platform audit log are read directly.
+ *
+ * Review R11: everything here runs on the panel's own connection (role app_platform). The clinic API's role (app_user)
+ * can no longer execute the platform functions — which trust the admin id they are given — nor read the platform
+ * audit log, so an injection in clinic code cannot reach them. app_platform in turn reads no clinic data.
  */
 @Injectable()
 export class PlatformRepository {
-  constructor(private readonly tenantDb: TenantDb) {}
-  private get db(): Db { return this.tenantDb.platform(); }
+  constructor(@Inject(PLATFORM_DB) private readonly db: Db) {}
 
   /** The sign-in candidate (password hash through the definer lookup: the API role cannot read hashes). */
   async loginCandidate(email: string) {

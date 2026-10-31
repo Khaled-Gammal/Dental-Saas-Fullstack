@@ -9,10 +9,9 @@ import { Alert, Badge, Button, PageHeader } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
 import { CalendarIcon, EditIcon, PlusIcon, UsersIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicToday, fmtNumber } from '../../util';
 import { RowMenu } from '../../ui/row-menu';
 
-const today = () => new Date().toLocaleDateString('en-CA');
 
 /**
  * `#/patients`: one search box for name, mobile or file number (the API searches every record and decides which),
@@ -43,7 +42,7 @@ export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string
     { id: 'phone', header: 'رقم الموبايل', cell: (p) => <bdi dir="ltr" className="tabular-nums">{p.phone}</bdi> },
     {
       id: 'age', header: 'السن', hideOnMobile: true,
-      cell: (p) => { const age = ageOn(p.date_of_birth ?? '', today()); return age === null ? <span className="muted">—</span> : `${fmtNumber(age)} ${'سنة'}`; },
+      cell: (p) => { const age = ageOn(p.date_of_birth ?? '', clinicToday()); return age === null ? <span className="muted">—</span> : `${fmtNumber(age)} ${'سنة'}`; },
     },
     { id: 'gender', header: 'النوع', hideOnMobile: true, cell: (p) => (p.gender ? genderLabel[p.gender] ?? p.gender : <span className="muted">—</span>) },
     {

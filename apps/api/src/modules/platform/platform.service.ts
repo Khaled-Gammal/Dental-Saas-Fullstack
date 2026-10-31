@@ -6,8 +6,10 @@ import type { RequestContext } from '../../shared/context/request-context';
 import { Err } from '../../shared/errors/app-error';
 import { maskEmail } from '../../shared/mask';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
+import { endOfDay } from '../../shared/time/clinic-time';
 import { DUMMY_HASH, verifyPassword } from '../identity/crypto';
 import type { RequestMeta } from '../identity/identity.types';
+import { Accounts } from '../identity/accounts.service';
 import { OtpService } from '../identity/otp.service';
 import type { EditPlanInput, NewPlanInput } from './platform.schemas';
 import { PlatformRepository } from './platform.repository';
@@ -28,6 +30,7 @@ export class PlatformService {
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
     private readonly repo: PlatformRepository,
     private readonly otp: OtpService,
+    private readonly accounts: Accounts,
     private readonly tokens: TokenService,
     private readonly cls: ClsService<RequestContext>,
   ) {}
@@ -48,6 +51,7 @@ export class PlatformService {
     const ok = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH); // always hash: timing reveals nothing
     if (!user || !ok || !user.is_active || !user.email || !(await this.repo.isAdmin(user.id))) throw invalid();
     await this.limiter.reset(deviceKey);
+    await this.accounts.upgradeHash(user.id, user.password_hash, password); // review R11: peppered from now on
     await this.otp.sendByEmail(user.email, 'login', meta, PLATFORM_POLICY.codeSubject, user.id);
     return { codeSent: true, maskedEmail: maskEmail(user.email) };
   }
@@ -88,8 +92,9 @@ export class PlatformService {
   }
 
   async extendTrial(id: string, until: string) {
-    // the trial ends at the end of the chosen day (Cairo)
-    await this.repo.extendTrial(this.admin(), id, `${until}T23:59:59+02:00`);
+    // the trial ends at the end of the chosen day in Cairo — +02:00 or +03:00 depending on daylight saving time
+    // (review R11: the fixed +02:00 ended summer trials an hour late)
+    await this.repo.extendTrial(this.admin(), id, new Date(endOfDay(until, 'Africa/Cairo')).toISOString());
     return this.clinic(id);
   }
 

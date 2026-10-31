@@ -9,12 +9,11 @@ import { patientKeys, usePatientFiles } from '../../queries';
 import type { ClinicalFileKind, PatientFile } from '../../types';
 import { Badge, Button, Card, ErrorText, Field, Input, LinkButton, Skeleton, Switch } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, clinicToday, fmtNumber, LOC } from '../../util';
 
 const KINDS: ClinicalFileKind[] = ['xray', 'clinical_photo', 'document'];
 const MAX_BYTES = 20 * 1024 * 1024; // same cap as the API (CLINICAL_FILE_POLICY)
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
-const loc = () => ('ar-EG-u-nu-latn');
 
 /**
  * X-rays, clinical photos and documents of a patient (SRS PATIENT-004). Shown to members with clinical:read; upload and
@@ -31,7 +30,7 @@ export function FilesCard({ clinicId, patientId, canWrite }: { clinicId: string;
     mutationFn: (f: PatientFile) => api(`/patients/${patientId}/files/${f.file_id}/archive`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) }),
     onSuccess: () => { setArchiving(null); setReason(''); void refresh(); },
   });
-  const date = (iso: string) => new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeZone: 'Africa/Cairo' }).format(new Date(iso));
+  const date = (iso: string) => new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeZone: clinicTimeZone() }).format(new Date(iso));
 
   return (
     <Card>
@@ -100,7 +99,7 @@ function UploadForm({ patientId, onDone }: { patientId: string; onDone: () => vo
       </Field>
       <Field label="وصف" optional="اختياري">{(a) => <Input id={a.id} value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={200} />}</Field>
       <Field label="تاريخ الأشعة أو الصورة" optional="اختياري">
-        {(a) => <DatePicker id={a.id} value={takenAt} onChange={setTakenAt} max={new Date().toLocaleDateString('en-CA')} placeholder="اختر التاريخ" />}
+        {(a) => <DatePicker id={a.id} value={takenAt} onChange={setTakenAt} max={clinicToday()} placeholder="اختر التاريخ" />}
       </Field>
       <div className="row-end">
         {upload.isPending && <span className="muted small">{fmtNumber(Math.round(progress * 100))}%</span>}

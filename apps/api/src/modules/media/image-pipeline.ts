@@ -36,10 +36,15 @@ export async function processImage(input: Buffer, rules: { minSide: number; widt
   if (Math.min(width, height) < rules.minSide) {
     throw Err.badRequest('image_too_small', `Images must be at least ${rules.minSide} pixels on each side`, { width, height, minSide: rules.minSide });
   }
-  const renditions = await Promise.all(renditionWidths(width, rules.widths).map(async (w) => ({
+  // review R11: the upload is decoded once — turned upright and brought down to the largest rendition — and every
+  // rendition is made from those pixels; each rendition used to decode the whole original again.
+  const widths = renditionWidths(width, rules.widths);
+  const { data, info } = await sharp(input, { limitInputPixels: MEDIA_POLICY.maxInputPixels }).rotate()
+    .resize({ width: widths[widths.length - 1], withoutEnlargement: true }).raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });
+  const raw = { raw: { width: info.width, height: info.height, channels: info.channels } };
+  const renditions = await Promise.all(widths.map(async (w) => ({
     width: w,
-    body: await sharp(input, { limitInputPixels: MEDIA_POLICY.maxInputPixels }).rotate().resize({ width: w, withoutEnlargement: true })
-      .webp({ quality: MEDIA_POLICY.webpQuality }).toBuffer(),
+    body: await sharp(data, raw).resize({ width: w, withoutEnlargement: true }).webp({ quality: MEDIA_POLICY.webpQuality }).toBuffer(),
   })));
   return { width, height, renditions };
 }

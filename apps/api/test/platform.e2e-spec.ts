@@ -7,6 +7,7 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE
 process.env.DEV_LOGIN_ENABLED = 'true';
 process.env.RATE_LIMIT_ENABLED = 'false';
 import { AppModule } from '../src/app.module';
+import { TenantDb } from '../src/shared/database/tenant-db.service';
 import type { DevEmailSender } from '../src/shared/notifications/dev-email.sender';
 import { EMAIL_SENDER } from '../src/shared/notifications/ports';
 import { createTestAdmin, type TestAdmin } from './test-admin';
@@ -70,6 +71,12 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
     expect(pt).toMatch(/HttpOnly/i);
     expect(pt).toMatch(/SameSite=Strict/i);
     expect(pt).toMatch(/Path=\/platform/i);
+  });
+
+  it('the clinic API\'s connection cannot reach the panel\'s functions, even with a real admin\'s id (review R11)', async () => {
+    const { rows } = await sql<{ id: string }>`select id from users where email = ${ADMIN}`.execute(app.get(TenantDb).platform());
+    await expect(sql`select * from platform_clinics(${rows[0].id}::uuid)`.execute(app.get(TenantDb).platform())).rejects.toThrow(/permission denied/);
+    await expect(sql`select count(*) from platform_audit_log`.execute(app.get(TenantDb).platform())).rejects.toThrow(/permission denied/);
   });
 
   it('the panel needs the platform session; clinic and platform tokens never open each other\'s routes', async () => {

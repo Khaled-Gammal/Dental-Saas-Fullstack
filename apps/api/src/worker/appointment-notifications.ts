@@ -61,11 +61,13 @@ export function appointmentMessages(a: Row, now: number): Message[] {
 }
 
 /**
- * After a move (SRS APPT-001): the patient is told the new time, and reminders are re-planned for it. Keys carry the new
- * start, so a second move plans its own reminders, and re-running the handler for the same move adds nothing.
+ * After a move (SRS APPT-001): the patient is told the new time, and reminders are re-planned for it. Keys carry the
+ * move itself (its outbox event), so every move plans its own messages — moving back to a time used before included
+ * (review R11: keyed by the start time, the earlier, cancelled reminders of that time swallowed the new ones) — and
+ * re-running the handler for the same move adds nothing.
  */
-export function rescheduleMessages(a: Row, now: number): Message[] {
-  const stamp = Math.floor(new Date(a.starts_at).getTime() / 1000);
+export function rescheduleMessages(a: Row, now: number, moveId: number | string): Message[] {
+  const stamp = `m${moveId}`;
   const tz = safeTimeZone(a.branch_tz ?? a.clinic_tz);
   const at = when(new Date(a.starts_at), tz);
   const clinic = pick(a.clinic_ar, a.clinic_en);
@@ -127,7 +129,7 @@ export const appointmentRescheduled: OutboxHandler = async (tx: Tx, event) => {
   await tx.updateTable('notifications').set({ status: 'cancelled', last_error: 'appointment moved' })
     .where('related_type', '=', 'appointment').where('related_id', '=', a.id)
     .where('event', '=', 'appointment.reminder').where('status', '=', 'queued').execute();
-  await queue(tx, a, rescheduleMessages(a, Date.now()));
+  await queue(tx, a, rescheduleMessages(a, Date.now(), event.id));
 };
 
 export type { Row as AppointmentRow };

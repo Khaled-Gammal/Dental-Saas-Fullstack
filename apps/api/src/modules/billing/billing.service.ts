@@ -235,12 +235,20 @@ export class BillingService {
     return this.db.run(async (tx, tenantId) => {
       const p = await this.repo.lockPayment(tx, paymentId);
       if (!p) throw Err.notFound('payment_not_found', 'Payment not found');
+      // review R11: checked after the payment lock, so a concurrent twin waits and then sees the first refund
+      if (input.idempotencyKey) {
+        const again = await this.repo.refundByIdempotencyKey(tx, input.idempotencyKey);
+        if (again) {
+          if (again.payment_id !== paymentId) throw Err.conflict('idempotency_key_reused', 'This key was used for another refund');
+          return this.view(tx, p.invoice_id!); // the same request again: one refund
+        }
+      }
       if (!['succeeded', 'partially_refunded'].includes(p.status)) throw Err.conflict('payment_not_refundable', 'This payment cannot be refunded', { status: p.status });
       const full = (await this.repo.payment(tx, paymentId))!;
       if (input.amountMinor > full.amount_minor - full.refunded_minor) throw Err.badRequest('refund_exceeds_payment', 'Refunds cannot exceed the payment');
       await this.repo.addRefund(tx, tenantId, {
         paymentId, amountMinor: input.amountMinor, method: input.method, reason: input.reason,
-        reference: input.method === 'cash' ? null : input.reference?.trim() || null, createdBy: this.member(),
+        reference: input.method === 'cash' ? null : input.reference?.trim() || null, createdBy: this.member(), idempotencyKey: input.idempotencyKey ?? null,
       });
       return this.view(tx, p.invoice_id!);
     });

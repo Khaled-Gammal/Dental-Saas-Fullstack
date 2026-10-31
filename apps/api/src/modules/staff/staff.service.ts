@@ -155,6 +155,7 @@ export class StaffService {
       this.assertAssignable(role);
       const branchIds = input.allBranches ? [] : input.branchIds;
       if (!(await this.repo.branchesExist(tx, branchIds))) throw Err.badRequest('branch_not_found', 'Branch not found');
+      StaffService.assertWithinScope(await this.myBranchScope(tx), input.allBranches, branchIds);
       if (input.doctorId) {
         const d = await this.repo.doctor(tx, input.doctorId);
         if (!d) throw Err.badRequest('doctor_not_found', 'Doctor not found');
@@ -196,10 +197,22 @@ export class StaffService {
     return this.db.run(async (tx, tenantId) => {
       const m = await this.repo.lockMember(tx, id);
       if (!m) throw memberNotFound();
+      const changesBranches = input.allBranches !== undefined || input.branchIds !== undefined;
       if (!this.isOwner()) {
         // a manager who is not the owner: never their own access, never an owner's
         if (id === this.memberId() && (input.roleId !== undefined || input.status !== undefined)) throw Err.forbidden('own_role', 'You cannot change your own role');
+        // review R11: nor their own branches (a branch-limited manager could otherwise give themselves every branch)
+        if (id === this.memberId() && changesBranches) throw Err.forbidden('own_branches', 'You cannot change your own branches');
         if (m.role_key === 'owner') throw Err.forbidden('owner_role_only', 'Only an owner gives or takes the owner role');
+        // review R11: a branch-limited manager manages only members within their branches, and grants only those
+        const scope = await this.myBranchScope(tx);
+        if (scope !== null) {
+          const current = await this.repo.getMember(tx, id);
+          if (current && (current.all_branches || current.branch_ids.some((b) => !scope.includes(b)))) {
+            throw Err.forbidden('branch_scope', 'This member works in branches outside yours');
+          }
+          if (changesBranches) StaffService.assertWithinScope(scope, input.allBranches === true, input.allBranches === true ? [] : input.branchIds ?? current?.branch_ids ?? []);
+        }
       }
       let roleKey = m.role_key;
       if (input.roleId && input.roleId !== m.role_id) {
@@ -228,6 +241,24 @@ export class StaffService {
       else if (input.branchIds) await this.repo.replaceBranches(tx, tenantId, id, input.branchIds);
       return (await this.repo.getMember(tx, id))!;
     });
+  }
+
+  /**
+   * Review R11: the branches the acting member works in, or null for every branch (an owner, or an all-branch member).
+   * A branch-limited manager gives access only within these, and manages only members who stay within them.
+   */
+  private async myBranchScope(tx: Tx): Promise<string[] | null> {
+    if (this.isOwner()) return null;
+    const r = await sql<{ ids: string[] | null }>`select array_to_json(member_branch_ids()) as ids`.execute(tx);
+    return r.rows[0]?.ids ?? null;
+  }
+
+  /** Review R11: `allBranches` (or no branch listed) means every branch, which only an all-branch manager can give. */
+  private static assertWithinScope(scope: string[] | null, allBranches: boolean, branchIds: readonly string[]): void {
+    if (scope === null) return;
+    if (allBranches || branchIds.length === 0 || branchIds.some((b) => !scope.includes(b))) {
+      throw Err.forbidden('branch_scope', 'You can only give access to the branches you work in');
+    }
   }
 
   private memberId(): string {

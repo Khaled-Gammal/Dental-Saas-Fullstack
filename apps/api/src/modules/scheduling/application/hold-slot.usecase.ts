@@ -7,7 +7,11 @@ import { CLOCK, SCHEDULING_REPOSITORY, type Clock, type SchedulingRepository, ty
 
 export interface HoldSlotInput { branchId: string; serviceId: string; doctorId?: string; startsAt: Date }
 
-export interface Hold { holdId: string; doctorId: string; startsAt: Date; endsAt: Date; expiresAt: Date; otpRequired: boolean }
+export interface Hold {
+  holdId: string; doctorId: string; startsAt: Date; endsAt: Date; expiresAt: Date; otpRequired: boolean;
+  /** review R11: how long the hold lasts from now, so the visitor's countdown does not depend on their device clock */
+  ttlSeconds: number;
+}
 
 /**
  * Step 1 of online booking (SRS 4.11): reserve the slot as a `held` appointment for 10 minutes.
@@ -43,7 +47,7 @@ export class HoldSlot {
         tenantId, branchId: input.branchId, doctorId, serviceId: input.serviceId, startsAt: input.startsAt, endsAt, holdExpiresAt: expiresAt,
         quotedPriceMinor: day.service?.price_minor ?? null, paymentMode: effectivePaymentMode(policy),
       });
-      return { holdId: id, doctorId, startsAt: input.startsAt, endsAt, expiresAt, otpRequired: policy.otpRequired };
+      return { holdId: id, doctorId, startsAt: input.startsAt, endsAt, expiresAt, otpRequired: policy.otpRequired, ttlSeconds: HOLD_MINUTES * 60 };
     });
   }
 }

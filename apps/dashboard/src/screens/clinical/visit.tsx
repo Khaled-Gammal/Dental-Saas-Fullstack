@@ -15,7 +15,7 @@ import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { CalendarIcon, PlusIcon } from '../../ui/icons';
 import { MedicalAlerts } from '../../ui/medical-alerts';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, clinicToday, fmtNumber, LOC } from '../../util';
 import { ChartCard } from './chart';
 import { money } from './money';
 import { currencyLabel } from '../../money';
@@ -27,8 +27,6 @@ const FIELDS: { f: NoteField; key: string; rows: number }[] = [
 ];
 const CAMEL: Record<NoteField, string> = { chief_complaint: 'chiefComplaint', diagnosis: 'diagnosis', clinical_notes: 'clinicalNotes', next_visit_note: 'nextVisitNote' };
 const REASONS: RecallReason[] = ['checkup', 'cleaning', 'ortho_adjustment', 'post_op', 'implant_followup', 'other'];
-const loc = () => ('ar-EG-u-nu-latn');
-const todayIso = () => new Date().toLocaleDateString('en-CA');
 
 /**
  * `#/visits/<id>/view`: the doctor's workspace for one visit (SRS VISIT-001…004, CHART-001). The patient's allergies
@@ -43,9 +41,9 @@ export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: stri
   }
   const v = visit.data;
   const p = v.patient;
-  const age = p?.date_of_birth ? ageOn(p.date_of_birth, todayIso()) : null;
+  const age = p?.date_of_birth ? ageOn(p.date_of_birth, clinicToday()) : null;
   const h = p?.medicalHistory;
-  const when = new Intl.DateTimeFormat(loc(), { dateStyle: 'full', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(v.visit_at));
+  const when = new Intl.DateTimeFormat(LOC, { dateStyle: 'full', timeStyle: 'short', timeZone: clinicTimeZone() }).format(new Date(v.visit_at));
   return (
     <>
       <Breadcrumbs items={[{ label: 'المرضى', route: to.list('patients') }, ...(p ? [{ label: p.full_name, route: to.view('patients', p.id) }] : []), { label: 'الزيارة' }]} />
@@ -84,7 +82,7 @@ function NotesCard({ clinicId, v }: { clinicId: string; v: Visit }) {
     return send(`/visits/${v.id}/finalize`, 'POST');
   });
   const dirty = FIELDS.some(({ f }) => form[f] !== (v[f] ?? ''));
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() });
 
   if (v.status === 'draft' && v.can.writeNotes) {
     return (
@@ -295,7 +293,7 @@ function priceHint(s: { price_minor: number; price_max_minor: number | null }): 
 /** VISIT-004: issued at once and never edited; a correction is a new prescription and the old one stays, marked replaced. */
 function PrescriptionsCard({ clinicId, v }: { clinicId: string; v: Visit }) {
   const [writing, setWriting] = useState<{ replaces?: Prescription } | null>(null);
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() });
   return (
     <Card>
       <div className="row-between">
@@ -395,7 +393,7 @@ function NextVisitCard({ clinicId, v }: { clinicId: string; v: Visit }) {
   const next = plan.data?.next.item;
   const has = useCan();
   const [reason, setReason] = useState<RecallReason>('checkup');
-  const [due, setDue] = useState(addMonths(todayIso(), 6));
+  const [due, setDue] = useState(addMonths(clinicToday(), 6));
   const [note, setNote] = useState('');
   const [added, setAdded] = useState(false);
   const add = useClinicalMutation(clinicId, () => send(`/patients/${v.patient_id}/recalls`, 'POST', { reason, dueDate: due, sourceVisitId: v.id, ...(note.trim() && { notes: note.trim() }) }));
@@ -415,10 +413,10 @@ function NextVisitCard({ clinicId, v }: { clinicId: string; v: Visit }) {
           <Field label="سبب المتابعة">
             {(a) => <Choice id={a.id} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((r) => ({ value: r, label: recallReasonLabel[r] }))} />}
           </Field>
-          <Field label="موعد الاستحقاق">{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={todayIso()} />}</Field>
+          <Field label="موعد الاستحقاق">{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={clinicToday()} />}</Field>
         </div>
         <div className="chips">
-          {[1, 3, 6, 12].map((m) => <button key={m} type="button" className={`chip-toggle${due === addMonths(todayIso(), m) ? ' is-on' : ''}`} onClick={() => setDue(addMonths(todayIso(), m))}>{inMonthsLabel[m]}</button>)}
+          {[1, 3, 6, 12].map((m) => <button key={m} type="button" className={`chip-toggle${due === addMonths(clinicToday(), m) ? ' is-on' : ''}`} onClick={() => setDue(addMonths(clinicToday(), m))}>{inMonthsLabel[m]}</button>)}
         </div>
         <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />}</Field>
         {added && <Alert tone="success">أُضيفت المتابعة إلى قائمة المتابعات.</Alert>}
