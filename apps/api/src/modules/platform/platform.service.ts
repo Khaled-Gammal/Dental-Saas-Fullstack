@@ -6,10 +6,12 @@ import type { RequestContext } from '../../shared/context/request-context';
 import { Err } from '../../shared/errors/app-error';
 import { maskEmail } from '../../shared/mask';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
+import { endOfDay } from '../../shared/time/clinic-time';
 import { DUMMY_HASH, verifyPassword } from '../identity/crypto';
 import type { RequestMeta } from '../identity/identity.types';
+import { Accounts } from '../identity/accounts.service';
 import { OtpService } from '../identity/otp.service';
-import type { EditPlanInput } from './platform.schemas';
+import type { EditPlanInput, NewPlanInput, RecordPaymentInput } from './platform.schemas';
 import { PlatformRepository } from './platform.repository';
 
 const { login: L } = AUTH_POLICY;
@@ -28,6 +30,7 @@ export class PlatformService {
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
     private readonly repo: PlatformRepository,
     private readonly otp: OtpService,
+    private readonly accounts: Accounts,
     private readonly tokens: TokenService,
     private readonly cls: ClsService<RequestContext>,
   ) {}
@@ -48,6 +51,7 @@ export class PlatformService {
     const ok = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH); // always hash: timing reveals nothing
     if (!user || !ok || !user.is_active || !user.email || !(await this.repo.isAdmin(user.id))) throw invalid();
     await this.limiter.reset(deviceKey);
+    await this.accounts.upgradeHash(user.id, user.password_hash, password); // review R11: peppered from now on
     await this.otp.sendByEmail(user.email, 'login', meta, PLATFORM_POLICY.codeSubject, user.id);
     return { codeSent: true, maskedEmail: maskEmail(user.email) };
   }
@@ -77,8 +81,11 @@ export class PlatformService {
   async clinic(id: string) {
     const c = (await this.clinics()).find((x) => x.id === id);
     if (!c) throw clinicNotFound();
-    const [notes, history] = await Promise.all([this.repo.notes(this.admin(), id), this.repo.audit(id)]);
-    return { ...c, notes, history };
+    const [notes, history, payments, grace] = await Promise.all([
+      this.repo.notes(this.admin(), id), this.repo.audit(id), this.repo.payments(this.admin(), id), this.repo.grace(this.admin(), id),
+    ]);
+    // past due: the day the worker suspends it as unpaid unless a payment is recorded
+    return { ...c, grace_ends_at: grace, notes, history, payments };
   }
 
   /** H8: a clinic its owner deleted comes back as it was, within its 90 days */
@@ -88,8 +95,9 @@ export class PlatformService {
   }
 
   async extendTrial(id: string, until: string) {
-    // the trial ends at the end of the chosen day (Cairo)
-    await this.repo.extendTrial(this.admin(), id, `${until}T23:59:59+02:00`);
+    // the trial ends at the end of the chosen day in Cairo — +02:00 or +03:00 depending on daylight saving time
+    // (review R11: the fixed +02:00 ended summer trials an hour late)
+    await this.repo.extendTrial(this.admin(), id, new Date(endOfDay(until, 'Africa/Cairo')).toISOString());
     return this.clinic(id);
   }
 
@@ -107,6 +115,28 @@ export class PlatformService {
   async activate(id: string, cycle: 'monthly' | 'yearly') {
     await this.repo.activate(this.admin(), id, cycle);
     return this.clinic(id);
+  }
+
+  /**
+   * Phase 2B (owner 2026-10-31: clinics pay outside the system, the platform records it): a paid invoice, and the
+   * subscription runs a month or a year more — from the end of the paid period when renewing early. A suspension for an
+   * ended trial or an unpaid subscription is lifted; a manual one stays.
+   */
+  async recordPayment(id: string, input: RecordPaymentInput, ip: string | null) {
+    await this.repo.recordPayment(this.admin(), id, {
+      amountMinor: input.amountMinor, cycle: input.cycle, method: input.method, reference: input.reference, note: input.note, key: input.idempotencyKey,
+    }, ip);
+    return this.clinic(id);
+  }
+
+  async billingInstructions() {
+    this.admin();
+    return { text: await this.repo.billingInstructions() };
+  }
+
+  async setBillingInstructions(text: string, ip: string | null) {
+    await this.repo.setBillingInstructions(this.admin(), text, ip);
+    return { text: await this.repo.billingInstructions() };
   }
 
   async changePlan(id: string, planId: string) {
@@ -152,15 +182,26 @@ export class PlatformService {
 
   /** Prices, trial length, limits and features of a plan; limits and features merge into what the plan has (in the database). */
   async editPlan(id: string, input: EditPlanInput, ip: string | null) {
-    await this.repo.updatePlan(this.admin(), id, {
-      ...(input.nameAr !== undefined && { name_ar: input.nameAr }),
-      ...(input.priceMonthlyMinor !== undefined && { price_monthly_minor: input.priceMonthlyMinor }),
-      ...(input.priceYearlyMinor !== undefined && { price_yearly_minor: input.priceYearlyMinor }),
-      ...(input.trialDays !== undefined && { trial_days: input.trialDays }),
-      ...(input.limits && { limits: input.limits }),
-      ...(input.features && { features: input.features }),
-      ...(input.isPublic !== undefined && { is_public: input.isPublic }),
-    }, ip);
+    await this.repo.updatePlan(this.admin(), id, planColumns(input), ip);
     return (await this.repo.plans(this.admin())).find((p) => p.id === id);
   }
+
+  /** A new plan (owner 2026-10-24), placed after the others; its code must be free. */
+  async createPlan(input: NewPlanInput, ip: string | null) {
+    const id = await this.repo.createPlan(this.admin(), { code: input.code, ...planColumns(input) }, ip);
+    return (await this.repo.plans(this.admin())).find((p) => p.id === id);
+  }
+}
+
+/** The API's plan fields as the database's columns, only those given. */
+function planColumns(input: EditPlanInput): Record<string, unknown> {
+  return {
+    ...(input.nameAr !== undefined && { name_ar: input.nameAr }),
+    ...(input.priceMonthlyMinor !== undefined && { price_monthly_minor: input.priceMonthlyMinor }),
+    ...(input.priceYearlyMinor !== undefined && { price_yearly_minor: input.priceYearlyMinor }),
+    ...(input.trialDays !== undefined && { trial_days: input.trialDays }),
+    ...(input.limits && { limits: input.limits }),
+    ...(input.features && { features: input.features }),
+    ...(input.isPublic !== undefined && { is_public: input.isPublic }),
+  };
 }

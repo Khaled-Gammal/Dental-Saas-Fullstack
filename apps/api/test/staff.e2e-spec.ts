@@ -53,6 +53,11 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
     let link: string;
     let session: { token: string; cookie: string };
     let memberId: string;
+    // frees clinic B's staff seat (the Basic plan allows 5): the test database keeps members, and repeated runs filled it
+    afterAll(async () => {
+      const inB = (await http().get('/staff/members').set(as('ownerB')).expect(200)).body.find((m: { user: { email: string } }) => m.user.email === email);
+      if (inB) await http().patch(`/staff/members/${inB.id}`).set(as('ownerB')).send({ status: 'disabled' }).expect(200);
+    });
 
     it('is invited by email; the same email cannot be invited twice, nor an existing member', async () => {
       const inv = await http().post('/staff/invitations').set(as('ownerA'))
@@ -115,7 +120,10 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
     });
 
     it('resets a forgotten password by email; old sessions end', async () => {
-      const before = cookieOf(await http().post('/auth/login').send({ identifier: email, password: 'Secret123', clinic: 'clinic-b' }).expect(200))!;
+      const signedIn = await http().post('/auth/login').send({ identifier: email, password: 'Secret123', clinic: 'clinic-b' }).expect(200);
+      const before = cookieOf(signedIn)!;
+      expect((await http().get('/patients').set(bearer(signedIn.body.accessToken))).status).not.toBe(401); // 200, or 403 while a document waits
+      await new Promise((r) => setTimeout(r, 1100)); // token times are in seconds: the reset must come a second later
       await http().post('/auth/password/forgot').send({ email }).expect(202);
       expect(mail.outbox.get(email)?.subject).toBe('رمز إعادة تعيين كلمة المرور');
       const code = codeFor(email);
@@ -123,8 +131,11 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
       await http().post('/auth/password/reset').send({ email, code: wrong, password: 'NewSecret456' }).expect(400);
       await http().post('/auth/password/reset').send({ email, code, password: 'NewSecret456' }).expect(204);
       await http().post('/auth/refresh').set('Cookie', before).expect(401);
+      // review R11: the access token handed out before the reset stops at once, not when it expires
+      expect((await http().get('/patients').set(bearer(signedIn.body.accessToken)).expect(401)).body.code).toBe('session_revoked');
       await http().post('/auth/login').send({ identifier: email, password: 'Secret123', clinic: 'clinic-b' }).expect(401);
-      await http().post('/auth/login').send({ identifier: email, password: 'NewSecret456', clinic: 'clinic-b' }).expect(200);
+      const after = await http().post('/auth/login').send({ identifier: email, password: 'NewSecret456', clinic: 'clinic-b' }).expect(200);
+      expect((await http().get('/patients').set(bearer(after.body.accessToken))).status).not.toBe(401); // a new sign-in works
       const ghost = `nobody.${run}@staff.test`;
       await http().post('/auth/password/forgot').send({ email: ghost }).expect(202);
       expect(mail.outbox.get(ghost)).toBeUndefined();

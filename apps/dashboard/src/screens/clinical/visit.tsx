@@ -7,14 +7,15 @@ import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { inMonthsLabel, recallReasonLabel, toothSurfaceLabel } from '../../labels';
 import { ageOn } from '../../patient-model';
-import { send, useClinicalMutation, usePatientPlans, usePlan, useServices, useVisit } from '../../queries';
+import { send, useClinicalMutation, useDrugSuggestions, usePatientPlans, usePlan, useServices, useVisit } from '../../queries';
 import { to } from '../../router';
 import type { NoteField, PlanItem, Prescription, RecallReason, Surface, Visit } from '../../types';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { AlertIcon, CalendarIcon, PlusIcon } from '../../ui/icons';
+import { CalendarIcon, PlusIcon } from '../../ui/icons';
+import { MedicalAlerts } from '../../ui/medical-alerts';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, clinicToday, fmtNumber, LOC } from '../../util';
 import { ChartCard } from './chart';
 import { money } from './money';
 import { currencyLabel } from '../../money';
@@ -26,8 +27,6 @@ const FIELDS: { f: NoteField; key: string; rows: number }[] = [
 ];
 const CAMEL: Record<NoteField, string> = { chief_complaint: 'chiefComplaint', diagnosis: 'diagnosis', clinical_notes: 'clinicalNotes', next_visit_note: 'nextVisitNote' };
 const REASONS: RecallReason[] = ['checkup', 'cleaning', 'ortho_adjustment', 'post_op', 'implant_followup', 'other'];
-const loc = () => ('ar-EG-u-nu-latn');
-const todayIso = () => new Date().toLocaleDateString('en-CA');
 
 /**
  * `#/visits/<id>/view`: the doctor's workspace for one visit (SRS VISIT-001…004, CHART-001). The patient's allergies
@@ -35,14 +34,16 @@ const todayIso = () => new Date().toLocaleDateString('en-CA');
  */
 export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: string; id?: string; canInvoice?: boolean }) {
   const visit = useVisit(clinicId, id);
+  // redesign R8: a tooth picked on the chart opens "add procedure" with that tooth filled in
+  const [procTooth, setProcTooth] = useState<number | null>(null);
   if (!visit.data) {
     return <ResourceState isLoading={visit.isLoading} isError={visit.isError} error={visit.error} notFound={false} refetch={() => void visit.refetch()} back={to.list('appointments')} backLabel="المواعيد" />;
   }
   const v = visit.data;
   const p = v.patient;
-  const age = p?.date_of_birth ? ageOn(p.date_of_birth, todayIso()) : null;
+  const age = p?.date_of_birth ? ageOn(p.date_of_birth, clinicToday()) : null;
   const h = p?.medicalHistory;
-  const when = new Intl.DateTimeFormat(loc(), { dateStyle: 'full', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(v.visit_at));
+  const when = new Intl.DateTimeFormat(LOC, { dateStyle: 'full', timeStyle: 'short', timeZone: clinicTimeZone() }).format(new Date(v.visit_at));
   return (
     <>
       <Breadcrumbs items={[{ label: 'المرضى', route: to.list('patients') }, ...(p ? [{ label: p.full_name, route: to.view('patients', p.id) }] : []), { label: 'الزيارة' }]} />
@@ -51,22 +52,16 @@ export function VisitPage({ clinicId, id, canInvoice = false }: { clinicId: stri
         sub={[p && `${'ملف رقم'} ${fmtNumber(p.file_no)}`, age !== null && `${fmtNumber(age)} ${'سنة'}`, arName(v.doctor.name_ar, v.doctor.name_en), arName(v.branch.name_ar, v.branch.name_en), when].filter(Boolean).join(' · ')}
         action={<Badge tone={v.status === 'final' ? 'neutral' : 'warning'}>{v.status === 'final' ? 'نهائية' : 'مسودة'}</Badge>}
       />
-      {h && (h.allergies.length > 0 || h.is_pregnant || h.conditions.length > 0) && (
-        <Alert tone="danger">
-          <AlertIcon size={16} /> <strong>تنبيهات:</strong>{' '}
-          {[...h.allergies.map((a) => `${'حساسية من'} ${a}`), ...(h.is_pregnant ? ['حامل'] : []), ...h.conditions].join(' · ')}
-          {h.medications.length > 0 && <div className="small mt-sm">الأدوية الحالية: <bdi>{h.medications.join('، ')}</bdi></div>}
-        </Alert>
-      )}
+      <MedicalAlerts history={h} />
       <div className="profile-grid">
         <div className="stack">
           <NotesCard clinicId={clinicId} v={v} />
-          <ProceduresCard clinicId={clinicId} v={v} canInvoice={canInvoice} />
+          <ProceduresCard clinicId={clinicId} v={v} canInvoice={canInvoice} tooth={procTooth} onToothDone={() => setProcTooth(null)} />
           <PrescriptionsCard clinicId={clinicId} v={v} />
         </div>
         <div className="stack">
           <NextVisitCard clinicId={clinicId} v={v} />
-          {p && <ChartCard clinicId={clinicId} patientId={p.id} canWrite={v.can.chart} age={age} visitId={v.id} />}
+          {p && <ChartCard clinicId={clinicId} patientId={p.id} canWrite={v.can.chart} age={age} visitId={v.id} onProcedure={v.can.procedures ? setProcTooth : undefined} />}
         </div>
       </div>
     </>
@@ -87,7 +82,7 @@ function NotesCard({ clinicId, v }: { clinicId: string; v: Visit }) {
     return send(`/visits/${v.id}/finalize`, 'POST');
   });
   const dirty = FIELDS.some(({ f }) => form[f] !== (v[f] ?? ''));
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() });
 
   if (v.status === 'draft' && v.can.writeNotes) {
     return (
@@ -161,7 +156,7 @@ function AmendDialog({ clinicId, visitId, field, onClose }: { clinicId: string; 
 }
 
 /** VISIT-003: what was done. A procedure from the plan takes the item's service, tooth and estimated price. */
-function ProceduresCard({ clinicId, v, canInvoice }: { clinicId: string; v: Visit; canInvoice: boolean }) {
+function ProceduresCard({ clinicId, v, canInvoice, tooth = null, onToothDone }: { clinicId: string; v: Visit; canInvoice: boolean; tooth?: number | null; onToothDone?: () => void }) {
   const [adding, setAdding] = useState(false);
   const remove = useClinicalMutation(clinicId, (procId: string) => send(`/visits/${v.id}/procedures/${procId}`, 'DELETE'));
   const total = v.procedures.reduce((s, p) => s + p.price_minor, 0);
@@ -195,22 +190,26 @@ function ProceduresCard({ clinicId, v, canInvoice }: { clinicId: string; v: Visi
         </ul>
       )}
       <ErrorText error={remove.error} />
-      {adding && <ProcedureForm clinicId={clinicId} v={v} onDone={() => setAdding(false)} />}
+      {(adding || tooth !== null) && (
+        <ProcedureForm key={tooth ?? 'new'} clinicId={clinicId} v={v} initialTooth={tooth ?? undefined} onDone={() => { setAdding(false); onToothDone?.(); }} />
+      )}
     </Card>
   );
 }
 
-function ProcedureForm({ clinicId, v, onDone }: { clinicId: string; v: Visit; onDone: () => void }) {
+function ProcedureForm({ clinicId, v, onDone, initialTooth }: { clinicId: string; v: Visit; onDone: () => void; initialTooth?: number }) {
   const services = useServices(clinicId);
   const plans = usePatientPlans(clinicId, v.patient_id);
   const openPlans = (plans.data ?? []).filter((p) => p.status === 'accepted' || p.status === 'in_progress');
   const [planId, setPlanId] = useState('');
   const plan = usePlan(clinicId, planId || openPlans[0]?.id);
-  const items = (plan.data?.items ?? []).filter((i) => i.status === 'planned' || i.status === 'scheduled');
+  const items = (plan.data?.items ?? []).filter((i) => i.status === 'planned' || i.status === 'scheduled')
+    // a tooth picked on the chart: that tooth's planned items first
+    .sort((a, b) => Number(b.tooth_code === initialTooth) - Number(a.tooth_code === initialTooth));
   const [itemId, setItemId] = useState('');
   const item: PlanItem | undefined = items.find((i) => i.id === itemId);
   const [serviceId, setServiceId] = useState('');
-  const [tooth, setTooth] = useState('');
+  const [tooth, setTooth] = useState(initialTooth ? String(initialTooth) : '');
   const [surfaces, setSurfaces] = useState<Surface[]>([]);
   const [price, setPrice] = useState('');
   const [notes, setNotes] = useState('');
@@ -294,7 +293,7 @@ function priceHint(s: { price_minor: number; price_max_minor: number | null }): 
 /** VISIT-004: issued at once and never edited; a correction is a new prescription and the old one stays, marked replaced. */
 function PrescriptionsCard({ clinicId, v }: { clinicId: string; v: Visit }) {
   const [writing, setWriting] = useState<{ replaces?: Prescription } | null>(null);
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() });
   return (
     <Card>
       <div className="row-between">
@@ -339,6 +338,14 @@ function PrescriptionForm({ clinicId, visitId, replaces, onDone }: { clinicId: s
     ? replaces.items.map((i) => ({ drugName: i.drug_name, dose: i.dose ?? '', frequency: i.frequency ?? '', duration: i.duration ?? '', instructions: i.instructions ?? '' }))
     : [{ ...EMPTY_LINE }]);
   const [notes, setNotes] = useState(replaces?.notes ?? '');
+  // redesign R8: the clinic's drugs as suggestions; picking a known name fills the empty fields with its usual line
+  const drugs = useDrugSuggestions(clinicId);
+  const pickDrug = (i: number, name: string) => setLines((ls) => ls.map((l, j) => {
+    if (j !== i) return l;
+    const d = (drugs.data ?? []).find((x) => x.drug_name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (!d) return { ...l, drugName: name };
+    return { drugName: name, dose: l.dose || d.dose || '', frequency: l.frequency || d.frequency || '', duration: l.duration || d.duration || '', instructions: l.instructions || d.instructions || '' };
+  }));
   const issue = useClinicalMutation(clinicId, () => send<Prescription>(`/visits/${visitId}/prescriptions`, 'POST', {
     items: lines.filter((l) => l.drugName.trim()).map((l) => Object.fromEntries(Object.entries(l).map(([k, x]) => [k, x.trim() || null]).filter(([k, x]) => k === 'drugName' || x))),
     ...(notes.trim() && { notes: notes.trim() }), ...(replaces && { replacesId: replaces.id }),
@@ -353,7 +360,7 @@ function PrescriptionForm({ clinicId, visitId, replaces, onDone }: { clinicId: s
           <fieldset key={i} className="rx-line-form">
             <legend className="small">الدواء {fmtNumber(i + 1)}</legend>
             <div className="grid-2">
-              <Field label="اسم الدواء">{(a) => <Input id={a.id} dir="auto" value={l.drugName} onChange={(e) => set(i, 'drugName', e.target.value)} maxLength={200} placeholder="Amoxicillin 500mg" />}</Field>
+              <Field label="اسم الدواء">{(a) => <Input id={a.id} dir="auto" list="rx-drugs" autoComplete="off" value={l.drugName} onChange={(e) => pickDrug(i, e.target.value)} maxLength={200} placeholder="Amoxicillin 500mg" />}</Field>
               <Field label="الجرعة" optional="اختياري">{(a) => <Input id={a.id} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} maxLength={100} />}</Field>
               <Field label="عدد المرات" optional="اختياري">{(a) => <Input id={a.id} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} maxLength={100} />}</Field>
               <Field label="المدة" optional="اختياري">{(a) => <Input id={a.id} value={l.duration} onChange={(e) => set(i, 'duration', e.target.value)} maxLength={100} />}</Field>
@@ -363,6 +370,9 @@ function PrescriptionForm({ clinicId, visitId, replaces, onDone }: { clinicId: s
           </fieldset>
         ))}
         {lines.length < 20 && <LinkButton onClick={() => setLines((ls) => [...ls, { ...EMPTY_LINE }])}><PlusIcon size={14} /> إضافة دواء</LinkButton>}
+        <datalist id="rx-drugs">
+          {(drugs.data ?? []).map((d) => <option key={d.drug_name} value={d.drug_name}>{[d.dose, d.frequency, d.duration].filter(Boolean).join(' · ')}</option>)}
+        </datalist>
         <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}</Field>
         <ErrorText error={issue.error} />
         <div className="row-end">
@@ -383,7 +393,7 @@ function NextVisitCard({ clinicId, v }: { clinicId: string; v: Visit }) {
   const next = plan.data?.next.item;
   const has = useCan();
   const [reason, setReason] = useState<RecallReason>('checkup');
-  const [due, setDue] = useState(addMonths(todayIso(), 6));
+  const [due, setDue] = useState(addMonths(clinicToday(), 6));
   const [note, setNote] = useState('');
   const [added, setAdded] = useState(false);
   const add = useClinicalMutation(clinicId, () => send(`/patients/${v.patient_id}/recalls`, 'POST', { reason, dueDate: due, sourceVisitId: v.id, ...(note.trim() && { notes: note.trim() }) }));
@@ -403,10 +413,10 @@ function NextVisitCard({ clinicId, v }: { clinicId: string; v: Visit }) {
           <Field label="سبب المتابعة">
             {(a) => <Choice id={a.id} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((r) => ({ value: r, label: recallReasonLabel[r] }))} />}
           </Field>
-          <Field label="موعد الاستحقاق">{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={todayIso()} />}</Field>
+          <Field label="موعد الاستحقاق">{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={clinicToday()} />}</Field>
         </div>
         <div className="chips">
-          {[1, 3, 6, 12].map((m) => <button key={m} type="button" className={`chip-toggle${due === addMonths(todayIso(), m) ? ' is-on' : ''}`} onClick={() => setDue(addMonths(todayIso(), m))}>{inMonthsLabel[m]}</button>)}
+          {[1, 3, 6, 12].map((m) => <button key={m} type="button" className={`chip-toggle${due === addMonths(clinicToday(), m) ? ' is-on' : ''}`} onClick={() => setDue(addMonths(clinicToday(), m))}>{inMonthsLabel[m]}</button>)}
         </div>
         <Field label="ملاحظات" optional="اختياري">{(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />}</Field>
         {added && <Alert tone="success">أُضيفت المتابعة إلى قائمة المتابعات.</Alert>}

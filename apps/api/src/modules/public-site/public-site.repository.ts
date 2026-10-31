@@ -33,7 +33,12 @@ export class PublicSiteRepository {
                        'specialties', t.specialties, 'default_locale', t.default_locale, 'timezone', t.timezone, 'currency', t.currency,
                        'logo', ${img('t.logo_file_id')}) from tenants t),
           'theme', coalesce((select case when s.status = 'published' then s.published_theme else s.draft_theme end from sites s), '{}'::jsonb),
-          'showPoweredBy', coalesce((select s.show_powered_by from sites s), true),
+          -- WEB-10 (Phase 1D): hidden only when the clinic chose so AND its live plan includes remove_badge; a plan
+          -- change (or a column set some other way) can never hide it on a plan that does not. After a plan change the
+          -- site shows it again at its next revalidation (the platform panel does not purge the site cache)
+          'showPoweredBy', coalesce((select s.show_powered_by from sites s), true)
+                           or not coalesce((select (p.features ->> 'remove_badge')::boolean from subscriptions sub join plans p on p.id = sub.plan_id
+                                            where sub.status in ('trialing', 'active', 'past_due') limit 1), false),
           'onlineBooking', exists (select 1 from services s where s.bookable_online and s.is_active and s.show_on_website)
                            and exists (select 1 from doctors d join doctor_branches db on db.doctor_id = d.id join branches b on b.id = db.branch_id
                                        where d.is_active and d.accepts_online_booking and b.is_active),
@@ -54,9 +59,48 @@ export class PublicSiteRepository {
                      'description_en', s.description_en, 'description_ar', s.description_ar,
                      'category', (select c.category from service_catalog c where c.code = s.catalog_code),
                      'price_minor', s.price_minor, 'price_max_minor', s.price_max_minor, 'duration_minutes', s.duration_minutes,
-                     'image', ${img('s.image_file_id')})
+                     'image', ${img('s.image_file_id')}, 'bookable_online', s.bookable_online,
+                     -- Phase 2C-3: the doctors on the site who provide it (its own page lists them)
+                     'doctor_ids', coalesce((select json_agg(ds.doctor_id) from doctor_services ds join doctors d on d.id = ds.doctor_id
+                                             where ds.service_id = s.id and d.is_active and d.show_on_website), '[]'::json))
                    order by s.sort_order, s.name_en)
             from services s where s.show_on_website and s.is_active), '[]'::json),
+          -- Phase 2C-1: the clinic's layout (the site fills in defaults), its active questions, and its published photos
+          -- (featured first, clinic-wide before branches'; a closed branch's photos leave with it)
+          'sections', coalesce((select s.sections from sites s), '[]'::jsonb),
+          -- Phase 2C-3: the search title and description the clinic set (null: the site's defaults), and a version of
+          -- the share image (it changes with the image, the logo or the brand colour, so shared links refresh)
+          'seo', (select json_build_object('title', s.seo_title, 'description', s.seo_description,
+                    'shareVersion', md5(concat_ws(':', s.share_file_id, (select t.logo_file_id from tenants t),
+                                                  (case when s.status = 'published' then s.published_theme else s.draft_theme end) ->> 'primary')))
+                  from sites s),
+          'faqs', coalesce((
+            select json_agg(json_build_object('id', q.id, 'service_id', q.service_id, 'question_ar', q.question_ar, 'answer_ar', q.answer_ar,
+                     'question_en', q.question_en, 'answer_en', q.answer_en) order by q.sort_order, q.created_at, q.id)
+            from faqs q where q.is_active), '[]'::json),
+          'photos', coalesce((
+            select json_agg(x.photo order by x.ord)
+            from (select json_build_object('id', g.id, 'caption_ar', g.caption_ar, 'caption_en', g.caption_en, 'alt_ar', g.alt_ar, 'alt_en', g.alt_en,
+                           'image', json_build_object('id', f.id, 'width', f.width, 'height', f.height, 'widths', f.variant_widths)) as photo,
+                         row_number() over (order by g.is_featured desc, g.branch_id is not null, g.sort_order, g.id) as ord
+                    from gallery_items g join files f on f.id = g.image_file_id left join branches b on b.id = g.branch_id
+                   where g.type = 'photo' and g.is_published and not f.is_private and (g.branch_id is null or b.is_active)
+                   order by ord limit 24) x), '[]'::json),
+          -- Phase 2C-2: published before/after cases (published only with the patient's consent: a database rule), both
+          -- images public; the service they show, by name
+          'cases', coalesce((
+            select json_agg(json_build_object('id', g.id, 'service_id', g.service_id, 'on_home', g.rn_all <= 12, 'caption_ar', g.caption_ar, 'alt_ar', g.alt_ar,
+                     'service_ar', (select coalesce(s.name_ar, s.name_en) from services s where s.id = g.service_id and s.is_active and s.show_on_website),
+                     'before', json_build_object('id', fb.id, 'width', fb.width, 'height', fb.height, 'widths', fb.variant_widths),
+                     'after', json_build_object('id', fa.id, 'width', fa.width, 'height', fa.height, 'widths', fa.variant_widths))
+                   order by g.sort_order, g.id)
+            -- the first 12 for the home page, and up to 6 per service for the service pages (Phase 2C-3)
+            from (select * from (select gi.*, row_number() over (order by gi.sort_order, gi.id) as rn_all,
+                                        row_number() over (partition by gi.service_id order by gi.sort_order, gi.id) as rn_svc
+                                   from gallery_items gi where gi.type = 'before_after' and gi.is_published and gi.consent_confirmed) w
+                   where w.rn_all <= 12 or (w.service_id is not null and w.rn_svc <= 6)) g
+            join files fa on fa.id = g.image_file_id join files fb on fb.id = g.before_file_id
+            where not fa.is_private and not fb.is_private), '[]'::json),
           'doctors', coalesce((
             select json_agg(json_build_object('id', d.id, 'name_en', d.name_en, 'name_ar', d.name_ar, 'title_en', d.title_en,
                      'title_ar', d.title_ar, 'bio_en', d.bio_en, 'bio_ar', d.bio_ar, 'specialties', d.specialties,

@@ -152,13 +152,13 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | AUTH-09 | M | IMPLEMENTED | — |
 | ONB-01 | M | PARTIALLY_IMPLEMENTED | Steps 1–4 and 6 exist as setup screens + checklist; step 5 (template, fonts, sections) not built |
 | ONB-02 | M | PARTIALLY_IMPLEMENTED | Checklist on the home screen exists |
-| ONB-03 | V1 | DEFERRED | — |
-| WEB-01 | M | PARTIALLY_IMPLEMENTED | One template with fixed sections |
+| ONB-03 | V1 | IMPLEMENTED (2026-10-31, Phase 2A) | Patients imported from an Excel or CSV file with column mapping and a dry-run report before anything is saved; duplicates and plan limits checked |
+| WEB-01 | M | PARTIALLY_IMPLEMENTED | One template. Phase 2C (2026-10-31): the clinic shows, hides and orders its sections; FAQ section; before/after cases (published only with the patient's recorded consent); a page per service |
 | WEB-02 | M | PARTIALLY_IMPLEMENTED | Colour and logo only |
 | WEB-03 | M | IMPLEMENTED | — |
 | WEB-04 | M | SUPERSEDED by L10N-001 | Site is Arabic only and RTL; no language switcher |
-| WEB-05 | M | PARTIALLY_IMPLEMENTED | Draft/publish covers the theme only |
-| WEB-06 | M | PARTIALLY_IMPLEMENTED | sitemap.xml and robots.txt per clinic; no per-page SEO fields |
+| WEB-05 | M | PARTIALLY_IMPLEMENTED | Draft/publish covers the theme; sections, FAQs, cases and SEO fields (Phase 2C) are live on save |
+| WEB-06 | M | IMPLEMENTED (2026-10-31, Phase 2C-3) | sitemap.xml (service pages included) and robots.txt per clinic; the clinic's search title and description; a 1200×630 share image (its own, or made from its logo and colour); schema.org data for the clinic, services, breadcrumbs and FAQs. Migrations 0064–0066 |
 | WEB-07 … WEB-09 | V1 | DEFERRED | — |
 | WEB-10 | M | PARTIALLY_IMPLEMENTED | Badge shown; removal by plan not built |
 | BOOK-01, 02, 05, 10, 11 | M | IMPLEMENTED | — |
@@ -166,7 +166,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | BOOK-04 | M / V1 | PARTIALLY_IMPLEMENTED | Pay at clinic only; online payment deferred (Part D) |
 | BOOK-06 | M | IMPLEMENTED | Setting exists; no screen to change it (APPT-009) |
 | BOOK-07 | M | IMPLEMENTED (deviation) | Email only; reminders at 24 h and 2 h. Bilingual email bodies to become Arabic only (L10N-004) |
-| BOOK-08 | V1 | DEFERRED | — |
+| BOOK-08 | V1 | IMPLEMENTED (2026-10-31, Phase 2E) | The link in every booking email (`/appointment/<token>` on the clinic's site; only its hash is stored, emails are filled at send time): cancel, or move to another free time with the same doctor (twice at most), up to `booking_cancel_window_hours` before the visit (now on the booking rules screen). After a move the status follows auto-confirm. Patient and clinic emailed; audited as the patient. Migration 0069 |
 | BOOK-09 | M | IMPLEMENTED (doctor) / PARTIALLY (room) | Room exclusion exists but rooms cannot be assigned yet (APPT-006) |
 | BOOK-12 | V2 | DEFERRED | — |
 | DSH-01 | M | PARTIALLY_IMPLEMENTED | Setup progress only; refined by REPORT-006 |
@@ -181,9 +181,9 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | DSH-10 | M | PARTIALLY_IMPLEMENTED | Doctor schedules done; invite, roles, branch access, time off missing; commission % deferred. Refined by ACCESS-001…005, APPT-005 |
 | DSH-11 | V1 | PARTIALLY_IMPLEMENTED | Brought into v4 for the approved reports: REPORT-001…006; export as CSV that opens in Excel (2026-10-20, H3) |
 | DSH-12 | M | PARTIALLY_IMPLEMENTED | Profile, branches, hours done; holidays, booking rules, tax missing; notification templates and gateway keys deferred |
-| DSH-13 | M | PARTIALLY_IMPLEMENTED | Theme publish only; template, sections, SEO and domains follow the website-content roadmap |
+| DSH-13 | M | PARTIALLY_IMPLEMENTED | Theme publish; sections, FAQs, before/after cases and SEO (Phase 2C). Template choice and domains not built |
 | DSH-14 | V1 | DEFERRED | — |
-| DSH-15 | M | PARTIALLY_IMPLEMENTED | Patients only; refined by AUDIT-001…003 |
+| DSH-15 | M | IMPLEMENTED (2026-10-31, Phase 2D) | «سجل العمليات» (`#/activity`, `audit:read`): who changed or opened what and when, by period, member, record group and changes/views. Members limited to some branches cannot open it; a record's name, link and changes follow the reader's other permissions; typed reasons and notes show only as changed (triggers updated, older rows redacted on read). Migrations 0067–0068 |
 | DSH-16 | M | IMPLEMENTED | H9 (owner 2026-10-20): the clinic's consent texts per treatment (versioned; starter drafts reviewed before use, `#/consents`); the patient or a child's guardian signs on the clinic's tablet or phone (signature + exact text stored), or staff record a paper form with a scan; withdrawn with a reason, never edited or deleted; a service can need a consent and the visit warns (never blocks). *AR/EN templates* superseded by L10N-001. Migration 0035 |
 | DSH-17 | V1 | DEFERRED (brief) | Dental laboratory tracking |
 | DSH-18 | V1 | NOT_IMPLEMENTED (DB only) | Brought into v4: PAY-004 |
@@ -197,7 +197,7 @@ The original text follows in A.1 unchanged. This table is the only place where i
 | BIL-01 | M | PARTIALLY_IMPLEMENTED | Plans with prices, limits and features seeded; no management |
 | BIL-02 | M | IMPLEMENTED | — |
 | BIL-03 | V1 | DEFERRED (paid gateway) | — |
-| BIL-04 … BIL-07 | V1 | NOT_IMPLEMENTED (BIL-04 in part) | Not in v4. H5 (owner 2026-10-20): a trial that ends without activation suspends the clinic (worker, every 15 minutes); the platform admin activates a paid clinic for a month or a year. No payment gateway, grace period or automatic renewal yet |
+| BIL-04 … BIL-07 | V1 | PARTIALLY_IMPLEMENTED (2026-10-31, Phase 2B) | Manual billing (owner's decision): the platform admin records each payment (amount, method, reference), which renews the period; renewal reminders before the end; 7 grace days past due, then suspension; payment instructions shown to the clinic with its payment history. No payment gateway or automatic charging. Migration 0063 |
 | BIL-08 | M | IMPLEMENTED | — |
 | ADM-01, 02, 04 | M | IMPLEMENTED (2026-10-20, H5) | `#/platform`: clinics list, clinic detail (extend trial, suspend/reactivate, change plan, notes, history), plans; owner's choice reversing CLR-14 for ADM. "Add credits" (SMS) later, by the owner's choice: no SMS yet (D-01). Trial end suspends automatically; "activate subscription" after payment |
 | ADM-03, 05 | V1 | DEFERRED | — |

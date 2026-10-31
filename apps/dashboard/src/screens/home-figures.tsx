@@ -14,7 +14,7 @@ import { CalendarIcon, CashIcon, ChartIcon, EditIcon, PhoneIcon, ReceiptIcon, Us
 import { RouteLink } from '../ui/page';
 import { RowMenu } from '../ui/row-menu';
 import { KpiCard, StatsKpis, StatsTrend, type StatsFilters } from './overview-stats';
-import { fmtNumber } from '../util';
+import { clinicTimeZone, fmtNumber, LOC } from '../util';
 
 /** As the appointments page shows each status. */
 const STATUS_TONE: Record<AppointmentStatus, 'neutral' | 'primary' | 'success' | 'warning'> = {
@@ -48,7 +48,7 @@ export function HomeFigures({ session, filters }: { session: Session; filters: S
     discounts: discounts.data?.length,
     expenses: expenses.data?.length,
   });
-  const tz = day.data?.timezone ?? 'Africa/Cairo';
+  const tz = day.data?.timezone ?? clinicTimeZone();
 
   return (
     <>
@@ -130,7 +130,7 @@ function Stats({ h, mine }: { h: HomeData; mine: boolean }) {
 
 /** The day's remaining appointments (time, patient, doctor, service, status). */
 function upcomingColumns(tz: string, mine: boolean): Column<Appointment>[] {
-  const time = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
+  const time = (iso: string) => new Intl.DateTimeFormat(LOC, { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
   return [
     { id: 'time', header: 'الوقت', sortValue: (a) => a.starts_at, cell: (a) => <strong className="whitespace-nowrap">{time(a.starts_at)}</strong> },
     {

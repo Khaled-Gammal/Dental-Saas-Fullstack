@@ -1,9 +1,11 @@
 import { useState, type KeyboardEvent } from 'react';
+import { medicalListLabel } from '../../labels';
 import { addItem, historyBody, toHistoryForm, type HistoryForm } from '../../patient-model';
 import { useHistoryVersions, useSaveMedicalHistory } from '../../queries';
 import type { MedicalHistory } from '../../types';
-import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton, Switch, TextArea } from '../../ui/components';
-import { AlertIcon, CloseIcon, EditIcon } from '../../ui/icons';
+import { Badge, Button, Card, ErrorText, Field, Input, LinkButton, Switch, TextArea } from '../../ui/components';
+import { CloseIcon, EditIcon } from '../../ui/icons';
+import { clinicTimeZone, LOC } from '../../util';
 
 type ListKey = 'allergies' | 'conditions' | 'medications';
 const LISTS: ListKey[] = ['allergies', 'conditions', 'medications'];
@@ -32,15 +34,9 @@ export function MedicalHistoryCard({ clinicId, patientId, history, canEdit }: { 
       </div>
       {empty ? <p className="muted small mt-sm">لم يُسجّل تاريخ طبي بعد.</p> : (
         <div className="stack mt">
-          {(history.allergies.length > 0 || history.is_pregnant) && (
-            <Alert tone="danger">
-              <strong><AlertIcon size={16} /> تنبيهات:</strong>{' '}
-              {[...history.allergies.map((a) => `${'حساسية من'} ${a}`), ...(history.is_pregnant ? ['حامل'] : [])].join(' · ')}
-            </Alert>
-          )}
           {LISTS.map((k) => history[k].length > 0 && (
             <div key={k} className="history-row">
-              <span className="muted small">{k}</span>
+              <span className="muted small">{medicalListLabel[k]}</span>
               <span className="chips">{history[k].map((x) => <Badge key={x} tone={k === 'allergies' ? 'warning' : 'neutral'}><bdi>{x}</bdi></Badge>)}</span>
             </div>
           ))}
@@ -57,7 +53,7 @@ export function MedicalHistoryCard({ clinicId, patientId, history, canEdit }: { 
 function Versions({ clinicId, patientId }: { clinicId: string; patientId: string }) {
   const [open, setOpen] = useState(false);
   const versions = useHistoryVersions(clinicId, patientId, open);
-  const fmt = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(iso));
+  const fmt = (iso: string) => new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() }).format(new Date(iso));
   return (
     <div className="mt">
       <LinkButton onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'إخفاء النسخ السابقة' : 'النسخ السابقة'}</LinkButton>
@@ -69,7 +65,7 @@ function Versions({ clinicId, patientId }: { clinicId: string; patientId: string
               <li key={v.id} className="history-version">
                 <span className="muted small">{fmt(v.saved_at)}{v.saved_by_name && <> · <bdi>{v.saved_by_name}</bdi></>}</span>
                 {LISTS.map((k) => v[k].length > 0 && (
-                  <div key={k} className="history-row"><span className="muted small">{k}</span><span><bdi>{v[k].join('، ')}</bdi></span></div>
+                  <div key={k} className="history-row"><span className="muted small">{medicalListLabel[k]}</span><span><bdi>{v[k].join('، ')}</bdi></span></div>
                 ))}
                 {v.notes && <p className="history-notes">{v.notes}</p>}
               </li>
@@ -98,7 +94,7 @@ function HistoryEditor({ clinicId, patientId, history, onDone }: { clinicId: str
       <h2>التاريخ الطبي</h2>
       <div className="stack mt">
         {LISTS.map((k) => (
-          <Field key={k} label={k} hint="اكتب ثم اضغط Enter أو فاصلة">
+          <Field key={k} label={medicalListLabel[k]} hint="اكتب ثم اضغط Enter أو فاصلة">
             {(a) => (
               <div className="tag-input">
                 <span className="chips">

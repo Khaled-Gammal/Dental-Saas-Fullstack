@@ -53,6 +53,42 @@ export function trialDaysLeft(trialEndsAt: string | null, subscriptionStatus: st
   return Math.ceil((new Date(trialEndsAt).getTime() - now) / 86_400_000);
 }
 
+/**
+ * Phase 2B: the period a recorded payment buys — the same rule as the database's platform_record_payment: from the
+ * end of a paid period still running (an early renewal), otherwise from now. A month on the 31st ends on the last day
+ * of a shorter month, as in PostgreSQL.
+ */
+export function renewalPeriod(subscriptionStatus: string | null, currentPeriodEnd: string | null, cycle: 'monthly' | 'yearly', now = Date.now()): { start: Date; end: Date } {
+  const running = subscriptionStatus === 'active' && !!currentPeriodEnd && new Date(currentPeriodEnd).getTime() > now;
+  const start = new Date(running ? currentPeriodEnd! : now);
+  const end = new Date(start);
+  const day = end.getUTCDate();
+  end.setUTCDate(1);
+  if (cycle === 'yearly') end.setUTCFullYear(end.getUTCFullYear() + 1);
+  else end.setUTCMonth(end.getUTCMonth() + 1);
+  const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+  end.setUTCDate(Math.min(day, last));
+  return { start, end };
+}
+
+/** The plan's price for a cycle, as the amount to prefill (pounds, no thousands separator); '' when unknown or free. */
+export function planPriceText(plan: { price_monthly_minor: number; price_yearly_minor: number } | undefined, cycle: 'monthly' | 'yearly'): string {
+  const minor = plan ? (cycle === 'yearly' ? plan.price_yearly_minor : plan.price_monthly_minor) : 0;
+  return minor > 0 ? String(minor / 100) : '';
+}
+
+/** An amount typed in pounds (Arabic digits allowed) as minor units; null when it is not a positive amount with at most two decimals. */
+export function amountMinor(text: string): number | null {
+  let v = text.trim().replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/٫/g, '.').replace(/٬/g, ',');
+  if (v.includes(',')) {
+    if (!/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(v)) return null; // a comma groups thousands; "1,5" is not 15
+    v = v.replace(/,/g, '');
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(v)) return null;
+  const minor = Math.round(Number(v) * 100);
+  return minor > 0 && minor <= 1_000_000_000 ? minor : null;
+}
+
 /** Search by name, subdomain or owner email; filter by clinic status ('all' = any). */
 export function filterClinics<T extends { slug: string; name_ar: string | null; name_en: string | null; owner_email: string | null; status: string }>(
   clinics: readonly T[], q: string, status: string,

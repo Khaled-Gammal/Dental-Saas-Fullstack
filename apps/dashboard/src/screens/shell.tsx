@@ -1,7 +1,7 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { arName } from '@dental/ui/text';
 import {
-  Building2, CalendarDays, ChartColumn, ChevronDown, ChevronsUpDown, Database, Globe, Home, Image, List, LogOut, MapPin, PenLine, Phone, Receipt, ShieldCheck,
+  Building2, CalendarDays, ChartColumn, ClipboardList, ChevronDown, ChevronsUpDown, Database, Globe, History, Home, Image, List, LogOut, MapPin, PenLine, Phone, Receipt, ShieldCheck,
   Stethoscope, Tag, Banknote, UserCog, Users, Wallet, type LucideIcon,
 } from 'lucide-react';
 import { can, logout, type Session } from '../api';
@@ -9,6 +9,7 @@ import { roleLabel } from '../labels';
 import { Badge, initials } from '../ui/components';
 import { ToothIcon } from '../ui/icons';
 import { setClinicCurrency } from '../money';
+import { setClinicTimeZone } from '../util';
 import { useProfile } from '../queries';
 import { canSee } from '../access';
 import { href, to, type Page } from '../router';
@@ -24,8 +25,8 @@ import {
 } from '@/components/ui/sidebar';
 
 const ICONS: Record<NavIcon, LucideIcon> = {
-  home: Home, calendar: CalendarDays, users: Users, phone: Phone, clinic: Building2, team: UserCog, pin: MapPin, stethoscope: Stethoscope, list: List,
-  edit: PenLine, receipt: Receipt, tag: Tag, cash: Banknote, wallet: Wallet, chart: ChartColumn, image: Image, globe: Globe, shield: ShieldCheck,
+  home: Home, calendar: CalendarDays, users: Users, clipboard: ClipboardList, phone: Phone, clinic: Building2, team: UserCog, pin: MapPin, stethoscope: Stethoscope, list: List,
+  edit: PenLine, receipt: Receipt, tag: Tag, cash: Banknote, wallet: Wallet, chart: ChartColumn, image: Image, globe: Globe, shield: ShieldCheck, history: History,
   database: Database,
 };
 
@@ -55,6 +56,7 @@ export function AppShell({ session, page, children }: { session: Session; page: 
   // the profile query is updated on save, so a renamed clinic shows everywhere at once
   const profile = useProfile(session.clinic.id).data;
   setClinicCurrency(profile?.currency); // before the screens below render their amounts (idempotent)
+  setClinicTimeZone(profile?.timezone); // and their dates and times (review R11)
   const name = profile ? arName(profile.nameAr, profile.nameEn, session.clinic.slug) : clinicName(session);
   const skipToMain = (e: MouseEvent) => {
     e.preventDefault(); // a plain #main link would change the hash route
@@ -71,6 +73,8 @@ export function AppShell({ session, page, children }: { session: Session; page: 
           <Separator orientation="vertical" className="h-5" />
           <span className="truncate font-semibold text-ink"><bdi>{name}</bdi></span>
           {session.clinic.status === 'trialing' && <Badge tone="warning">فترة تجريبية</Badge>}
+          {/* Phase 2B: the paid period ran out; the clinic works for the grace days (details on the plan card) */}
+          {session.clinic.status === 'past_due' && <Badge tone="danger">الاشتراك منتهٍ: جدِّده</Badge>}
         </header>
         <div id="main" className={`content${NARROW_PAGES.has(page) ? ' content-narrow' : ''}`} tabIndex={-1}>{children}</div>
       </SidebarInset>

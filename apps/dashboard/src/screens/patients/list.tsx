@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { navigate, useDebounced, useFlash } from '../../hooks';
+import { genderLabel } from '../../labels';
 import { ageOn } from '../../patient-model';
 import { usePatients } from '../../queries';
 import { to } from '../../router';
@@ -8,23 +9,27 @@ import { Alert, Badge, Button, PageHeader } from '../../ui/components';
 import { DataTable, type Column } from '../../ui/data-table';
 import { CalendarIcon, EditIcon, PlusIcon, UsersIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicToday, fmtNumber } from '../../util';
 import { RowMenu } from '../../ui/row-menu';
 
-const today = () => new Date().toLocaleDateString('en-CA');
 
 /**
  * `#/patients`: one search box for name, mobile or file number (the API searches every record and decides which),
  * newest first otherwise, with "load more" on the API's keyset cursor (redesign R3: on the shared DataTable; the
  * table does not sort or page itself here — the API does). `canWrite` = patients:write, `canBook` = appointments:write.
  */
-export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string; canWrite: boolean; canBook: boolean }) {
+export function PatientsList({ clinicId, canWrite, canBook, canImport = false }: { clinicId: string; canWrite: boolean; canBook: boolean; canImport?: boolean }) {
   const flash = useFlash();
   const [q, setQ] = useState('');
   const search = useDebounced(q.trim(), 250);
   const list = usePatients(clinicId, search);
   const rows = list.data?.pages.flatMap((p) => p.items);
-  const add = canWrite && <Button onClick={() => navigate(to.create('patients'))}><PlusIcon size={18} />مريض جديد</Button>;
+  const add = canWrite && (
+    <>
+      {canImport && <Button variant="secondary" onClick={() => navigate(to.importPatients())}>استيراد من Excel</Button>}
+      <Button onClick={() => navigate(to.create('patients'))}><PlusIcon size={18} />مريض جديد</Button>
+    </>
+  );
 
   const columns: Column<PatientRow>[] = [
     {
@@ -42,9 +47,9 @@ export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string
     { id: 'phone', header: 'رقم الموبايل', cell: (p) => <bdi dir="ltr" className="tabular-nums">{p.phone}</bdi> },
     {
       id: 'age', header: 'السن', hideOnMobile: true,
-      cell: (p) => { const age = ageOn(p.date_of_birth ?? '', today()); return age === null ? <span className="muted">—</span> : `${fmtNumber(age)} ${'سنة'}`; },
+      cell: (p) => { const age = ageOn(p.date_of_birth ?? '', clinicToday()); return age === null ? <span className="muted">—</span> : `${fmtNumber(age)} ${'سنة'}`; },
     },
-    { id: 'gender', header: 'النوع', hideOnMobile: true, cell: (p) => (p.gender ? p.gender === 'male' ? 'ذكر' : 'أنثى' : <span className="muted">—</span>) },
+    { id: 'gender', header: 'النوع', hideOnMobile: true, cell: (p) => (p.gender ? genderLabel[p.gender] ?? p.gender : <span className="muted">—</span>) },
     {
       id: 'status', header: 'الحالة', hideOnMobile: true,
       cell: (p) => (

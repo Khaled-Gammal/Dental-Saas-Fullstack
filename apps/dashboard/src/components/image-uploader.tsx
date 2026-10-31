@@ -18,6 +18,7 @@ const UPLOAD_ERRORS: Record<string, string> = {
 export function uploadErrorText(e: unknown, purpose: MediaPurpose = 'gallery'): string {
   const code = e instanceof ApiError ? e.code : 'error';
   if (code === 'image_too_small' && purpose === 'logo') return 'الشعار صغير جدًا (48 بكسل على الأقل لكل ضلع).';
+  if (code === 'image_too_small' && purpose === 'share') return 'صورة المشاركة صغيرة جدًا (600 بكسل على الأقل لكل ضلع؛ الأفضل 1200×630).'; // Phase 2C-3
   return UPLOAD_ERRORS[code] ? UPLOAD_ERRORS[code] : errorText(code, e instanceof ApiError ? e.status : undefined); // never the English detail (L10N-003)
 }
 

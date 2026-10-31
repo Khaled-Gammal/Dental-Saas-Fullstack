@@ -176,6 +176,24 @@ describe('Finance: expenses and the daily cash box (e2e, Phase E3)', () => {
       expect((after.totals.payments.card ?? 0) - (before.totals.payments.card ?? 0)).toBe(20000);
     });
 
+    it('every figure opens the movements it is made of, and they add up to it (redesign R9)', async () => {
+      const day = (await http().get(`/cash/sessions/${sessionId}`).set(as('maadi')).expect(200)).body;
+      const m = (await http().get(`/cash/sessions/${sessionId}/movements`).set(as('maadi')).expect(200)).body as
+        { business_date: string; items: { kind: 'payment' | 'refund' | 'expense'; method: string; amount_minor: number; note: string | null }[] };
+      expect(m.business_date).toBe(day.business_date);
+      const sum = (kind: string, method: string) => m.items.filter((x) => x.kind === kind && x.method === method).reduce((n, x) => n + x.amount_minor, 0);
+      const groups = [['payments', 'payment'], ['refunds', 'refund'], ['expenses', 'expense']] as const;
+      for (const [key, kind] of groups) {
+        for (const [method, amount] of Object.entries(day.totals[key] as Record<string, number>)) expect(sum(kind, method)).toBe(amount);
+      }
+      // and nothing listed is missing from the figures
+      for (const x of m.items) expect(day.totals[groups.find(([, k]) => k === x.kind)![0]][x.method]).toBeGreaterThan(0);
+      expect(sum('payment', 'cash')).toBe(day.totals.cash_in);
+      expect(sum('expense', 'cash')).toBe(day.totals.cash_expenses);
+      expect(m.items.some((x) => x.kind === 'expense' && x.note === 'بنزين')).toBe(true);
+      await http().get(`/cash/sessions/${sessionId}/movements`).set(as('doctorA')).expect(403);
+    });
+
     it('closing: a difference needs a note; then the day takes no movement; only the owner reopens (CASH-003/004)', async () => {
       const open = (await http().get(`/cash/sessions/${sessionId}`).set(as('maadi')).expect(200)).body;
       const r = await http().post(`/cash/sessions/${sessionId}/close`).set(as('maadi')).send({ countedMinor: open.expected_minor - 1000 }).expect(400);

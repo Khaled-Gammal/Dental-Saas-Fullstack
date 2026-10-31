@@ -5,16 +5,18 @@ import { toothConditionLabel, toothSurfaceLabel } from '../../labels';
 import { send, useClinicalMutation, usePatientChart } from '../../queries';
 import type { ChartEntry, PatientChart, Surface, ToothCondition } from '../../types';
 import { Button, Card, ErrorText, Field, Input, Skeleton, Switch } from '../../ui/components';
+import { clinicTimeZone, LOC } from '../../util';
 
-const loc = () => ('ar-EG-u-nu-latn');
 const cond = (c: ToothCondition) => toothConditionLabel[c];
 
 /**
  * The dental chart of a patient (SRS CHART-001): FDI numbering, the current condition per tooth, its history, and
  * new entries (a correction is a new entry; nothing is edited). `visitId` links new entries to the visit.
  */
-export function ChartCard({ clinicId, patientId, canWrite, age, visitId }: {
+export function ChartCard({ clinicId, patientId, canWrite, age, visitId, onProcedure }: {
   clinicId: string; patientId: string; canWrite: boolean; age: number | null; visitId?: string;
+  /** redesign R8: on the visit, record a procedure on the chosen tooth (the form opens with the tooth filled in) */
+  onProcedure?: (tooth: number) => void;
 }) {
   const chart = usePatientChart(clinicId, patientId, true);
   const [tooth, setTooth] = useState<number | null>(null);
@@ -35,7 +37,7 @@ export function ChartCard({ clinicId, patientId, canWrite, age, visitId }: {
             <Legend />
             {tooth !== null && (
               <ToothPanel key={tooth} clinicId={clinicId} patientId={patientId} tooth={tooth} history={toothHistory(entries, tooth)}
-                canWrite={canWrite} visitId={visitId} onClose={() => setTooth(null)} />
+                canWrite={canWrite} visitId={visitId} onClose={() => setTooth(null)} onProcedure={onProcedure && (() => onProcedure(tooth))} />
             )}
           </>
         )}
@@ -84,8 +86,8 @@ function Legend() {
   );
 }
 
-function ToothPanel({ clinicId, patientId, tooth, history, canWrite, visitId, onClose }: {
-  clinicId: string; patientId: string; tooth: number; history: ChartEntry[]; canWrite: boolean; visitId?: string; onClose: () => void;
+function ToothPanel({ clinicId, patientId, tooth, history, canWrite, visitId, onClose, onProcedure }: {
+  clinicId: string; patientId: string; tooth: number; history: ChartEntry[]; canWrite: boolean; visitId?: string; onClose: () => void; onProcedure?: () => void;
 }) {
   const [condition, setCondition] = useState<ToothCondition>(history[0]?.condition ?? 'caries');
   const [surfaces, setSurfaces] = useState<Surface[]>([]);
@@ -93,13 +95,16 @@ function ToothPanel({ clinicId, patientId, tooth, history, canWrite, visitId, on
   const add = useClinicalMutation(clinicId, () => send(`/patients/${patientId}/chart`, 'POST', {
     ...(visitId && { visitId }), entries: [{ toothCode: tooth, condition, surfaces, ...(notes.trim() && { notes: notes.trim() }) }],
   }));
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeZone: clinicTimeZone() });
   const toggle = (s: Surface) => setSurfaces((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]));
   return (
     <div className="tooth-panel mt">
       <div className="row-between">
         <h3>سن <bdi dir="ltr">{tooth}</bdi></h3>
-        <Button variant="ghost" onClick={onClose}>إخفاء</Button>
+        <div className="row-end">
+          {onProcedure && <Button variant="secondary" onClick={onProcedure}>إجراء على هذا السن</Button>}
+          <Button variant="ghost" onClick={onClose}>إخفاء</Button>
+        </div>
       </div>
       {history.length === 0 ? <p className="muted small">لا توجد تسجيلات لهذا السن.</p> : (
         <ol className="stack-sm mt-sm">

@@ -12,15 +12,14 @@ import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { CalendarIcon, PhoneIcon } from '../../ui/icons';
 import { DataTable, type Column } from '../../ui/data-table';
 import { RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicToday, fmtNumber, LOC } from '../../util';
 import { RowMenu } from '../../ui/row-menu';
 
 type View = 'due' | 'upcoming' | 'closed';
 const VIEWS: View[] = ['due', 'upcoming', 'closed'];
 const REASONS: RecallReason[] = ['checkup', 'cleaning', 'ortho_adjustment', 'post_op', 'implant_followup', 'other'];
 const STATUS_TONE: Record<Recall['status'], 'neutral' | 'primary' | 'success' | 'warning'> = { pending: 'warning', contacted: 'primary', booked: 'success', done: 'neutral', dismissed: 'neutral' };
-const todayIso = () => new Date().toLocaleDateString('en-CA');
-const fmtDate = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const fmtDate = (iso: string) => new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 
 /**
  * `#/followups`: the list reception works (SRS VISIT-005): who is due for a check-up, cleaning or review. Staff call,
@@ -42,7 +41,7 @@ export function FollowUps({ clinicId, canWrite, canBook, query }: { clinicId: st
         key={view}
         label="المتابعات"
         rows={list.data?.items}
-        columns={recallColumns(list.data?.today ?? todayIso())}
+        columns={recallColumns(list.data?.today ?? clinicToday())}
         rowKey={(r) => r.id}
         isLoading={list.isLoading}
         isFetching={list.isFetching}
@@ -193,7 +192,7 @@ export function PatientFollowUpsCard({ clinicId, patientId, canWrite, canBook }:
   const list = usePatientRecalls(clinicId, patientId);
   const [adding, setAdding] = useState(false);
   const [reason, setReason] = useState<RecallReason>('checkup');
-  const [due, setDue] = useState(addMonths(todayIso(), 6));
+  const [due, setDue] = useState(addMonths(clinicToday(), 6));
   const add = useClinicalMutation(clinicId, () => send(`/patients/${patientId}/recalls`, 'POST', { reason, dueDate: due }));
   return (
     <Card>
@@ -206,14 +205,14 @@ export function PatientFollowUpsCard({ clinicId, patientId, canWrite, canBook }:
           <Field label="سبب المتابعة">
             {(a) => <Choice id={a.id} value={reason} onChange={(x) => setReason(x as RecallReason)} options={REASONS.map((x) => ({ value: x, label: recallReasonLabel[x] }))} />}
           </Field>
-          <Field label="موعد الاستحقاق">{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={todayIso()} />}</Field>
+          <Field label="موعد الاستحقاق">{(a) => <DatePicker id={a.id} value={due} onChange={setDue} min={clinicToday()} />}</Field>
           <ErrorText error={add.error} />
           <div className="row-end"><Button variant="ghost" onClick={() => setAdding(false)}>إلغاء</Button><Button type="submit" loading={add.isPending}>حفظ</Button></div>
         </form>
       )}
       {list.isError ? <ErrorText error={list.error} onRetry={() => void list.refetch()} />
         : !list.data?.length ? <p className="muted small mt-sm">لا توجد متابعات.</p>
-        : <ul className="stack mt">{list.data.map((r) => <RecallRow key={r.id} clinicId={clinicId} r={r} today={todayIso()} canWrite={canWrite} canBook={canBook} compact />)}</ul>}
+        : <ul className="stack mt">{list.data.map((r) => <RecallRow key={r.id} clinicId={clinicId} r={r} today={clinicToday()} canWrite={canWrite} canBook={canBook} compact />)}</ul>}
     </Card>
   );
 }

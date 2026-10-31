@@ -1,7 +1,7 @@
 -- Test helpers, installed into the throwaway test database only (runs as admin).
 CREATE EXTENSION IF NOT EXISTS dblink;
 CREATE SCHEMA IF NOT EXISTS test;
-GRANT USAGE ON SCHEMA test TO app_user, app_worker;
+GRANT USAGE ON SCHEMA test TO app_user, app_worker, app_platform;
 
 -- passes when cond is true
 CREATE OR REPLACE FUNCTION test.ok(cond boolean, label text) RETURNS void LANGUAGE plpgsql AS $$

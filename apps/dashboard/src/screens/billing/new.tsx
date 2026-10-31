@@ -10,12 +10,15 @@ import type { InvoiceDetail } from '../../types';
 import { Button, Card, Field, Input, LinkButton } from '../../ui/components';
 import { FormPage, NotFound, ResourceState } from '../../ui/page';
 import { Checkbox } from '../../components/ui/checkbox';
+import { clinicTimeZone, LOC } from '../../util';
 
 type Line = { serviceId: string; description: string; price: string; qty: string };
+/** the visit's day on the clinic's wall clock (review R11: the UTC date was a day early for evening visits) */
+const visitDate = () => new Intl.DateTimeFormat(LOC, { day: 'numeric', month: 'short', year: 'numeric', timeZone: clinicTimeZone() });
 
 /**
- * `#/invoices/new?patient=<id>[&visit=<id>]` (BILLING-001): a draft for one patient and one branch, from the
- * patient's unbilled procedures (a visit's are pre-selected) and/or service lines. Issuing happens on the invoice.
+ * `#/invoices/new?patient=<id>[&visit=<id>|&branch=<id>]` (BILLING-001): a draft for one patient and one branch, from the
+ * patient's unbilled procedures (a visit's, or a branch's from the unbilled-work list, are pre-selected) and/or service lines. Issuing happens on the invoice.
  */
 export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Record<string, string> }) {
   const patientId = query?.patient;
@@ -25,11 +28,15 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
   const services = useServices(clinicId);
   const unbilled = billing.data?.unbilled ?? [];
   const [picked, setPicked] = useState<Set<string> | null>(null);
-  const chosen = picked ?? new Set(unbilled.filter((p) => !query?.visit || p.visit_id === query.visit).map((p) => p.id));
   const active = (branches.data ?? []).filter((b) => b.is_active);
-  const visitBranch = unbilled.find((p) => p.visit_id === query?.visit)?.branch_id;
+  const visitBranch = unbilled.find((p) => p.visit_id === query?.visit)?.branch_id ?? unbilled.find((p) => p.branch_id === query?.branch)?.branch_id;
   const [branchId, setBranchId] = useState('');
   const branch = branchId || visitBranch || patient.data?.preferred_branch_id || (active.length === 1 ? active[0].id : '');
+  // review R11: pre-tick only the work of the visit asked for, else of the invoice's branch — never another branch's
+  const chosen = picked ?? new Set(unbilled.filter((p) => (query?.visit ? p.visit_id === query.visit : !!branch && p.branch_id === branch)).map((p) => p.id));
+  const branchName = (id: string) => { const b = (branches.data ?? []).find((x) => x.id === id); return b ? arName(b.name_ar, b.name_en, b.slug) : ''; };
+  const manyBranches = new Set(unbilled.map((p) => p.branch_id)).size > 1;
+  const otherBranch = !!branch && unbilled.some((p) => chosen.has(p.id) && p.branch_id !== branch);
   const [lines, setLines] = useState<Line[]>([]);
   const create = useBillingMutation(clinicId, () => send<InvoiceDetail>('/invoices', 'POST', {
     patientId, branchId: branch, procedureIds: [...chosen],
@@ -68,13 +75,15 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
                   <label className="check-row">
                     <Checkbox checked={chosen.has(p.id)} onCheckedChange={() => toggle(p.id)} />
                     <span><bdi>{arName(p.service_ar, p.service_en)}</bdi>{p.tooth_code && <> · <bdi dir="ltr">{p.tooth_code}</bdi></>}
-                      <span className="muted small"> · <bdi>{arName(p.doctor_ar, p.doctor_en)}</bdi> · {p.visit_at.slice(0, 10)}</span></span>
+                      <span className="muted small"> · <bdi>{arName(p.doctor_ar, p.doctor_en)}</bdi> · {visitDate().format(new Date(p.visit_at))}
+                        {manyBranches && <> · <bdi>{branchName(p.branch_id)}</bdi></>}</span></span>
                   </label>
                   <span className="line-end"><bdi>{money(p.price_minor, currency)}</bdi></span>
                 </li>
               ))}
             </ul>
           )}
+          {otherBranch && <p className="muted small mt-sm">بعض الإجراءات المختارة من فرع آخر غير فرع الفاتورة.</p>}
         </Card>
         <Card>
           <div className="row-between">

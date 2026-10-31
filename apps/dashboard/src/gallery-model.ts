@@ -2,7 +2,7 @@
  * Gallery and upload rules mirrored from the API (MEDIA_POLICY, gallery CHECKs). Pure functions, unit-tested in
  * __tests__/gallery-model.test.ts. The server stays the authority; these only spare the user a round trip.
  */
-import type { GalleryItem } from './types';
+import type { GalleryCase, GalleryItem, MediaImage } from './types';
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
@@ -58,6 +58,53 @@ export function galleryBody(f: GalleryForm, orig: GalleryForm): Record<string, u
   if (f.isFeatured !== orig.isFeatured) body.isFeatured = f.isFeatured;
   return body;
 }
+
+// ---------- Phase 2C-2: before/after cases ----------
+export interface CaseForm {
+  before: MediaImage | null; after: MediaImage | null; serviceId: string; captionAr: string; altAr: string; consentConfirmed: boolean; isPublished: boolean;
+}
+export const emptyCase: CaseForm = { before: null, after: null, serviceId: '', captionAr: '', altAr: '', consentConfirmed: false, isPublished: false };
+export const toCaseForm = (c: GalleryCase): CaseForm => ({
+  before: c.before, after: c.after, serviceId: c.serviceId ?? '', captionAr: c.captionAr ?? '', altAr: c.altAr ?? '',
+  consentConfirmed: c.consentConfirmed, isPublished: c.isPublished,
+});
+
+export type CaseProblem = 'images_required' | 'same_image' | 'consent_required' | 'alt_required' | 'too_long';
+/** The API's rules: two different images; published only with consent and a description. */
+export function caseProblems(f: CaseForm): CaseProblem[] {
+  const out: CaseProblem[] = [];
+  if (!f.before || !f.after) out.push('images_required');
+  else if (f.before.id === f.after.id) out.push('same_image');
+  if (f.isPublished && !f.consentConfirmed) out.push('consent_required');
+  if (f.isPublished && !f.captionAr.trim() && !f.altAr.trim()) out.push('alt_required');
+  if (f.captionAr.trim().length > 300 || f.altAr.trim().length > 200) out.push('too_long');
+  return out;
+}
+
+/**
+ * The request body: everything for a new case, only what changed for an edit; withdrawing consent unpublishes. New
+ * images need the consent confirmed again: it is sent with them (the API drops the consent otherwise).
+ */
+export function caseBody(f: CaseForm, orig: CaseForm | null): Record<string, unknown> {
+  const full: Record<string, unknown> = {
+    beforeFileId: f.before?.id, afterFileId: f.after?.id, serviceId: f.serviceId || null, captionAr: f.captionAr.trim() || null,
+    altAr: f.altAr.trim() || null, consentConfirmed: f.consentConfirmed, isPublished: f.isPublished && f.consentConfirmed,
+  };
+  if (!orig) return full;
+  const was: Record<string, unknown> = {
+    beforeFileId: orig.before?.id, afterFileId: orig.after?.id, serviceId: orig.serviceId || null, captionAr: orig.captionAr.trim() || null,
+    altAr: orig.altAr.trim() || null, consentConfirmed: orig.consentConfirmed, isPublished: orig.isPublished,
+  };
+  const body = Object.fromEntries(Object.entries(full).filter(([k, v]) => was[k] !== v));
+  if ((body.beforeFileId !== undefined || body.afterFileId !== undefined) && f.consentConfirmed) {
+    body.consentConfirmed = true;
+    if (f.isPublished) body.isPublished = true;
+  }
+  return body;
+}
+
+/** A form after one of its images changed: the consent covered the old images, so it is asked again. */
+export const withNewImage = (f: CaseForm, k: 'before' | 'after', img: MediaImage | null): CaseForm => ({ ...f, [k]: img, consentConfirmed: false, isPublished: false });
 
 /** `srcset` for a signed image: the API only signs the smallest and largest renditions, which is all a thumbnail needs. */
 export const imageSrcSet = (img: { thumbUrl: string; fullUrl: string; widths: number[] }) =>

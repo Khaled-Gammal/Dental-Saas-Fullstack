@@ -5,7 +5,7 @@ import { RequirePermission } from '../../auth/decorators';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import {
   Amendment, ChartEntries, EditPlan, EditPlanItem, LinkAppointment, NewPlan, NewPlanItem, NewPrescription, NewProcedure, NewRecall, OpenVisit,
-  PlanStatus, RecallContact, RecallDismiss, RecallsQuery, VisitNotes,
+  PlanStatus, RecallContact, RecallDismiss, RecallsQuery, VisitNotes, VisitsQuery, DrugsQuery,
 } from './clinical.schemas';
 import { PlansService } from './plans.service';
 import { RecallsService } from './recalls.service';
@@ -28,6 +28,12 @@ export class VisitsController {
   @RequirePermission('clinical:write')
   open(@Body(new ZodBody(OpenVisit)) body: Body<typeof OpenVisit>) {
     return this.visits.open(body);
+  }
+
+  /** The visits list, redesign R5 (clinical:read or clinical:write, checked in the service). */
+  @Get()
+  list(@Query(new ZodBody(VisitsQuery)) q: Body<typeof VisitsQuery>) {
+    return this.visits.list(q);
   }
 
   @Get(':id')
@@ -76,6 +82,12 @@ export class VisitsController {
 @Controller('prescriptions')
 export class PrescriptionsController {
   constructor(private readonly visits: VisitsService) {}
+
+  /** Redesign R8: drugs to suggest while writing (clinical:read or clinical:write, checked in the service). Before `:id`. */
+  @Get('drugs')
+  drugs(@Query(new ZodBody(DrugsQuery)) q: Body<typeof DrugsQuery>) {
+    return this.visits.drugSuggestions(q);
+  }
 
   /** One prescription with what its printout needs (VISIT-004). */
   @Get(':id')

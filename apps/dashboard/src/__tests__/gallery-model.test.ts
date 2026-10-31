@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { canReorder, describedEnough, galleryBody, galleryProblems, moveId, uploadProblem, type GalleryForm } from '../gallery-model';
+import { canReorder, caseBody, caseProblems, describedEnough, emptyCase, galleryBody, galleryProblems, moveId, toCaseForm, uploadProblem, withNewImage, type GalleryForm } from '../gallery-model';
+import type { GalleryCase, MediaImage } from '../types';
 
 describe('uploadProblem', () => {
   it('accepts JPEG, PNG and WebP up to 10 MB', () => {
@@ -47,5 +48,33 @@ describe('galleryBody', () => {
     expect(galleryBody({ ...orig, branchId: '' }, orig)).toEqual({ branchId: null });
     expect(galleryBody({ ...orig, isPublished: true, altAr: ' وصف ' }, orig)).toEqual({ isPublished: true, altAr: 'وصف' });
     expect(galleryBody(orig, orig)).toEqual({});
+  });
+});
+
+describe('before/after cases (Phase 2C-2)', () => {
+  const img = (id: string): MediaImage => ({ id, width: 900, height: 600, widths: [320], thumbUrl: 't', fullUrl: 'f' });
+  const c: GalleryCase = {
+    id: 'c1', serviceId: null, serviceName: null, captionAr: 'تبييض', altAr: null, isPublished: true, consentConfirmed: true,
+    consentConfirmedAt: '2026-11-01T10:00:00Z', consentConfirmedBy: 'د. أحمد', sortOrder: 0, updatedAt: '', before: img('b'), after: img('a'),
+  };
+  it('two different images; published only with consent and a description', () => {
+    expect(caseProblems(emptyCase)).toEqual(['images_required']);
+    expect(caseProblems({ ...emptyCase, before: img('x'), after: img('x') })).toEqual(['same_image']);
+    expect(caseProblems({ ...emptyCase, before: img('b'), after: img('a'), isPublished: true })).toEqual(['consent_required', 'alt_required']);
+    expect(caseProblems({ ...emptyCase, before: img('b'), after: img('a'), isPublished: true, consentConfirmed: true, altAr: 'ابتسامة' })).toEqual([]);
+    expect(caseProblems(toCaseForm(c))).toEqual([]);
+  });
+  it('a new case sends everything; an edit only the changes; withdrawing consent unpublishes', () => {
+    expect(caseBody({ ...emptyCase, before: img('b'), after: img('a'), captionAr: ' تبييض ', consentConfirmed: true, isPublished: true }, null)).toEqual({
+      beforeFileId: 'b', afterFileId: 'a', serviceId: null, captionAr: 'تبييض', altAr: null, consentConfirmed: true, isPublished: true,
+    });
+    const orig = toCaseForm(c);
+    // a new image drops the consent in the form; confirmed again, it is sent with the image
+    const changed = withNewImage(orig, 'after', img('a2'));
+    expect(changed).toMatchObject({ consentConfirmed: false, isPublished: false });
+    expect(caseBody(changed, orig)).toEqual({ afterFileId: 'a2', consentConfirmed: false, isPublished: false });
+    expect(caseBody({ ...changed, consentConfirmed: true, isPublished: true }, orig)).toEqual({ afterFileId: 'a2', consentConfirmed: true, isPublished: true });
+    expect(caseBody({ ...orig, consentConfirmed: false }, orig)).toEqual({ consentConfirmed: false, isPublished: false });
+    expect(caseBody(orig, orig)).toEqual({});
   });
 });

@@ -6,19 +6,31 @@ import { z } from 'zod';
 loadDotenv({ path: path.resolve(__dirname, '../../../.env') });
 
 const DEV_OTP_SECRET = 'dev-only-otp-secret-change-me';
+const DEV_PASSWORD_PEPPER = 'dev-only-password-pepper-change-me-in-production';
+
+const emptyToUndefined = (v: unknown) => (v === '' ? undefined : v);
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().default(4000),
   DATABASE_URL: z.string().min(1),
   DATABASE_WORKER_URL: z.string().min(1),
+  /**
+   * Review R11: the platform admin panel's own connection (role app_platform), the only role allowed to call the
+   * platform_*() functions. Its database name is ignored: the panel always uses the API's database (DATABASE_URL).
+   */
+  DATABASE_PLATFORM_URL: z.string().min(1),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   BOOKING_CODE_SECRET: z.string().min(16),
   DEV_LOGIN_ENABLED: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   DASHBOARD_URL: z.string().default('http://localhost:5173'),
+  /** review R11: the platform's landing page, linked from the "trial ending" email (optional: without it, no link) */
+  LANDING_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
   ROOT_DOMAIN: z.string().default('lvh.me'),
   OTP_SECRET: z.string().min(16).default(DEV_OTP_SECRET),
+  /** review R11: mixed into every password hash (identity/crypto.ts); set once per environment, never changed */
+  PASSWORD_PEPPER: z.string().min(16).default(DEV_PASSWORD_PEPPER),
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().default(1025),
   MAIL_FROM: z.string().default('Dental SaaS <no-reply@lvh.me>'),
@@ -50,6 +62,12 @@ const schema = z.object({
   // signs short-lived links to private media (dashboard previews of unpublished images)
   MEDIA_URL_SECRET: z.string().min(16).default('dev-only-media-url-secret'),
   SWAGGER_ENABLED: z.enum(['true', 'false']).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
+  /** Phase 1B: error tracking (Sentry). Unset = off. The same project can serve the API and the worker (tag "service"). */
+  SENTRY_DSN: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  /** defaults to NODE_ENV; e.g. "staging" for a staging server that also runs with NODE_ENV=production */
+  SENTRY_ENVIRONMENT: z.preprocess(emptyToUndefined, z.string().optional()),
+  /** the deployed version (a git sha or tag), so an error is tied to the release that introduced it */
+  SENTRY_RELEASE: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 
 export type AppConfig = z.infer<typeof schema>;
@@ -64,10 +82,11 @@ export function loadConfig(overrides: Partial<Record<keyof AppConfig, string>> =
   if (c.NODE_ENV === 'production') {
     const problems = [
       c.DEV_LOGIN_ENABLED && 'DEV_LOGIN_ENABLED must be false',
+      dbUser(c.DATABASE_PLATFORM_URL) === dbUser(c.DATABASE_URL) && 'DATABASE_PLATFORM_URL must use its own role (app_platform), not the API\'s',
       !c.RATE_LIMIT_ENABLED && 'RATE_LIMIT_ENABLED must be true',
       c.STORAGE_DRIVER === 'local' && 'STORAGE_DRIVER=local keeps uploads on one machine; use s3 (R2, S3 or another S3-compatible service)',
       c.STORAGE_DRIVER === 's3' && !(c.S3_ENDPOINT && c.S3_ACCESS_KEY && c.S3_SECRET_KEY) && 'S3_ENDPOINT, S3_ACCESS_KEY and S3_SECRET_KEY are required for STORAGE_DRIVER=s3',
-      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET', 'MEDIA_URL_SECRET'] as const)
+      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET', 'MEDIA_URL_SECRET', 'PASSWORD_PEPPER'] as const)
         .filter((k) => c[k] === DEV_OTP_SECRET || c[k].startsWith('dev-only') || c[k].length < 32)
         .map((k) => `${k} must be a long random value (not the development one)`),
     ].filter(Boolean);
@@ -75,6 +94,14 @@ export function loadConfig(overrides: Partial<Record<keyof AppConfig, string>> =
   }
   return c;
 }
+
+/**
+ * The password pepper for identity/crypto.ts, read where it is used (the hashing helpers are plain functions, also
+ * called by test helpers outside the Nest container). loadConfig() refuses the development value in production.
+ */
+export const passwordPepper = (): string => process.env.PASSWORD_PEPPER || DEV_PASSWORD_PEPPER;
+
+const dbUser = (url: string) => { try { return decodeURIComponent(new URL(url).username); } catch { return url; } };
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
 
@@ -144,6 +171,10 @@ export const MEDIA_POLICY = {
     gallery: { kind: 'gallery', minSide: 200, widths: [480, 960, 1600] },
     photo: { kind: 'image', minSide: 200, widths: [320, 640, 1280] },
     logo: { kind: 'logo', minSide: 48, widths: [128, 256, 512] },
+    /** Phase 2C-2: a before/after case's images — patient images, their own kind, served uncached (consent can be withdrawn) */
+    case: { kind: 'case', minSide: 200, widths: [480, 960] },
+    /** Phase 2C-3: the site's share image (made into a 1200×630 JPEG when shared); wide, so 600 px at least */
+    share: { kind: 'image', minSide: 600, widths: [640, 1280] },
   },
 } as const;
 
@@ -185,6 +216,16 @@ export const DATA_POLICY = {
   deletionSubject: 'طلب حذف العيادة',
 } as const;
 
+/**
+ * Phase 2B (owner 2026-10-31): subscriptions are paid outside the system and recorded by the platform. When a paid
+ * period runs out the clinic is past due (keeps working, warned); after `graceDays` it is suspended as unpaid. Owners
+ * are reminded `remindDays` and 1 day before the end, when it ends, and the day before the suspension.
+ */
+export const BILLING_POLICY = {
+  graceDays: 7,
+  remindDays: 7,
+} as const;
+
 export const WORKER_POLICY = {
   outboxEveryMs: 5_000,
   notificationsEveryMs: 30_000,
@@ -199,4 +240,11 @@ export const WORKER_POLICY = {
   expireExportsCron: '0 4 * * *',
   purgeClinicsCron: '30 4 * * *',
   timezone: 'Africa/Cairo',
+  /**
+   * Phase 1B: the worker writes the time here after each completed job (at most every 15 s); GET /health/worker fails once it is
+   * older than 10 minutes. Not 1-2 minutes: a nightly purge can hold the single maintenance slot for a few minutes.
+   */
+  heartbeatKey: 'dental:worker:heartbeat',
+  heartbeatEveryMs: 15_000,
+  heartbeatStaleMs: 10 * 60_000,
 } as const;

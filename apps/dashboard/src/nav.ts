@@ -5,8 +5,8 @@
  */
 import type { Page } from './router';
 
-export type NavIcon = 'home' | 'calendar' | 'users' | 'phone' | 'clinic' | 'team' | 'pin' | 'stethoscope' | 'list' | 'edit' | 'receipt' | 'tag' | 'cash'
-  | 'wallet' | 'chart' | 'image' | 'globe' | 'shield' | 'database';
+export type NavIcon = 'home' | 'calendar' | 'users' | 'clipboard' | 'phone' | 'clinic' | 'team' | 'pin' | 'stethoscope' | 'list' | 'edit' | 'receipt' | 'tag' | 'cash'
+  | 'wallet' | 'chart' | 'image' | 'globe' | 'shield' | 'database' | 'history';
 /** A page link, or an item shown as "soon" to who holds `perm` (the website editor). */
 export interface NavItem { label: string; icon: NavIcon; page?: Page; perm?: string }
 /** `id` names the group in code (its remembered open state, the active group); `label` is what the menu shows. */
@@ -19,6 +19,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'نظرة عامة', icon: 'home', page: 'overview' },
       { label: 'المواعيد', icon: 'calendar', page: 'appointments' },
       { label: 'المرضى', icon: 'users', page: 'patients' },
+      { label: 'الزيارات', icon: 'clipboard', page: 'visits' }, // redesign R5: today's visits and the open drafts
       { label: 'المتابعات', icon: 'phone', page: 'followups' },
     ],
   },
@@ -45,7 +46,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'website', label: 'الموقع الإلكتروني',
     items: [
       { label: 'معرض الصور', icon: 'image', page: 'gallery' },
-      { label: 'الموقع', icon: 'globe', perm: 'website:write' },
+      { label: 'الموقع', icon: 'globe', page: 'website' }, // Phase 2C-1: sections and questions
     ],
   },
   {
@@ -53,6 +54,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'فريق العمل', icon: 'team', page: 'staff' },
       { label: 'الأدوار والصلاحيات', icon: 'shield', page: 'roles' },
+      { label: 'سجل العمليات', icon: 'history', page: 'activity' }, // Phase 2D
     ],
   },
 ];
@@ -62,7 +64,7 @@ export const NAV_FOOT: NavItem[] = [{ label: 'بيانات العيادة', icon
 
 /** Pages without their own menu item belong to the item they are opened from (a visit to the patients, a payment to billing). */
 const PARENT: Partial<Record<Page, Page>> = {
-  visits: 'patients', plans: 'patients', prescriptions: 'patients', payments: 'invoices', holidays: 'branches', booking: 'branches',
+  plans: 'patients', prescriptions: 'patients', payments: 'invoices', holidays: 'branches', booking: 'branches',
 };
 export const navPageOf = (page: Page | 'not-found'): Page | null => (page === 'not-found' ? null : PARENT[page] ?? page);
 

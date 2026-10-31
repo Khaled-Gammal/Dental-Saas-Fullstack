@@ -13,15 +13,13 @@ import type { Appointment, Doctor, PatientRow } from '../../types';
 import { Alert, Badge, Button, Card, Field, Input, Switch, TextArea } from '../../ui/components';
 import { AlertIcon } from '../../ui/icons';
 import { FormPage } from '../../ui/page';
-import { fmtNumber, zonedToUtc } from '../../util';
+import { clinicTimeZone, clinicToday, fmtNumber, LOC, zonedToUtc } from '../../util';
 import { useCan } from '../../can';
 import { TimeField } from '../../components/time-field';
 
-const todayIso = () => new Date().toLocaleDateString('en-CA');
-const tomorrowIso = () => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); };
+const tomorrowIso = () => new Date(Date.parse(`${clinicToday()}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 const SOURCES = ['phone', 'walk_in', 'whatsapp', 'dashboard'] as const;
 const SOURCE_ICON: Record<(typeof SOURCES)[number], LucideIcon> = { phone: Phone, walk_in: Footprints, whatsapp: MessageCircle, dashboard: LayoutDashboard };
-const loc = () => ('ar-EG-u-nu-latn');
 /** the free times split by part of the day, in the branch's zone */
 const PERIODS = [
   { label: 'صباحًا', from: 0, to: 12 },
@@ -55,7 +53,7 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
   const [serviceId, setServiceId] = useState(prefill?.service ?? '');
   const service = (services.data ?? []).find((s) => s.id === serviceId && s.is_active);
   // ?date= from the appointments page: that day, unless it has passed
-  const [date, setDate] = useState(() => (prefill?.date && /^\d{4}-\d{2}-\d{2}$/.test(prefill.date) && prefill.date > todayIso() ? prefill.date : todayIso()));
+  const [date, setDate] = useState(() => (prefill?.date && /^\d{4}-\d{2}-\d{2}$/.test(prefill.date) && prefill.date > clinicToday() ? prefill.date : clinicToday()));
   const [slot, setSlot] = useState('');
   const [override, setOverride] = useState(false);
   const [time, setTime] = useState('');
@@ -65,8 +63,8 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
   const [notes, setNotes] = useState('');
 
   const slots = useStaffSlots(clinicId, { branchId: branch, doctorId: doctor, serviceId: service?.id, date });
-  const tz = slots.data?.timezone ?? 'Africa/Cairo';
-  const fmtTime = (iso: string) => new Intl.DateTimeFormat(loc(), { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
+  const tz = slots.data?.timezone ?? clinicTimeZone();
+  const fmtTime = (iso: string) => new Intl.DateTimeFormat(LOC, { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
   const hourOf = (iso: string) => Number(new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(new Date(iso)));
 
   const startsAt = override ? (time && /^\d{2}:\d{2}$/.test(time) ? new Date(zonedToUtc(date, time, tz)).toISOString() : '') : slot;
@@ -104,7 +102,7 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
   const doctorRow = doctorsHere.find((d) => d.id === doctor);
   const length = override ? (service?.duration_minutes ?? (minutes || null)) : (slots.data?.durationMinutes ?? service?.duration_minutes ?? null);
   const price = service ? priceParts(service, fmtNumber) : null;
-  const dayText = new Intl.DateTimeFormat(loc(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
+  const dayText = new Intl.DateTimeFormat(LOC, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
   const missing = [
     !chosen && 'المريض', !branch && 'الفرع', !doctor && 'الطبيب', !startsAt && 'الوقت',
     override && reason.trim().length < 3 && 'سبب الحجز خارج الجدول',
@@ -176,10 +174,10 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
         action={canOverride && <Switch checked={override} onChange={(v) => { setOverride(v); reset(); }} label="خارج جدول الطبيب" />}>
         <div className="appt-day">
           <Field label="التاريخ">
-            {(a) => <DatePicker id={a.id} value={date} onChange={pickDate} min={todayIso()} />}
+            {(a) => <DatePicker id={a.id} value={date} onChange={pickDate} min={clinicToday()} />}
           </Field>
           <div className="seg" role="group" aria-label="اختصار التاريخ">
-            {[{ d: todayIso(), label: 'اليوم' }, { d: tomorrowIso(), label: 'غدًا' }].map((x) => (
+            {[{ d: clinicToday(), label: 'اليوم' }, { d: tomorrowIso(), label: 'غدًا' }].map((x) => (
               <button key={x.label} type="button" aria-pressed={date === x.d} className={`seg-btn${date === x.d ? ' is-on' : ''}`} onClick={() => pickDate(x.d)}>{x.label}</button>
             ))}
           </div>

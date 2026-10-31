@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { sql, type Tx } from '@dental/db';
+import { sql, type RawBuilder, type Tx } from '@dental/db';
+import { toAsciiDigits } from '../../shared/phone';
+import { escapeLike } from '../patients/patient-rules';
+
+/** The invoice list's filters (BILLING-*, redesign R7). */
+export interface InvoiceFilters { status?: string; patientId?: string; from?: string; to?: string; q?: string }
 
 const memberName = (alias: string) => sql<string | null>`(select u.full_name from tenant_members m join users u on u.id = m.user_id where m.id = ${sql.ref(alias)})`;
 const n = (v: string | number | null) => (v === null ? null : Number(v));
@@ -28,18 +33,53 @@ export class BillingRepository {
       ]);
   }
 
-  async list(tx: Tx, q: { status?: string; patientId?: string; from?: string; to?: string; limit: number; after?: string }) {
-    let query = this.invoices(tx);
-    if (q.patientId) query = query.where('i.patient_id', '=', q.patientId);
-    if (q.status === 'open') query = query.where('i.status', 'in', ['issued', 'partially_paid']);
-    else if (q.status) query = query.where('i.status', '=', q.status);
-    if (q.from) query = query.where(sql<boolean>`coalesce(i.issue_date, i.created_at::date) >= ${q.from}::date`);
-    if (q.to) query = query.where(sql<boolean>`coalesce(i.issue_date, i.created_at::date) <= ${q.to}::date`);
+  /** The list's filters as one condition, shared by the list and its totals (redesign R7). */
+  private filters(q: InvoiceFilters) {
+    const parts: RawBuilder<boolean>[] = [];
+    if (q.patientId) parts.push(sql<boolean>`i.patient_id = ${q.patientId}`);
+    if (q.status === 'open') parts.push(sql<boolean>`i.status in ('issued', 'partially_paid')`);
+    else if (q.status) parts.push(sql<boolean>`i.status = ${q.status}`);
+    if (q.from) parts.push(sql<boolean>`coalesce(i.issue_date, i.created_at::date) >= ${q.from}::date`);
+    if (q.to) parts.push(sql<boolean>`coalesce(i.issue_date, i.created_at::date) <= ${q.to}::date`);
+    if (q.q) {
+      // the invoice number or the patient's name (normalised Arabic, as the patient search); digits also match the file
+      // number exactly and the mobile by its ending ("آخر أرقام الموبايل")
+      const like = `%${escapeLike(q.q)}%`;
+      const ascii = toAsciiDigits(q.q).trim();
+      const any: RawBuilder<boolean>[] = [
+        sql<boolean>`i.number ilike ${like}`,
+        sql<boolean>`p.full_name_norm ilike '%' || ar_normalize(${escapeLike(q.q)}) || '%'`,
+      ];
+      if (/^\d{1,9}$/.test(ascii)) any.push(sql<boolean>`p.file_no = ${Number(ascii)}`);
+      const digits = ascii.replace(/[\s+-]/g, '');
+      if (/^\d{4,15}$/.test(digits)) any.push(sql<boolean>`p.phone like ${`%${digits.replace(/^0/, '')}`}`);
+      parts.push(sql<boolean>`(${sql.join(any, sql` or `)})`);
+    }
+    return parts.length ? sql<boolean>`${sql.join(parts, sql` and `)}` : sql<boolean>`true`;
+  }
+
+  async list(tx: Tx, q: InvoiceFilters & { limit: number; after?: string }) {
+    let query = this.invoices(tx).where(this.filters(q));
     // keyset paging (newest first, the id breaks ties): the page after `after`; an id this clinic cannot see (RLS)
     // matches no row, so nothing comes back
     if (q.after) query = query.where(sql<boolean>`(i.created_at, i.id) < (select a.created_at, a.id from invoices a where a.id = ${q.after})`);
     const rows = await query.orderBy('i.created_at', 'desc').orderBy('i.id', 'desc').limit(q.limit).execute();
     return rows.map((r) => money(r, INVOICE_MONEY));
+  }
+
+  /**
+   * Redesign R7: what the filtered list adds up to, over every page: how many invoices, their total and what was
+   * paid (issued ones only: a draft or a void invoice is not money), and what is still owed (the open ones).
+   */
+  async totals(tx: Tx, q: InvoiceFilters) {
+    const r = await tx.selectFrom('invoices as i').innerJoin('patients as p', 'p.id', 'i.patient_id').where(this.filters(q))
+      .select([
+        sql<string>`count(*)`.as('count'),
+        sql<string>`coalesce(sum(i.total_minor) filter (where i.status not in ('draft', 'void')), 0)`.as('total_minor'),
+        sql<string>`coalesce(sum(i.paid_minor) filter (where i.status not in ('draft', 'void')), 0)`.as('paid_minor'),
+        sql<string>`coalesce(sum(i.balance_minor) filter (where i.status in ('issued', 'partially_paid')), 0)`.as('balance_minor'),
+      ]).executeTakeFirstOrThrow();
+    return { count: Number(r.count), total_minor: Number(r.total_minor), paid_minor: Number(r.paid_minor), balance_minor: Number(r.balance_minor) };
   }
 
   async get(tx: Tx, id: string) {
@@ -107,6 +147,27 @@ export class BillingRepository {
       .where(sql<boolean>`not exists (select 1 from invoice_items ii join invoices i on i.id = ii.invoice_id where ii.visit_procedure_id = vp.id and i.status <> 'void')`);
     if (ids) q = q.where('vp.id', 'in', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
     return q.orderBy('v.visit_at').orderBy('vp.created_at').execute().then((rows) => rows.map((r) => ({ ...r, price_minor: Number(r.price_minor) })));
+  }
+
+  /**
+   * The clinic's unbilled work (redesign R5): procedures on no non-void invoice, one row per patient and branch (an
+   * invoice is for one patient at one branch), the longest-waiting first. RLS limits a branch-limited member.
+   */
+  async unbilledByPatient(tx: Tx, limit: number) {
+    const rows = await tx.selectFrom('visit_procedures as vp').innerJoin('visits as v', 'v.id', 'vp.visit_id')
+      .innerJoin('patients as p', 'p.id', 'v.patient_id').innerJoin('branches as b', 'b.id', 'v.branch_id')
+      .select((eb) => [
+        'p.id as patient_id', 'p.full_name', 'p.file_no', 'p.phone', 'v.branch_id', 'b.name_ar as branch_ar', 'b.name_en as branch_en',
+        eb.fn.countAll<string>().as('procedures'),
+        eb.fn.sum<string>('vp.price_minor').as('total_minor'),
+        eb.fn.min('v.visit_at').as('oldest_at'),
+        eb.fn.max('v.visit_at').as('latest_at'),
+        sql<number>`count(distinct v.id)`.as('visits'),
+      ])
+      .where(sql<boolean>`not exists (select 1 from invoice_items ii join invoices i on i.id = ii.invoice_id where ii.visit_procedure_id = vp.id and i.status <> 'void')`)
+      .groupBy(['p.id', 'p.full_name', 'p.file_no', 'p.phone', 'v.branch_id', 'b.name_ar', 'b.name_en'])
+      .orderBy(sql`min(v.visit_at)`).limit(limit).execute();
+    return rows.map((r) => ({ ...r, procedures: Number(r.procedures), visits: Number(r.visits), total_minor: Number(r.total_minor ?? 0) }));
   }
 
   /** A service for a new invoice line (a deleted one is gone from the price list). */
@@ -199,13 +260,23 @@ export class BillingRepository {
     return r.id;
   }
 
+  /** review R11: an event for the worker, in the caller's transaction (transactional outbox, SRS 8.3) */
+  async addOutboxEvent(tx: Tx, tenantId: string, type: string, payload: Record<string, unknown>): Promise<void> {
+    await tx.insertInto('outbox_events').values({ tenant_id: tenantId, type, payload: JSON.stringify(payload) }).execute();
+  }
+
   async reverse(tx: Tx, id: string, by: string, reason: string): Promise<void> {
     await tx.updateTable('payments').set({ status: 'reversed', reversed_at: sql<Date>`now()`, reversed_by: by, reversal_reason: reason }).where('id', '=', id).execute();
   }
 
-  async addRefund(tx: Tx, tenantId: string, r: { paymentId: string; amountMinor: number; method: string; reason: string; reference: string | null; createdBy: string }): Promise<void> {
+  refundByIdempotencyKey(tx: Tx, key: string) {
+    return tx.selectFrom('refunds').select(['id', 'payment_id']).where('idempotency_key', '=', key).executeTakeFirst();
+  }
+
+  async addRefund(tx: Tx, tenantId: string, r: { paymentId: string; amountMinor: number; method: string; reason: string; reference: string | null; createdBy: string; idempotencyKey: string | null }): Promise<void> {
     await tx.insertInto('refunds').values({
       tenant_id: tenantId, payment_id: r.paymentId, amount_minor: r.amountMinor, method: r.method, reason: r.reason, reference: r.reference, created_by: r.createdBy,
+      idempotency_key: r.idempotencyKey,
       branch_id: sql<string>`(select branch_id from payments where id = ${r.paymentId})`,
     }).execute();
   }

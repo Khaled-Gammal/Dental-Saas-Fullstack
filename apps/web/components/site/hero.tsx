@@ -1,24 +1,23 @@
 import { Chat, Clock, Icon, Phone, Tooth } from '../icons';
-import { clock12 } from '@dental/ui/text';
-import { arNoun, DAYS_AR, DEFAULT_TZ, NOUNS, price, specialtyLabel, type SiteData } from '../../lib/site';
-import { openStatus } from '../../lib/hours';
+import { arNoun, DEFAULT_TZ, NOUNS, price, specialtyLabel, type SiteData } from '../../lib/site';
 import type { Contact } from './contact';
 import { ToothArt } from './decor';
+import { HeroStatus } from './live-status';
 
-/** Chips on the illustration carry real data only: the main branch's status right now and the lowest listed price. */
+/**
+ * Chips on the illustration carry real data only: the main branch's status right now (computed live in the browser,
+ * see live-status.tsx) and the lowest listed price.
+ */
 function heroFacts(site: SiteData) {
-  const main = site.branches[0];
-  const status = main ? openStatus(main.hours, site.holidays, main.id, main.timezone ?? site.clinic.timezone ?? DEFAULT_TZ) : null;
-  let statusText: string | null = null;
-  if (status?.kind === 'open') statusText = `مفتوح الآن حتى ${clock12(status.closesAt)}`;
-  else if (status?.kind === 'closed' && status.opensAt) statusText = `يفتح ${DAYS_AR[status.opensWeekday!]} ${clock12(status.opensAt)}`;
   const prices = site.services.map((s) => s.price_minor).filter((p) => p > 0);
   const fromPrice = prices.length ? `خدمات تبدأ من ${price(Math.min(...prices), site.clinic.currency)}` : null;
-  return { statusText, fromPrice };
+  return { fromPrice };
 }
 
-export function HeroSection({ site, name, about, contact }: { site: SiteData; name: string; about: string | null; contact: Contact }) {
-  const { statusText, fromPrice } = heroFacts(site);
+/** `servicesShown`: the services section is on the page (Phase 2C-1: the clinic may hide it), so the hero may link to it. */
+export function HeroSection({ site, name, about, contact, servicesShown = true }: { site: SiteData; name: string; about: string | null; contact: Contact; servicesShown?: boolean }) {
+  const { fromPrice } = heroFacts(site);
+  const main = site.branches[0];
   const specialties = site.clinic.specialties.slice(0, 4);
   const { doctors, services, branches } = site;
   return (
@@ -34,9 +33,9 @@ export function HeroSection({ site, name, about, contact }: { site: SiteData; na
               : contact.tel && <a className="s-btn s-btn-lg" href={contact.tel}><Phone />احجز موعدك الآن</a>}
             {contact.whatsapp ? <a className="s-btn s-btn-lg s-btn-ghost" href={contact.whatsapp}><Chat />تواصل عبر واتساب</a>
               : contact.bookUrl && contact.tel && <a className="s-btn s-btn-lg s-btn-ghost" href={contact.tel}><Phone />اتصل بنا</a>}
-            {!contact.bookUrl && !contact.tel && !contact.whatsapp && services.length > 0 && <a className="s-btn s-btn-lg" href="#services">تصفّح الخدمات</a>}
+            {!contact.bookUrl && !contact.tel && !contact.whatsapp && servicesShown && services.length > 0 && <a className="s-btn s-btn-lg" href="#services">تصفّح الخدمات</a>}
           </div>
-          {(contact.bookUrl || contact.tel || contact.whatsapp) && services.length > 0 && <a className="s-hero-link" href="#services">أو تصفّح الخدمات والأسعار<Icon name="chevronDown" size={16} /></a>}
+          {(contact.bookUrl || contact.tel || contact.whatsapp) && servicesShown && services.length > 0 && <a className="s-hero-link" href="#services">أو تصفّح الخدمات والأسعار<Icon name="chevronDown" size={16} /></a>}
           {specialties.length > 0 && (
             <ul className="s-chips" aria-label="التخصصات">
               {specialties.map((s) => <li key={s} className="s-chip"><Icon name="check" size={14} /><bdi>{specialtyLabel(s)}</bdi></li>)}
@@ -47,7 +46,8 @@ export function HeroSection({ site, name, about, contact }: { site: SiteData; na
         <div className="s-hero-art" data-reveal>
           <div className="s-art">
             <ToothArt />
-            {statusText && <span className="s-float s-float-a"><Clock />{statusText}</span>}
+            {main && <HeroStatus icon={<Clock />} hours={main.hours} holidays={site.holidays} branchId={main.id}
+              tz={main.timezone ?? site.clinic.timezone ?? DEFAULT_TZ} renderedAt={Date.now()} />}
             {fromPrice && <span className="s-float s-float-b"><Tooth size={16} />{fromPrice}</span>}
             {doctors.length > 0 && <span className="s-float s-float-c"><Icon name="user" size={16} />{doctors.length} {arNoun(doctors.length, NOUNS.doctor)}{branches.length > 1 && <> · {branches.length} {arNoun(branches.length, NOUNS.branch)}</>}</span>}
           </div>

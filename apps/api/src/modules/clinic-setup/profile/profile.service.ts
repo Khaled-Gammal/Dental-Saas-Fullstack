@@ -20,6 +20,8 @@ const toDto = (r: Row, logo: MediaView | null) => ({
   specialties: r.specialties,
   defaultLocale: r.default_locale,
   currency: r.currency,
+  /** review R11: the dashboard shows every date and time in the clinic's zone */
+  timezone: r.timezone,
   brandColor: r.brand_color,
   logo,
 });

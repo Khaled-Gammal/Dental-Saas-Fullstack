@@ -102,7 +102,12 @@ describe('Billing: invoices, payments, reversals, refunds (e2e, Phase E1)', () =
 
   it('refunds: the accountant returns money by any method with a reason; the balance reopens', async () => {
     await http().post(`/payments/${cardId}/refunds`).set(as('receptionA')).send({ amountMinor: 1000, method: 'cash', reason: 'ارجاع' }).expect(403); // no payments:refund
-    const after = (await http().post(`/payments/${cardId}/refunds`).set(as('accountantA')).send({ amountMinor: 20000, method: 'cash', reason: 'إلغاء التنظيف' }).expect(201)).body;
+    const refundOnce = { amountMinor: 20000, method: 'cash', reason: 'إلغاء التنظيف', idempotencyKey: `refund-${Date.now()}` };
+    const after = (await http().post(`/payments/${cardId}/refunds`).set(as('accountantA')).send(refundOnce).expect(201)).body;
+    // review R11: the same request again (a double click, a retry) records one refund
+    const twice = (await http().post(`/payments/${cardId}/refunds`).set(as('accountantA')).send(refundOnce).expect(201)).body;
+    expect(twice.balance_minor).toBe(after.balance_minor);
+    expect(twice.payments[1].refunds).toHaveLength(1);
     expect(after.payments[1]).toMatchObject({ status: 'partially_refunded', refunds: [expect.objectContaining({ amount_minor: 20000, method: 'cash', created_by_name: 'Mahmoud Ibrahim' })] });
     expect(after.balance_minor).toBe(80000);
     expect((await http().post(`/payments/${cardId}/refunds`).set(as('accountantA')).send({ amountMinor: 10_000_000, method: 'cash', reason: 'كثير' }).expect(400)).body.code).toBe('refund_exceeds_payment');
@@ -135,5 +140,28 @@ describe('Billing: invoices, payments, reversals, refunds (e2e, Phase E1)', () =
     expect(all.slice(at, at + 4)).toEqual([...first, ...next]);
     expect((await http().get(`/invoices?after=${first[0]}`).set(as('ownerB')).expect(200)).body).toEqual([]);
     await http().get('/invoices?after=not-an-id').set(as('accountantA')).expect(400);
+  });
+
+  it('searches every invoice by patient name, mobile ending or number, and totals what it finds (redesign R7)', async () => {
+    type Row = { id: string; number: string | null; status: string; total_minor: number; paid_minor: number; balance_minor: number };
+    const mine = (await http().get(`/patients/${patientId}/billing`).set(as('accountantA')).expect(200)).body.invoices as Row[];
+    expect(mine.length).toBeGreaterThan(0);
+    const ids = (r: request.Response) => (r.body as Row[]).map((x) => x.id).sort();
+    const name = `مريض فاتورة ${run}`;
+    expect(ids(await http().get('/invoices').query({ q: name, limit: 200 }).set(as('accountantA')).expect(200))).toEqual(mine.map((x) => x.id).sort());
+    expect(ids(await http().get('/invoices').query({ q: run.slice(-5), limit: 200 }).set(as('accountantA')).expect(200))).toEqual(expect.arrayContaining(mine.map((x) => x.id)));
+    const numbered = mine.find((x) => x.number)!;
+    expect(ids(await http().get('/invoices').query({ q: numbered.number, limit: 200 }).set(as('accountantA')).expect(200))).toContain(numbered.id);
+    // the totals add up every matching invoice; drafts and void ones are not money, and only open ones are owed
+    const money = mine.filter((x) => x.status !== 'draft' && x.status !== 'void');
+    const totals = (await http().get('/invoices/totals').query({ q: name }).set(as('accountantA')).expect(200)).body;
+    expect(totals).toMatchObject({
+      currency: 'EGP', count: mine.length,
+      total_minor: money.reduce((n, x) => n + x.total_minor, 0),
+      paid_minor: money.reduce((n, x) => n + x.paid_minor, 0),
+      balance_minor: mine.filter((x) => x.status === 'issued' || x.status === 'partially_paid').reduce((n, x) => n + x.balance_minor, 0),
+    });
+    expect((await http().get('/invoices/totals').query({ q: name }).set(as('ownerB')).expect(200)).body.count).toBe(0);
+    await http().get('/invoices/totals').set(as('doctorA')).expect(403);
   });
 });

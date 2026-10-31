@@ -1,4 +1,5 @@
 import { sql, type Db } from '@dental/db';
+import { fillManageLink, manageLinkSecret, manageUrl, MANAGE_LINK_SLOT } from '../shared/manage-link';
 import type { EmailSender } from '../shared/notifications/ports';
 
 const BATCH = 20;
@@ -13,10 +14,20 @@ const LEASE_MINUTES = 10;
  * sent. Delivery is at-least-once: a crash between the send and the final update sends again after the lease.
  * Reminders for appointments that are no longer pending/confirmed are cancelled instead of sent, and so is anything a
  * suspended clinic would send (H5, owner 2026-10-20) — cancelled, not held back, so a reactivated clinic gets no stale mail.
+ * A deleted clinic (review R11) is treated the same way.
  */
 export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: object) => void): Promise<number> {
+  // review R11: a row claimed for its last attempt whose worker died mid-send kept status 'queued' with no attempts
+  // left, so no pass would ever pick it up again or mark it failed. Once its lease is over it is failed, visibly.
+  const stuck = await db.updateTable('notifications')
+    .set({ status: 'failed', last_error: sql<string>`coalesce(last_error, 'the worker stopped during the last attempt')` })
+    .where('status', '=', 'queued').where('attempts', '>=', MAX_ATTEMPTS).where('scheduled_at', '<=', sql<Date>`now()`)
+    .executeTakeFirst();
+  if (Number(stuck.numUpdatedRows) > 0) log({ level: 'error', notifications_failed_stuck: Number(stuck.numUpdatedRows) });
+
   const claimed = await db.transaction().execute(async (tx) => {
-    const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; appointment_status: string | null; tenant_status: string | null }>`
+    const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; related_type: string | null; appointment_status: string | null; payment_status: string | null; tenant_status: string | null; dedupe_key: string | null; period_end: Date | null;
+      has_manage: boolean | null; site_host: string | null }>`
       with due as (
         select id from notifications
         where status = 'queued' and scheduled_at <= now() and attempts < ${MAX_ATTEMPTS}
@@ -24,9 +35,16 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
         for update skip locked)
       update notifications n set attempts = n.attempts + 1, scheduled_at = now() + make_interval(mins => ${LEASE_MINUTES})
       from due where n.id = due.id
-      returning n.id, n.channel, n.recipient, n.subject, n.body, n.attempts, n.event, n.related_id,
+      returning n.id, n.channel, n.recipient, n.subject, n.body, n.attempts, n.event, n.related_id, n.related_type, n.dedupe_key,
+        (select s.current_period_end from subscriptions s where s.id = n.related_id and n.related_type = 'subscription') as period_end,
         (select a.status from appointments a where a.id = n.related_id) as appointment_status,
-        (select t.status from tenants t where t.id = n.tenant_id) as tenant_status`.execute(tx);
+        (select p.status from payments p where p.id = n.related_id) as payment_status,
+        (select t.status from tenants t where t.id = n.tenant_id) as tenant_status,
+        -- Phase 2E: what the patient's own link needs (filled in below, never stored)
+        (select a.manage_token_hash is not null from appointments a where a.id = n.related_id and n.related_type = 'appointment') as has_manage,
+        case when position(${MANAGE_LINK_SLOT} in n.body) > 0 then
+          (select d.hostname::text from domains d where d.tenant_id = n.tenant_id and d.status in ('verified', 'active') order by d.is_primary desc, d.created_at limit 1)
+        end as site_host`.execute(tx);
     return rows;
   });
 
@@ -35,9 +53,25 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
     const cancel = (why: string) => db.updateTable('notifications').set({ status: 'cancelled', last_error: why }).where('id', '=', n.id).execute();
     if (n.channel !== 'email') { await cancel('channel disabled: email only'); continue; }
     if (n.tenant_status === 'suspended') { await cancel('clinic suspended'); continue; }
-    if (n.event === 'appointment.reminder' && !['pending', 'confirmed'].includes(n.appointment_status ?? '')) { await cancel(`appointment ${n.appointment_status ?? 'missing'}`); continue; }
+    // review R11: a clinic its owner deleted (kept 90 days before erasure) writes to nobody, like a suspended one
+    if (n.tenant_status === 'cancelled' || n.tenant_status === null) { await cancel('clinic deleted'); continue; }
+    // anything about a booking that is no longer ahead (cancelled, missed, done) is not sent — except the cancellation itself
+    if (n.related_type === 'appointment' && n.event !== 'appointment.cancelled' && !['pending', 'confirmed'].includes(n.appointment_status ?? '')) { await cancel(`appointment ${n.appointment_status ?? 'missing'}`); continue; }
+    // review R11: a receipt for a payment reversed since (entered in error) is not sent
+    if (n.event === 'payment.received' && !['succeeded', 'partially_refunded'].includes(n.payment_status ?? '')) { await cancel(`payment ${n.payment_status ?? 'missing'}`); continue; }
+    // review R11: a trial warning waiting in the queue is pointless once the clinic is activated (or already suspended)
+    if (n.event === 'trial.ending' && n.tenant_status !== 'trialing') { await cancel(`clinic ${n.tenant_status ?? 'missing'}`); continue; }
+    // Phase 2B: a renewal reminder is pointless once the payment is recorded (a new period end) or the clinic is not
+    // running on that period any more; the key carries the end it was written for
+    if (n.event === 'subscription.renewal'
+      && (!['active', 'past_due'].includes(n.tenant_status ?? '') || !n.period_end || !(n.dedupe_key ?? '').includes(`:${new Date(n.period_end).toISOString()}:`))) {
+      await cancel('subscription renewed or clinic not running'); continue;
+    }
+    // Phase 2E: the patient's own link goes in now (the queued body holds a placeholder), for a booking still ahead
+    const link = n.related_type === 'appointment' && n.has_manage && n.related_id && ['pending', 'confirmed'].includes(n.appointment_status ?? '')
+      ? manageUrl(manageLinkSecret(), n.site_host, n.related_id) : null;
     try {
-      await email.send(n.recipient, n.subject ?? '', n.body);
+      await email.send(n.recipient, n.subject ?? '', fillManageLink(n.body, link));
     } catch (err) {
       const failed = n.attempts >= MAX_ATTEMPTS;
       await db.updateTable('notifications').set({

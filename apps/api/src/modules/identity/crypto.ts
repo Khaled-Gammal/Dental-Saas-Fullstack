@@ -1,10 +1,16 @@
 import { createHash, createHmac, randomBytes, randomInt, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { passwordPepper } from '../../config';
 
 /**
  * Password hashing with scrypt (built into Node, no native build step on Windows).
- * Stored format: scrypt$N$r$p$<salt b64>$<key b64>, so parameters can be raised later
- * without breaking existing hashes.
+ * Stored format: pscrypt$N$r$p$<salt b64>$<key b64>, so parameters can be raised later without breaking existing hashes.
+ *
+ * Review R11 — the pepper: the password goes through HMAC-SHA256 keyed with PASSWORD_PEPPER (a server secret, never in
+ * the database) before scrypt. A copy of the users table alone — a backup, an injection, login_candidate() — is then
+ * not enough to guess passwords offline. Hashes made before the pepper (`scrypt$…`) still verify, and are replaced by
+ * a peppered one at the next successful sign-in (needsRehash). Changing PASSWORD_PEPPER invalidates every peppered
+ * password, so it is set once per environment and kept like the database itself.
  */
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number, opts: object) => Promise<Buffer>;
 const N = 16384;
@@ -16,24 +22,35 @@ const MAXMEM = 64 * 1024 * 1024;
 const b64 = (b: Buffer) => b.toString('base64').replace(/=+$/, '');
 const unb64 = (s: string) => Buffer.from(s, 'base64');
 
+const PEPPERED = 'pscrypt';
+const LEGACY = 'scrypt';
+const peppered = (password: string) => createHmac('sha256', passwordPepper()).update(password, 'utf8').digest('base64');
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
-  const key = await scrypt(password, salt, KEY_LEN, { N, r: R, p: P, maxmem: MAXMEM });
-  return `scrypt$${N}$${R}$${P}$${b64(salt)}$${b64(key)}`;
+  const key = await scrypt(peppered(password), salt, KEY_LEN, { N, r: R, p: P, maxmem: MAXMEM });
+  return `${PEPPERED}$${N}$${R}$${P}$${b64(salt)}$${b64(key)}`;
 }
 
 export async function verifyPassword(password: string, stored: string | null | undefined): Promise<boolean> {
   if (!stored) return false;
   const parts = stored.split('$');
-  if (parts.length !== 6 || parts[0] !== 'scrypt') return false;
-  const [, n, r, p, salt, key] = parts;
+  if (parts.length !== 6 || (parts[0] !== PEPPERED && parts[0] !== LEGACY)) return false;
+  const [kind, n, r, p, salt, key] = parts;
   const expected = unb64(key);
-  const actual = await scrypt(password, unb64(salt), expected.length, { N: Number(n), r: Number(r), p: Number(p), maxmem: MAXMEM });
+  const input = kind === PEPPERED ? peppered(password) : password;
+  const actual = await scrypt(input, unb64(salt), expected.length, { N: Number(n), r: Number(r), p: Number(p), maxmem: MAXMEM });
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-/** Used when the account does not exist, so a failed login takes the same time either way. */
-export const DUMMY_HASH = 'scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA$' + 'A'.repeat(86);
+/** A stored hash that should be replaced after a successful sign-in: made before the pepper, or with weaker settings. */
+export function needsRehash(stored: string | null | undefined): boolean {
+  const parts = (stored ?? '').split('$');
+  return parts[0] !== PEPPERED || Number(parts[1]) < N || Number(parts[2]) < R || Number(parts[3]) < P;
+}
+
+/** Used when the account does not exist, so a failed login takes the same time either way (peppered, like real ones). */
+export const DUMMY_HASH = `${PEPPERED}$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA$` + 'A'.repeat(86);
 
 /** Min 8 chars, at least one letter and one digit. Returns an error message or null. */
 export function passwordProblem(pw: string): string | null {

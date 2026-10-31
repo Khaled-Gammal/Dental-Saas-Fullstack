@@ -11,3 +11,6 @@ packages/*/.env
 
 # uploaded files in development (STORAGE_DRIVER=local)
 .storage/
+
+# backup credentials and passphrase (Phase 1B): copy docker/backup/backup.env.example
+docker/backup/backup.env

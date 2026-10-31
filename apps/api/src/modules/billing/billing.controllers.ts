@@ -5,7 +5,7 @@ import { RequirePermission } from '../../auth/decorators';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import {
   BalancesQuery,
-  Decision, Discount, EditInvoice, InvoicesQuery, MoveInstallment, NewInvoice, NewLine, NewPayment, NewPlan, NewRefund, Rejection, Reverse, RoleLimit, VoidInvoice, Waive, WriteOff,
+  Decision, Discount, EditInvoice, InvoicesQuery, InvoiceTotalsQuery, UnbilledQuery, MoveInstallment, NewInvoice, NewLine, NewPayment, NewPlan, NewRefund, Rejection, Reverse, RoleLimit, VoidInvoice, Waive, WriteOff,
 } from './billing.schemas';
 import { BillingService } from './billing.service';
 import { MoneyControlsService } from './money-controls.service';
@@ -24,6 +24,20 @@ export class InvoicesController {
   @RequirePermission('invoices:read')
   list(@Query(new ZodBody(InvoicesQuery)) q: Body<typeof InvoicesQuery>) {
     return this.billing.list(q);
+  }
+
+  /** Redesign R7: the list's totals. Declared before `:id` so "totals" is not read as an invoice id. */
+  @Get('totals')
+  @RequirePermission('invoices:read')
+  totals(@Query(new ZodBody(InvoiceTotalsQuery)) q: Body<typeof InvoiceTotalsQuery>) {
+    return this.billing.totals(q);
+  }
+
+  /** The unbilled work (redesign R5). Declared before `:id` so "unbilled" is not read as an invoice id. */
+  @Get('unbilled')
+  @RequirePermission('invoices:read')
+  unbilled(@Query(new ZodBody(UnbilledQuery)) q: Body<typeof UnbilledQuery>) {
+    return this.billing.unbilled(q.limit);
   }
 
   @Post()

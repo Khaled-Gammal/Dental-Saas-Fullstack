@@ -11,7 +11,7 @@ import { Badge, Button, Card, ErrorText, Field, Input, LinkButton, PageHeader, S
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { CalendarIcon, PlusIcon } from '../../ui/icons';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, fmtNumber, LOC } from '../../util';
 import { money } from './money';
 import { currencyLabel } from '../../money';
 import { useCan } from '../../can';
@@ -20,7 +20,6 @@ const TONE: Record<PlanStatus, 'neutral' | 'primary' | 'success' | 'warning'> = 
   draft: 'neutral', proposed: 'warning', accepted: 'primary', in_progress: 'primary', completed: 'success', cancelled: 'neutral',
 };
 const ITEM_TONE: Record<PlanItem['status'], 'neutral' | 'primary' | 'success' | 'warning'> = { planned: 'neutral', scheduled: 'primary', done: 'success', cancelled: 'neutral' };
-const loc = () => ('ar-EG-u-nu-latn');
 
 /** The plans of a patient on the profile (TPLAN-001): status, progress and estimate; a doctor starts a new one here. */
 export function PlansCard({ clinicId, patientId, canCreate }: { clinicId: string; patientId: string; canCreate: boolean }) {
@@ -72,7 +71,7 @@ export function PlanPage({ clinicId, id }: { clinicId: string; id?: string }) {
     return <ResourceState isLoading={plan.isLoading} isError={plan.isError} error={plan.error} notFound={false} refetch={() => void plan.refetch()} back={to.list('patients')} backLabel="المرضى" />;
   }
   const p = plan.data;
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeZone: clinicTimeZone() });
   return (
     <>
       <Breadcrumbs items={[{ label: 'المرضى', route: to.list('patients') }, { label: 'المريض', route: to.view('patients', p.patient_id) }, { label: p.title }]} />
@@ -142,7 +141,7 @@ function ItemsCard({ clinicId, p }: { clinicId: string; p: PlanDetail }) {
   const editable = p.can.write && planEditable(p.status);
   const has = useCan();
   const bookable = p.can.schedule && has('appointments:write') && (p.status === 'accepted' || p.status === 'in_progress');
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() });
   return (
     <Card>
       <div className="row-between">

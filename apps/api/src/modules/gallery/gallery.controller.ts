@@ -5,8 +5,38 @@ import { Public, RequirePermission } from '../../auth/decorators';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { GalleryService } from './gallery.service';
 import { CreateGalleryItem, ListGalleryQuery, PublicGalleryQuery, ReorderGallery, UpdateGalleryItem } from './gallery.schemas';
+import { CaseOrder, EditCase, NewCase } from './cases.schemas';
+import { CasesService } from './cases.service';
 
 const id = new ParseUUIDPipe();
+
+/**
+ * Phase 2C-2: before/after cases (dashboard). Registered before GalleryController so `/gallery/cases` is never read as
+ * a photo id. Website content is the owner's (`website:write`).
+ */
+@ApiTags('gallery')
+@ApiBearerAuth()
+@Controller('gallery/cases')
+@RequirePermission('website:write')
+export class CasesController {
+  constructor(private readonly cases: CasesService) {}
+
+  @Get()
+  list() { return this.cases.list(); }
+
+  @Post()
+  create(@Body(new ZodBody(NewCase)) b: z.infer<typeof NewCase>) { return this.cases.create(b); }
+
+  @Put('order')
+  reorder(@Body(new ZodBody(CaseOrder)) b: z.infer<typeof CaseOrder>) { return this.cases.reorder(b.ids); }
+
+  @Patch(':id')
+  update(@Param('id', id) caseId: string, @Body(new ZodBody(EditCase)) b: z.infer<typeof EditCase>) { return this.cases.update(caseId, b); }
+
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@Param('id', id) caseId: string) { return this.cases.remove(caseId); }
+}
 
 /** Gallery management (dashboard). Website content is the owner's (`website:write`, SRS 2.2). */
 @ApiTags('gallery')

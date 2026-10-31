@@ -121,6 +121,13 @@ export class PatientsRepository {
     await tx.updateTable('patients').set({ ...f, updated_at: sql<Date>`now()` }).where('id', '=', id).execute();
   }
 
+  /** Adds the tag once (no duplicates). */
+  async addTag(tx: Tx, id: string, tag: string): Promise<void> {
+    await tx.updateTable('patients')
+      .set({ tags: sql<string[]>`case when ${tag} = any(tags) then tags else array_append(tags, ${tag}) end`, updated_at: sql<Date>`now()` })
+      .where('id', '=', id).execute();
+  }
+
   async removeTag(tx: Tx, id: string, tag: string): Promise<void> {
     await tx.updateTable('patients').set({ tags: sql<string[]>`array_remove(tags, ${tag})`, updated_at: sql<Date>`now()` }).where('id', '=', id).execute();
   }
@@ -188,6 +195,32 @@ export class PatientsRepository {
 
   /** BOOK-11: same phone and the same name (normalised: case, hamza, ة/ه, ى/ي, diacritics) is the same person; families share phones. */
   /** Blocked records are included on purpose: a blocked patient must be refused, not given a fresh duplicate record. */
+  /**
+   * Phase 2A (import): for each (phone, name), in order: the name as the database normalises it (ar_normalize, the same
+   * as `full_name_norm`) and the file number of a live record with that phone and that name, if any. One query.
+   */
+  async importMatches(tx: Tx, tenantId: string, rows: { phone: string; name: string }[]): Promise<{ norm: string; fileNo: number | null }[]> {
+    if (!rows.length) return [];
+    const { rows: out } = await sql<{ norm: string; file_no: string | null }>`
+      select ar_normalize(i.name) as norm,
+             (select p.file_no from patients p
+               where p.tenant_id = ${tenantId} and p.deleted_at is null and p.merged_into_id is null
+                 and p.phone = i.phone and p.full_name_norm = ar_normalize(i.name)
+               order by p.created_at limit 1) as file_no
+        from unnest(${rows.map((r) => r.phone)}::text[], ${rows.map((r) => r.name)}::text[]) with ordinality as i(phone, name, idx)
+       order by i.idx`.execute(tx);
+    return out.map((r) => ({ norm: r.norm, fileNo: r.file_no === null ? null : Number(r.file_no) }));
+  }
+
+  /** Phase 2A: the import's new records in one statement (each takes the next file number), their ids returned. */
+  async createMany(tx: Tx, tenantId: string, rows: PatientFields[], createdBy: string | null): Promise<string[]> {
+    if (!rows.length) return [];
+    const out = await tx.insertInto('patients').values(rows.map((f) => ({
+      tenant_id: tenantId, file_no: sql<string>`next_tenant_counter('patient_file')`, created_by: createdBy, ...f, full_name: f.full_name!, phone: f.phone!, marketing_opt_in: false,
+    }))).returning('id').execute();
+    return out.map((r) => r.id);
+  }
+
   findByPhoneAndName(tx: Tx, tenantId: string, phone: string, fullName: string) {
     return this.base(tx, tenantId).select(['p.id', 'p.is_blocked', 'p.email']).where('p.phone', '=', phone).where(sql<boolean>`p.full_name_norm = ar_normalize(${fullName})`)
       .orderBy('p.is_blocked', 'desc').orderBy('p.created_at', 'desc').executeTakeFirst();

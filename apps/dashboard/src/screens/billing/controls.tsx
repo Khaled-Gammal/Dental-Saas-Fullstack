@@ -9,13 +9,12 @@ import { send, useBillingMutation } from '../../queries';
 import type { DiscountStatus, DiscountType, InvoiceDetail, InvoiceLine } from '../../types';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, LinkButton } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { fmtNumber } from '../../util';
+import { clinicToday, fmtNumber, LOC } from '../../util';
 
-const todayIso = () => new Date().toLocaleDateString('en-CA');
 const STATUS_TONE: Record<DiscountStatus, 'neutral' | 'primary' | 'success' | 'warning'> = {
   none: 'neutral', within_limit: 'success', pending: 'warning', approved: 'success', rejected: 'neutral',
 };
-const fmtDate = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const fmtDate = (iso: string) => new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 
 /** The form for one discount (DISC-001): a fixed amount or a percentage, always with a reason. */
 function DiscountForm({ currency, initial, onSave, onClear, pending, error }: {
@@ -90,7 +89,7 @@ export function DiscountCard({ clinicId, v }: { clinicId: string; v: InvoiceDeta
           onClear={v.discount_minor > 0 ? () => set.mutate(null, { onSuccess: () => setEditing(false) }) : undefined} />
       )}
       <ConfirmDialog open={!!deciding} title={deciding === 'reject' ? 'رفض' : 'موافقة'} confirmLabel={deciding === 'reject' ? 'رفض' : 'موافقة'}
-        danger={deciding === 'reject'} onCancel={() => setDeciding(null)}
+        danger={deciding === 'reject'} pending={decide.isPending} onCancel={() => setDeciding(null)}
         onConfirm={() => { if (deciding === 'approve' || note.trim().length >= 3) decide.mutate(deciding === 'approve', { onSettled: () => setDeciding(null) }); }}>
         <Field label="ملاحظة" optional={deciding === 'approve' ? 'اختياري' : undefined}>
           {(a) => <Input id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />}
@@ -128,7 +127,7 @@ export function PlanCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }
   const [reason, setReason] = useState('');
   const move = useBillingMutation(clinicId, (a: { id: string; dueDate: string }) => send(`/installments/${a.id}`, 'PATCH', { dueDate: a.dueDate }));
   const waive = useBillingMutation(clinicId, (id: string) => send(`/installments/${id}/waive`, 'POST', { reason: reason.trim() }));
-  const today = todayIso();
+  const today = clinicToday();
   if (!plan && !v.can.plan) return null;
   return (
     <Card>
@@ -162,7 +161,7 @@ export function PlanCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }
       ) : creating ? <PlanForm clinicId={clinicId} v={v} onDone={() => setCreating(false)} />
         : <div className="row-end mt-sm"><Button variant="secondary" onClick={() => setCreating(true)}>تقسيط المتبقي</Button></div>}
       <ErrorText error={move.error ?? waive.error} />
-      <ConfirmDialog open={!!waiving} title="إعفاء" confirmLabel="إعفاء" danger onCancel={() => setWaiving(null)}
+      <ConfirmDialog open={!!waiving} title="إعفاء" confirmLabel="إعفاء" danger pending={waive.isPending} onCancel={() => setWaiving(null)}
         onConfirm={() => { if (waiving && reason.trim().length >= 3) waive.mutate(waiving, { onSettled: () => setWaiving(null) }); }}>
         <p>يُعفى المريض من المتبقي من هذا القسط. يُسجل السبب وباسمك ولا يُلغى.</p>
         <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />}</Field>
@@ -173,8 +172,8 @@ export function PlanCard({ clinicId, v }: { clinicId: string; v: InvoiceDetail }
 
 function PlanForm({ clinicId, v, onDone }: { clinicId: string; v: InvoiceDetail; onDone: () => void }) {
   const [count, setCount] = useState('3');
-  const [first, setFirst] = useState(todayIso());
-  const [rows, setRows] = useState(() => proposeSchedule(v.balance_minor, 3, todayIso()).map((r) => ({ dueDate: r.dueDate, amount: String(r.amountMinor / 100) })));
+  const [first, setFirst] = useState(clinicToday());
+  const [rows, setRows] = useState(() => proposeSchedule(v.balance_minor, 3, clinicToday()).map((r) => ({ dueDate: r.dueDate, amount: String(r.amountMinor / 100) })));
   const propose = (n: string, d: string) => setRows(proposeSchedule(v.balance_minor, Math.max(1, Math.min(60, Number(n) || 1)), d).map((r) => ({ dueDate: r.dueDate, amount: String(r.amountMinor / 100) })));
   const items = rows.map((r) => ({ dueDate: r.dueDate, amountMinor: toMinor(r.amount) ?? 0 }));
   const sum = items.reduce((s, i) => s + i.amountMinor, 0);
@@ -183,7 +182,7 @@ function PlanForm({ clinicId, v, onDone }: { clinicId: string; v: InvoiceDetail;
     <div className="stack mt">
       <div className="grid-2">
         <Field label="عدد الأقساط">{(a) => <Input id={a.id} dir="ltr" inputMode="numeric" value={count} onChange={(e) => { const n = e.target.value.replace(/\D/g, '').slice(0, 2); setCount(n); if (n) propose(n, first); }} />}</Field>
-        <Field label="تاريخ أول قسط">{(a) => <DatePicker id={a.id} value={first} onChange={(d) => { setFirst(d); propose(count, d); }} min={todayIso()} />}</Field>
+        <Field label="تاريخ أول قسط">{(a) => <DatePicker id={a.id} value={first} onChange={(d) => { setFirst(d); propose(count, d); }} min={clinicToday()} />}</Field>
       </div>
       <ol className="stack-sm">
         {rows.map((r, k) => (
@@ -227,7 +226,7 @@ export function AdjustmentsCard({ clinicId, v }: { clinicId: string; v: InvoiceD
           ))}
         </ul>
       )}
-      <ConfirmDialog open={open} title="إعفاء من المتبقي" confirmLabel="إعفاء من المتبقي" danger onCancel={() => setOpen(false)}
+      <ConfirmDialog open={open} title="إعفاء من المتبقي" confirmLabel="إعفاء من المتبقي" danger pending={writeOff.isPending} onCancel={() => setOpen(false)}
         onConfirm={() => { if (minor && minor <= v.balance_minor && reason.trim().length >= 3) writeOff.mutate(undefined, { onSuccess: () => setOpen(false) }); }}>
         <p>يقل ما على المريض دون استلام مال، ولا تتغير أي دفعة. يُسجل السبب وباسمك.</p>
         <Field label="المبلغ" hint={`${'المتبقي'}: ${money(v.balance_minor, v.currency)}`}>

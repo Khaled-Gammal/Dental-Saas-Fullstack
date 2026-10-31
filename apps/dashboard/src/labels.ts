@@ -5,6 +5,12 @@
  */
 
 /** An appointment's next steps. */
+/** Patient profile tabs (redesign R6). */
+export const profileTabLabel: Record<string, string> = {
+  overview: 'نظرة عامة', clinical: 'السجل السريري', billing: 'الحساب', appointments: 'المواعيد والمتابعات', activity: 'سجل الوصول',
+};
+export const genderLabel: Record<string, string> = { male: 'ذكر', female: 'أنثى' };
+export const medicalListLabel: Record<string, string> = { allergies: 'الحساسية', conditions: 'الأمراض المزمنة', medications: 'الأدوية الحالية' };
 export const appointmentActionLabel: Record<string, string> = {
   confirm: 'تأكيد',
   start: 'بدء الزيارة',
@@ -27,6 +33,7 @@ export const auditActionLabel: Record<string, string> = {
   patient_view: 'فتح الملف',
   patient_create: 'أنشأ الملف',
   patient_update: 'عدّل البيانات',
+  patient_booking_contact_differs: 'حجز من الموقع ببريد مختلف عن المسجّل',
   patient_medical_history_update: 'عدّل التاريخ الطبي',
 };
 
@@ -108,6 +115,7 @@ export const errorLabel: Record<string, string> = {
   access_changed: 'تغيّرت صلاحياتك. أعد تحميل الصفحة.',
   rule_violation: 'لا يمكن الحفظ: تعارض مع قواعد النظام (مثلًا يجب أن يبقى اسم واحد على الأقل).',
   plan_limit_reached: 'وصلت إلى الحد المسموح في باقتك. رقِّ الباقة لإضافة المزيد.',
+  plan_feature_unavailable: 'هذه الميزة غير متاحة في باقتك. رقِّ الباقة لاستخدامها.', // Phase 1D
   site_not_found: 'لا يوجد موقع لهذه العيادة بعد.',
   schedule_overlap: 'فترتان متداخلتان في نفس اليوم.',
   branch_not_assigned: 'الطبيب غير مُضاف إلى هذا الفرع.',
@@ -135,9 +143,22 @@ export const errorLabel: Record<string, string> = {
   not_trialing: 'العيادة ليست في فترة تجريبية.',
   clinic_status: 'حالة العيادة لا تسمح بهذا الإجراء.',
   subscription_plan_not_found: 'الخطة غير موجودة.',
+  plan_code_taken: 'توجد خطة بهذا الرمز.',
+  plan_code_invalid: 'رمز الخطة من 2 إلى 40: حروف إنجليزية صغيرة وأرقام و- أو _.',
   reason_required: 'اكتب السبب (3 أحرف على الأقل).',
   trial_ended: 'انتهت الفترة التجريبية: مدّد التجربة أو فعّل الاشتراك أولًا.',
   already_active: 'الاشتراك مفعّل بالفعل.',
+  case_not_found: 'الحالة غير موجودة. حدّث الصفحة.', // Phase 2C-2
+  case_limit: 'وصلت للحد الأقصى: 100 حالة. احذف حالة قديمة أولًا.',
+  case_same_image: 'صورة «قبل» وصورة «بعد» لازم تكونا مختلفتين.',
+  consent_required: 'أكّد موافقة المريض الكتابية على النشر قبل نشر الحالة.',
+  range_too_long: 'اختر فترة سنة على الأكثر.', // Phase 2D
+  branch_scoped: 'سجل العمليات يشمل كل الفروع، فهو متاح لمن يعمل في كل الفروع فقط.', // Phase 2D
+  faq_not_found: 'السؤال غير موجود. حدّث الصفحة.', // Phase 2C-1
+  faq_limit: 'وصلت للحد الأقصى: 50 سؤالًا. احذف سؤالًا قديمًا أولًا.',
+  subscription_unpaid: 'الاشتراك غير مدفوع: سجّل الدفعة لتعود العيادة للعمل.', // Phase 2B
+  payment_reference_used: 'دفعة بنفس رقم العملية مسجّلة بالفعل لهذه العيادة.',
+  payment_key_used: 'هذا النموذج استُخدم من قبل. أغلقه وافتحه من جديد.',
   owner_role_fixed: 'دور المالك ثابت: يملك كل الصلاحيات دائمًا.',
   role_archived: 'هذا الدور مؤرشف ولا يُعطى لأحد.',
   role_in_use: 'أعضاء أو دعوات مفتوحة ما زالت تحمل هذا الدور؛ غيّر أدوارهم أولًا.',
@@ -147,6 +168,8 @@ export const errorLabel: Record<string, string> = {
   permission_not_held: 'تستطيع إعطاء الصلاحيات التي تملكها فقط.',
   own_role: 'لا يمكنك تغيير دورك أو صلاحياتك بنفسك.',
   owner_role_only: 'دور المالك يعطيه أو يسحبه المالك فقط.',
+  own_branches: 'لا يمكنك تغيير فروعك بنفسك.',
+  branch_scope: 'تستطيع إدارة الموظفين وإعطاء الوصول داخل فروعك فقط.',
   visit_finalized: 'الزيارة معتمدة؛ أضف تعديلًا بدل التغيير.',
   not_your_visit: 'هذه زيارة طبيب آخر.',
   not_your_appointment: 'هذا موعد طبيب آخر.',
@@ -197,6 +220,8 @@ export const errorLabel: Record<string, string> = {
   generic_429: 'محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.',
   generic_500: 'حدث خطأ غير متوقع. حاول مرة أخرى بعد قليل.',
   unhealthy: 'الخدمة غير متاحة الآن. حاول بعد قليل.',
+  worker_stale: 'خدمة الإشعارات متوقفة الآن. حاول بعد قليل.', // Phase 1B: GET /health/worker (read by the uptime monitor)
+  invalid_input: 'قيمة غير صالحة في البيانات المرسلة. راجعها وحاول مرة أخرى.',
   internal: 'حدث خطأ غير متوقع. حاول مرة أخرى بعد قليل.',
   not_found: 'العنصر غير موجود أو لم يعد متاحًا.',
   forbidden: 'ليست لديك صلاحية لهذا الإجراء.',
@@ -267,6 +292,12 @@ export const errorLabel: Record<string, string> = {
   room_not_in_branch: 'الكرسي غير موجود في هذا الفرع أو غير متاح.',
   room_name_taken: 'يوجد كرسي بهذا الاسم في الفرع.',
   nothing_to_change: 'لم يتغير شيء.',
+  // Phase 2E: the patient's own link (shown on the clinic's site; here for completeness)
+  manage_link_invalid: 'رابط الموعد غير صالح.',
+  too_late_to_change: 'فات وقت تغيير الموعد أو إلغائه من الرابط.',
+  appointment_not_active: 'لم يعد ممكنًا تغيير هذا الموعد.',
+  reschedule_limit: 'غيّر المريض هذا الموعد من الرابط أقصى عدد من المرات.',
+  reschedule_not_online: 'لا يمكن تغيير هذا الموعد أونلاين.',
   holiday_exists: 'هذا اليوم إجازة بالفعل لهذا الفرع.',
   invalid_range: 'يجب أن يكون الانتهاء بعد البداية.',
   time_off_too_long: 'لا يمكن أن تزيد الإجازة عن سنة.',
@@ -296,7 +327,7 @@ export const errorLabel: Record<string, string> = {
   link_expired: 'انتهت صلاحية رابط الصورة؛ حدّث الصفحة.',
   alt_required: 'أضف وصفًا للصورة (أو تعليقًا) قبل نشرها.',
   featured_requires_published: 'الصورة المميزة يجب أن تكون منشورة.',
-  order_mismatch: 'تغيّرت الصور أثناء الترتيب؛ حدّث الصفحة وحاول مرة أخرى.',
+  order_mismatch: 'تغيّرت القائمة أثناء الترتيب؛ حدّث الصفحة وحاول مرة أخرى.',
   gallery_item_not_found: 'الصورة غير موجودة.',
   logo_too_small: 'الشعار صغير جدًا (48 بكسل على الأقل لكل ضلع).',
   wrong_image_kind: 'هذه الصورة رُفعت لغرض آخر؛ ارفعها مرة أخرى هنا.',
@@ -381,6 +412,7 @@ export const invoiceStatusLabel: Record<string, string> = {
 /** Invoice list tabs. */
 export const invoiceFilterLabel: Record<string, string> = {
   open: 'غير مسددة',
+  unbilled: 'لم تُفوتر',
   draft: 'مسودات',
   paid: 'مسددة',
   void: 'ملغاة',
@@ -501,10 +533,24 @@ export const platformActionLabel: Record<string, string> = {
   tenant_trial_extended: 'تمديد التجربة',
   tenant_plan_changed: 'تغيير الخطة',
   tenant_note_added: 'إضافة ملاحظة',
+  plan_created: 'إضافة خطة',
   plan_updated: 'تعديل خطة',
   platform_sign_in: 'دخول اللوحة',
   tenant_trial_expired: 'إيقاف تلقائي: انتهت التجربة',
   tenant_activated: 'تفعيل الاشتراك',
+  tenant_payment_recorded: 'تسجيل دفعة', // Phase 2B
+  tenant_subscription_past_due: 'انتهى الاشتراك: متأخر السداد',
+  tenant_unpaid_suspended: 'إيقاف تلقائي: لم يُجدَّد الاشتراك',
+  billing_instructions_updated: 'تعديل تعليمات الدفع',
+};
+
+/** Phase 2B: how a clinic paid its subscription. */
+export const subscriptionPaymentMethodLabel: Record<string, string> = {
+  instapay: 'إنستاباي',
+  vodafone_cash: 'فودافون كاش',
+  bank_transfer: 'تحويل بنكي',
+  cash: 'نقدًا',
+  other: 'أخرى',
 };
 
 /** Billing cycles. */

@@ -41,7 +41,7 @@ export class JwtAuthGuard implements CanActivate {
     }
     // SRS ACCESS-005: a disabled member, or a role/branch change, takes effect on the next request, not at token expiry.
     // One primary-key lookup; on `access_changed` the dashboard refreshes and gets a token with the new rights.
-    const { rows } = await sql<{ tenant_id: string; status: string; access_version: number; tenant_status: string }>`
+    const { rows } = await sql<{ tenant_id: string; status: string; access_version: number; tenant_status: string; sessions_revoked_at: Date | null }>`
       select * from member_access_state(${payload.mid}::uuid)`.execute(this.db.platform());
     const state = rows[0];
     if (!state || state.tenant_id !== payload.tid || state.status !== 'active') {
@@ -52,6 +52,11 @@ export class JwtAuthGuard implements CanActivate {
     // H8: the owner deleted the clinic: closed at once, like a suspension
     if (state.tenant_status === 'cancelled') throw Err.unauthorized('clinic_deleted', 'This clinic was deleted; contact the platform to restore it');
     if (state.access_version !== payload.av) throw Err.unauthorized('access_changed', 'Your access changed; sign in again');
+    // review R11: a password reset ends the sessions at once, not when the access tokens expire (iat is in seconds)
+    const iat = (payload as { iat?: number }).iat ?? 0;
+    if (state.sessions_revoked_at && iat < Math.floor(new Date(state.sessions_revoked_at).getTime() / 1000)) {
+      throw Err.unauthorized('session_revoked', 'Session ended. Sign in again.');
+    }
     this.cls.set('userId', payload.sub);
     this.cls.set('tenantId', payload.tid);
     this.cls.set('memberId', payload.mid);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addItem, ageOn, EMPTY_PATIENT, hasAlerts, historyBody, isMinor, looksLikePhone, parseTags, patientBody, patientProblems, type PatientForm } from '../patient-model';
+import { addItem, ageOn, EMPTY_PATIENT, hasAlerts, historyBody, initialProfileTab, isMinor, looksLikePhone, medicalAlerts, nextAppointment, profileTabs, parseTags, patientBody, patientProblems, type PatientForm } from '../patient-model';
 
 const filled: PatientForm = { ...EMPTY_PATIENT, fullName: 'Omar Khaled', phone: '01011111111', gender: 'male', dateOfBirth: '1990-01-02', city: 'Cairo', tags: 'vip, ortho' };
 
@@ -76,5 +76,45 @@ describe('blocking', () => {
     expect(patientBody({ ...filled, isBlocked: true }, null)).not.toHaveProperty('isBlocked');
     expect(patientBody({ ...filled, isBlocked: true }, filled)).toEqual({ isBlocked: true });
     expect(patientBody(filled, filled)).toEqual({});
+  });
+});
+
+describe('medicalAlerts', () => {
+  const h = { allergies: ['Penicillin'], conditions: ['سكر'], medications: ['Warfarin'], is_pregnant: true, is_smoker: null, notes: null, updated_at: null };
+  it('lists allergies, pregnancy and conditions in one order, with medications beside them', () => {
+    expect(medicalAlerts(h)).toEqual({ items: ['حساسية من Penicillin', 'حامل', 'سكر'], medications: ['Warfarin'] });
+  });
+  it('medications alone are not an alert; no history means nothing to show', () => {
+    expect(medicalAlerts({ ...h, allergies: [], conditions: [], is_pregnant: false }).items).toEqual([]);
+    expect(hasAlerts({ ...h, allergies: [], conditions: [], is_pregnant: null })).toBe(false);
+    expect(medicalAlerts(null)).toEqual({ items: [], medications: [] });
+  });
+});
+
+describe('profile tabs (redesign R6)', () => {
+  const as = (perms: string[]) => (p: string) => perms.includes('*') || perms.includes(p);
+  it('shows each member the tabs whose data they may read', () => {
+    expect(profileTabs(as(['*']), true)).toEqual(['overview', 'clinical', 'billing', 'appointments', 'activity']);
+    expect(profileTabs(as(['patients:read', 'invoices:read']), false)).toEqual(['overview', 'billing', 'appointments']);
+    expect(profileTabs(as(['patients:read', 'clinical:write', 'invoices:read:own']), true)).toEqual(['overview', 'clinical', 'billing', 'appointments']);
+  });
+  it('opens the asked tab if shown; else the doctor lands on the clinical tab and reception on the overview', () => {
+    const doctor = as(['clinical:write']);
+    const doctorTabs = profileTabs(doctor, true);
+    expect(initialProfileTab(doctorTabs, undefined, doctor)).toBe('clinical');
+    expect(initialProfileTab(doctorTabs, 'appointments', doctor)).toBe('appointments');
+    expect(initialProfileTab(doctorTabs, 'activity', doctor)).toBe('clinical'); // not theirs: ignored
+    const reception = as(['patients:read', 'invoices:read']);
+    expect(initialProfileTab(profileTabs(reception, false), undefined, reception)).toBe('overview');
+  });
+});
+
+describe('nextAppointment', () => {
+  const at = (iso: string, status: string) => ({ id: iso, status, starts_at: iso }) as never;
+  const now = Date.parse('2026-11-01T10:00:00Z');
+  it('is the earliest one still to come that will happen', () => {
+    const list = [at('2026-11-09T10:00:00Z', 'confirmed'), at('2026-11-03T10:00:00Z', 'cancelled'), at('2026-11-05T10:00:00Z', 'pending'), at('2026-10-20T10:00:00Z', 'completed')];
+    expect(nextAppointment(list, now)).toMatchObject({ starts_at: '2026-11-05T10:00:00Z' });
+    expect(nextAppointment([at('2026-10-20T10:00:00Z', 'confirmed')], now)).toBeNull();
   });
 });

@@ -3,14 +3,18 @@
  * Pure parsing/building lives here (unit-tested); the React hook is in `hooks.ts`.
  */
 export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking'
-  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles' | 'data';
-export type Action = 'new' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge';
+  | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles' | 'data'
+  | 'website' | 'activity';
+export type Action = 'new' | 'import' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge';
+/** Actions of the page itself, with no record id: `#/patients/new`, `#/patients/import` (Phase 2A). */
+type PageAction = 'new' | 'import';
+const PAGE_ACTIONS: readonly string[] = ['new', 'import'];
 
 /** `query` carries optional, non-identifying hints for a page (e.g. `?patient=` on a create page). */
 export type Route = (
   | { page: Page; id?: undefined; action?: undefined }
-  | { page: Page; id?: undefined; action: 'new' }
-  | { page: Page; id: string; action: Exclude<Action, 'new'> }
+  | { page: Page; id?: undefined; action: PageAction }
+  | { page: Page; id: string; action: Exclude<Action, PageAction> }
   | { page: 'not-found'; id?: undefined; action?: undefined }
 ) & { query?: Record<string, string> };
 
@@ -21,8 +25,10 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   data: [], // H8: the owner's data export and clinic deletion
   branches: ['new', 'edit', 'hours', 'rooms'],
   appointments: ['new', 'edit'], // `edit` = move to another time/doctor and/or give it a room
-  patients: ['new', 'edit', 'view', 'merge'], // merge = another record merged into this one
+  patients: ['new', 'import', 'edit', 'view', 'merge'], // merge = another record merged into this one; import = from Excel/CSV (Phase 2A)
   gallery: ['new', 'edit'],
+  website: [], // Phase 2C-1: the site's sections and questions
+  activity: [], // Phase 2D: the clinic's activity log
   doctors: ['new', 'edit', 'schedule', 'timeoff'],
   services: ['new', 'edit'],
   staff: ['new', 'edit'], // `new` = invite someone; `edit` = a member's role, branches and status
@@ -77,15 +83,15 @@ export function parseRoute(hash: string): Route {
   const [page, second, third] = parts;
   if (!isPage(page)) return NOT_FOUND;
   if (parts.length === 1) return withQuery({ page });
-  if (parts.length === 2) return second === 'new' && ACTIONS[page].includes('new') ? withQuery({ page, action: 'new' }) : NOT_FOUND;
-  if (parts.length === 3 && third !== 'new' && ACTIONS[page].includes(third as Action)) return withQuery({ page, id: second, action: third as Exclude<Action, 'new'> });
+  if (parts.length === 2) return PAGE_ACTIONS.includes(second) && ACTIONS[page].includes(second as Action) ? withQuery({ page, action: second as PageAction }) : NOT_FOUND;
+  if (parts.length === 3 && !PAGE_ACTIONS.includes(third) && ACTIONS[page].includes(third as Action)) return withQuery({ page, id: second, action: third as Exclude<Action, PageAction> });
   return NOT_FOUND;
 }
 
 export function href(route: Route): string {
   const q = route.query && Object.keys(route.query).length ? `?${new URLSearchParams(route.query)}` : '';
   if (route.page === 'not-found') return '#/';
-  if (route.action === 'new') return `#/${route.page}/new${q}`;
+  if (route.action === 'new' || route.action === 'import') return `#/${route.page}/${route.action}${q}`;
   if (route.action) return `#/${route.page}/${route.id}/${route.action}${q}`;
   return `#/${route.page}${q}`;
 }
@@ -94,6 +100,7 @@ export function href(route: Route): string {
 export const to = {
   list: (page: Page): Route => ({ page }),
   create: (page: Page, query?: Record<string, string>): Route => (query ? { page, action: 'new', query } : { page, action: 'new' }),
+  importPatients: (): Route => ({ page: 'patients', action: 'import' }),
   edit: (page: Page, id: string): Route => ({ page, id, action: 'edit' }),
   view: (page: Page, id: string): Route => ({ page, id, action: 'view' }),
   hours: (id: string): Route => ({ page: 'branches', id, action: 'hours' }),

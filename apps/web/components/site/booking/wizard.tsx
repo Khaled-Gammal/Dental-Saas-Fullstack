@@ -59,6 +59,12 @@ export function BookingWizard({ options, clinicName, currency, preset = {} }: { 
   const [error, setError] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
 
+  // review R11: the chosen doctor (often from the doctor's own page) stays chosen when the branch or service changes,
+  // as long as they work there and perform it; otherwise "any doctor"
+  const keepDoctor = (cur: string, branch: string, service: string) => {
+    const d = cur === ANY ? undefined : options.doctors.find((x) => x.id === cur);
+    return d && d.branch_ids.includes(branch) && (!service || d.service_ids.includes(service)) ? cur : ANY;
+  };
   const doctorsHere = useMemo(() => options.doctors.filter((d) => d.branch_ids.includes(branchId) && (!serviceId || d.service_ids.includes(serviceId))), [options.doctors, branchId, serviceId]);
   const service = options.services.find((s) => s.id === serviceId);
   const branch = options.branches.find((b) => b.id === branchId);
@@ -89,7 +95,9 @@ export function BookingWizard({ options, clinicName, currency, preset = {} }: { 
   useEffect(() => {
     if (!hold || step === 'done') return;
     const tick = () => {
-      const left = Math.max(0, Math.round((new Date(hold.expiresAt).getTime() - Date.now()) / 1000));
+      // review R11: counted on this device's clock from when the hold arrived; a phone set a few minutes ahead no longer
+      // "expires" every hold at once (the server's expiresAt is the fallback for an older API)
+      const left = Math.max(0, Math.round(((hold.deadline ?? new Date(hold.expiresAt).getTime()) - Date.now()) / 1000));
       setSecondsLeft(left);
       if (left === 0) { setHold(null); setStep('time'); setError(BOOKING_ERRORS.hold_expired); }
     };
@@ -125,7 +133,7 @@ export function BookingWizard({ options, clinicName, currency, preset = {} }: { 
     if (hold) { await release(hold); setHold(null); } // one hold per visitor: picking again frees the previous slot first
     try {
       const h = await call<Hold>('holds', { method: 'POST', body: JSON.stringify({ branchId, serviceId, startsAt, ...(doctorId !== ANY && { doctorId }) }) });
-      setHold(h); setStep('details');
+      setHold({ ...h, ...(h.ttlSeconds && { deadline: Date.now() + h.ttlSeconds * 1000 }) }); setStep('details');
     } catch (e) { fail(e); void loadSlots(date); } finally { setBusy(false); }
   };
 
@@ -165,13 +173,13 @@ export function BookingWizard({ options, clinicName, currency, preset = {} }: { 
           {options.branches.length > 1 && (
             <fieldset className="bk-group"><legend>الفرع</legend>
               <div className="bk-options">
-                {options.branches.map((b) => <button key={b.id} type="button" className="bk-opt" aria-pressed={branchId === b.id} onClick={() => { setBranchId(b.id); setDoctorId(ANY); }}><strong><bdi>{ar(b.name_ar, b.name_en)}</bdi></strong>{(b.address_ar || b.city) && <span>{[ar(b.address_ar, b.address_en), b.city].filter(Boolean).join('، ')}</span>}</button>)}
+                {options.branches.map((b) => <button key={b.id} type="button" className="bk-opt" aria-pressed={branchId === b.id} onClick={() => { setBranchId(b.id); setDoctorId((cur) => keepDoctor(cur, b.id, serviceId)); }}><strong><bdi>{ar(b.name_ar, b.name_en)}</bdi></strong>{(b.address_ar || b.city) && <span>{[ar(b.address_ar, b.address_en), b.city].filter(Boolean).join('، ')}</span>}</button>)}
               </div>
             </fieldset>
           )}
           <fieldset className="bk-group"><legend>الخدمة</legend>
             <div className="bk-options">
-              {options.services.map((s) => <button key={s.id} type="button" className="bk-opt" aria-pressed={serviceId === s.id} onClick={() => { setServiceId(s.id); setDoctorId(ANY); }}><strong><bdi>{ar(s.name_ar, s.name_en)}</bdi></strong><span>{priceText(s.price_minor, s.price_max_minor, currency)} · {s.duration_minutes} {arNoun(s.duration_minutes, NOUNS.minute)}</span></button>)}
+              {options.services.map((s) => <button key={s.id} type="button" className="bk-opt" aria-pressed={serviceId === s.id} onClick={() => { setServiceId(s.id); setDoctorId((cur) => keepDoctor(cur, branchId, s.id)); }}><strong><bdi>{ar(s.name_ar, s.name_en)}</bdi></strong><span>{priceText(s.price_minor, s.price_max_minor, currency)} · {s.duration_minutes} {arNoun(s.duration_minutes, NOUNS.minute)}</span></button>)}
             </div>
           </fieldset>
           {serviceId && (

@@ -12,13 +12,16 @@ export function ServiceCard({ service, contact, clinicName, currency }: { servic
   const desc = ar(service.description_ar, service.description_en);
   // the message names the service, so the clinic knows what the visitor wants before replying
   const link = bookingLink(contact, `مرحبًا، أود حجز موعد لـ${name} في ${clinicName}.`);
-  const book = link?.via === 'online' ? { ...link, href: `${link.href}?service=${service.id}` } : link; // the wizard opens with this service chosen
+  // the wizard opens with this service chosen — when it offers it (Phase 2C-3); otherwise WhatsApp or a call
+  const book = service.bookable_online === false ? bookingLink({ ...contact, bookUrl: null }, `مرحبًا، أود حجز موعد لـ${name} في ${clinicName}.`)
+    : link?.via === 'online' ? { ...link, href: `${link.href}?service=${service.id}` } : link;
   return (
     <article className={`s-card s-service${service.image ? ' has-media' : ''}`} data-reveal>
       {service.image
         ? <img className="s-card-media" {...imageProps(service.image, 640)} sizes="(max-width: 640px) 100vw, 360px" alt="" loading="lazy" decoding="async" />
         : <span className="s-service-icon"><Icon name={iconFor(service.category)} size={26} /></span>}
-      <h3><bdi>{name}</bdi></h3>
+      {/* Phase 2C-3: each service has its own page (search engines index it; visitors read more) */}
+      <h3><a className="s-card-title-link" href={`/services/${service.id}`}><bdi>{name}</bdi></a></h3>
       {desc && <p className="s-service-desc">{desc}</p>}
       <div className="s-meta">
         <span className="s-price">{priceText(service.price_minor, service.price_max_minor, currency)}</span>
@@ -29,10 +32,10 @@ export function ServiceCard({ service, contact, clinicName, currency }: { servic
   );
 }
 
-export function ServicesSection({ services, contact, clinicName, currency }: { services: SiteService[]; contact: Contact; clinicName: string; currency?: string }) {
+export function ServicesSection({ services, contact, clinicName, currency, tint }: { services: SiteService[]; contact: Contact; clinicName: string; currency?: string; tint?: boolean }) {
   if (!services.length) return null;
   return (
-    <Section id="services" kicker="خدماتنا" title="خدمات أسنان بأسعار واضحة" sub="تعرّف على الخدمة ومدتها المتوقعة وسعرها قبل الزيارة">
+    <Section id="services" kicker="خدماتنا" title="خدمات أسنان بأسعار واضحة" sub="تعرّف على الخدمة ومدتها المتوقعة وسعرها قبل الزيارة" tint={tint}>
       <div className="s-grid">
         {services.map((s) => <ServiceCard key={s.id} service={s} contact={contact} clinicName={clinicName} currency={currency} />)}
       </div>

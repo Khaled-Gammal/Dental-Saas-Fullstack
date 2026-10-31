@@ -4,12 +4,15 @@ import { onColor, arName, readableOnWhite } from '@dental/ui/text';
 import { api } from '../api';
 import { ImageField } from '../components/image-field';
 import { imageFieldValue } from '../media-model';
-import { keys, useInvalidate, useOnboarding, useProfile, usePublish } from '../queries';
-import type { ClinicProfile, MediaImage } from '../types';
+import { keys, useClinicPlan, useInvalidate, useOnboarding, useProfile, usePublish, useSetPoweredBy, useWebsite } from '../queries';
+import type { ClinicPlanSummary, ClinicProfile, MediaImage } from '../types';
 import { Choice } from '../components/choice';
-import { Alert, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, TextArea } from '../ui/components';
+import { Alert, Badge, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, Switch, TextArea } from '../ui/components';
 import { CheckIcon, GlobeIcon, PhoneIcon, ToothIcon } from '../ui/icons';
-import { diffText } from '../util';
+import { diffText, fmtNumber, LOC } from '../util';
+import { billingCycleLabel, planFeatureLabel, planLimitLabel, subscriptionPaymentMethodLabel } from '../labels';
+import { money } from '../money';
+import { renewalNotice, trialDaysLeft, usageRows } from '../plan-model';
 
 /** Dental-friendly presets; any #rrggbb works and the website keeps text readable on it. */
 const PRESETS = ['#1d6fd8', '#0e9aa7', '#12b5a0', '#0f2f5c', '#6d4ed6', '#d6457a'];
@@ -27,7 +30,7 @@ const toForm = (p: ClinicProfile): Form => ({
 const FIELDS = ['nameAr', 'nameEn', 'aboutAr', 'aboutEn', 'primaryPhone', 'whatsapp', 'email', 'brandColor'] as const;
 type Changes = Partial<Record<(typeof FIELDS)[number] | 'logoFileId', string | null>>;
 
-export function Profile({ clinicId, canEdit }: { clinicId: string; canEdit: boolean }) {
+export function Profile({ clinicId, canEdit, canEditWebsite = false }: { clinicId: string; canEdit: boolean; canEditWebsite?: boolean }) {
   const profile = useProfile(clinicId);
   const onboarding = useOnboarding(clinicId).data;
   const publish = usePublish(clinicId);
@@ -142,7 +145,144 @@ export function Profile({ clinicId, canEdit }: { clinicId: string; canEdit: bool
         </aside>
         </fieldset>
       </form>
+      {/* Phase 1D: outside the profile form (its own permissions, saved on their own) */}
+      {(canEdit || canEditWebsite) && (
+        <div className="plan-row">
+          {canEdit && <PlanCard clinicId={clinicId} />}
+          {canEditWebsite && <BadgeCard clinicId={clinicId} />}
+        </div>
+      )}
     </>
+  );
+}
+
+const FEATURES = ['remove_badge', 'custom_domain', 'online_payments'] as const;
+/** Arabic counting: يوم واحد، يومين، 3–10 أيام، 11+ يومًا */
+const daysText = (n: number) => (n === 1 ? 'يوم واحد' : n === 2 ? 'يومين' : n <= 10 ? `${fmtNumber(n)} أيام` : `${fmtNumber(n)} يومًا`);
+const fmtDate = (iso: string) => new Intl.DateTimeFormat(LOC, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso));
+/** A calendar day (YYYY-MM-DD) as written, whatever the browser's zone. */
+const fmtDay = (day: string) => new Intl.DateTimeFormat(LOC, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`));
+const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
+  trialing: { label: 'فترة تجريبية', tone: 'warning' }, active: { label: 'مفعّلة', tone: 'success' },
+  past_due: { label: 'متأخرة في الدفع', tone: 'danger' }, suspended: { label: 'موقوفة', tone: 'danger' }, cancelled: { label: 'ملغاة', tone: 'neutral' },
+};
+
+/** Phase 1D (BIL-01): the clinic's plan, what it uses against each limit, and what the plan includes. */
+function PlanCard({ clinicId }: { clinicId: string }) {
+  const plan = useClinicPlan(clinicId);
+  if (plan.isError) return <Card><h2>باقتك</h2><ErrorText error={plan.error} onRetry={() => void plan.refetch()} /></Card>;
+  if (!plan.data) return <Card><h2>باقتك</h2><Skeleton h={40} count={3} /></Card>;
+  const p = plan.data;
+  const st = p.status ? STATUS[p.status] : undefined;
+  const days = p.status === 'trialing' ? trialDaysLeft(p.trialEndsAt, Date.now()) : null;
+  const notice = renewalNotice(p, Date.now());
+  return (
+    <Card className="plan-card">
+      <div className="plan-head">
+        <h2>باقتك: <bdi>{p.plan?.name ?? '—'}</bdi></h2>
+        {st && <Badge tone={st.tone}>{st.label}</Badge>}
+      </div>
+      {days !== null && p.trialEndsAt && (
+        <p className="muted small">{days > 0 ? `تنتهي الفترة التجريبية خلال ${daysText(days)} (${fmtDate(p.trialEndsAt)})` : 'انتهت الفترة التجريبية'}</p>
+      )}
+      {p.status === 'active' && p.currentPeriodEnd && <p className="muted small">الاشتراك {billingCycleLabel[p.billingCycle ?? 'monthly']} ساري حتى {fmtDate(p.currentPeriodEnd)}</p>}
+      {notice?.kind === 'soon' && <Alert tone="info">ينتهي اشتراكك خلال {daysText(notice.days)} ({fmtDate(notice.endsAt)}). جدِّده قبلها حتى لا يتوقف العمل.</Alert>}
+      {notice?.kind === 'past_due' && (
+        <Alert tone="danger">
+          انتهى اشتراكك ولم يُسجَّل التجديد بعد. تستمر العيادة في العمل حتى {fmtDate(notice.stopsAt)}
+          {notice.days > 0 && <> (باقي {daysText(notice.days)})</>}، ثم يتوقف دخول الفريق والموقع والحجز حتى يُسجَّل الدفع. بياناتك محفوظة.
+        </Alert>
+      )}
+      {!p.live && <Alert tone="danger">اشتراكك غير مفعّل: لا يمكن إضافة فروع أو أطباء أو مرضى أو أعضاء جدد حتى يُفعَّل.</Alert>}
+      <ul className="plan-usage">
+        {usageRows(p).map((r) => (
+          <li key={r.key} className={`is-${r.level}`}>
+            <div className="plan-usage-row">
+              <span>{planLimitLabel[r.key === 'storageMb' ? 'storage_mb' : r.key]}</span>
+              <span className="plan-usage-num">{r.limit === null ? <>{fmtNumber(r.used)} · بلا حد</> : <>{fmtNumber(r.used)} من {fmtNumber(r.limit)}</>}</span>
+            </div>
+            {r.limit !== null && <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.percent} aria-label={planLimitLabel[r.key === 'storageMb' ? 'storage_mb' : r.key]}><span style={{ width: `${r.percent}%` }} /></div>}
+          </li>
+        ))}
+      </ul>
+      <ul className="plan-features">
+        {FEATURES.map((k) => (
+          <li key={k} className={p.features[k] ? 'is-on' : undefined}>
+            {p.features[k] ? <CheckIcon size={16} /> : <span aria-hidden>–</span>}
+            <span>{planFeatureLabel[k]}</span>
+            <span className="sr-only">{p.features[k] ? 'متاح' : 'غير متاح'}</span>
+          </li>
+        ))}
+      </ul>
+      <PaymentSection p={p} />
+    </Card>
+  );
+}
+
+/** Phase 2B: what renewing costs, how to pay (the platform's text), and the payments recorded so far. */
+function PaymentSection({ p }: { p: ClinicPlanSummary }) {
+  const price = p.price;
+  return (
+    <section className="plan-pay" aria-labelledby="plan-pay-title">
+      <h3 id="plan-pay-title">الدفع والتجديد</h3>
+      {price && (price.monthlyMinor > 0 || price.yearlyMinor > 0) && (
+        <p className="small">
+          قيمة الباقة: {price.monthlyMinor > 0 && <>{money(price.monthlyMinor, price.currency)} للشهر</>}
+          {price.monthlyMinor > 0 && price.yearlyMinor > 0 && ' أو '}
+          {price.yearlyMinor > 0 && <>{money(price.yearlyMinor, price.currency)} للسنة</>}
+        </p>
+      )}
+      {p.paymentInstructions
+        ? <div className="plan-pay-how"><strong className="small">طريقة الدفع</strong><p><bdi>{p.paymentInstructions}</bdi></p><p className="muted small">بعد الدفع أرسل رقم العملية لفريق المنصة ليتم تسجيله وتجديد اشتراكك.</p></div>
+        : <p className="muted small">للدفع أو تغيير الباقة تواصل مع فريق المنصة، ويتم تجديد اشتراكك بعد تسجيل الدفعة.</p>}
+      {p.payments.length > 0 && (
+        <div className="table-wrap mt-sm">
+          <table className="report-table">
+            <caption className="sr-only">المدفوعات</caption>
+            <thead><tr><th>الرقم</th><th>التاريخ</th><th>المدة</th><th>الطريقة</th><th className="num">المبلغ</th></tr></thead>
+            <tbody>
+              {p.payments.map((x) => (
+                <tr key={x.id}>
+                  <td><bdi dir="ltr">{x.number}</bdi></td>
+                  <td>{x.paidAt ? fmtDate(x.paidAt) : '—'}</td>
+                  <td>{fmtDay(x.periodStart)} – {fmtDay(x.periodEnd)}</td>
+                  <td>{x.method ? subscriptionPaymentMethodLabel[x.method] ?? x.method : '—'}</td>
+                  <td className="num">{money(x.amountMinor, x.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Phase 1D (WEB-10): the platform badge at the foot of the clinic's site; hiding it needs a plan that includes it. */
+function BadgeCard({ clinicId }: { clinicId: string }) {
+  const site = useWebsite(clinicId);
+  const set = useSetPoweredBy(clinicId);
+  if (site.isError) return <Card><h2>شارة المنصة</h2><ErrorText error={site.error} onRetry={() => void site.refetch()} /></Card>;
+  if (!site.data) return <Card><h2>شارة المنصة</h2><Skeleton h={40} count={1} /></Card>;
+  const { showPoweredBy, canRemoveBadge } = site.data;
+  const shown = showPoweredBy || !canRemoveBadge; // what visitors see
+  return (
+    <Card>
+      <h2>شارة المنصة</h2>
+      <p className="muted small">عبارة «بواسطة منصة الأسنان» في أسفل موقع عيادتك.</p>
+      {canRemoveBadge ? (
+        <div className="mt-sm">
+          <Switch checked={showPoweredBy} onChange={(v) => { if (!set.isPending) set.mutate(v); }} label="إظهار الشارة على موقعي" />
+          <p className="muted small mt-sm">يتغير على موقعك فورًا، بدون نشر.</p>
+        </div>
+      ) : (
+        <Alert tone="info">إخفاء الشارة غير متاح في باقتك الحالية. رقِّ الباقة لإخفائها.</Alert>
+      )}
+      {set.isPending && <p className="muted small">جارٍ الحفظ…</p>}
+      <ErrorText error={set.error} />
+      {!canRemoveBadge && !showPoweredBy && <p className="muted small">الشارة ظاهرة على موقعك لأن باقتك لا تشمل إخفاءها.</p>}
+      <span className="sr-only">{shown ? 'الشارة ظاهرة الآن على موقعك' : 'الشارة مخفية الآن من موقعك'}</span>
+    </Card>
   );
 }
 

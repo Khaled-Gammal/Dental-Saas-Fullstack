@@ -33,7 +33,7 @@ SELECT test.ok((SELECT status = 'final' AND finalized_at IS NOT NULL AND finaliz
   FROM visits WHERE id = 'b4000000-0000-0000-0000-000000000001'), 'completing the appointment finalizes its visit, by the acting member');
 SELECT test.throws($$UPDATE visits SET clinical_notes = 'غيرت رأيي' WHERE id = 'b4000000-0000-0000-0000-000000000001'$$, 'is final', 'a final note cannot be overwritten');
 SELECT test.throws($$UPDATE visits SET status = 'draft' WHERE id = 'b4000000-0000-0000-0000-000000000001'$$, 'is final', 'a final visit cannot go back to draft');
-SELECT test.throws($$DELETE FROM visits WHERE id = 'b4000000-0000-0000-0000-000000000001'$$, 'never deleted', 'visits are never deleted');
+SELECT test.throws($$DELETE FROM visits WHERE id = 'b4000000-0000-0000-0000-000000000001'$$, 'permission denied', 'visits are never deleted (no DELETE right since review R11)');
 SELECT test.throws($$INSERT INTO visit_amendments (tenant_id, visit_id, field, new_text, reason, author_id) VALUES
   ('11111111-1111-1111-1111-111111111111','b4000000-0000-0000-0000-000000000001','diagnosis','x',' ','c0000000-0000-0000-0000-0000000000a3')$$,
   'visit_amendments_reason', 'an amendment needs a reason');

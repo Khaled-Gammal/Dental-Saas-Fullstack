@@ -89,6 +89,15 @@ UPDATE invoices SET status = 'void', void_reason = 'wrong patient' WHERE id = '1
 SELECT test.lives($$INSERT INTO invoice_items (tenant_id, invoice_id, visit_procedure_id, description, unit_price_minor, line_total_minor)
   VALUES ('11111111-1111-1111-1111-111111111111','1a000000-0000-0000-0000-000000000004','4a000000-0000-0000-0000-000000000001','Filling', 50000, 50000)$$,
   'voided work can be re-billed');
+-- review R11: a procedure is billed only on its own patient's invoice
+INSERT INTO visit_procedures (id, tenant_id, visit_id, service_id, doctor_id, price_minor, commission_bp)
+VALUES ('4a000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','3a000000-0000-0000-0000-000000000001',
+        '90000000-0000-0000-0000-0000000000a3','f0000000-0000-0000-0000-0000000000a1', 100000, 1000);
+INSERT INTO invoices (id, tenant_id, branch_id, patient_id, currency) VALUES
+ ('1a000000-0000-0000-0000-000000000005','11111111-1111-1111-1111-111111111111','d0000000-0000-0000-0000-0000000000a1','70000000-0000-0000-0000-0000000000a2','EGP');
+SELECT test.throws($$INSERT INTO invoice_items (tenant_id, invoice_id, visit_procedure_id, description, unit_price_minor, line_total_minor)
+  VALUES ('11111111-1111-1111-1111-111111111111','1a000000-0000-0000-0000-000000000005','4a000000-0000-0000-0000-000000000002','Filling', 50000, 50000)$$,
+  'another patient', 'a procedure cannot go on another patient''s invoice');
 
 -- payouts
 INSERT INTO doctor_payouts (id, tenant_id, doctor_id, period_start, period_end, currency, amount_minor)

@@ -15,6 +15,13 @@ export function emailWhen(at: Date | number, tz: string): string {
   return f.format(at);
 }
 
+/** "1,250.50 ج.م" — the same wording as the dashboard and printouts (Latin digits, whole amounts without decimals). */
+export function emailMoney(minor: number, currency: string): string {
+  const major = minor / 100;
+  const n = major.toLocaleString('ar-EG-u-nu-latn', Number.isInteger(major) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${n} ${currency === 'EGP' ? 'ج.م' : currency}`;
+}
+
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 /** The plain text as right-to-left HTML: escaped, lines kept, links clickable. */

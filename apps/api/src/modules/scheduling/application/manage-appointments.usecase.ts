@@ -1,12 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { APP_CONFIG, type AppConfig } from '../../../config';
 import { hasPermission } from '../../../auth/permissions';
 import { PatientDirectory } from '../../patients';
 import { Err } from '../../../shared/errors/app-error';
+import { manageToken, manageTokenHash } from '../../../shared/manage-link';
 import { maskEmail } from '../../../shared/mask';
 import { emailWhen } from '../../../shared/notifications/arabic-mail';
 import { EMAIL_SENDER, type EmailSender } from '../../../shared/notifications/ports';
 import { ACTION_TARGET, canTransition, type StaffAction } from '../domain/appointment-status';
-import { dateInZone, dayWindow, endOfDay, safeTimeZone } from '../../../shared/time/clinic-time';
+import { addDays, dateInZone, dayWindow, endOfDay, safeTimeZone } from '../../../shared/time/clinic-time';
 import { GetAvailability } from './get-availability.usecase';
 import {
   BOOKING_CODES, CLOCK, SCHEDULING_REPOSITORY,
@@ -42,6 +45,7 @@ export class ManageAppointments {
     @Inject(BOOKING_CODES) private readonly codes: BookingCodes,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(EMAIL_SENDER) private readonly email: EmailSender,
+    @Inject(APP_CONFIG) private readonly cfg: AppConfig,
     private readonly availability: GetAvailability,
     private readonly patients: PatientDirectory,
   ) {}
@@ -55,24 +59,27 @@ export class ManageAppointments {
   }
 
   /**
-   * One calendar day in the branch's zone (or the clinic's, for all branches; a branch-limited member sees theirs).
+   * One calendar day in the branch's zone (or the clinic's, for all branches; a branch-limited member sees theirs), or
+   * `days` days from `date` (Phase 1C, DSH-02: the week view), oldest first.
    * `mine`: only the appointments of the doctor record the member signs in as (SRS APPT-004).
    */
-  listDay(scope: TenantScope, q: { date: string; branchId?: string; mine?: boolean }, actor?: Actor): Promise<{ date: string; timezone: string; appointments: AppointmentView[] }> {
+  listDay(scope: TenantScope, q: { date: string; branchId?: string; mine?: boolean; days?: number }, actor?: Actor): Promise<{ date: string; days: number; timezone: string; appointments: AppointmentView[] }> {
+    const days = Math.min(Math.max(q.days ?? 1, 1), 7);
     return scope.run(async (tx) => {
       if (q.branchId) await this.assertBranch(tx, q.branchId);
       const policy = await this.repo.policy(tx);
       const branchTz = q.branchId ? await this.repo.branchTimezone(tx, q.branchId) : null;
       if (branchTz === undefined) throw Err.notFound('branch_not_found', 'Branch not found');
       const timezone = safeTimeZone(branchTz ?? policy.timezone);
-      const w = dayWindow(q.date, timezone);
+      const from = dayWindow(q.date, timezone).start;
+      const to = dayWindow(addDays(q.date, days - 1), timezone).end;
       let doctorId: string | undefined;
       if (q.mine) {
         doctorId = (actor && (await this.repo.doctorOfMember(tx, actor.memberId))) ?? undefined;
-        if (!doctorId) return { date: q.date, timezone, appointments: [] }; // not a doctor: nothing is "mine"
+        if (!doctorId) return { date: q.date, days, timezone, appointments: [] }; // not a doctor: nothing is "mine"
       }
-      const appointments = await this.repo.listBetween(tx, { from: new Date(w.start), to: new Date(w.end), branchId: q.branchId, doctorId });
-      return { date: q.date, timezone, appointments };
+      const appointments = await this.repo.listBetween(tx, { from: new Date(from), to: new Date(to), branchId: q.branchId, doctorId });
+      return { date: q.date, days, timezone, appointments };
     });
   }
 
@@ -211,7 +218,10 @@ export class ManageAppointments {
         if (!has(actor, 'appointments:override')) throw Err.forbidden('missing_permission', 'Booking outside the schedule needs appointments:override');
       }
       await this.repo.releaseExpiredHolds(tx, input.doctorId);
+      // Phase 2E: the patient gets their own link to cancel or move it too (in the emails, when they have an address)
+      const newId = randomUUID();
       const { id } = await this.repo.insertStaffAppointment(tx, {
+        id: newId, manageTokenHash: manageTokenHash(manageToken(this.cfg.BOOKING_CODE_SECRET, newId)),
         tenantId, branchId: input.branchId, doctorId: input.doctorId, serviceId: input.serviceId ?? null, patientId: input.patientId,
         startsAt: input.startsAt, endsAt: new Date(input.startsAt.getTime() + day.durationMinutes * 60_000), source: input.source, bookedBy: actor.memberId,
         status: 'confirmed', quotedPriceMinor: day.service?.price_minor ?? null, internalNotes: input.notes ?? null, overrideReason: onGrid ? null : input.overrideReason ?? null,
@@ -249,7 +259,7 @@ export class ManageAppointments {
 
   /** One status move. Doctors with only `appointments:write:own` may start and complete their own visits. */
   transition(scope: TenantScope, id: string, action: StaffAction, actor: Actor, reason?: string | null): Promise<AppointmentView> {
-    return scope.run(async (tx) => {
+    return scope.run(async (tx, tenantId) => {
       const row = await this.repo.lockForTransition(tx, id);
       if (!row) throw Err.notFound('appointment_not_found', 'Appointment not found');
       const own = row.doctor_member_id !== null && row.doctor_member_id === actor.memberId;
@@ -263,6 +273,13 @@ export class ManageAppointments {
       if (to === 'completed') patch.completedAt = now;
       if (to === 'cancelled') { patch.cancelledAt = now; patch.cancelReason = reason ?? null; patch.cancelledBy = 'clinic'; }
       await this.repo.setStatus(tx, id, patch);
+      // review R11 (NTF-03): the patient is told when the clinic cancels, and when it confirms a booking that was waiting
+      // (the worker emails them; written in this transaction, so a rolled-back change tells nobody)
+      // only a booking still ahead of the patient: a checked-in patient who left, or a visit in the past, is not told
+      if (to === 'cancelled' && (row.status === 'pending' || row.status === 'confirmed')) {
+        await this.repo.addOutboxEvent(tx, tenantId, 'appointment.cancelled', { appointmentId: id });
+      }
+      if (to === 'confirmed' && row.status === 'pending') await this.repo.addOutboxEvent(tx, tenantId, 'appointment.confirmed', { appointmentId: id });
       return (await this.repo.get(tx, id))!;
     });
   }

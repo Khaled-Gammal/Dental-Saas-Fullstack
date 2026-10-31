@@ -3,6 +3,7 @@ import type { Tx } from '@dental/db';
 import { AuditLog } from '../../shared/audit/audit-log';
 import { AppError, Err } from '../../shared/errors/app-error';
 import { PlanLimits } from '../../shared/plans/plan-limits.service';
+import { NEEDS_REVIEW } from './patient-rules';
 import { PatientsRepository } from './patients.repository';
 
 /** What a visitor sees when the clinic cannot take their booking online; the reason (blocked, plan) stays internal. */
@@ -22,8 +23,10 @@ export class PatientDirectory {
 
   /**
    * SRS BOOK-11: phone + name links an existing patient; otherwise a new record tagged for reception to review.
-   * A blocked patient is refused (never given a fresh record). The email was just verified by the booking code, so
-   * it replaces the one on file — confirmations and reminders go to the address the patient can actually read.
+   * A blocked patient is refused (never given a fresh record). Phone + name is not proof of identity, so a different
+   * email on a matched record is never written over the one on file (review R11: anyone knowing a patient's name and
+   * phone could otherwise redirect their reminders). The record is flagged for reception instead, and the address the
+   * visitor used is kept in the audit trail; this booking's own confirmation still goes to the verified address.
    * A new record counts against the plan's patient limit like one made at the desk.
    */
   async matchOrCreateForBooking(tx: Tx, tenantId: string, p: { fullName: string; phone: string; email: string | null; preferredBranchId: string }): Promise<{ id: string; created: boolean }> {
@@ -31,8 +34,8 @@ export class PatientDirectory {
     if (found?.is_blocked) throw refused();
     if (found) {
       if (p.email && p.email !== found.email) {
-        await this.repo.update(tx, found.id, { email: p.email });
-        await this.audit.record(tx, tenantId, { action: 'patient.update', entityType: 'patient', entityId: found.id, actorType: 'patient', changes: { email: [found.email, p.email], via: 'website_booking' } });
+        await this.repo.addTag(tx, found.id, NEEDS_REVIEW);
+        await this.audit.record(tx, tenantId, { action: 'patient.booking_contact_differs', entityType: 'patient', entityId: found.id, actorType: 'patient', changes: { email: [found.email, p.email], via: 'website_booking' } });
       }
       return { id: found.id, created: false };
     }

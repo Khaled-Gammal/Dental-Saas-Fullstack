@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { arName } from '@dental/ui/text';
 import { ApiError, can, type Session } from '../../api';
 import { useFlash } from '../../hooks';
-import { appointmentStatusLabel, auditActionLabel, patientFieldLabel, signerRelationLabel } from '../../labels';
-import { ageOn, hasAlerts } from '../../patient-model';
-import { usePatient, usePatientActivity, usePatientVisits, useSavePatient } from '../../queries';
-import { to } from '../../router';
-import type { AuditEntry, PatientDetail } from '../../types';
+import { appointmentStatusLabel, auditActionLabel, genderLabel, patientFieldLabel, profileTabLabel, signerRelationLabel } from '../../labels';
+import { money } from '../../money';
+import { ageOn, initialProfileTab, nextAppointment, profileTabs, type ProfileTab } from '../../patient-model';
+import { usePatient, usePatientActivity, usePatientBilling, usePatientVisits, useSavePatient } from '../../queries';
+import { to, type Route } from '../../router';
+import type { AuditEntry, PatientDetail, PatientVisit } from '../../types';
 import { Alert, Badge, Button, Card, ErrorText, PageHeader } from '../../ui/components';
-import { AlertIcon, CalendarIcon, EditIcon, PhoneIcon, ShieldIcon } from '../../ui/icons';
+import { CalendarIcon, EditIcon, PhoneIcon, ShieldIcon } from '../../ui/icons';
+import { MedicalAlerts } from '../../ui/medical-alerts';
 import { Breadcrumbs, ResourceState, RouteLink } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, clinicToday, fmtNumber, LOC } from '../../util';
 import { ChartCard } from '../clinical/chart';
 import { PatientFollowUpsCard } from '../clinical/followups';
 import { PlansCard } from '../clinical/plans';
@@ -18,12 +20,13 @@ import { PatientBillingCard } from '../billing/list';
 import { FilesCard } from './files-card';
 import { MedicalHistoryCard } from './medical-history';
 
-const today = () => new Date().toLocaleDateString('en-CA');
-const loc = () => ('ar-EG-u-nu-latn');
 
-/** `#/patients/:id/view`: who the patient is, their safety alerts, history and visits. */
-export function PatientProfile({ clinicId, id, session }: { clinicId: string; id?: string; session: Session }) {
-  const flash = useFlash();
+/**
+ * `#/patients/:id/view[?tab=]` (redesign R6): the patient's header (who, how to reach them, what they owe, the next
+ * appointment) and safety alerts stay on top; the record below is split in tabs so the doctor and reception each
+ * reach what they need without scrolling past the rest. A doctor lands on the clinical tab, reception on the overview.
+ */
+export function PatientProfile({ clinicId, id, session, query }: { clinicId: string; id?: string; session: Session; query?: Record<string, string> }) {
   const one = usePatient(clinicId, id);
   if (!one.data) {
     // a merged record's old link: say where it went (SRS PATIENT-003)
@@ -32,56 +35,164 @@ export function PatientProfile({ clinicId, id, session }: { clinicId: string; id
     }
     return <ResourceState isLoading={one.isLoading} isError={one.isError} error={one.error} notFound={false} refetch={() => void one.refetch()} back={to.list('patients')} backLabel="المرضى" />;
   }
-  const p = one.data;
-  const write = can(session, 'patients:write');
+  return <ProfileBody clinicId={clinicId} p={one.data} session={session} query={query} />;
+}
+
+function ProfileBody({ clinicId, p, session, query }: { clinicId: string; p: PatientDetail; session: Session; query?: Record<string, string> }) {
+  const flash = useFlash();
+  const has = (perm: string) => can(session, perm);
+  const write = has('patients:write');
+  const seesClinical = !!p.medicalHistory;
+  const allowed = profileTabs(has, seesClinical);
+  const billing = usePatientBilling(clinicId, p.id, allowed.includes('billing'));
+  // review R10: a doctor reads the account of their own patients only (invoices:read:own); for anyone else's the API
+  // answers 403, so the tab goes rather than opening onto an error
+  const billingRefused = billing.error instanceof ApiError && billing.error.status === 403;
+  const tabs = billingRefused ? allowed.filter((t) => t !== 'billing') : allowed;
+  const tab = initialProfileTab(tabs, query?.tab, has);
+  const owed = billing.data && billing.data.balance_minor > 0 ? billing.data.balance_minor : 0;
+  const unbilled = billing.data?.unbilled.length ?? 0;
+  const next = nextAppointment(p.appointments, Date.now());
+  const age = ageOn(p.date_of_birth ?? '', clinicToday());
+  const tabRoute = (t: ProfileTab) => ({ page: 'patients' as const, id: p.id, action: 'view' as const, query: { tab: t } });
+  const canBook = has('appointments:write') && !p.is_blocked;
+
   return (
     <>
       <Breadcrumbs items={[{ label: 'المرضى', route: to.list('patients') }, { label: p.full_name }]} />
       <PageHeader
         title={p.full_name}
-        sub={`${'ملف رقم'} ${fmtNumber(p.file_no)}`}
+        sub={
+          <span className="profile-sub">
+            <span>ملف رقم <bdi dir="ltr">{fmtNumber(p.file_no)}</bdi></span>
+            {age !== null && <span>{fmtNumber(age)} سنة</span>}
+            {p.gender && <span>{genderLabel[p.gender]}</span>}
+            <a href={`tel:${p.phone}`} dir="ltr" className="link-plain"><PhoneIcon size={14} /> {p.phone}</a>
+          </span>
+        }
         action={
           <div className="row-end">
-            {can(session, 'patients:merge') && <RouteLink route={{ page: 'patients', id: p.id, action: 'merge' }} className="btn btn-ghost">دمج ملف مكرر</RouteLink>}
+            {has('patients:merge') && <RouteLink route={{ page: 'patients', id: p.id, action: 'merge' }} className="btn btn-ghost">دمج ملف مكرر</RouteLink>}
             {write && <RouteLink route={to.edit('patients', p.id)} className="btn btn-secondary"><EditIcon size={16} />تعديل</RouteLink>}
-            {can(session, 'appointments:write') && !p.is_blocked && <RouteLink route={to.create('appointments', { patient: p.id })} className="btn btn-primary"><CalendarIcon size={16} />حجز موعد</RouteLink>}
+            {canBook && <RouteLink route={to.create('appointments', { patient: p.id })} className="btn btn-primary"><CalendarIcon size={16} />حجز موعد</RouteLink>}
           </div>
         }
       />
+      <div className="profile-facts">
+        {tabs.includes('billing') && billing.data && (
+          <RouteLink route={tabRoute('billing')} className={`fact${owed ? ' is-owed' : ''}`}>
+            <span className="fact-label">المتبقي</span>
+            <strong><bdi>{owed ? money(owed, billing.data.currency) : 'لا مستحقات'}</bdi></strong>
+            {unbilled > 0 && <Badge tone="warning">{fmtNumber(unbilled)} لم يُفوتر</Badge>}
+          </RouteLink>
+        )}
+        <RouteLink route={tabRoute('appointments')} className="fact">
+          <span className="fact-label">الموعد القادم</span>
+          <strong>{next ? <bdi>{shortWhen().format(new Date(next.starts_at))}</bdi> : 'لا يوجد'}</strong>
+          {next && <span className="muted small"><bdi>{arName(next.doctor_ar, next.doctor_en)}</bdi></span>}
+        </RouteLink>
+      </div>
       {flash && <Alert tone="success">{flash}</Alert>}
-      {hasAlerts(p.medicalHistory) && p.medicalHistory!.allergies.length > 0 && (
-        <Alert tone="danger"><AlertIcon size={16} /> <strong>الحساسية:</strong> <bdi>{p.medicalHistory!.allergies.join('، ')}</bdi></Alert>
-      )}
+      <MedicalAlerts history={p.medicalHistory} />
       {p.is_blocked && <Alert tone="danger">هذا المريض ممنوع من الحجز.</Alert>}
       {p.needs_review && <ReviewBanner clinicId={clinicId} patient={p} canWrite={write} />}
 
-      <div className="profile-grid">
-        <div className="stack">
-          <DetailsCard p={p} />
-          <MedicalHistoryCard clinicId={clinicId} patientId={p.id} history={p.medicalHistory} canEdit={can(session, 'clinical:write')} />
-          {p.medicalHistory && <ChartCard clinicId={clinicId} patientId={p.id} canWrite={can(session, 'clinical:write')} age={ageOn(p.date_of_birth ?? '', today())} />}
-          {p.medicalHistory && <FilesCard clinicId={clinicId} patientId={p.id} canWrite={can(session, 'clinical:write')} />}
-        </div>
-        <div className="stack">
-          {p.medicalHistory && <ClinicalVisitsCard clinicId={clinicId} patientId={p.id} />}
-          {(can(session, 'invoices:read') || can(session, 'invoices:read:own')) && <PatientBillingCard clinicId={clinicId} patientId={p.id} canWrite={can(session, 'invoices:write')} />}
-          <PlansCard clinicId={clinicId} patientId={p.id} canCreate={can(session, 'treatments:write:own')} />
-          <PatientFollowUpsCard clinicId={clinicId} patientId={p.id} canWrite={write} canBook={can(session, 'appointments:write') && !p.is_blocked} />
-          <VisitsCard p={p} />
-          {can(session, 'audit:read') && <ActivityCard clinicId={clinicId} patientId={p.id} />}
-        </div>
+      <div className="profile-tabs">
+        <nav className="seg" aria-label="أقسام ملف المريض">
+          {tabs.map((t) => (
+            <RouteLink key={t} route={tabRoute(t)} className={`seg-btn${t === tab ? ' is-on' : ''}`} aria-current={t === tab ? 'page' : undefined}>
+              {profileTabLabel[t]}
+              {t === 'billing' && owed > 0 && <span className="tab-dot" aria-label="عليه مستحقات" />}
+            </RouteLink>
+          ))}
+        </nav>
+        <span className="profile-tabs-who" aria-hidden><bdi>{p.full_name}</bdi>{owed > 0 && billing.data && <> · <bdi className="text-owed">{money(owed, billing.data.currency)}</bdi></>}</span>
       </div>
+
+      {tab === 'overview' && (
+        <div className="profile-grid">
+          <div className="stack"><DetailsCard p={p} /></div>
+          <div className="stack">
+            <SummaryCard clinicId={clinicId} p={p} seesClinical={seesClinical} tabRoute={tabRoute} next={next} canBook={canBook} />
+            {!seesClinical && <PlansCard clinicId={clinicId} patientId={p.id} canCreate={has('treatments:write:own')} />}
+          </div>
+        </div>
+      )}
+      {tab === 'clinical' && (
+        <div className="profile-grid">
+          <div className="stack">
+            <ClinicalVisitsCard clinicId={clinicId} patientId={p.id} />
+            <ChartCard clinicId={clinicId} patientId={p.id} canWrite={has('clinical:write')} age={age} />
+          </div>
+          <div className="stack">
+            <MedicalHistoryCard clinicId={clinicId} patientId={p.id} history={p.medicalHistory} canEdit={has('clinical:write')} />
+            <PlansCard clinicId={clinicId} patientId={p.id} canCreate={has('treatments:write:own')} />
+            <FilesCard clinicId={clinicId} patientId={p.id} canWrite={has('clinical:write')} />
+          </div>
+        </div>
+      )}
+      {tab === 'billing' && <PatientBillingCard clinicId={clinicId} patientId={p.id} canWrite={has('invoices:write')} />}
+      {tab === 'appointments' && (
+        <div className="profile-grid">
+          <div className="stack"><VisitsCard p={p} /></div>
+          <div className="stack">
+            <PatientFollowUpsCard clinicId={clinicId} patientId={p.id} canWrite={write} canBook={canBook} />
+          </div>
+        </div>
+      )}
+      {tab === 'activity' && <ActivityCard clinicId={clinicId} patientId={p.id} defaultOpen />}
     </>
   );
 }
 
-/** Website bookings create records flagged for review (SRS BOOK-11): reception confirms it is a real, new person. */
+const shortWhen = () => new Intl.DateTimeFormat(LOC, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: clinicTimeZone() });
+
+/** The overview's at-a-glance card: the next appointment, the last clinical visit, the account; each opens its tab. */
+function SummaryCard({ clinicId, p, seesClinical, tabRoute, next, canBook }: {
+  clinicId: string; p: PatientDetail; seesClinical: boolean; tabRoute: (t: ProfileTab) => Route; next: PatientVisit | null; canBook: boolean;
+}) {
+  const visits = usePatientVisits(clinicId, p.id, seesClinical);
+  const last = visits.data?.[0];
+  const drafts = visits.data?.filter((v) => v.status === 'draft').length ?? 0;
+  return (
+    <Card>
+      <h2>ملخص</h2>
+      <dl className="detail-list mt">
+        <div>
+          <dt>الموعد القادم</dt>
+          <dd>
+            {next ? (
+              <><bdi>{shortWhen().format(new Date(next.starts_at))}</bdi> · <bdi>{arName(next.service_ar, next.service_en, 'موعد')}</bdi> · <bdi>{arName(next.doctor_ar, next.doctor_en)}</bdi></>
+            ) : canBook ? <RouteLink route={to.create('appointments', { patient: p.id })}>لا يوجد · حجز موعد</RouteLink> : <span className="muted">لا يوجد</span>}
+          </dd>
+        </div>
+        {seesClinical && (
+          <div>
+            <dt>آخر زيارة</dt>
+            <dd>
+              {last ? (
+                <><RouteLink route={to.visit(last.id)}>{shortWhen().format(new Date(last.visit_at))}</RouteLink> · <bdi>{arName(last.doctor.name_ar, last.doctor.name_en)}</bdi>
+                  {last.diagnosis && <> · <bdi>{last.diagnosis}</bdi></>}</>
+              ) : <span className="muted">لا توجد زيارات بعد</span>}
+              {drafts > 0 && <> <RouteLink route={tabRoute('clinical')}><Badge tone="warning">{fmtNumber(drafts)} مسودة</Badge></RouteLink></>}
+            </dd>
+          </div>
+        )}
+      </dl>
+    </Card>
+  );
+}
+
+/**
+ * Website bookings flag records for review (SRS BOOK-11): a new record (is it a real, new person?) or a matched one
+ * booked with a different email (review R11: the address on file is kept; the one used is in the activity log).
+ */
 function ReviewBanner({ clinicId, patient, canWrite }: { clinicId: string; patient: PatientDetail; canWrite: boolean }) {
   const save = useSavePatient(clinicId, patient.id);
   return (
     <Alert tone="info">
       <div className="row-between">
-        <span>سُجّل هذا الملف تلقائيًا من حجز عبر الموقع. تأكد أنه شخص جديد وليس ملفًا مكررًا.</span>
+        <span>هذا الملف يحتاج مراجعة بسبب حجز عبر الموقع: تأكد أنه ليس ملفًا مكررًا، وإن حُجز ببريد مختلف فراجع البريد المستخدم في سجل النشاط قبل تعديله.</span>
         {canWrite && <Button variant="secondary" loading={save.isPending} onClick={() => save.mutate({ needsReview: false })}>تمت المراجعة</Button>}
       </div>
       <ErrorText error={save.error} />
@@ -90,13 +201,13 @@ function ReviewBanner({ clinicId, patient, canWrite }: { clinicId: string; patie
 }
 
 function DetailsCard({ p }: { p: PatientDetail }) {
-  const age = ageOn(p.date_of_birth ?? '', today());
+  const age = ageOn(p.date_of_birth ?? '', clinicToday());
   const rows: [string, React.ReactNode][] = [
     ['رقم الموبايل', <a href={`tel:${p.phone}`} dir="ltr" className="link-plain"><PhoneIcon size={14} /> {p.phone}</a>],
     ...(p.phone_alt ? [['موبايل آخر', <span dir="ltr">{p.phone_alt}</span>] as [string, React.ReactNode]] : []),
     ...(p.email ? [['البريد الإلكتروني', <span dir="ltr">{p.email}</span>] as [string, React.ReactNode]] : []),
-    ...(p.date_of_birth ? [['تاريخ الميلاد', <span>{new Intl.DateTimeFormat(loc(), { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${p.date_of_birth}T00:00:00Z`))}{age !== null && <> · {fmtNumber(age)} سنة</>}</span>] as [string, React.ReactNode]] : []),
-    ...(p.gender ? [['النوع', p.gender] as [string, React.ReactNode]] : []),
+    ...(p.date_of_birth ? [['تاريخ الميلاد', <span>{new Intl.DateTimeFormat(LOC, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${p.date_of_birth}T00:00:00Z`))}{age !== null && <> · {fmtNumber(age)} سنة</>}</span>] as [string, React.ReactNode]] : []),
+    ...(p.gender ? [['النوع', genderLabel[p.gender] ?? p.gender] as [string, React.ReactNode]] : []),
     ...(p.city || p.address ? [['العنوان', <bdi>{[p.address, p.city].filter(Boolean).join('، ')}</bdi>] as [string, React.ReactNode]] : []),
     ...(p.occupation ? [['المهنة', <bdi>{p.occupation}</bdi>] as [string, React.ReactNode]] : []),
     ...(p.referral_source ? [['كيف عرف العيادة', <bdi>{p.referral_source}</bdi>] as [string, React.ReactNode]] : []),
@@ -125,11 +236,11 @@ function DetailsCard({ p }: { p: PatientDetail }) {
 }
 
 function VisitsCard({ p }: { p: PatientDetail }) {
-  const fmt = new Intl.DateTimeFormat(loc(), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: clinicTimeZone() });
   const now = Date.now();
   return (
     <Card>
-      <h2>الزيارات والمواعيد</h2>
+      <h2>المواعيد</h2>
       {p.appointments.length === 0 ? <p className="muted small mt-sm">لا توجد مواعيد بعد.</p> : (
         <ol className="timeline mt">
           {p.appointments.map((a) => (
@@ -150,7 +261,7 @@ function VisitsCard({ p }: { p: PatientDetail }) {
 /** The clinical visits (VISIT-001): the doctor, the diagnosis, what was done; each opens the visit. */
 function ClinicalVisitsCard({ clinicId, patientId }: { clinicId: string; patientId: string }) {
   const visits = usePatientVisits(clinicId, patientId, true);
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short', timeZone: clinicTimeZone() });
   return (
     <Card>
       <h2>الزيارات السريرية</h2>
@@ -176,10 +287,10 @@ function ClinicalVisitsCard({ clinicId, patientId }: { clinicId: string; patient
 }
 
 /** Who opened or changed this record (DSH-15). Medical changes show which fields changed, never their values. */
-function ActivityCard({ clinicId, patientId }: { clinicId: string; patientId: string }) {
-  const [open, setOpen] = useState(false);
+function ActivityCard({ clinicId, patientId, defaultOpen = false }: { clinicId: string; patientId: string; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const activity = usePatientActivity(clinicId, patientId, open);
-  const fmt = new Intl.DateTimeFormat(loc(), { dateStyle: 'medium', timeStyle: 'short' });
+  const fmt = new Intl.DateTimeFormat(LOC, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <Card>
       <div className="row-between">

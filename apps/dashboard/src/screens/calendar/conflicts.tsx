@@ -3,13 +3,13 @@ import { to } from '../../router';
 import type { CalendarConflict } from '../../types';
 import { Alert } from '../../ui/components';
 import { RouteLink } from '../../ui/page';
+import { clinicTimeZone, LOC } from '../../util';
 
-const loc = () => ('ar-EG-u-nu-latn');
 
 /** Bookings a new closed day or time off falls on: nothing was changed; reception follows up (SRS APPT-005). */
 export function Conflicts({ items }: { items: CalendarConflict[] }) {
   if (!items.length) return null;
-  const fmt = (iso: string) => new Intl.DateTimeFormat(loc(), { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' }).format(new Date(iso));
+  const fmt = (iso: string) => new Intl.DateTimeFormat(LOC, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: clinicTimeZone() }).format(new Date(iso));
   return (
     <Alert tone="info">
       <strong>مواعيد محجوزة في هذا الوقت</strong>

@@ -28,7 +28,7 @@ export class ProfileRepository {
       .leftJoin('sites as s', 's.tenant_id', 't.id')
       .select([
         't.slug', 't.status', 't.name_ar', 't.name_en', 't.about_ar', 't.about_en', 't.primary_phone', 't.whatsapp', 't.email',
-        't.specialties', 't.default_locale', 't.currency', 't.logo_file_id', imageJson('t.logo_file_id').as('logo'),
+        't.specialties', 't.default_locale', 't.currency', 't.timezone', 't.logo_file_id', imageJson('t.logo_file_id').as('logo'),
         sql<string | null>`s.draft_theme->>'primary'`.as('brand_color'),
       ])
       .executeTakeFirst();

@@ -14,6 +14,7 @@ import { hashPassword } from '../src/modules/identity/crypto';
 import { buildNextExport, purgeDeletedClinics } from '../src/worker/data-exports';
 
 const PASSWORD = 'Demo@12345';
+const CLINIC_B = '22222222-2222-2222-2222-222222222222';
 /** This suite's own platform admin: emailed sign-in codes are limited per address (3 in 10 minutes, always on), and
  * the seed admin's allowance belongs to the platform, landing and legal suites. */
 const ADMIN = `admin.h8.${String(Date.now()).slice(-8)}@demo.test`;
@@ -51,6 +52,11 @@ describe('Clinic data: export and deletion (e2e, Phase H8)', () => {
     reception = (await http().post('/auth/dev-login').send({ email: 'reception.a@demo.test' }).expect(201)).body.accessToken;
     await sql`insert into users (email, full_name, locale, email_verified_at, password_hash, platform_role)
               values (${ADMIN}, 'H8 Test Admin', 'ar', now(), ${await hashPassword(PASSWORD)}, 'super_admin')`.execute(worker);
+    // the test database keeps earlier runs' exports: they would count against the 3-a-day limit (429), and one a
+    // failed run left queued would refuse the next (409). Moved out of the day, and closed.
+    await sql`update data_exports set created_at = created_at - interval '1 day',
+              status = case when status in ('queued', 'running') then 'failed' else status end
+              where tenant_id = ${CLINIC_B} and created_at > now() - interval '1 day'`.execute(worker);
   });
   afterAll(async () => {
     await worker.destroy();

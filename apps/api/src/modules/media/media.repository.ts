@@ -39,7 +39,7 @@ export class MediaRepository {
     await sql`
       update files f set is_private = not exists (
         select 1 from gallery_items g where g.is_published and (g.image_file_id = f.id or g.before_file_id = f.id))
-      where f.id = any(${ids}::uuid[]) and f.kind = 'gallery'`.execute(tx);
+      where f.id = any(${ids}::uuid[]) and f.kind in ('gallery', 'case')`.execute(tx);
   }
 
   /** Deletes the row unless something still points at it (the foreign keys decide); returns whether it went. */

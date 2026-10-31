@@ -98,3 +98,12 @@ describe('the landing page sign-up link (H7)', () => {
     expect(signupLink('#/signup?cycle=monthly')).toEqual({});
   });
 });
+
+describe('the patient import page (Phase 2A)', () => {
+  it('#/patients/import has no record id, round-trips, and only the patients page offers it', () => {
+    expect(parseRoute('#/patients/import')).toEqual({ page: 'patients', action: 'import' });
+    expect(href(to.importPatients())).toBe('#/patients/import');
+    expect(parseRoute('#/doctors/import')).toEqual({ page: 'not-found' });
+    expect(parseRoute('#/patients/abc/import')).toEqual({ page: 'not-found' });
+  });
+});

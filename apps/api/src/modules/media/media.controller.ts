@@ -15,9 +15,9 @@ import { MediaService } from './media.service';
 
 const Rendition = z.string().regex(/^\d{2,4}\.webp$/).transform((s) => Number(s.slice(0, -5)));
 const SignedQuery = z.object({ exp: z.coerce.number().int(), sig: z.string().regex(/^[A-Za-z0-9_-]{20,64}$/) }).strict();
-const UploadQuery = z.object({ purpose: z.enum(['gallery', 'photo', 'logo']).default('gallery') }).strict();
+const UploadQuery = z.object({ purpose: z.enum(['gallery', 'photo', 'logo', 'case', 'share']).default('gallery') }).strict();
 /** Gallery photos are website content; logos and doctor/service/branch photos belong to the clinic's setup. */
-const UPLOAD_PERMISSION: Record<MediaPurpose, string> = { gallery: 'website:write', photo: 'settings:write', logo: 'settings:write' };
+const UPLOAD_PERMISSION: Record<MediaPurpose, string> = { gallery: 'website:write', photo: 'settings:write', logo: 'settings:write', case: 'website:write', share: 'website:write' };
 /** Runs before the upload interceptor reads the body: a member without the permission never uploads anything. */
 @Injectable()
 class UploadPermissionGuard implements CanActivate {
@@ -25,7 +25,7 @@ class UploadPermissionGuard implements CanActivate {
 
   canActivate(ctx: ExecutionContext): boolean {
     const raw = ctx.switchToHttp().getRequest<{ query: Record<string, unknown> }>().query.purpose;
-    const purpose: MediaPurpose = raw === 'photo' || raw === 'logo' ? raw : 'gallery'; // anything else fails validation later
+    const purpose: MediaPurpose = raw === 'photo' || raw === 'logo' || raw === 'case' || raw === 'share' ? raw : 'gallery'; // anything else fails validation later
     const needed = UPLOAD_PERMISSION[purpose];
     if (!hasPermission(this.cls.get('permissions'), needed)) throw Err.forbidden('missing_permission', `Missing permission: ${needed}`);
     return true;
@@ -83,5 +83,29 @@ export class MediaController {
     @Query(new ZodBody(HostQuery)) q: z.infer<typeof HostQuery>, @Res({ passthrough: true }) res: Response) {
     const file = await this.media.openPublic(q.host, uuid(f), w);
     return stream(res, file, 'public, max-age=3600, s-maxage=86400');
+  }
+
+  /**
+   * Phase 2C-3: the image shown when the clinic's site is shared (1200×630 JPEG). The site links it with a version
+   * (`?v=`) that changes with the image, so it may be cached long.
+   */
+  @Public()
+  @Get('public/share-image')
+  async share(@Query(new ZodBody(HostQuery.extend({ v: z.string().max(80).optional() }).strict())) q: { host: string }, @Res({ passthrough: true }) res: Response) {
+    const body = await this.media.shareImageFor(q.host);
+    res.set({ 'Content-Type': 'image/jpeg', 'Content-Length': String(body.length), 'Cache-Control': 'public, max-age=3600, s-maxage=86400', 'X-Content-Type-Options': 'nosniff' });
+    return new StreamableFile(body);
+  }
+
+  /**
+   * Phase 2C-2: a published before/after case's images (patient images, published with consent). Never cached: when
+   * the consent is withdrawn or the case removed, the next request is refused. Case images are served only here.
+   */
+  @Public()
+  @Get('public/case-media/:fileId/:rendition')
+  async caseImage(@Param('fileId') f: string, @Param('rendition', new ZodBody(Rendition)) w: number,
+    @Query(new ZodBody(HostQuery)) q: z.infer<typeof HostQuery>, @Res({ passthrough: true }) res: Response) {
+    const file = await this.media.openPublic(q.host, uuid(f), w, 'case');
+    return stream(res, file, 'no-store');
   }
 }

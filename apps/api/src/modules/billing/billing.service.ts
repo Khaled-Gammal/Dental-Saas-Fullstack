@@ -10,7 +10,7 @@ import { PatientDirectory } from '../patients';
 import { AuditLog } from '../../shared/audit/audit-log';
 import { canReverse, cleanReference, discountDecision, procedureLine, servicePrice, taxOf } from './billing-rules';
 import { BillingRepository } from './billing.repository';
-import type { InvoicesQueryInput, NewInvoiceInput, NewLineInput, NewPaymentInput, NewRefundInput, ServiceLineInput } from './billing.schemas';
+import type { InvoicesQueryInput, InvoiceTotalsQueryInput, NewInvoiceInput, NewLineInput, NewPaymentInput, NewRefundInput, ServiceLineInput } from './billing.schemas';
 
 const invoiceNotFound = () => Err.notFound('invoice_not_found', 'Invoice not found');
 const PAYABLE = ['issued', 'partially_paid'];
@@ -60,6 +60,24 @@ export class BillingService {
   list(q: InvoicesQueryInput) {
     if (!this.can('invoices:read')) throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
     return this.db.run((tx) => this.repo.list(tx, q));
+  }
+
+  /** Redesign R7: the totals row of the invoice list (the same filters, every page), in the clinic currency. */
+  totals(q: InvoiceTotalsQueryInput) {
+    if (!this.can('invoices:read')) throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
+    return this.db.run(async (tx, tenantId) => {
+      const [clinic, totals] = await Promise.all([this.repo.clinic(tx, tenantId), this.repo.totals(tx, q)]);
+      return { currency: clinic.currency, ...totals };
+    });
+  }
+
+  /** Redesign R5: everything done and not billed yet, per patient and branch, so no finished work is forgotten. */
+  unbilled(limit: number) {
+    if (!this.can('invoices:read')) throw Err.forbidden('missing_permission', 'Missing permission: invoices:read');
+    return this.db.run(async (tx, tenantId) => {
+      const [clinic, items] = await Promise.all([this.repo.clinic(tx, tenantId), this.repo.unbilledByPatient(tx, limit)]);
+      return { currency: clinic.currency, items };
+    });
   }
 
   /** A patient's money at a glance (BILLING-005): balance, invoices, and what is still to bill. */
@@ -175,12 +193,16 @@ export class BillingService {
         if (!['due', 'partially_paid'].includes(ins.status)) throw Err.conflict('installment_closed', `This installment is ${ins.status}`);
         if (input.amountMinor > ins.amount_minor - ins.paid_minor) throw Err.badRequest('amount_exceeds_installment', 'The amount is more than what is left of the installment', { left: ins.amount_minor - ins.paid_minor });
       }
-      await this.repo.addPayment(tx, tenantId, {
+      const paymentId = await this.repo.addPayment(tx, tenantId, {
         installmentId: input.installmentId ?? null,
         invoiceId: id, patientId: inv.patient_id, branchId: inv.branch_id, amountMinor: input.amountMinor, currency: inv.currency, method: input.method,
         reference: cleanReference(input.method, input.reference), notes: input.notes ?? null, idempotencyKey: input.idempotencyKey, receivedBy: this.member(),
       });
-      return this.view(tx, id);
+      // review R11 (NTF-03): the patient gets an emailed receipt (the worker; skipped when they have no email). The
+      // balance is the one right after this payment: the worker may run after a second payment changed it.
+      const after = await this.view(tx, id);
+      await this.repo.addOutboxEvent(tx, tenantId, 'payment.received', { paymentId, balanceAfterMinor: after.balance_minor });
+      return after;
     });
   }
 
@@ -217,12 +239,20 @@ export class BillingService {
     return this.db.run(async (tx, tenantId) => {
       const p = await this.repo.lockPayment(tx, paymentId);
       if (!p) throw Err.notFound('payment_not_found', 'Payment not found');
+      // review R11: checked after the payment lock, so a concurrent twin waits and then sees the first refund
+      if (input.idempotencyKey) {
+        const again = await this.repo.refundByIdempotencyKey(tx, input.idempotencyKey);
+        if (again) {
+          if (again.payment_id !== paymentId) throw Err.conflict('idempotency_key_reused', 'This key was used for another refund');
+          return this.view(tx, p.invoice_id!); // the same request again: one refund
+        }
+      }
       if (!['succeeded', 'partially_refunded'].includes(p.status)) throw Err.conflict('payment_not_refundable', 'This payment cannot be refunded', { status: p.status });
       const full = (await this.repo.payment(tx, paymentId))!;
       if (input.amountMinor > full.amount_minor - full.refunded_minor) throw Err.badRequest('refund_exceeds_payment', 'Refunds cannot exceed the payment');
       await this.repo.addRefund(tx, tenantId, {
         paymentId, amountMinor: input.amountMinor, method: input.method, reason: input.reason,
-        reference: input.method === 'cash' ? null : input.reference?.trim() || null, createdBy: this.member(),
+        reference: input.method === 'cash' ? null : input.reference?.trim() || null, createdBy: this.member(), idempotencyKey: input.idempotencyKey ?? null,
       });
       return this.view(tx, p.invoice_id!);
     });

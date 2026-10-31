@@ -4,7 +4,7 @@ import { Err } from '../../../shared/errors/app-error';
 import type { BookingPolicy } from '../domain/booking-policy';
 import type {
   AppointmentView, BookingOptions, BookingService, CheckInResult, DayContext, DayQuery, DoctorsQuery, FinalizeInput, HoldInput, HoldRow, MovePatch, MoveRow,
-  SchedulingRepository, Session, StaffAppointmentInput, StatusPatch, TransitionRow,
+  SchedulingRepository, SelfMovePatch, SelfServiceRow, Session, StaffAppointmentInput, StatusPatch, TransitionRow,
 } from '../application/ports';
 
 const isPgError = (e: unknown, code: string) => (e as { code?: string })?.code === code;
@@ -12,7 +12,7 @@ const isPgError = (e: unknown, code: string) => (e as { code?: string })?.code =
 /** The appointment columns the dashboard sees; names are joined in as JSON so a day is one query. */
 const VIEW_COLUMNS = [
   'a.id', 'a.status', 'a.source', 'a.starts_at', 'a.ends_at', 'a.branch_id', 'a.doctor_id', 'a.service_id', 'a.room_id', 'a.payment_mode',
-  'a.quoted_price_minor', 'a.patient_notes', 'a.internal_notes', 'a.cancel_reason', 'a.confirmed_at', 'a.checked_in_at', 'a.completed_at', 'a.cancelled_at', 'a.created_at',
+  'a.quoted_price_minor', 'a.patient_notes', 'a.internal_notes', 'a.cancel_reason', 'a.cancelled_by', 'a.patient_reschedules', 'a.confirmed_at', 'a.checked_in_at', 'a.completed_at', 'a.cancelled_at', 'a.created_at',
 ] as const;
 /** the clinical visit opened on this appointment, if any (VISIT-001: reception sees that it exists) */
 const visitId = sql<string | null>`(select v.id from visits v where v.appointment_id = a.id)`;
@@ -131,7 +131,7 @@ export class KyselySchedulingRepository implements SchedulingRepository {
   async finalizeHold(tx: Session, id: string, f: FinalizeInput): Promise<void> {
     await tx.updateTable('appointments').set({
       patient_id: f.patientId, status: f.status, confirmed_at: f.status === 'confirmed' ? sql<Date>`now()` : null, patient_notes: f.patientNotes,
-      check_in_code_hash: f.codeHash, check_in_code_expires_at: f.codeExpiresAt,
+      check_in_code_hash: f.codeHash, check_in_code_expires_at: f.codeExpiresAt, manage_token_hash: f.manageTokenHash,
     }).where('id', '=', id).where('status', '=', 'held').execute();
   }
 
@@ -149,7 +149,7 @@ export class KyselySchedulingRepository implements SchedulingRepository {
   }
 
   private static toView(r: Awaited<ReturnType<ReturnType<KyselySchedulingRepository['view']>['execute']>>[number]): AppointmentView {
-    return { ...r, status: r.status as AppointmentView['status'], quoted_price_minor: r.quoted_price_minor === null ? null : Number(r.quoted_price_minor) };
+    return { ...r, status: r.status as AppointmentView['status'], cancelled_by: r.cancelled_by as AppointmentView['cancelled_by'], quoted_price_minor: r.quoted_price_minor === null ? null : Number(r.quoted_price_minor) };
   }
 
   async listBetween(tx: Session, q: { from: Date; to: Date; branchId?: string; doctorId?: string }): Promise<AppointmentView[]> {
@@ -227,10 +227,45 @@ export class KyselySchedulingRepository implements SchedulingRepository {
 
   insertStaffAppointment(tx: Session, a: StaffAppointmentInput): Promise<{ id: string }> {
     return tx.insertInto('appointments').values({
+      id: a.id, manage_token_hash: a.manageTokenHash,
       tenant_id: a.tenantId, branch_id: a.branchId, doctor_id: a.doctorId, service_id: a.serviceId, patient_id: a.patientId, starts_at: a.startsAt, ends_at: a.endsAt,
       status: a.status, confirmed_at: sql<Date>`now()`, source: a.source, booked_by: a.bookedBy, payment_mode: 'at_clinic', quoted_price_minor: a.quotedPriceMinor,
       internal_notes: a.internalNotes, override_reason: a.overrideReason,
     }).returning('id').executeTakeFirstOrThrow();
+  }
+
+  async byManageToken(tx: Session, tokenHash: string, lock: boolean): Promise<SelfServiceRow | undefined> {
+    const { rows } = await sql<SelfServiceRow>`
+      select a.id, a.status, a.source, a.starts_at, a.ends_at, a.branch_id, a.doctor_id, a.service_id, a.patient_reschedules,
+             (a.check_in_code_hash is not null and a.check_in_code_used_at is null) as has_code, p.email::text as patient_email, p.full_name as patient_name,
+             d.name_ar as doctor_ar, d.name_en as doctor_en, s.name_ar as service_ar, s.name_en as service_en,
+             b.name_ar as branch_ar, b.name_en as branch_en, coalesce(b.address_ar, b.address_en) as branch_address, b.timezone as branch_tz, b.phone as branch_phone,
+             t.name_ar as clinic_ar, t.name_en as clinic_en, t.primary_phone as clinic_phone
+        from appointments a
+        join doctors d on d.id = a.doctor_id
+        join branches b on b.id = a.branch_id
+        join tenants t on t.id = a.tenant_id
+        left join services s on s.id = a.service_id
+        left join patients p on p.id = a.patient_id
+       where a.manage_token_hash = ${tokenHash} and a.patient_id is not null
+       ${lock ? sql`for update of a` : sql``}`.execute(tx);
+    return rows[0];
+  }
+
+  async cancelWindowHours(tx: Session): Promise<number> {
+    const r = await tx.selectFrom('tenant_settings').select('booking_cancel_window_hours').executeTakeFirst();
+    return r?.booking_cancel_window_hours ?? 12;
+  }
+
+  async selfMove(tx: Session, id: string, p: SelfMovePatch): Promise<void> {
+    // same doctor and branch; the room is left for reception to give again (it may be taken then). The database's
+    // exclusion constraint settles a race for the new time (409 slot_taken)
+    await tx.updateTable('appointments').set({
+      starts_at: p.startsAt, ends_at: p.endsAt, status: p.status, room_id: null, override_reason: null, // the new time is on the schedule
+      patient_reschedules: sql<number>`patient_reschedules + 1`,
+      ...(p.status === 'confirmed' && { confirmed_at: sql<Date>`coalesce(confirmed_at, now())` }),
+      ...(p.code && { check_in_code_hash: p.code.hash, check_in_code_expires_at: p.code.expiresAt }),
+    }).where('id', '=', id).where('status', 'in', ['pending', 'confirmed']).execute();
   }
 
   async checkInByCode(tx: Session, codeHash: string, branchId: string, memberId: string, method: 'code' | 'qr'): Promise<CheckInResult | undefined> {

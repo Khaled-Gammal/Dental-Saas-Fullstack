@@ -7,10 +7,10 @@ import { to } from '../../router';
 import type { ClinicProfile } from '../../types';
 import { Button } from '../../ui/components';
 import { Breadcrumbs, ResourceState } from '../../ui/page';
-import { fmtNumber } from '../../util';
+import { clinicTimeZone, fmtNumber, LOC } from '../../util';
 
 const ar = (minor: number, currency: string) => money(minor, currency);
-const when = (iso: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Africa/Cairo' }).format(new Date(iso));
+const when = (iso: string) => new Intl.DateTimeFormat(LOC, { dateStyle: 'long', timeStyle: 'short', timeZone: clinicTimeZone() }).format(new Date(iso));
 
 /** The clinic header of every printout: name, logo, branch address and phone. */
 function Head({ clinic, branchId, branches, title, children }: {

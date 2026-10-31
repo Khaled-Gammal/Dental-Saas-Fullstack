@@ -30,7 +30,9 @@ SELECT test.throws($$INSERT INTO leads (full_name, phone, billing_cycle) VALUES 
 SELECT test.throws($$INSERT INTO leads (kind, full_name, phone, billing_cycle, clinic_id) VALUES ('subscribe', 'سارة', '+201012345678', 'weekly', '22222222-2222-2222-2222-222222222222')$$,
   'leads_billing_cycle', 'monthly or yearly');
 
--- the panel
+-- the panel (its own role since review R11; the clinic API's role cannot list leads at all)
+SELECT test.throws($$SELECT * FROM platform_leads('b0000000-0000-0000-0000-0000000000f1')$$, 'permission denied', 'the clinic API role lists no leads');
+SET LOCAL ROLE app_platform;
 SELECT test.throws($$SELECT * FROM platform_leads('b0000000-0000-0000-0000-0000000000a1')$$, 'not a platform admin', 'a clinic owner does not list leads');
 SELECT test.ok((SELECT plan_code = 'pro' AND status = 'new' FROM platform_leads('b0000000-0000-0000-0000-0000000000f1') WHERE phone = '+201012345678'),
   'an admin lists them, with the plan asked about');

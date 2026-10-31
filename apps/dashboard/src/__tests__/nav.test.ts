@@ -25,21 +25,27 @@ describe('sidebar navigation (redesign R1)', () => {
     expect(visibleNav([{ id: null, label: null, items: NAV_FOOT }], canSeePage, has)[0].items.map((i) => i.page)).toEqual(['data']);
   });
   it('a member sees only what they may open; a group left empty disappears', () => {
+    // Phase 2D: the activity log sits with the team, for audit:read only
+    expect(keys(['audit:read']).find(([k]) => k === 'team')).toEqual(['team', ['activity']]);
+    expect(keys(['staff:manage']).find(([k]) => k === 'team')).toEqual(['team', ['staff', 'roles']]);
     const reception = keys(['patients:read', 'patients:write', 'appointments:read', 'appointments:write', 'invoices:read', 'payments:write', 'cash:operate']);
     expect(reception).toEqual([
       [null, ['overview', 'appointments', 'patients', 'followups']],
       ['clinic', ['profile', 'branches', 'doctors', 'services']],
       ['finance', ['invoices', 'cash']],
     ]);
+    // a doctor reads clinical data: the visits list sits beside the patients
+    expect(keys(['patients:read', 'clinical:read', 'clinical:write', 'appointments:read'])[0]).toEqual([null, ['overview', 'appointments', 'patients', 'visits', 'followups']]);
     const { has, canSeePage } = as(['patients:read']);
     expect(visibleNav([{ id: null, label: null, items: NAV_FOOT }], canSeePage, has)).toEqual([]); // not the owner: no clinic data page
   });
-  it('the "soon" website item shows only to who will edit the site', () => {
-    expect(keys(['website:write']).find(([k]) => k === 'website')).toEqual(['website', ['gallery', 'website:write']]);
+  it('the website items show only to who edits the site', () => {
+    expect(keys(['website:write']).find(([k]) => k === 'website')).toEqual(['website', ['gallery', 'website']]);
     expect(keys(['patients:read']).find(([k]) => k === 'website')).toBeUndefined();
   });
   it('a page without its own item lights its parent, and opens its group', () => {
-    expect(navPageOf('visits')).toBe('patients');
+    expect(navPageOf('visits')).toBe('visits'); // redesign R5: the visits list has its own item
+    expect(navPageOf('plans')).toBe('patients');
     expect(navPageOf('payments')).toBe('invoices');
     expect(navPageOf('holidays')).toBe('branches');
     expect(navPageOf('not-found')).toBeNull();

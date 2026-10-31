@@ -2,7 +2,7 @@
  * Patient form logic that mirrors the API rules. Pure functions (no React), unit-tested in __tests__/patient-model.test.ts.
  */
 import { toAsciiDigits } from '@dental/ui/text';
-import type { Gender, GuardianRelation, MedicalHistory, PatientDetail } from './types';
+import type { Gender, GuardianRelation, MedicalHistory, PatientDetail, PatientVisit } from './types';
 
 export interface PatientForm {
   fullName: string;
@@ -109,5 +109,47 @@ export function addItem(list: string[], raw: string): string[] {
 
 export const historyBody = (h: HistoryForm) => ({ ...h, notes: h.notes.trim() || null });
 
+/**
+ * The safety facts every screen shows first, in one order (allergies, pregnancy, conditions), plus the current
+ * medications as context. One rule for the patient profile, the visit and the history card, so they never disagree.
+ */
+export function medicalAlerts(h: MedicalHistory | null): { items: string[]; medications: string[] } {
+  if (!h) return { items: [], medications: [] };
+  return {
+    items: [...h.allergies.map((a) => `${'حساسية من'} ${a}`), ...(h.is_pregnant ? ['حامل'] : []), ...h.conditions],
+    medications: h.medications,
+  };
+}
+
 /** Safety-relevant facts the dentist must see first (allergies, anticoagulants, pregnancy). */
-export const hasAlerts = (h: MedicalHistory | null) => !!h && (h.allergies.length > 0 || h.conditions.length > 0 || h.is_pregnant === true);
+export const hasAlerts = (h: MedicalHistory | null) => medicalAlerts(h).items.length > 0;
+
+// ---------- the profile's tabs (redesign R6) ----------
+
+export type ProfileTab = 'overview' | 'clinical' | 'billing' | 'appointments' | 'activity';
+
+/**
+ * The tabs of the patient profile this member sees, in order. `seesClinical`: the API returned the medical data (it
+ * leaves it out for a role that may not see it). The billing tab follows the same rule as the account card.
+ */
+export function profileTabs(has: (p: string) => boolean, seesClinical: boolean): ProfileTab[] {
+  return [
+    'overview',
+    ...(seesClinical ? ['clinical' as const] : []),
+    ...(has('invoices:read') || has('invoices:read:own') ? ['billing' as const] : []),
+    'appointments',
+    ...(has('audit:read') ? ['activity' as const] : []),
+  ];
+}
+
+/** The tab that opens: the one in the link if this member has it; else a doctor (clinical:write) lands on the clinical tab, everyone else on the overview. */
+export function initialProfileTab(tabs: readonly ProfileTab[], asked: string | undefined, has: (p: string) => boolean): ProfileTab {
+  if (tabs.includes(asked as ProfileTab)) return asked as ProfileTab;
+  return has('clinical:write') && tabs.includes('clinical') ? 'clinical' : 'overview';
+}
+
+/** The patient's next appointment still to come (not cancelled, missed, done or an expired hold), or null. */
+export function nextAppointment(list: readonly PatientVisit[], now: number): PatientVisit | null {
+  const live = list.filter((a) => new Date(a.starts_at).getTime() > now && !['cancelled', 'no_show', 'completed', 'expired'].includes(a.status));
+  return live.sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0] ?? null;
+}

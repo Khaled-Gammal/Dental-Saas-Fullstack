@@ -18,7 +18,18 @@ export interface SiteData {
   holidays: Holiday[];
   services: SiteService[];
   doctors: SiteDoctor[];
+  /** Phase 2C-1: the clinic's layout as stored ([{key, visible}]; lib/sections fills in defaults) */
+  sections: unknown;
+  faqs: SiteFaq[];
+  photos: SitePhoto[];
+  /** Phase 2C-2: published before/after cases (only with the patient's consent) */
+  cases: SiteCase[];
+  /** Phase 2C-3: the clinic's search title and description (null: defaults), and its share image's version */
+  seo: { title: string | null; description: string | null; shareVersion: string | null };
 }
+export interface SiteCase { id: string; service_id?: string | null; /** among the first 12 (the home page) */ on_home?: boolean; caption_ar: string | null; alt_ar: string | null; service_ar: string | null; before: SiteImage; after: SiteImage }
+export interface SiteFaq { id: string; service_id?: string | null; question_ar: string | null; answer_ar: string | null; question_en: string | null; answer_en: string | null }
+export interface SitePhoto { id: string; caption_ar: string | null; caption_en: string | null; alt_ar: string | null; alt_en: string | null; image: SiteImage }
 export interface SiteBranch {
   id: string; name_ar: string | null; name_en: string | null; address_ar: string | null; address_en: string | null; city: string | null;
   phone: string | null; whatsapp: string | null; timezone: string | null; latitude: number | null; longitude: number | null; is_main: boolean;
@@ -29,6 +40,9 @@ export interface SiteService {
   id: string; name_ar: string | null; name_en: string | null; description_ar: string | null; description_en: string | null;
   category: string | null; price_minor: number; price_max_minor: number | null; duration_minutes: number;
   image?: SiteImage | null;
+  /** Phase 2C-3: the doctors on the site who provide it; whether the wizard offers it */
+  doctor_ids?: string[];
+  bookable_online?: boolean;
 }
 export interface SiteDoctor {
   id: string; name_ar: string | null; name_en: string | null; title_ar: string | null; title_en: string | null;
@@ -47,7 +61,7 @@ export const getSite = cache(async (host: string): Promise<SiteData | null> => {
   if (!res.ok) throw new Error(`API ${res.status}`);
   const data = (await res.json()) as Partial<SiteData> & Pick<SiteData, 'clinic'>;
   // tolerate a payload from an older API (or a cached response from before a field was added)
-  return { theme: {}, showPoweredBy: true, onlineBooking: false, branches: [], holidays: [], services: [], doctors: [], ...data };
+  return { theme: {}, showPoweredBy: true, onlineBooking: false, branches: [], holidays: [], services: [], doctors: [], sections: [], faqs: [], photos: [], cases: [], seo: { title: null, description: null, shareVersion: null }, ...data };
 });
 
 // ---------- formatting (Arabic site) ----------

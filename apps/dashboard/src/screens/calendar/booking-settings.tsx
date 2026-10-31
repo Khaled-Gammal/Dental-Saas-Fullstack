@@ -11,10 +11,14 @@ import { Checkbox } from '../../components/ui/checkbox';
 
 const STEPS = [5, 10, 15, 20, 30, 60];
 
-/** One reminder offset as words: the fixed choices have exact Arabic wording, anything else falls back to minutes. */
+const REMINDER_WORDS: Record<number, string> = { 2880: 'قبلها بيومين', 1440: 'قبلها بيوم', 180: 'قبلها بـ 3 ساعات', 120: 'قبلها بساعتين', 60: 'قبلها بساعة' };
+
+/**
+ * One reminder offset as words: the fixed choices have exact Arabic wording, anything else falls back to minutes.
+ * (Phase 2E: the choices showed their internal key, "rem_1440", instead of words.)
+ */
 export function reminderLabel(minutes: number): string {
-  const key = `rem_${minutes}`;
-  if ((REMINDER_CHOICES as readonly number[]).includes(minutes)) return key;
+  if ((REMINDER_CHOICES as readonly number[]).includes(minutes) && REMINDER_WORDS[minutes]) return REMINDER_WORDS[minutes];
   return 'قبلها بـ {n} دقيقة'.replace('{n}', String(minutes));
 }
 
@@ -64,6 +68,10 @@ function RulesForm({ clinicId, orig, canWrite }: { clinicId: string; orig: Booki
             </Field>
             <Field label="أقصى مدة للحجز مقدمًا (بالأيام)">
               {(a) => <Input id={a.id} type="number" dir="ltr" min={1} max={365} value={form.maxDaysAhead} onChange={(e) => set('maxDaysAhead')(Math.max(1, Math.min(365, Number(e.target.value) || 1)))} />}
+            </Field>
+            <Field label="آخر وقت للمريض لإلغاء موعده أو تغييره (ساعات قبل الموعد)"
+              hint="من رابط الموعد في بريد التأكيد والتذكير. 0 = حتى بداية الموعد. بعده يتصل بالعيادة.">
+              {(a) => <Input id={a.id} aria-describedby={a.describedBy} type="number" dir="ltr" min={0} max={168} value={form.cancelWindowHours} onChange={(e) => set('cancelWindowHours')(Math.max(0, Math.min(168, Number(e.target.value) || 0)))} />}
             </Field>
             <Field label="تبدأ المواعيد كل">
               {(a) => <Choice id={a.id} value={String(form.slotStepMinutes)} onChange={(v) => set('slotStepMinutes')(Number(v))}

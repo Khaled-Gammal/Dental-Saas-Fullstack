@@ -10,12 +10,14 @@ import { Accounts } from '../src/modules/identity/accounts.service';
 import { TenantDb } from '../src/shared/database/tenant-db.service';
 import type { DevEmailSender } from '../src/shared/notifications/dev-email.sender';
 import { EMAIL_SENDER } from '../src/shared/notifications/ports';
+import { createTestAdmin, type TestAdmin } from './test-admin';
 
 const CLINIC_B = '22222222-2222-2222-2222-222222222222';
 
 describe('Legal documents (e2e, Phase H6)', () => {
   let app: INestApplication;
   let mail: DevEmailSender;
+  let adm: TestAdmin;
   const run = `${Date.now()}`.slice(-7);
   const http = () => request(app.getHttpServer());
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -26,8 +28,9 @@ describe('Legal documents (e2e, Phase H6)', () => {
     app = mod.createNestApplication();
     await app.init();
     mail = app.get(EMAIL_SENDER);
+    adm = await createTestAdmin('legal', 'Demo@12345');
   });
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => { await adm?.done(); await app.close(); });
 
   it('anyone reads the current documents (sign-up and invitation pages link to them)', async () => {
     const list = (await http().get('/public/legal').expect(200)).body;
@@ -58,12 +61,15 @@ describe('Legal documents (e2e, Phase H6)', () => {
     await http().get('/patients').set(bearer(again.accessToken)).expect(200);
     // the owners of the seed accepted everything at sign-up
     expect(owner.legalPending).toEqual([]);
+    // frees clinic B's staff seat (the Basic plan allows 5): the test database keeps members, and the staff suite invites there
+    const member = (await http().get('/staff/members').set(bearer(owner.accessToken)).expect(200)).body.find((m: { user: { email: string } }) => m.user.email === email);
+    await http().patch(`/staff/members/${member.id}`).set(bearer(owner.accessToken)).send({ status: 'disabled' }).expect(200);
   });
 
   it('the platform panel publishes a new version; one that does not ask to be accepted again stops nobody', async () => {
-    await http().post('/platform/auth/login').send({ email: 'admin@demo.test', password: 'Demo@12345' }).expect(200);
-    const code = /(\d{6})/.exec(mail.outbox.get('admin@demo.test')?.text ?? '')?.[1] ?? '';
-    const res = await http().post('/platform/auth/verify').send({ email: 'admin@demo.test', code }).expect(200);
+    await http().post('/platform/auth/login').send({ email: adm.email, password: 'Demo@12345' }).expect(200);
+    const code = /(\d{6})/.exec(mail.outbox.get(adm.email)?.text ?? '')?.[1] ?? '';
+    const res = await http().post('/platform/auth/verify').send({ email: adm.email, code }).expect(200);
     const pt = ((res.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('pt=')) ?? '').split(';')[0];
     await http().post('/platform/legal').set({ Cookie: pt }).send({ kind: 'privacy', titleAr: 'سياسة الخصوصية', bodyAr: 'قصير', requiresReacceptance: false }).expect(400);
     const versions = (await http().post('/platform/legal').set({ Cookie: pt })

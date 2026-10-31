@@ -33,6 +33,15 @@ export class AuditLog {
     }).execute();
   }
 
+  /** Phase 2A: many rows in one statement (an import creates hundreds of records in one transaction). */
+  async recordMany(tx: Tx, tenantId: string, entries: AuditEntry[]): Promise<void> {
+    if (!entries.length) return;
+    await tx.insertInto('audit_log').values(entries.map((e) => ({
+      tenant_id: tenantId, action: e.action, entity_type: e.entityType, entity_id: e.entityId,
+      changes: e.changes ? JSON.stringify(e.changes) : null, ...this.actor(),
+    }))).execute();
+  }
+
   /**
    * A "viewed" row at most once per actor, record and `windowMinutes`: a dashboard that refetches on focus must not
    * flood the log, but every distinct access is still visible.

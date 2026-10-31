@@ -3,7 +3,8 @@ import { Chat, Clock, Icon, Phone, Pin } from '../icons';
 import { imageProps } from '../../lib/media';
 import { ar, DAYS_AR, DEFAULT_TZ, mapsHref, WEEK_ORDER, whatsappHref, type SiteBranch } from '../../lib/site';
 import { clock12 } from '@dental/ui/text';
-import { groupWeek, localNow, openStatus, type Holiday, type HourSlot } from '../../lib/hours';
+import { groupWeek, localNow, type Holiday, type HourSlot } from '../../lib/hours';
+import { BranchStatus } from './live-status';
 import type { Contact } from './contact';
 import { Section } from './decor';
 
@@ -13,20 +14,6 @@ const Slots = ({ slots }: { slots: HourSlot[] }) =>
     : <span className="s-closed">مغلق</span>;
 
 const dayRange = (days: number[]) => (days.length === 1 ? DAYS_AR[days[0]] : `${DAYS_AR[days[0]]} – ${DAYS_AR[days[days.length - 1]]}`);
-
-function StatusPill({ branch, holidays, tz }: { branch: SiteBranch; holidays: Holiday[]; tz: string }) {
-  const s = openStatus(branch.hours, holidays, branch.id, tz);
-  if (s.kind === 'unknown') return null;
-  if (s.kind === 'open') return <span className="s-status is-open"><span className="s-dot" />مفتوح الآن · يغلق <bdi>{clock12(s.closesAt)}</bdi></span>;
-  const today = localNow(tz).weekday;
-  const when = s.opensWeekday === today ? 'اليوم' : s.opensWeekday === (today + 1) % 7 ? 'غدًا' : s.opensWeekday != null ? DAYS_AR[s.opensWeekday] : null;
-  return (
-    <span className="s-status is-closed"><span className="s-dot" />
-      {s.holiday ? <>مغلق اليوم ({s.holiday})</> : 'مغلق الآن'}
-      {when && s.opensAt && <> · يفتح {when} <bdi>{clock12(s.opensAt)}</bdi></>}
-    </span>
-  );
-}
 
 export function BranchCard({ branch, holidays, clinicTz, contact, clinicName }: { branch: SiteBranch; holidays: Holiday[]; clinicTz: string; contact: Contact; clinicName: string }) {
   const name = ar(branch.name_ar, branch.name_en) ?? '';
@@ -52,7 +39,7 @@ export function BranchCard({ branch, holidays, clinicTz, contact, clinicName }: 
 
       {branch.hours.length > 0 && (
         <div className="s-today">
-          <StatusPill branch={branch} holidays={holidays} tz={tz} />
+          <BranchStatus hours={branch.hours} holidays={holidays} branchId={branch.id} tz={tz} renderedAt={Date.now()} />
           <p className="s-today-hours"><Clock size={16} /><span>اليوم ({DAYS_AR[today]}):</span> <Slots slots={todaySlots} /></p>
           <details className="s-week">
             <summary>مواعيد الأسبوع<Icon name="chevronDown" size={16} /></summary>
@@ -80,10 +67,10 @@ export function BranchCard({ branch, holidays, clinicTz, contact, clinicName }: 
   );
 }
 
-export function BranchesSection({ branches, holidays, clinicTz, contact, clinicName }: { branches: SiteBranch[]; holidays: Holiday[]; clinicTz: string; contact: Contact; clinicName: string }) {
+export function BranchesSection({ branches, holidays, clinicTz, contact, clinicName, tint }: { branches: SiteBranch[]; holidays: Holiday[]; clinicTz: string; contact: Contact; clinicName: string; tint?: boolean }) {
   if (!branches.length) return null;
   return (
-    <Section id="branches" kicker="الفروع" title="أقرب فرع إليك ومواعيد العمل" sub="حالة الفرع الآن، ومواعيد الأسبوع كاملة بنقرة واحدة">
+    <Section id="branches" kicker="الفروع" title="أقرب فرع إليك ومواعيد العمل" sub="حالة الفرع الآن، ومواعيد الأسبوع كاملة بنقرة واحدة" tint={tint}>
       <div className="s-grid s-grid-wide">
         {branches.map((b) => <BranchCard key={b.id} branch={b} holidays={holidays} clinicTz={clinicTz} contact={contact} clinicName={clinicName} />)}
       </div>

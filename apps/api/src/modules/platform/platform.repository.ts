@@ -1,14 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { sql, type Db } from '@dental/db';
-import { TenantDb } from '../../shared/database/tenant-db.service';
+import { PLATFORM_DB } from '../../shared/database/tokens';
 
 export interface ClinicRow {
   id: string; slug: string; name_ar: string | null; name_en: string | null; status: string; created_at: Date; suspended_at: Date | null;
-  suspension_reason: string | null; suspension_kind: 'manual' | 'trial_ended' | null;
+  suspension_reason: string | null; suspension_kind: 'manual' | 'trial_ended' | 'unpaid' | null;
   plan_code: string | null; plan_name_ar: string | null; subscription_status: string | null; trial_ends_at: Date | null;
   billing_cycle: string | null; current_period_end: Date | null;
   members: number; branches: number; patients: number; appointments_30d: number; last_login_at: Date | null; owner_email: string | null;
 }
+
+/** Phase 2B: a payment the platform recorded for a clinic (a paid platform invoice). */
+export interface PaymentView {
+  id: string; number: string; period_start: string; period_end: string; amount_minor: number; currency: string; status: string;
+  method: string | null; reference: string | null; billing_cycle: 'monthly' | 'yearly' | null; note: string | null; paid_at: Date | null;
+  recorded_by_name: string | null;
+}
+export type PaymentMethod = 'instapay' | 'vodafone_cash' | 'bank_transfer' | 'cash' | 'other';
 
 export interface LeadView {
   id: string; kind: 'call' | 'subscribe'; billing_cycle: 'monthly' | 'yearly' | null; clinic_id: string | null; full_name: string; phone: string; email: string | null; clinic_name: string | null; city: string | null; message: string | null;
@@ -21,11 +29,14 @@ export interface LeadView {
  * SECURITY DEFINER `platform_*()` functions, which check the admin and write the platform audit log themselves. Since
  * 0004 the API role may not write platform tables (plans, the platform audit log, notes), so every write goes through
  * them too; plans and the platform audit log are read directly.
+ *
+ * Review R11: everything here runs on the panel's own connection (role app_platform). The clinic API's role (app_user)
+ * can no longer execute the platform functions — which trust the admin id they are given — nor read the platform
+ * audit log, so an injection in clinic code cannot reach them. app_platform in turn reads no clinic data.
  */
 @Injectable()
 export class PlatformRepository {
-  constructor(private readonly tenantDb: TenantDb) {}
-  private get db(): Db { return this.tenantDb.platform(); }
+  constructor(@Inject(PLATFORM_DB) private readonly db: Db) {}
 
   /** The sign-in candidate (password hash through the definer lookup: the API role cannot read hashes). */
   async loginCandidate(email: string) {
@@ -81,6 +92,39 @@ export class PlatformRepository {
 
   changePlan(actor: string, tenantId: string, planId: string) {
     return sql`select platform_change_plan(${actor}::uuid, ${tenantId}::uuid, ${planId}::uuid)`.execute(this.db);
+  }
+
+  // ---------- manual payments (Phase 2B) ----------
+  /** Records a payment and extends the subscription (the function does it all, idempotent per `key`); the invoice id. */
+  async recordPayment(actor: string, tenantId: string, p: { amountMinor: number; cycle: 'monthly' | 'yearly'; method: PaymentMethod; reference: string | null; note: string | null; key: string }, ip: string | null): Promise<string> {
+    const { rows } = await sql<{ id: string }>`
+      select platform_record_payment(${actor}::uuid, ${tenantId}::uuid, ${p.amountMinor}::bigint, ${p.cycle}, ${p.method}, ${p.reference}, ${p.note},
+                                     ${p.key}::uuid, ${ip}::inet) as id`.execute(this.db);
+    return rows[0].id;
+  }
+
+  async payments(actor: string, tenantId: string): Promise<PaymentView[]> {
+    const { rows } = await sql<PaymentView>`
+      select id, number, to_char(period_start, 'YYYY-MM-DD') as period_start, to_char(period_end, 'YYYY-MM-DD') as period_end, amount_minor, currency,
+             status, method, reference, billing_cycle, note, paid_at, recorded_by_name
+        from platform_payments(${actor}::uuid, ${tenantId}::uuid)`.execute(this.db);
+    return rows.map((r) => ({ ...r, amount_minor: Number(r.amount_minor) }));
+  }
+
+  /** Past due: the day the worker suspends the clinic as unpaid (null otherwise). */
+  async grace(actor: string, tenantId: string): Promise<Date | null> {
+    const { rows } = await sql<{ at: Date | null }>`select platform_grace(${actor}::uuid, ${tenantId}::uuid) as at`.execute(this.db);
+    return rows[0]?.at ?? null;
+  }
+
+  /** What the clinics are told about paying (one text; null when not set). */
+  async billingInstructions(): Promise<string | null> {
+    const { rows } = await sql<{ text: string | null }>`select billing_instructions() as text`.execute(this.db);
+    return rows[0]?.text ?? null;
+  }
+
+  setBillingInstructions(actor: string, text: string, ip: string | null) {
+    return sql`select platform_set_billing_instructions(${actor}::uuid, ${text}, ${ip}::inet)`.execute(this.db);
   }
 
   async notes(actor: string, tenantId: string) {
@@ -149,4 +193,11 @@ export class PlatformRepository {
   updatePlan(actor: string, id: string, changes: Record<string, unknown>, ip: string | null) {
     return sql`select platform_update_plan(${actor}::uuid, ${id}::uuid, ${JSON.stringify(changes)}::jsonb, ${ip}::inet)`.execute(this.db);
   }
+
+  /** `plan`: code and name_ar, prices and trial_days, and any of limits, features, is_public. Returns the new plan's id. */
+  async createPlan(actor: string, plan: Record<string, unknown>, ip: string | null): Promise<string> {
+    const { rows } = await sql<{ id: string }>`select platform_create_plan(${actor}::uuid, ${JSON.stringify(plan)}::jsonb, ${ip}::inet) as id`.execute(this.db);
+    return rows[0].id;
+  }
 }
+

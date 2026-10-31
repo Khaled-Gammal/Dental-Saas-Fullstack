@@ -1,10 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
-import type {
-  Appointment, AuditEntry, Branch, CashBranch, CashDay, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  BookingSettings, HistoryVersion, Holiday, InvoiceDetail, InvoiceRow, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
-  HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, Visit, VisitSummary, WebsiteStatus,
-} from './types';
+import type { ActivityActor, ActivityPage, Appointment, AuditEntry, Branch, CashBranch, CashDay, CashMovements, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryCase, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus, BookingSettings, DrugSuggestion, HistoryVersion, Holiday, InvoiceDetail, InvoiceFilters, InvoiceRow, InvoiceTotals, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service, HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, UnbilledGroup, Visit, VisitsPage, VisitsView, VisitSummary, WebsiteStatus, WebsiteSection, Faq, ClinicPlanSummary } from './types';
 
 /**
  * One place for query keys and fetchers. Every key starts with the clinic id, so switching clinic
@@ -30,6 +26,59 @@ export const useRoles = (clinicId: string) =>
 /** H4: the permissions a role can hold, grouped (fixed per release, so loaded once) */
 export const usePermissionCatalogue = (clinicId: string) =>
   useQuery({ queryKey: [...keys.staff(clinicId), 'permissions'] as const, queryFn: () => api<PermissionGroup[]>('/staff/permissions'), staleTime: Infinity });
+
+/** Phase 1D: the website's status, with the badge setting and whether the plan allows hiding it. */
+export const useWebsite = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.onboarding(clinicId), 'website'] as const, queryFn: () => api<WebsiteStatus>('/clinic/website') });
+
+/** Phase 1D (WEB-10): show or hide the badge on the live site (hiding needs a plan with remove_badge). */
+export function useSetPoweredBy(clinicId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (showPoweredBy: boolean) => api<WebsiteStatus>('/clinic/website', { method: 'PATCH', body: JSON.stringify({ showPoweredBy }) }),
+    onSuccess: (status) => qc.setQueryData([...keys.onboarding(clinicId), 'website'], status), // the answer is the new state
+  });
+}
+
+/** Phase 2C-1: the order of the site's sections and which are shown (live at once). */
+export function useSetSections(clinicId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sections: WebsiteSection[]) => api<WebsiteStatus>('/clinic/website/sections', { method: 'PUT', body: JSON.stringify({ sections }) }),
+    onSuccess: (status) => qc.setQueryData([...keys.onboarding(clinicId), 'website'], status),
+  });
+}
+
+/** Phase 2C-3: the search title and description and the share image (live at once). */
+export function useSetSeo(clinicId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) => api<WebsiteStatus>('/clinic/website/seo', { method: 'PUT', body: JSON.stringify(body) }),
+    onSuccess: (status) => qc.setQueryData([...keys.onboarding(clinicId), 'website'], status),
+  });
+}
+
+/** Phase 2C-1: the clinic's questions on its site; every change answers with the whole list. */
+export const faqKey = (clinicId: string) => ['faqs', clinicId] as const;
+export const useFaqs = (clinicId: string) => useQuery({ queryKey: faqKey(clinicId), queryFn: () => api<Faq[]>('/clinic/website/faqs') });
+export function useFaqMutation<V>(clinicId: string, fn: (v: V) => Promise<Faq[] | void>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (list) => { if (list) qc.setQueryData(faqKey(clinicId), list); else void qc.invalidateQueries({ queryKey: faqKey(clinicId) }); },
+  });
+}
+export const faqApi = {
+  create: (body: Record<string, unknown>) => api<Faq[]>('/clinic/website/faqs', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: Record<string, unknown>) => api<Faq[]>(`/clinic/website/faqs/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (id: string) => api<void>(`/clinic/website/faqs/${id}`, { method: 'DELETE' }),
+  reorder: (ids: string[]) => api<Faq[]>('/clinic/website/faqs/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+};
+
+/** Phase 1D (BIL-01): the clinic's plan, limits, features and usage (settings managers). */
+// always refetched on open: adding a branch, doctor or invitation elsewhere changes the figures
+export const useClinicPlan = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: ['clinic-plan', clinicId] as const, queryFn: () => api<ClinicPlanSummary>('/clinic/plan'), enabled, staleTime: 0 });
 
 /** Publishes the draft website; refreshes the checklist (pendingChanges) afterwards. */
 export function usePublish(clinicId: string) {
@@ -68,21 +117,37 @@ export function useInvalidate(clinicId: string) {
     Promise.all(['onboarding' as const, ...which].map((k) => qc.invalidateQueries({ queryKey: keys[k](clinicId) })));
 }
 
-/** One day of appointments; the key extends the clinic key so one invalidation refreshes every day and branch. */
-/** `mine`: only the signed-in doctor's own appointments (SRS APPT-004). */
-export const useAppointments = (clinicId: string, date: string, branchId?: string, mine = false, enabled = true) =>
+/**
+ * One day of appointments, or `days` days from `date` (Phase 1C: the calendar's week asks for 7); the key extends the
+ * clinic key so one invalidation refreshes every day and branch. `mine`: only the signed-in doctor's own (SRS APPT-004).
+ */
+export const useAppointments = (clinicId: string, date: string, branchId?: string, mine = false, enabled = true, days = 1) =>
   useQuery({
-    queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all', mine ? 'mine' : 'clinic'] as const,
+    queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all', mine ? 'mine' : 'clinic', days] as const,
     enabled, // the overview asks only when the member reads appointments
-    queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }), ...(mine && { mine: 'true' }) })}`),
+    queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }), ...(mine && { mine: 'true' }), ...(days > 1 && { days: String(days) }) })}`),
     refetchInterval: 30_000, // reception keeps the day open; website bookings appear without a reload
   });
 
-export function useCheckIn(clinicId: string) {
+/**
+ * Review R11: an appointment change also changes what the clinical screens and the patient's profile show (completing
+ * one closes its visit for editing; the profile lists the appointments), so those caches are refreshed with it.
+ */
+function useAppointmentsChanged(clinicId: string) {
+  const qc = useQueryClient();
   const invalidate = useInvalidate(clinicId);
+  return () => void Promise.all([
+    invalidate('appointments'),
+    qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) }),
+    qc.invalidateQueries({ queryKey: patientKeys.all(clinicId) }),
+  ]);
+}
+
+export function useCheckIn(clinicId: string) {
+  const changed = useAppointmentsChanged(clinicId);
   return useMutation({
     mutationFn: (body: { code: string; branchId: string }) => api<CheckInResponse>('/appointments/check-in', { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: () => void invalidate('appointments'),
+    onSuccess: changed,
   });
 }
 
@@ -90,12 +155,12 @@ export type AppointmentAction = 'arrive' | 'confirm' | 'start' | 'complete' | 'c
 const ACTION_PATH: Record<AppointmentAction, string> = { arrive: 'arrive', confirm: 'confirm', start: 'start', complete: 'complete', cancel: 'cancel', noShow: 'no-show' };
 
 export function useAppointmentAction(clinicId: string) {
-  const invalidate = useInvalidate(clinicId);
+  const changed = useAppointmentsChanged(clinicId);
   return useMutation({
     /** `reason` goes with a cancellation, `note` with a check-in without the code */
     mutationFn: ({ id, action, reason, note }: { id: string; action: AppointmentAction; reason?: string; note?: string }) =>
       api<Appointment>(`/appointments/${id}/${ACTION_PATH[action]}`, { method: 'POST', body: JSON.stringify({ ...(reason && { reason }), ...(note && { note }) }) }),
-    onSuccess: () => void invalidate('appointments'),
+    onSuccess: changed,
   });
 }
 
@@ -159,7 +224,8 @@ export function useSaveMedicalHistory(clinicId: string, id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Record<string, unknown>) => api<MedicalHistory>(`/patients/${id}/medical-history`, { method: 'PUT', body: JSON.stringify(body) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: patientKeys.all(clinicId) }),
+    // review R11: the visit screen shows the allergies and conditions too (clinical safety: never the old ones)
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: patientKeys.all(clinicId) }), qc.invalidateQueries({ queryKey: clinicalKeys.all(clinicId) })]),
   });
 }
 
@@ -180,10 +246,10 @@ export const useAppointment = (clinicId: string, id: string | undefined) =>
 
 /** Reschedule and/or set the room (POST /appointments/:id/move); only changed fields are sent. */
 export function useMoveAppointment(clinicId: string) {
-  const invalidate = useInvalidate(clinicId);
+  const changed = useAppointmentsChanged(clinicId);
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api<Appointment>(`/appointments/${id}/move`, { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: () => void invalidate('appointments'),
+    onSuccess: changed,
   });
 }
 
@@ -211,6 +277,22 @@ export function useBookAppointment(clinicId: string) {
     onSuccess: () => Promise.all([invalidate('appointments'), qc.invalidateQueries({ queryKey: patientKeys.all(clinicId) })]),
   });
 }
+
+// ---------- Phase 2D: the activity log ----------
+export interface ActivityFilters { from: string; to: string; actor: string; entity: string; kind: 'all' | 'changes' | 'views' }
+export const useActivity = (clinicId: string, f: ActivityFilters) =>
+  useInfiniteQuery({
+    queryKey: ['activity', clinicId, f] as const,
+    queryFn: ({ pageParam }) => api<ActivityPage>(`/activity-log?${new URLSearchParams({
+      kind: f.kind, ...(f.from && { from: f.from }), ...(f.to && { to: f.to }), ...(f.actor && { actor: f.actor }), ...(f.entity && { entity: f.entity }),
+      ...(pageParam && { cursor: pageParam }),
+    })}`),
+    initialPageParam: '',
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    placeholderData: (prev) => prev, // the screen keeps the old rows dimmed, with no "more", while a new filter loads
+  });
+export const useActivityActors = (clinicId: string) =>
+  useQuery({ queryKey: ['activity', clinicId, 'actors'] as const, queryFn: () => api<ActivityActor[]>('/activity-log/actors'), staleTime: 5 * 60_000 });
 
 // ---------- gallery ----------
 export const galleryKeys = {
@@ -241,6 +323,20 @@ export function useGalleryMutation<V, R = unknown>(clinicId: string, fn: (v: V) 
   const qc = useQueryClient();
   return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: galleryKeys.all(clinicId) }) });
 }
+/** Phase 2C-2: before/after cases (one list, clinic-wide). */
+export const caseKey = (clinicId: string) => ['gallery-cases', clinicId] as const;
+export const useCases = (clinicId: string) => useQuery({ queryKey: caseKey(clinicId), queryFn: () => api<GalleryCase[]>('/gallery/cases'), staleTime: SIGNED_STALE_MS });
+export function useCaseMutation<V, R>(clinicId: string, fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSettled: () => qc.invalidateQueries({ queryKey: caseKey(clinicId) }) });
+}
+export const caseApi = {
+  create: (body: Record<string, unknown>) => api<GalleryCase>('/gallery/cases', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: Record<string, unknown>) => api<GalleryCase>(`/gallery/cases/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (id: string) => api<void>(`/gallery/cases/${id}`, { method: 'DELETE' }),
+  reorder: (ids: string[]) => api<GalleryCase[]>('/gallery/cases/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+};
+
 export const galleryApi = {
   create: (body: Record<string, unknown>) => api<GalleryItem>('/gallery', { method: 'POST', body: JSON.stringify(body) }),
   update: (id: string, body: Record<string, unknown>) => api<GalleryItem>(`/gallery/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
@@ -261,6 +357,22 @@ export const useVisit = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: clinicalKeys.visit(clinicId, id ?? ''), queryFn: () => api<Visit>(`/visits/${id}`), enabled: !!id });
 export const usePatientVisits = (clinicId: string, patientId: string, enabled: boolean) =>
   useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'visits'] as const, queryFn: () => api<VisitSummary[]>(`/patients/${patientId}/visits`), enabled });
+/** visits per request; a full page means there may be more */
+export const VISIT_PAGE = 100;
+/** Redesign R5: the visits list. `mine`: 'auto' lets the API pick (a doctor's own visits). */
+export const useVisits = (clinicId: string, view: VisitsView, mine: 'auto' | '1' | '0') =>
+  useInfiniteQuery({
+    queryKey: [...clinicalKeys.all(clinicId), 'visits', view, mine] as const,
+    queryFn: ({ pageParam }) => api<VisitsPage>(`/visits?${new URLSearchParams({ view, mine, limit: String(VISIT_PAGE), ...(pageParam && { after: pageParam }) })}`),
+    initialPageParam: '',
+    getNextPageParam: (last) => (last.items.length === VISIT_PAGE ? last.items[last.items.length - 1].id : undefined),
+  });
+/**
+ * Redesign R5: the clinic's unbilled work. Kept under the clinical keys on purpose: recording a procedure (a clinical
+ * mutation) adds to it and issuing an invoice (a billing mutation, which refreshes clinical data too) takes from it.
+ */
+export const useUnbilled = (clinicId: string) =>
+  useQuery({ queryKey: [...clinicalKeys.all(clinicId), 'unbilled'] as const, queryFn: () => api<{ currency: string; items: UnbilledGroup[] }>('/invoices/unbilled') });
 export const usePatientChart = (clinicId: string, patientId: string, enabled: boolean) =>
   useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'chart'] as const, queryFn: () => api<PatientChart>(`/patients/${patientId}/chart`), enabled });
 export const usePatientPlans = (clinicId: string, patientId: string) =>
@@ -269,6 +381,9 @@ export const usePatientRecalls = (clinicId: string, patientId: string) =>
   useQuery({ queryKey: [...clinicalKeys.patient(clinicId, patientId), 'recalls'] as const, queryFn: () => api<Recall[]>(`/patients/${patientId}/recalls`) });
 export const usePlan = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: clinicalKeys.plan(clinicId, id ?? ''), queryFn: () => api<PlanDetail>(`/plans/${id}`), enabled: !!id });
+/** Redesign R8: the drugs to suggest in the prescription form (the doctor's own usual ones first); kept for the session. */
+export const useDrugSuggestions = (clinicId: string) =>
+  useQuery({ queryKey: [...clinicalKeys.all(clinicId), 'drugs'] as const, queryFn: () => api<DrugSuggestion[]>('/prescriptions/drugs?limit=100'), staleTime: 5 * 60_000 });
 export const usePrescription = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: clinicalKeys.prescription(clinicId, id ?? ''), queryFn: () => api<PrescriptionPrint>(`/prescriptions/${id}`), enabled: !!id });
 export const useRecalls = (clinicId: string, view: 'due' | 'upcoming' | 'closed') =>
@@ -290,6 +405,19 @@ export function useClinicalMutation<V, R = unknown>(clinicId: string, fn: (v: V)
   });
 }
 
+/**
+ * Merging two files moves visits, appointments, invoices and payments to the kept one (review R11): every view of
+ * either patient is refreshed, the balance and the appointments included.
+ */
+export function useMergePatients(clinicId: string, id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (mergedId: string) => send<PatientDetail>(`/patients/${id}/merge`, 'POST', { mergedId }),
+    onSuccess: () => Promise.all([patientKeys.all(clinicId), clinicalKeys.all(clinicId), billingKeys.all(clinicId), keys.appointments(clinicId)]
+      .map((queryKey) => qc.invalidateQueries({ queryKey }))),
+  });
+}
+
 // ---------- billing (Phase E1) ----------
 export const billingKeys = {
   all: (clinicId: string) => ['billing', clinicId] as const,
@@ -300,12 +428,23 @@ export const billingKeys = {
 };
 /** invoices per request; a full page means there may be more ("load more" asks for the ones after its last) */
 export const INVOICE_PAGE = 100;
-export const useInvoices = (clinicId: string, status: string) =>
+/** The filters as query parameters: the status tab ('all' sends none) and, redesign R7, the search and the period. */
+const invoiceParams = (status: string, f: InvoiceFilters) => ({
+  ...(status !== 'all' && { status }), ...(f.q && { q: f.q }), ...(f.from && { from: f.from }), ...(f.to && { to: f.to }),
+});
+export const useInvoices = (clinicId: string, status: string, filters: InvoiceFilters = {}) =>
   useInfiniteQuery({
-    queryKey: billingKeys.list(clinicId, status),
-    queryFn: ({ pageParam }) => api<InvoiceRow[]>(`/invoices?${new URLSearchParams({ ...(status !== 'all' && { status }), limit: String(INVOICE_PAGE), ...(pageParam && { after: pageParam }) })}`),
+    queryKey: [...billingKeys.list(clinicId, status), filters] as const,
+    queryFn: ({ pageParam }) => api<InvoiceRow[]>(`/invoices?${new URLSearchParams({ ...invoiceParams(status, filters), limit: String(INVOICE_PAGE), ...(pageParam && { after: pageParam }) })}`),
     initialPageParam: '',
     getNextPageParam: (last) => (last.length === INVOICE_PAGE ? last[last.length - 1].id : undefined),
+  });
+/** Redesign R7: the totals row of the list, over every page of the same filters. */
+export const useInvoiceTotals = (clinicId: string, status: string, filters: InvoiceFilters, enabled = true) =>
+  useQuery({
+    queryKey: [...billingKeys.all(clinicId), 'totals', status, filters] as const,
+    queryFn: () => api<InvoiceTotals>(`/invoices/totals?${new URLSearchParams(invoiceParams(status, filters))}`),
+    enabled,
   });
 export const useInvoice = (clinicId: string, id: string | undefined) =>
   useQuery({ queryKey: billingKeys.invoice(clinicId, id ?? ''), queryFn: () => api<InvoiceDetail>(`/invoices/${id}`), enabled: !!id });
@@ -363,6 +502,9 @@ export const useCashBranches = (clinicId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-branches'] as const, queryFn: () => api<CashBranch[]>('/cash/branches') });
 export const useCashDay = (clinicId: string, branchId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-day', branchId] as const, queryFn: () => api<CashDay>(`/cash/today?branchId=${branchId}`), enabled: !!branchId });
+/** Redesign R9: the movements behind a session's figures, loaded when a figure is opened. */
+export const useCashMovements = (clinicId: string, sessionId: string, enabled: boolean) =>
+  useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-movements', sessionId] as const, queryFn: () => api<CashMovements>(`/cash/sessions/${sessionId}/movements`), enabled });
 export const useCashHistory = (clinicId: string, branchId: string) =>
   useQuery({ queryKey: [...financeKeys.all(clinicId), 'cash-history', branchId] as const, queryFn: () => api<CashSession[]>(`/cash/sessions?branchId=${branchId}`), enabled: !!branchId });
 export const useCashSession = (clinicId: string, id: string | null) =>

@@ -9,12 +9,10 @@ import { to } from '../../router';
 import type { Appointment, Doctor, Room } from '../../types';
 import { Alert, Card, Field, Input, Switch } from '../../ui/components';
 import { FormPage, ResourceState } from '../../ui/page';
-import { zonedToUtc } from '../../util';
+import { clinicTimeZone, clinicToday, LOC, zonedToUtc } from '../../util';
 import { TimeField } from '../../components/time-field';
 
-const loc = () => ('ar-EG-u-nu-latn');
 const dateIn = (iso: string, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(iso));
-const todayIso = () => new Date().toLocaleDateString('en-CA');
 
 /**
  * `#/appointments/<id>/edit`: move a booking to another free time or doctor at the same branch, and/or set its chair
@@ -39,7 +37,7 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
   const canMove = appt.status === 'pending' || appt.status === 'confirmed';
   const lengthMin = Math.round((Date.parse(appt.ends_at) - Date.parse(appt.starts_at)) / 60_000);
   // the branch's zone comes with the free times; Cairo until they load (every branch defaults to it)
-  const [date, setDate] = useState(() => dateIn(appt.starts_at, 'Africa/Cairo'));
+  const [date, setDate] = useState(() => dateIn(appt.starts_at, clinicTimeZone()));
   const [doctorId, setDoctorId] = useState(appt.doctor_id);
   const [slot, setSlot] = useState('');
   const [override, setOverride] = useState(false);
@@ -50,8 +48,8 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
   const move = useMoveAppointment(clinicId);
 
   const slots = useStaffSlots(clinicId, { branchId: appt.branch_id, doctorId, date, durationMinutes: lengthMin, excludeAppointmentId: appt.id });
-  const tz = slots.data?.timezone ?? 'Africa/Cairo';
-  const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(loc(), { timeZone: tz, ...opts }).format(new Date(iso));
+  const tz = slots.data?.timezone ?? clinicTimeZone();
+  const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(LOC, { timeZone: tz, ...opts }).format(new Date(iso));
   const fmtTime = (iso: string) => fmt(iso, { hour: 'numeric', minute: '2-digit', hour12: true });
 
   const startsAt = !canMove ? appt.starts_at
@@ -96,7 +94,7 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
                 options={doctors.map((d) => ({ value: d.id, label: arName(d.name_ar, d.name_en, '—') }))} />}
             </Field>
             <Field label="التاريخ">
-              {(a) => <DatePicker id={a.id} value={date} onChange={(d) => { setDate(d); reset(); }} min={todayIso()} />}
+              {(a) => <DatePicker id={a.id} value={date} onChange={(d) => { setDate(d); reset(); }} min={clinicToday()} />}
             </Field>
           </div>
           {override ? (

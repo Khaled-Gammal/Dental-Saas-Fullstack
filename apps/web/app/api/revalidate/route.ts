@@ -8,16 +8,30 @@ import { timingSafeEqual } from 'node:crypto';
  * Protected by a shared secret; only tags of the form site:<hostname> are accepted.
  */
 const TAG = /^site:[a-z0-9.-]{1,253}$/;
-const secret = process.env.REVALIDATE_SECRET ?? 'dev-only-revalidate-secret';
+const DEV_SECRET = 'dev-only-revalidate-secret';
 
-function authorised(req: NextRequest): boolean {
+/**
+ * Read at request time, never inlined at build (review R11: it used to sit in next.config `env`, i.e. in the bundles).
+ * In production a missing or development secret switches the endpoint off rather than accepting a guessable one.
+ */
+function secret(): string | null {
+  const s = process.env.REVALIDATE_SECRET;
+  if (process.env.NODE_ENV === 'production') return s && !s.startsWith('dev-only') ? s : null;
+  return s || DEV_SECRET;
+}
+
+function authorised(req: NextRequest, expected: string): boolean {
   const given = req.headers.get('x-revalidate-secret') ?? '';
-  const a = Buffer.from(given), b = Buffer.from(secret);
+  const a = Buffer.from(given), b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
-  if (!authorised(req)) return NextResponse.json({ error: 'unauthorised' }, { status: 401 });
+  const expected = secret();
+  if (!expected) return NextResponse.json({ error: 'not_configured' }, { status: 503 });
+  if (!authorised(req, expected)) return NextResponse.json({ error: 'unauthorised' }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { tags?: unknown };
   const tags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === 'string' && TAG.test(t)).slice(0, 50) : [];
   for (const tag of tags) revalidateTag(tag);

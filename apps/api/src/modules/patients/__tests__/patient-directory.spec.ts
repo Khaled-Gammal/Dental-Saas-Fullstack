@@ -7,6 +7,7 @@ function make(found: Found, planError?: AppError) {
   const repo = {
     findByPhoneAndName: async () => found,
     update: async () => { calls.push('update'); },
+    addTag: async (_tx: unknown, _id: string, tag: string) => { calls.push(`tag:${tag}`); },
     countActive: async () => 2000,
     createFromBooking: async () => { calls.push('create'); return { id: 'new' }; },
   };
@@ -23,10 +24,10 @@ describe('PatientDirectory.matchOrCreateForBooking', () => {
     await expect(dir.matchOrCreateForBooking({} as never, 't', input)).rejects.toMatchObject({ code: 'booking_refused', status: 403 });
     expect(calls).toEqual([]);
   });
-  it('a match with a different verified email is updated and audited', async () => {
+  it('a match with a different email keeps the one on file: flagged for review and audited (review R11)', async () => {
     const { dir, calls } = make({ id: 'p', is_blocked: false, email: 'old@x.test' });
     expect(await dir.matchOrCreateForBooking({} as never, 't', input)).toEqual({ id: 'p', created: false });
-    expect(calls).toEqual(['update', 'patient.update']);
+    expect(calls).toEqual(['tag:needs_review', 'patient.booking_contact_differs']);
   });
   it('the same email changes nothing', async () => {
     const { dir, calls } = make({ id: 'p', is_blocked: false, email: 'a@x.test' });

@@ -30,10 +30,10 @@ export function DoctorCard({ doctor, contact, clinicName }: { doctor: SiteDoctor
   );
 }
 
-export function DoctorsSection({ doctors, contact, clinicName }: { doctors: SiteDoctor[]; contact: Contact; clinicName: string }) {
+export function DoctorsSection({ doctors, contact, clinicName, tint }: { doctors: SiteDoctor[]; contact: Contact; clinicName: string; tint?: boolean }) {
   if (!doctors.length) return null;
   return (
-    <Section id="doctors" kicker="فريقنا" title="أطباء تثق بهم" sub="اختر الطبيب المناسب لحالتك واحجز معه مباشرة" tint>
+    <Section id="doctors" kicker="فريقنا" title="أطباء تثق بهم" sub="اختر الطبيب المناسب لحالتك واحجز معه مباشرة" tint={tint}>
       <div className="s-grid s-grid-doctors">
         {doctors.map((d) => <DoctorCard key={d.id} doctor={d} contact={contact} clinicName={clinicName} />)}
       </div>

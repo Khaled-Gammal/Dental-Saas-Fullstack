@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { sql } from '@dental/db';
 import { Err } from '../../shared/errors/app-error';
 import { AuthEventsRepository } from './auth-events.repository';
 import { hashPassword, passwordProblem } from './crypto';
@@ -33,14 +34,15 @@ export class PasswordResetService {
     if (problem) throw Err.badRequest('weak_password', problem); // before the code is spent
     const email = rawEmail.trim().toLowerCase();
     const passwordHash = await hashPassword(password);
-    // consuming the code and changing the password commit together
+    // consuming the code, changing the password and ending every session commit together (review R11: the access
+    // tokens already handed out stop at once too — sessions_revoked_at is checked on every request)
     const userId = await this.otp.verify(email, 'reset_password', code, meta, async (tx) => {
-      const u = await tx.updateTable('users').set({ password_hash: passwordHash })
+      const u = await tx.updateTable('users').set({ password_hash: passwordHash, sessions_revoked_at: sql<Date>`now()` })
         .where('email', '=', email).where('is_active', '=', true).returning('id').executeTakeFirst();
       if (!u) throw Err.badRequest('otp_invalid', 'No active account for this email'); // rolls back: the code stays usable
+      await this.repo.revokeAllSessions(u.id, tx);
       return u.id;
     });
-    await this.repo.revokeAllSessions(userId);
     await this.events.record('password_reset', meta, userId, email);
   }
 }

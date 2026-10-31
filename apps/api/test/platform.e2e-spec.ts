@@ -1,22 +1,38 @@
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { sql, type Db } from '@dental/db';
 import '../src/config'; // loads the root .env
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 process.env.DEV_LOGIN_ENABLED = 'true';
 process.env.RATE_LIMIT_ENABLED = 'false';
 import { AppModule } from '../src/app.module';
+import { TenantDb } from '../src/shared/database/tenant-db.service';
 import type { DevEmailSender } from '../src/shared/notifications/dev-email.sender';
 import { EMAIL_SENDER } from '../src/shared/notifications/ports';
+import { createTestAdmin, type TestAdmin } from './test-admin';
 
 const CLINIC_B = '22222222-2222-2222-2222-222222222222';
 const PASSWORD = 'Demo@12345';
+/**
+ * Clinic B as the seed left it: on a 14-day trial, not suspended. The suite activates it at the end, and the test
+ * database keeps what tests change, so without this a second run finds it active ("not_trialing", "already_active").
+ */
+async function resetClinicB(db: Db): Promise<void> {
+  await sql`update subscriptions set status = 'trialing', billing_cycle = 'monthly', trial_ends_at = now() + interval '14 days',
+            current_period_start = null, current_period_end = null, updated_at = now()
+            where tenant_id = ${CLINIC_B} and status <> 'cancelled'`.execute(db);
+  await sql`update tenants set status = 'trialing', suspended_at = null, suspension_reason = null, suspension_kind = null,
+            status_before_suspension = null, updated_at = now() where id = ${CLINIC_B}`.execute(db);
+}
 const cookieOf = (res: request.Response) =>
   (res.headers['set-cookie'] as unknown as string[] | undefined)?.find((c) => c.startsWith('pt='));
 
 describe('Platform admin panel (e2e, Phase H5)', () => {
   let app: INestApplication;
   let mail: DevEmailSender;
+  let adm: TestAdmin;
+  let ADMIN = '';
   let pt = '';
   let ownerB = '';
   let originalPlan = '';
@@ -29,6 +45,9 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
     app = mod.createNestApplication();
     await app.init();
     mail = app.get(EMAIL_SENDER);
+    adm = await createTestAdmin('platform', PASSWORD);
+    ADMIN = adm.email;
+    await resetClinicB(adm.db);
     ownerB = (await http().post('/auth/dev-login').send({ email: 'owner.b@demo.test' }).expect(201)).body.accessToken;
   });
   afterAll(async () => {
@@ -37,20 +56,27 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
       await http().post(`/platform/clinics/${CLINIC_B}/reactivate`).set(admin());
       if (originalPlan) await http().post(`/platform/clinics/${CLINIC_B}/plan`).set(admin()).send({ planId: originalPlan });
     }
+    if (adm) { await resetClinicB(adm.db); await adm.done(); }
     await app.close();
   });
 
   it('signs in with the password and then the emailed code; clinic users and wrong passwords get the same answer', async () => {
     expect((await http().post('/platform/auth/login').send({ email: 'owner.a@demo.test', password: PASSWORD }).expect(401)).body.code).toBe('invalid_credentials');
-    expect((await http().post('/platform/auth/login').send({ email: 'admin@demo.test', password: 'wrong-pass' }).expect(401)).body.code).toBe('invalid_credentials');
-    expect((await http().post('/platform/auth/login').send({ email: 'admin@demo.test', password: PASSWORD }).expect(200)).body).toMatchObject({ codeSent: true });
-    expect((await http().post('/platform/auth/verify').send({ email: 'admin@demo.test', code: '000000' }).expect(400)).body.code).toBe('otp_invalid');
-    const res = await http().post('/platform/auth/verify').send({ email: 'admin@demo.test', code: codeFor('admin@demo.test') }).expect(200);
-    expect(res.body).toMatchObject({ name: 'Platform Admin', email: 'admin@demo.test' });
+    expect((await http().post('/platform/auth/login').send({ email: ADMIN, password: 'wrong-pass' }).expect(401)).body.code).toBe('invalid_credentials');
+    expect((await http().post('/platform/auth/login').send({ email: ADMIN, password: PASSWORD }).expect(200)).body).toMatchObject({ codeSent: true });
+    expect((await http().post('/platform/auth/verify').send({ email: ADMIN, code: '000000' }).expect(400)).body.code).toBe('otp_invalid');
+    const res = await http().post('/platform/auth/verify').send({ email: ADMIN, code: codeFor(ADMIN) }).expect(200);
+    expect(res.body).toMatchObject({ name: 'Platform Admin', email: ADMIN });
     pt = cookieOf(res) ?? '';
     expect(pt).toMatch(/HttpOnly/i);
     expect(pt).toMatch(/SameSite=Strict/i);
     expect(pt).toMatch(/Path=\/platform/i);
+  });
+
+  it('the clinic API\'s connection cannot reach the panel\'s functions, even with a real admin\'s id (review R11)', async () => {
+    const { rows } = await sql<{ id: string }>`select id from users where email = ${ADMIN}`.execute(app.get(TenantDb).platform());
+    await expect(sql`select * from platform_clinics(${rows[0].id}::uuid)`.execute(app.get(TenantDb).platform())).rejects.toThrow(/permission denied/);
+    await expect(sql`select count(*) from platform_audit_log`.execute(app.get(TenantDb).platform())).rejects.toThrow(/permission denied/);
   });
 
   it('the panel needs the platform session; clinic and platform tokens never open each other\'s routes', async () => {
@@ -113,6 +139,22 @@ describe('Platform admin panel (e2e, Phase H5)', () => {
     await http().patch(`/platform/plans/${p.id}`).set(admin()).send({ trialDays: p.trial_days, limits: { staff: p.limits.staff } }).expect(200);
     const audit = (await http().get('/platform/audit').set(admin()).expect(200)).body.map((a: { action: string }) => a.action);
     expect(audit).toEqual(expect.arrayContaining(['plan.updated', 'platform.sign_in']));
+  });
+
+  it('adds a plan after the others with a free code (owner 2026-10-24)', async () => {
+    // the test database keeps what tests add and plans are never deleted: a fresh code, hidden from the landing page
+    const code = `e2e-${Date.now().toString(36)}`;
+    const body = { code, nameAr: 'المؤسسات', priceMonthlyMinor: 250000, priceYearlyMinor: 2500000, trialDays: 30, isPublic: false, limits: { branches: null } };
+    const before = (await http().get('/platform/plans').set(admin()).expect(200)).body as { sort_order: number }[];
+    const p = (await http().post('/platform/plans').set(admin()).send(body).expect(201)).body;
+    expect(p).toMatchObject({ code, name_ar: 'المؤسسات', price_monthly_minor: 250000, trial_days: 30, is_public: false, clinics: 0 });
+    expect(p.sort_order).toBeGreaterThan(Math.max(...before.map((x) => x.sort_order)));
+    expect((await http().post('/platform/plans').set(admin()).send(body).expect(409)).body.code).toBe('plan_code_taken');
+    await http().post('/platform/plans').set(admin()).send({ ...body, code: 'مؤسسات' }).expect(400);
+    await http().post('/platform/plans').set(admin()).send({ code: `${code}-x`, nameAr: 'ناقصة' }).expect(400);
+    await http().post('/platform/plans').send({ ...body, code: `${code}-y` }).expect(401);
+    const audit = (await http().get('/platform/audit').set(admin()).expect(200)).body.map((a: { action: string }) => a.action);
+    expect(audit).toContain('plan.created');
   });
 
   it('activates a paid clinic for a month or a year (owner 2026-10-20: trials end in suspension otherwise)', async () => {
