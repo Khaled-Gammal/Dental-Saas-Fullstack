@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
-import type { Tx } from '@dental/db';
+import { sql, type Tx } from '@dental/db';
 import { APP_CONFIG, MEDIA_POLICY, type AppConfig, type MediaKind, type MediaPurpose } from '../../config';
 import type { RequestContext } from '../../shared/context/request-context';
 import { TenantDb } from '../../shared/database/tenant-db.service';
@@ -10,6 +10,7 @@ import { Err } from '../../shared/errors/app-error';
 import { PlanLimits } from '../../shared/plans/plan-limits.service';
 import { OBJECT_STORAGE, type ObjectStorage } from '../../shared/storage/ports';
 import { processImage } from './image-pipeline';
+import { shareImage } from './share-image';
 import { MediaRepository, type FileRow } from './media.repository';
 import { MEDIA_SIGNER, MediaSigner, renditionKey } from './media-urls';
 import type { StoredImage } from './stored-image';
@@ -27,6 +28,8 @@ const notFound = () => Err.notFound('file_not_found', 'Image not found');
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger('Media');
+  /** Phase 2C-3: rendered share images, per clinic and version (~100 KB each, 200 at most) */
+  private readonly shareCache = new Map<string, Buffer>();
 
   constructor(
     @Inject(APP_CONFIG) private readonly cfg: AppConfig,
@@ -122,14 +125,54 @@ export class MediaService {
     return this.open(tenantId, f, width);
   }
 
-  /** A rendition of a published image for a clinic website (resolved from the hostname). */
-  async openPublic(host: string, fileId: string, width: number): Promise<{ body: Readable; length: number }> {
+  /**
+   * A rendition of a published image of a clinic website (resolved from the hostname). `kind: 'case'` (Phase 2C-2): a before/after case's images, served only by
+   * their own uncached route; the cached route refuses them.
+   */
+  async openPublic(host: string, fileId: string, width: number, kind: 'site' | 'case' = 'site'): Promise<{ body: Readable; length: number }> {
     const r = await this.db.runForHost(host, async (tx, tenantId) => {
       const f = await this.repo.get(tx, fileId);
-      return { tenantId, f: f && (await this.repo.isPublic(tx, fileId)) ? f : undefined };
+      const right = !!f && (kind === 'case') === (f.kind === 'case');
+      return { tenantId, f: f && right && (await this.repo.isPublic(tx, fileId)) ? f : undefined };
     });
     if (!r || !r.f) throw notFound();
     return this.open(r.tenantId, r.f, width);
+  }
+
+  /**
+   * Phase 2C-3: the share image of the clinic at `host`: its chosen image, else its logo on its brand colour, else a
+   * tooth on it. Not found for a hostname no live clinic owns.
+   */
+  async shareImageFor(host: string): Promise<Buffer> {
+    const r = await this.db.runForHost(host, async (tx, tenantId) => {
+      const { rows } = await sql<{ share_id: string | null; share_widths: number[] | null; logo_id: string | null; logo_widths: number[] | null; brand: string | null; version: string }>`
+        select s.share_file_id as share_id, fs.variant_widths as share_widths, t.logo_file_id as logo_id, fl.variant_widths as logo_widths,
+               (case when s.status = 'published' then s.published_theme else s.draft_theme end) ->> 'primary' as brand,
+               concat_ws(':', s.share_file_id, t.logo_file_id, (case when s.status = 'published' then s.published_theme else s.draft_theme end) ->> 'primary') as version
+          from tenants t left join sites s on s.tenant_id = t.id
+          left join files fs on fs.id = s.share_file_id left join files fl on fl.id = t.logo_file_id`.execute(tx);
+      return { tenantId, row: rows[0] };
+    });
+    if (!r?.row) throw notFound();
+    const { tenantId, row } = r;
+    // made once per clinic and version (the image, the logo, the colour): a burst of requests never re-renders it
+    const key = `${tenantId}:${row.version}`;
+    const cached = this.shareCache.get(key);
+    if (cached) return cached;
+    const read = async (id: string | null, widths: number[] | null) => {
+      if (!id || !widths?.length) return null;
+      const obj = await this.storage.get(renditionKey(tenantId, id, Math.max(...widths)));
+      if (!obj) return null;
+      const chunks: Buffer[] = [];
+      for await (const c of obj.body as AsyncIterable<Buffer | string>) chunks.push(typeof c === 'string' ? Buffer.from(c) : c);
+      return Buffer.concat(chunks);
+    };
+    const image = await read(row.share_id, row.share_widths);
+    const made = await shareImage({ image, logo: image ? null : await read(row.logo_id, row.logo_widths), brand: row.brand });
+    for (const k of this.shareCache.keys()) if (k.startsWith(`${tenantId}:`)) this.shareCache.delete(k); // an older version of this clinic's
+    if (this.shareCache.size >= 200) this.shareCache.delete(this.shareCache.keys().next().value as string); // oldest out
+    this.shareCache.set(key, made);
+    return made;
   }
 
   private async open(tenantId: string, f: FileRow | undefined, width: number) {

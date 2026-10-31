@@ -220,4 +220,30 @@ describe('Calendar: moves, rooms, holidays, time off, booking rules, my day (e2e
       expect(await ids('receptionA', true)).toEqual([]);
     });
   });
+
+  describe('week view (Phase 1C, DSH-02)', () => {
+    it('days=7 returns the bookings of the seven days from the date, and only those', async () => {
+      const start = plusDays(date, -6); // the week that ends on our Saturday
+      const free = await slots(MONA);
+      const a = await book(OMAR, MONA, free[2]);
+      const week = await http().get('/appointments').query({ date: start, days: '7', branchId: NASR }).set(as('receptionA')).expect(200);
+      expect(week.body).toMatchObject({ date: start, days: 7, timezone: 'Africa/Cairo' });
+      expect(week.body.appointments.map((x: { id: string }) => x.id)).toContain(a.id);
+      // a week that stops the day before does not include it
+      const before = await http().get('/appointments').query({ date: plusDays(start, -1), days: '7', branchId: NASR }).set(as('receptionA')).expect(200);
+      expect(before.body.appointments.map((x: { id: string }) => x.id)).not.toContain(a.id);
+      // oldest first, all inside the seven Cairo days (UTC+2 in winter, +3 in summer: midnight is 21:00 or 22:00 UTC)
+      const starts = week.body.appointments.map((x: { starts_at: string }) => Date.parse(x.starts_at));
+      expect(starts).toEqual([...starts].sort((x, y) => x - y));
+      const cairoDate = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(new Date(ms));
+      for (const ms of starts) expect(cairoDate(ms) >= start && cairoDate(ms) <= plusDays(start, 6)).toBe(true);
+      // a doctor's own week
+      const mine = await http().get('/appointments').query({ date: start, days: '7', mine: 'true' }).set(as('doctorA')).expect(200);
+      expect(mine.body.appointments.map((x: { id: string }) => x.id)).toContain(a.id);
+      expect(mine.body.appointments.every((x: { doctor_id: string }) => x.doctor_id === MONA)).toBe(true);
+      // one day is still the default; more than a week is refused
+      expect((await http().get('/appointments').query({ date }).set(as('receptionA')).expect(200)).body.days).toBe(1);
+      for (const days of ['8', '0', '07', 'x']) await http().get('/appointments').query({ date, days }).set(as('receptionA')).expect(400);
+    });
+  });
 });

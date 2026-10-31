@@ -29,6 +29,8 @@ export const DayQuery = z.object({
   date: IsoDate, branchId: Uuid.optional(),
   /** only the signed-in doctor's own appointments (SRS APPT-004) */
   mine: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
+  /** Phase 1C (DSH-02): this many days from `date` (the week view asks for 7); default 1 */
+  days: z.string().regex(/^[1-7]$/, '1 to 7').transform(Number).optional(),
 }).strict();
 export const MoveBody = z.object({
   startsAt: Instant.optional(), doctorId: Uuid.optional(), branchId: Uuid.optional(),

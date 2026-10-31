@@ -25,7 +25,7 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
   if (Number(stuck.numUpdatedRows) > 0) log({ level: 'error', notifications_failed_stuck: Number(stuck.numUpdatedRows) });
 
   const claimed = await db.transaction().execute(async (tx) => {
-    const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; appointment_status: string | null; tenant_status: string | null }>`
+    const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; related_type: string | null; appointment_status: string | null; payment_status: string | null; tenant_status: string | null; dedupe_key: string | null; period_end: Date | null }>`
       with due as (
         select id from notifications
         where status = 'queued' and scheduled_at <= now() and attempts < ${MAX_ATTEMPTS}
@@ -33,8 +33,10 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
         for update skip locked)
       update notifications n set attempts = n.attempts + 1, scheduled_at = now() + make_interval(mins => ${LEASE_MINUTES})
       from due where n.id = due.id
-      returning n.id, n.channel, n.recipient, n.subject, n.body, n.attempts, n.event, n.related_id,
+      returning n.id, n.channel, n.recipient, n.subject, n.body, n.attempts, n.event, n.related_id, n.related_type, n.dedupe_key,
+        (select s.current_period_end from subscriptions s where s.id = n.related_id and n.related_type = 'subscription') as period_end,
         (select a.status from appointments a where a.id = n.related_id) as appointment_status,
+        (select p.status from payments p where p.id = n.related_id) as payment_status,
         (select t.status from tenants t where t.id = n.tenant_id) as tenant_status`.execute(tx);
     return rows;
   });
@@ -46,7 +48,18 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
     if (n.tenant_status === 'suspended') { await cancel('clinic suspended'); continue; }
     // review R11: a clinic its owner deleted (kept 90 days before erasure) writes to nobody, like a suspended one
     if (n.tenant_status === 'cancelled' || n.tenant_status === null) { await cancel('clinic deleted'); continue; }
-    if (n.event === 'appointment.reminder' && !['pending', 'confirmed'].includes(n.appointment_status ?? '')) { await cancel(`appointment ${n.appointment_status ?? 'missing'}`); continue; }
+    // anything about a booking that is no longer ahead (cancelled, missed, done) is not sent — except the cancellation itself
+    if (n.related_type === 'appointment' && n.event !== 'appointment.cancelled' && !['pending', 'confirmed'].includes(n.appointment_status ?? '')) { await cancel(`appointment ${n.appointment_status ?? 'missing'}`); continue; }
+    // review R11: a receipt for a payment reversed since (entered in error) is not sent
+    if (n.event === 'payment.received' && !['succeeded', 'partially_refunded'].includes(n.payment_status ?? '')) { await cancel(`payment ${n.payment_status ?? 'missing'}`); continue; }
+    // review R11: a trial warning waiting in the queue is pointless once the clinic is activated (or already suspended)
+    if (n.event === 'trial.ending' && n.tenant_status !== 'trialing') { await cancel(`clinic ${n.tenant_status ?? 'missing'}`); continue; }
+    // Phase 2B: a renewal reminder is pointless once the payment is recorded (a new period end) or the clinic is not
+    // running on that period any more; the key carries the end it was written for
+    if (n.event === 'subscription.renewal'
+      && (!['active', 'past_due'].includes(n.tenant_status ?? '') || !n.period_end || !(n.dedupe_key ?? '').includes(`:${new Date(n.period_end).toISOString()}:`))) {
+      await cancel('subscription renewed or clinic not running'); continue;
+    }
     try {
       await email.send(n.recipient, n.subject ?? '', n.body);
     } catch (err) {

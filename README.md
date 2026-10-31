@@ -151,6 +151,9 @@ Reports and what was fixed or deferred are in `docs/reviews/`. A phase is done w
 | Website shows "No clinic at this address" | Run `pnpm db:seed`; check the API is running on :4000. |
 | Database tests can't find `psql` | Nothing to do: they fall back to the `psql` inside the Postgres container (Docker must be running). |
 
+Production operations (Phase 1B): error tracking and uptime checks in `docs/ops/monitoring.md`, nightly encrypted
+database backups and the restore check in `docs/ops/backups.md`.
+
 ## 7. Roadmap
 
 - ✅ Week 1 — foundation: monorepo, Docker, schema, tenant isolation, CI

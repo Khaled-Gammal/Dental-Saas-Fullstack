@@ -4,7 +4,8 @@ import type { z } from 'zod';
 import { RequirePermission } from '../../auth/decorators';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { PatientsService } from './patients.service';
-import { CreatePatient, DuplicatesQuery, ListQuery, MedicalHistoryBody, MergeBody, MergePreviewQuery, UpdatePatient } from './patients.schemas';
+import { PatientImportService } from './patient-import.service';
+import { CreatePatient, DuplicatesQuery, ImportBody, ListQuery, MedicalHistoryBody, MergeBody, MergePreviewQuery, UpdatePatient } from './patients.schemas';
 
 const id = new ParseUUIDPipe();
 
@@ -13,7 +14,10 @@ const id = new ParseUUIDPipe();
 @ApiBearerAuth()
 @Controller('patients')
 export class PatientsController {
-  constructor(private readonly patients: PatientsService) {}
+  constructor(
+    private readonly patients: PatientsService,
+    private readonly importer: PatientImportService,
+  ) {}
 
   @Get()
   @RequirePermission('patients:read')
@@ -26,6 +30,20 @@ export class PatientsController {
   @RequirePermission('patients:read')
   duplicates(@Query(new ZodBody(DuplicatesQuery)) q: z.infer<typeof DuplicatesQuery>) {
     return this.patients.duplicates(q);
+  }
+
+  /**
+   * Phase 2A (SRS ONB-03): import patients from the clinic's Excel/CSV file, up to 1,000 rows a request. `dryRun: true`
+   * reports what would happen (new / duplicate / invalid, per row) and writes nothing; `dryRun: false` creates the new
+   * ones in one transaction. Re-sending a batch creates nothing twice: those rows are duplicates by then.
+   */
+  @Post('import')
+  @HttpCode(200)
+  // a bulk change to the clinic's records: patients:write and the clinic's settings (the owner by default), not
+  // every member who may add a patient at the desk
+  @RequirePermission('patients:write', 'settings:write')
+  import(@Body(new ZodBody(ImportBody)) body: z.infer<typeof ImportBody>) {
+    return this.importer.run(body);
   }
 
   @Get(':id')

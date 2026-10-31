@@ -73,6 +73,8 @@ export function AppShell({ session, page, children }: { session: Session; page: 
           <Separator orientation="vertical" className="h-5" />
           <span className="truncate font-semibold text-ink"><bdi>{name}</bdi></span>
           {session.clinic.status === 'trialing' && <Badge tone="warning">فترة تجريبية</Badge>}
+          {/* Phase 2B: the paid period ran out; the clinic works for the grace days (details on the plan card) */}
+          {session.clinic.status === 'past_due' && <Badge tone="danger">الاشتراك منتهٍ: جدِّده</Badge>}
         </header>
         <div id="main" className={`content${NARROW_PAGES.has(page) ? ' content-narrow' : ''}`} tabIndex={-1}>{children}</div>
       </SidebarInset>

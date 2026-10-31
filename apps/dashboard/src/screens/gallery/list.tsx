@@ -10,6 +10,7 @@ import { Alert, Badge, Button, Card, EmptyState, ErrorText, Input, PageHeader, S
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { ChevronIcon, EditIcon, PlusIcon } from '../../ui/icons';
 import { RouteLink } from '../../ui/page';
+import { GalleryTabs } from './cases';
 import { ScopeSelect, Thumb } from './shared';
 
 /**
@@ -44,6 +45,7 @@ export function GalleryList({ clinicId, query }: { clinicId: string; query?: Rec
   return (
     <>
       <PageHeader title="معرض الصور" sub="صور العيادة والفروع التي تظهر على موقعك" action={add} />
+      <GalleryTabs current="photos" />
       {flash && <Alert tone="success">{flash}</Alert>}
       <div className="filter-bar">
         <ScopeSelect branches={branches.data ?? []} value={scope} onChange={setScope} withAll label="المعرض" />

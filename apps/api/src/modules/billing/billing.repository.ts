@@ -260,6 +260,11 @@ export class BillingRepository {
     return r.id;
   }
 
+  /** review R11: an event for the worker, in the caller's transaction (transactional outbox, SRS 8.3) */
+  async addOutboxEvent(tx: Tx, tenantId: string, type: string, payload: Record<string, unknown>): Promise<void> {
+    await tx.insertInto('outbox_events').values({ tenant_id: tenantId, type, payload: JSON.stringify(payload) }).execute();
+  }
+
   async reverse(tx: Tx, id: string, by: string, reason: string): Promise<void> {
     await tx.updateTable('payments').set({ status: 'reversed', reversed_at: sql<Date>`now()`, reversed_by: by, reversal_reason: reason }).where('id', '=', id).execute();
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterClinics, filterLeads, parsePlatformRoute, platformHref, trialDaysLeft } from '../platform-model';
+import { amountMinor, filterClinics, filterLeads, parsePlatformRoute, planPriceText, platformHref, renewalPeriod, trialDaysLeft } from '../platform-model';
 
 const ID = '22222222-2222-2222-2222-222222222222';
 
@@ -56,5 +56,36 @@ describe('landing-page requests in the panel (H7)', () => {
     expect(filterLeads(leads, '٠١١٩٨', 'all')[0].full_name).toBe('Ahmed Ali');
     expect(filterLeads(leads, '', 'contacted')).toHaveLength(1);
     expect(filterLeads(leads, 'طنطا', 'contacted')).toHaveLength(0);
+  });
+});
+
+describe('recording a payment (Phase 2B)', () => {
+  const now = Date.parse('2026-11-10T08:00:00Z');
+  it('buys a month or a year from now, or from the end of a paid period still running (as the database does)', () => {
+    expect(renewalPeriod('trialing', null, 'monthly', now)).toEqual({ start: new Date(now), end: new Date('2026-12-10T08:00:00Z') });
+    expect(renewalPeriod('active', '2026-11-20T10:00:00Z', 'yearly', now).end).toEqual(new Date('2027-11-20T10:00:00Z'));
+    // ran out (past due) or suspended: from now
+    expect(renewalPeriod('past_due', '2026-11-01T10:00:00Z', 'monthly', now).start).toEqual(new Date(now));
+    expect(renewalPeriod('active', '2026-11-01T10:00:00Z', 'monthly', now).start).toEqual(new Date(now));
+    // the 31st plus a month is the last day of the next month
+    expect(renewalPeriod('active', '2027-01-31T10:00:00Z', 'monthly', now).end).toEqual(new Date('2027-02-28T10:00:00Z'));
+    expect(renewalPeriod('active', '2028-02-29T10:00:00Z', 'yearly', now).end).toEqual(new Date('2029-02-28T10:00:00Z'));
+  });
+  it('prefills the plan\'s price for the cycle', () => {
+    const plan = { price_monthly_minor: 50000, price_yearly_minor: 500050 };
+    expect(planPriceText(plan, 'monthly')).toBe('500');
+    expect(planPriceText(plan, 'yearly')).toBe('5000.5');
+    expect(planPriceText({ price_monthly_minor: 0, price_yearly_minor: 0 }, 'monthly')).toBe('');
+    expect(planPriceText(undefined, 'monthly')).toBe('');
+  });
+  it('reads the amount typed in pounds', () => {
+    expect(amountMinor('500')).toBe(50000);
+    expect(amountMinor(' ١٢٥٠٫٥ ')).toBe(125050);
+    expect(amountMinor('1,500')).toBe(150000);
+    expect(amountMinor('1,5')).toBeNull();
+    expect(amountMinor('0')).toBeNull();
+    expect(amountMinor('12.345')).toBeNull();
+    expect(amountMinor('-5')).toBeNull();
+    expect(amountMinor('')).toBeNull();
   });
 });

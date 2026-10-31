@@ -1,4 +1,4 @@
-import { appointmentMessages, rescheduleMessages, type AppointmentRow } from '../appointment-notifications';
+import { appointmentMessages, cancelledMessages, confirmedMessages, rescheduleMessages, type AppointmentRow } from '../appointment-notifications';
 
 const base: AppointmentRow = {
   id: 'a1', tenant_id: 't1', starts_at: new Date('2026-10-24T14:00:00Z'), status: 'confirmed', source: 'website', has_code: true, patient_notes: null,
@@ -33,7 +33,7 @@ describe('appointmentMessages', () => {
     expect(riyadh).toMatch(/5:00 م/); // 14:00Z is 5 pm in Riyadh, 4 pm in Cairo (12-hour clock, CLR-08)
   });
   it('emails are Arabic only, with Latin digits (L10N-004, CLR-08)', () => {
-    for (const x of [...appointmentMessages(base, now), ...rescheduleMessages(base, now, 1)]) {
+    for (const x of [...appointmentMessages(base, now), ...rescheduleMessages(base, now, 1), ...cancelledMessages({ ...base, clinic_phone: '+20225550000' }, now), ...confirmedMessages(base, now)]) {
       // names are data and may be Latin (brand names, CLR-07 note); everything else is Arabic
       expect(`${x.subject}\n${x.body}`.replaceAll(base.patient_name!, '')).not.toMatch(/[A-Za-z]{2,}/);
       expect(x.body).not.toMatch(/[٠-٩]/);
@@ -59,5 +59,27 @@ describe('rescheduleMessages', () => {
   });
   it('without an email there is nothing to send', () => {
     expect(rescheduleMessages({ ...base, patient_email: null }, now, 41)).toEqual([]);
+  });
+});
+
+describe('cancelled and confirmed (review R11, NTF-03)', () => {
+  it('a cancellation tells the patient once, with the number to book again, never the clinic\'s reason', () => {
+    const m = cancelledMessages({ ...base, status: 'cancelled', clinic_phone: '+20225550000' }, now);
+    expect(m.map((x) => x.dedupe)).toEqual(['cancelled:a1']);
+    expect(m[0]).toMatchObject({ event: 'appointment.cancelled', recipient: 'omar@example.test' });
+    expect(m[0].subject).toContain('تم إلغاء موعدك');
+    expect(m[0].body).toContain('+20225550000');
+  });
+  it('no phone on file: no "call us" line; no email: nothing', () => {
+    expect(cancelledMessages({ ...base, clinic_phone: null }, now)[0].body).not.toContain('اتصل');
+    expect(cancelledMessages({ ...base, patient_email: null }, now)).toEqual([]);
+  });
+  it('a visit already past is not "cancelled" by email (reception tidying old bookings)', () => {
+    expect(cancelledMessages(base, new Date('2026-10-25T00:00:00Z').getTime())).toEqual([]);
+  });
+  it('a confirmation goes out only for an appointment still ahead', () => {
+    expect(confirmedMessages(base, now).map((x) => x.dedupe)).toEqual(['confirmed:a1']);
+    expect(confirmedMessages(base, new Date('2026-10-25T00:00:00Z').getTime())).toEqual([]);
+    expect(confirmedMessages({ ...base, patient_email: null }, now)).toEqual([]);
   });
 });

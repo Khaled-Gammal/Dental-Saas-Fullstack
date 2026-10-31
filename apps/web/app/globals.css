@@ -158,6 +158,27 @@ p { margin: 0; }
 .s-card-media { display: block; width: calc(100% + 48px); max-width: none; height: auto; aspect-ratio: 16 / 10; margin: -24px -24px 4px; object-fit: cover;
   border-radius: 20px 20px 0 0; background: var(--surface); }
 .s-card.has-media { overflow: hidden; }
+
+/* ----- Phase 2C-1: the clinic's photos, and its questions' answers ----- */
+.s-gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 900px) { .s-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .s-gallery { grid-template-columns: 1fr; } }
+.s-photo { margin: 0; height: 100%; overflow: hidden; border-radius: 20px; background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.s-photo img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; background: var(--surface); }
+.s-photo figcaption { padding: 12px 16px; color: var(--muted); font-size: var(--fs-sm); }
+.s-faq-a { white-space: pre-line; }
+/* Phase 2C-2: before/after cases, the two images side by side */
+.s-cases { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 760px) { .s-cases { grid-template-columns: 1fr; } }
+.s-case { margin: 0; overflow: hidden; border-radius: 20px; background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.s-case-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--line); }
+.s-case-img { position: relative; }
+.s-case-img img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; background: var(--surface); }
+.s-case-tag { position: absolute; inset-block-start: 10px; inset-inline-start: 10px; padding: 2px 10px; border-radius: var(--r-pill); background: rgb(15 23 42 / 0.7); color: #fff; font-size: var(--fs-xs); font-weight: 600; }
+.s-case-tag.is-after { background: var(--brand); color: var(--on-brand); }
+.s-case figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; color: var(--muted); font-size: var(--fs-sm); }
+.s-cases-note { margin-top: 14px; text-align: center; color: var(--muted); font-size: var(--fs-xs); }
+.s-gallery.has-cases { margin-top: 32px; }
 .s-service-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--brand-50); color: var(--brand); flex-shrink: 0; }
 .s-service-desc { color: var(--muted); font-size: var(--fs-sm); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .s-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 12px; border-top: 1px dashed var(--line); }
@@ -360,3 +381,27 @@ p { margin: 0; }
 /* ----- clinic logo (header and footer) ----- */
 .s-logo { display: block; height: 40px; width: auto; max-width: 160px; object-fit: contain; flex-shrink: 0; }
 @media (max-width: 640px) { .s-logo { height: 34px; max-width: 120px; } }
+
+/* ----- Phase 2C-3: a service's own page ----- */
+.s-card-title-link { color: inherit; text-decoration: none; }
+.s-card-title-link:hover, .s-card-title-link:focus-visible { color: var(--brand-text); text-decoration: underline; text-underline-offset: 4px; }
+.s-svc-page { padding-block-start: clamp(28px, 4vw, 48px); }
+.s-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 24px; color: var(--muted); font-size: var(--fs-sm); }
+.s-crumbs a { color: var(--muted); }
+.s-crumbs a:hover { color: var(--brand-text); }
+.s-crumbs [aria-current] { color: var(--ink); font-weight: 600; }
+.s-svc-hero { display: grid; gap: clamp(24px, 4vw, 48px); align-items: center; }
+.s-svc-hero.has-media { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); }
+@media (max-width: 900px) { .s-svc-hero.has-media { grid-template-columns: 1fr; } }
+.s-svc-hero h1 { font-size: clamp(1.8rem, 1.2rem + 2.4vw, 2.6rem); font-weight: 700; line-height: 1.25; color: var(--ink); margin-bottom: 14px; }
+.s-svc-desc { white-space: pre-line; max-width: 640px; }
+.s-svc-facts { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 24px; }
+.s-svc-facts > div { padding: 12px 18px; border-radius: var(--r-lg); background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.s-svc-facts dt { color: var(--muted); font-size: var(--fs-xs); }
+.s-svc-facts dd { margin: 2px 0 0; display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--ink); }
+.s-svc-note { margin-top: 12px; color: var(--muted); font-size: var(--fs-xs); }
+.s-svc-img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 24px; border: 1px solid var(--line); box-shadow: var(--shadow-md); background: var(--surface); }
+.s-svc-others h2 { font-size: var(--fs-xl); font-weight: 700; color: var(--ink); margin-bottom: 14px; }
+.s-svc-others ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.s-svc-others a { display: inline-flex; padding: 8px 16px; border-radius: var(--r-pill); border: 1px solid var(--line); background: #fff; color: var(--ink); font-weight: 500; }
+.s-svc-others a:hover { border-color: var(--brand-200); color: var(--brand-text); }

@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { reportError } from '../observability/sentry';
 import { AppError } from './app-error';
 
 /** RFC 9457 problem+json body. `code` is stable for the frontend; `detail` is human-readable. */
@@ -24,7 +25,17 @@ const PG: Record<string, { status: number; code: string; title: string }> = {
   '42501': { status: 403, code: 'forbidden', title: 'Not allowed' },
   P0002: { status: 404, code: 'not_found', title: 'Not found' },
   '55P03': { status: 409, code: 'busy', title: 'Another user is changing this right now, try again' },
+  // Phase 1B: a value the database cannot read (a malformed id or date, a number out of range, a text too long) is the
+  // caller's mistake, not a 500 — and a 500 would send the message, which quotes the value, to the error tracker
+  '22P02': { status: 400, code: 'invalid_input', title: 'A value is not valid' },
+  '22007': { status: 400, code: 'invalid_input', title: 'A value is not valid' },
+  '22008': { status: 400, code: 'invalid_input', title: 'A value is not valid' },
+  '22003': { status: 400, code: 'invalid_input', title: 'A value is not valid' },
+  '22001': { status: 400, code: 'invalid_input', title: 'A value is not valid' },
 };
+
+/** Network errors and PostgreSQL states that mean "not reachable right now" (class 08 is matched separately). */
+const UNAVAILABLE = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', '57P01', '57P02', '57P03', '53300']);
 
 /** Specific constraints get specific codes, so the UI can say exactly what is wrong. */
 const CONSTRAINTS: Record<string, { status: number; code: string; title: string }> = {
@@ -109,6 +120,21 @@ const CONSTRAINTS: Record<string, { status: number; code: string; title: string 
   platform_plan_missing: { status: 404, code: 'subscription_plan_not_found', title: 'Plan not found' },
   platform_plan_code: { status: 400, code: 'plan_code_invalid', title: 'A plan code is a short Latin slug' },
   platform_plan_name: { status: 400, code: 'validation_failed', title: 'A plan name is 2 to 60 characters' },
+  // manual payments (Phase 2B)
+  platform_payment_amount: { status: 400, code: 'validation_failed', title: 'The amount must be positive' },
+  platform_unpaid: { status: 409, code: 'subscription_unpaid', title: 'The subscription is unpaid: record the payment to reactivate the clinic' },
+  platform_invoices_reference: { status: 409, code: 'payment_reference_used', title: 'A payment with this reference is already recorded for this clinic' },
+  platform_invoices_idempotency: { status: 409, code: 'payment_key_used', title: 'This form was already used; open it again' },
+  platform_invoices_method: { status: 400, code: 'validation_failed', title: 'Unknown payment method' },
+  // before/after cases (Phase 2C-2): the service checks these first; the database is the last word
+  gallery_items_check1: { status: 400, code: 'consent_required', title: 'Confirm the patient\'s written consent before publishing' },
+  gallery_items_case_images: { status: 400, code: 'case_same_image', title: 'The before and after images must be different' },
+  gallery_items_case_clinic_wide: { status: 400, code: 'validation_failed', title: 'A before/after case belongs to the whole clinic' },
+  gallery_items_case_not_featured: { status: 400, code: 'validation_failed', title: 'Only photos are featured' },
+  gallery_items_case_files: { status: 400, code: 'wrong_image_kind', title: 'Upload these images again here: a case image belongs to one case and is never a photo' },
+  // the website's questions (Phase 2C-1): the API checks lengths first; the database is the last word
+  faqs_question_ar: { status: 400, code: 'validation_failed', title: 'A question is 5 to 300 characters' },
+  faqs_answer_ar: { status: 400, code: 'validation_failed', title: 'An answer is 2 to 3000 characters' },
   plans_code_key: { status: 409, code: 'plan_code_taken', title: 'A plan with this code exists' },
   lead_not_found: { status: 404, code: 'lead_not_found', title: 'Request not found' },
   // data export and clinic deletion (Phase H8)
@@ -155,6 +181,12 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     problem.requestId = typeof rid === 'string' ? rid : undefined;
     if (typeof problem.retryAfter === 'number') res.setHeader('Retry-After', String(problem.retryAfter)); // 429s
     if (problem.status >= 500) this.logger.error(`[${problem.requestId}] ${exception instanceof Error ? exception.stack : String(exception)}`);
+    // Phase 1B: unexpected failures go to the error tracker with the route pattern (/patients/:id, never the real URL,
+    // which may carry a search query). 503 is left out: it means a dependency is down, which the uptime monitor reports,
+    // and it would otherwise arrive once per health probe.
+    if (problem.status >= 500 && problem.status !== 503) {
+      reportError(exception, { request_id: typeof rid === 'string' ? rid : undefined, method: req.method, route: (req.route as { path?: string } | undefined)?.path ?? 'unmatched' });
+    }
     res.status(problem.status).type('application/problem+json').json(problem);
   }
 
@@ -186,6 +218,11 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     }
     const pgCode = (e as { code?: string })?.code;
     const constraint = (e as { constraint?: string })?.constraint;
+    // Phase 1B: the database or Redis is unreachable, restarting or full — a 503 (the uptime monitor reports it; the
+    // error tracker would otherwise get one event per request during the outage)
+    if (typeof pgCode === 'string' && (UNAVAILABLE.has(pgCode) || /^08/.test(pgCode))) {
+      return { type: 'about:blank', title: 'Service temporarily unavailable', status: 503, code: 'unhealthy', detail: 'Service temporarily unavailable' };
+    }
     if (pgCode && (PG[pgCode] || (constraint && CONSTRAINTS[constraint]))) {
       const m = (constraint && CONSTRAINTS[constraint]) || PG[pgCode];
       // the database message names tables and constraints: log it, never send it

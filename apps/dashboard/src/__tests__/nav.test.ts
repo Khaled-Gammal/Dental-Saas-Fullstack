@@ -36,8 +36,8 @@ describe('sidebar navigation (redesign R1)', () => {
     const { has, canSeePage } = as(['patients:read']);
     expect(visibleNav([{ id: null, label: null, items: NAV_FOOT }], canSeePage, has)).toEqual([]); // not the owner: no clinic data page
   });
-  it('the "soon" website item shows only to who will edit the site', () => {
-    expect(keys(['website:write']).find(([k]) => k === 'website')).toEqual(['website', ['gallery', 'website:write']]);
+  it('the website items show only to who edits the site', () => {
+    expect(keys(['website:write']).find(([k]) => k === 'website')).toEqual(['website', ['gallery', 'website']]);
     expect(keys(['patients:read']).find(([k]) => k === 'website')).toBeUndefined();
   });
   it('a page without its own item lights its parent, and opens its group', () => {

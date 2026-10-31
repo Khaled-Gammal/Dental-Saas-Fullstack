@@ -11,7 +11,7 @@ import { DUMMY_HASH, verifyPassword } from '../identity/crypto';
 import type { RequestMeta } from '../identity/identity.types';
 import { Accounts } from '../identity/accounts.service';
 import { OtpService } from '../identity/otp.service';
-import type { EditPlanInput, NewPlanInput } from './platform.schemas';
+import type { EditPlanInput, NewPlanInput, RecordPaymentInput } from './platform.schemas';
 import { PlatformRepository } from './platform.repository';
 
 const { login: L } = AUTH_POLICY;
@@ -81,8 +81,11 @@ export class PlatformService {
   async clinic(id: string) {
     const c = (await this.clinics()).find((x) => x.id === id);
     if (!c) throw clinicNotFound();
-    const [notes, history] = await Promise.all([this.repo.notes(this.admin(), id), this.repo.audit(id)]);
-    return { ...c, notes, history };
+    const [notes, history, payments, grace] = await Promise.all([
+      this.repo.notes(this.admin(), id), this.repo.audit(id), this.repo.payments(this.admin(), id), this.repo.grace(this.admin(), id),
+    ]);
+    // past due: the day the worker suspends it as unpaid unless a payment is recorded
+    return { ...c, grace_ends_at: grace, notes, history, payments };
   }
 
   /** H8: a clinic its owner deleted comes back as it was, within its 90 days */
@@ -112,6 +115,28 @@ export class PlatformService {
   async activate(id: string, cycle: 'monthly' | 'yearly') {
     await this.repo.activate(this.admin(), id, cycle);
     return this.clinic(id);
+  }
+
+  /**
+   * Phase 2B (owner 2026-10-31: clinics pay outside the system, the platform records it): a paid invoice, and the
+   * subscription runs a month or a year more — from the end of the paid period when renewing early. A suspension for an
+   * ended trial or an unpaid subscription is lifted; a manual one stays.
+   */
+  async recordPayment(id: string, input: RecordPaymentInput, ip: string | null) {
+    await this.repo.recordPayment(this.admin(), id, {
+      amountMinor: input.amountMinor, cycle: input.cycle, method: input.method, reference: input.reference, note: input.note, key: input.idempotencyKey,
+    }, ip);
+    return this.clinic(id);
+  }
+
+  async billingInstructions() {
+    this.admin();
+    return { text: await this.repo.billingInstructions() };
+  }
+
+  async setBillingInstructions(text: string, ip: string | null) {
+    await this.repo.setBillingInstructions(this.admin(), text, ip);
+    return { text: await this.repo.billingInstructions() };
   }
 
   async changePlan(id: string, planId: string) {

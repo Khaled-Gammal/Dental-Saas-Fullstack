@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { arName } from '@dental/ui/text';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,8 +7,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DatePicker } from '../../components/date-picker';
 import { navigate } from '../../hooks';
 import { appointmentActionLabel, appointmentSourceLabel, appointmentStatusLabel } from '../../labels';
-import { waitingList } from '../../calendar-model';
-import { send, useAppointmentAction, useAppointments, useBalances, useBranches, useCheckIn, useClinicalMutation, type AppointmentAction } from '../../queries';
+import { addDaysIso, chairColumns, doctorColumns, LAYOUTS, waitingList, weekColumns, weekStart, zonedParts, type CalendarLayout, type GridColumn } from '../../calendar-model';
+import { send, useAppointmentAction, useAppointments, useBalances, useBranches, useCheckIn, useClinicalMutation, useDoctors, useRooms, type AppointmentAction } from '../../queries';
+import { CalendarGrid } from './calendar-grid';
 import { to } from '../../router';
 import { RouteLink } from '../../ui/page';
 import type { Appointment, AppointmentStatus, Branch } from '../../types';
@@ -20,8 +21,7 @@ import { money } from '../../money';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const ALL = 'all'; // Radix Select cannot carry an empty value
-const isoDate = (d: Date) => d.toLocaleDateString('en-CA'); // YYYY-MM-DD in the browser's zone
-const shiftDate = (date: string, days: number) => { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + days); return isoDate(d); };
+const shiftDate = addDaysIso; // calendar dates: no time zone involved
 const locale = () => (LOC);
 
 const TONE: Record<AppointmentStatus, 'neutral' | 'primary' | 'success' | 'warning'> = {
@@ -55,6 +55,8 @@ const VIEWS: { v: View; key: string }[] = [{ v: 'all', key: 'كل المواعي
 const CHANGEABLE: AppointmentStatus[] = ['pending', 'confirmed', 'checked_in', 'in_progress'];
 /** A visit is opened once the patient has arrived (VISIT-001). */
 const VISITABLE: AppointmentStatus[] = ['checked_in', 'in_progress'];
+/** Phase 1C (DSH-02): how the bookings are laid out — a list, a day per doctor or per chair, or the week. */
+const LAYOUT_LABEL: Record<CalendarLayout, string> = { list: 'قائمة', doctors: 'حسب الطبيب', chairs: 'حسب الكرسي', week: 'الأسبوع' };
 
 /** Opens the visit of an arrived patient (or the one already open) and goes to it; another doctor's is refused by the API. */
 function OpenVisitButton({ clinicId, appointmentId }: { clinicId: string; appointmentId: string }) {
@@ -74,24 +76,50 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
   /** clinical:write: open the visit of an arrived patient (the API checks it is the doctor's own); clinical:read: open an existing one */
   canVisit?: boolean; canReadVisit?: boolean;
 }) {
-  const today = isoDate(new Date());
+  // the clinic's today (not the browser's), refreshed every minute: the grid's "now" line and the today badge move on
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNowMs(Date.now()), 60_000); return () => clearInterval(t); }, []);
+  const today = zonedParts(new Date(nowMs).toISOString(), clinicTimeZone()).date;
   const date = query?.date && ISO.test(query.date) ? query.date : today;
   const branchId = query?.branch || undefined;
   const view: View = query?.view === 'waiting' || query?.view === 'mine' || query?.view === 'all' ? query.view : defaultView;
-  const go = (next: { date?: string; branch?: string | null; view?: View }) => {
+  // the chairs belong to a branch: without one chosen, the chairs layout shows the doctors
+  const asked = LAYOUTS.includes(query?.layout as CalendarLayout) ? query!.layout as CalendarLayout : 'list';
+  const layout: CalendarLayout = asked === 'chairs' && !branchId ? 'doctors' : asked;
+  const week = layout === 'week' && view !== 'waiting';
+  const go = (next: { date?: string; branch?: string | null; view?: View; layout?: CalendarLayout }) => {
     const branch = next.branch === undefined ? branchId : next.branch || undefined;
     const v = next.view ?? view;
-    navigate({ page: 'appointments', query: { date: next.date ?? date, ...(branch && { branch }), ...(v !== defaultView && { view: v }) } });
+    const l = next.layout ?? asked;
+    navigate({ page: 'appointments', query: { date: next.date ?? date, ...(branch && { branch }), ...(v !== defaultView && { view: v }), ...(l !== 'list' && { layout: l }) } });
   };
   const branches = useBranches(clinicId);
-  const day = useAppointments(clinicId, date, branchId, view === 'mine');
+  // the week asks for its seven days at once, from its Saturday
+  const day = useAppointments(clinicId, week ? weekStart(date) : date, branchId, view === 'mine', true, week ? 7 : 1);
+  const doctors = useDoctors(clinicId);
+  const rooms = useRooms(clinicId, layout === 'chairs' ? branchId : undefined);
+  const [opened, setOpened] = useState<Appointment | null>(null);
   // a doctor's own-only actions (appointments:write:own, their visits) show where every row is theirs: the "mine" view
   const own = canOwn && view === 'mine';
-  const queue = waitingList(day.data?.appointments ?? [], Date.now());
-  const patientIds = [...new Set((day.data?.appointments ?? []).flatMap((a) => (a.patient ? [a.patient.id] : [])))];
+  const queue = waitingList(day.data?.appointments ?? [], nowMs);
+  // balances for the rows on screen: the list and the waiting list; on the grid, the booking opened in the dialog only
+  const rowsShown = layout === 'list' || view === 'waiting' ? (day.data?.appointments ?? []) : opened ? [opened] : [];
+  const patientIds = [...new Set(rowsShown.flatMap((a) => (a.patient ? [a.patient.id] : [])))];
   const balances = useBalances(clinicId, patientIds, canSeeBalances).data ?? {};
   const tz = day.data?.timezone ?? clinicTimeZone();
   const time = (iso: string) => new Intl.DateTimeFormat(locale(), { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(iso));
+  const dayName = (d: string, opts: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' }) =>
+    new Intl.DateTimeFormat(locale(), { ...opts, timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
+  const all = useMemo(() => day.data?.appointments ?? [], [day.data]);
+  const grid = view === 'waiting' ? 'list' : layout;
+  const columns: GridColumn[] = useMemo(() => (
+    grid === 'week' ? weekColumns(all, date, tz, (d) => new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`)))
+      : grid === 'chairs' ? chairColumns(all, rooms.data ?? [], date)
+        // the doctors list failed: the columns come from the bookings alone (no working hours to shade)
+        : grid === 'doctors' ? doctorColumns(all, doctors.data ?? [], date, branchId, view === 'mine' || doctors.isError) : []
+  ), [grid, all, date, tz, rooms.data, doctors.data, doctors.isError, branchId, view]);
+  const nowAt = zonedParts(new Date(nowMs).toISOString(), tz);
+  const step = week ? 7 : 1;
 
   const act = useAppointmentAction(clinicId);
   const [cancelling, setCancelling] = useState<Appointment | null>(null);
@@ -111,6 +139,8 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
     if (action === 'arrive' && a.has_code) { setArriving(a); setNote(''); return; }
     act.mutate({ id: a.id, action }, { onError: setActionError });
   };
+  const cardProps = { clinicId, time, balances, canWrite, own, canVisit, canReadVisit, onRun: run,
+    pending: act.isPending ? act.variables : undefined } satisfies Omit<CardProps, 'a'>;
   const confirmCancel = () => {
     if (!cancelling) return;
     act.mutate({ id: cancelling.id, action: 'cancel', reason: reason.trim() || undefined }, { onError: setActionError, onSettled: () => setCancelling(null) });
@@ -136,77 +166,78 @@ export function Appointments({ clinicId, canWrite, canOwn, query, defaultView = 
         <div className="day-nav">
           {/* right-to-left: the previous day is on the right, its arrow points right */}
           <div className="day-stepper">
-            <IconButton variant="outline" size="icon-lg" aria-label="اليوم السابق" onClick={() => go({ date: shiftDate(date, -1) })}><ChevronRight /></IconButton>
+            <IconButton variant="outline" size="icon-lg" aria-label={week ? 'الأسبوع السابق' : 'اليوم السابق'} onClick={() => go({ date: shiftDate(date, -step) })}><ChevronRight /></IconButton>
             <DatePicker value={date} onChange={(d) => go({ date: d })} label="التاريخ" />
-            <IconButton variant="outline" size="icon-lg" aria-label="اليوم التالي" onClick={() => go({ date: shiftDate(date, 1) })}><ChevronLeft /></IconButton>
+            <IconButton variant="outline" size="icon-lg" aria-label={week ? 'الأسبوع التالي' : 'اليوم التالي'} onClick={() => go({ date: shiftDate(date, step) })}><ChevronLeft /></IconButton>
           </div>
-          <IconButton variant="outline" className="h-10" disabled={date === today} onClick={() => go({ date: today })}>اليوم</IconButton>
+          <IconButton variant="outline" className="h-10" disabled={week ? weekStart(date) === weekStart(today) : date === today} onClick={() => go({ date: today })}>اليوم</IconButton>
           <BranchSelect branches={branches.data ?? []} value={branchId ?? ALL} onChange={(v) => go({ branch: v === ALL ? null : v })} allLabel="كل الفروع" />
         </div>
       </div>
+
+      {view !== 'waiting' && (
+        <div className="seg cal-layouts" role="group" aria-label="طريقة العرض">
+          {LAYOUTS.map((l) => (
+            <button key={l} type="button" aria-pressed={layout === l} className={`seg-btn${layout === l ? ' is-on' : ''}`}
+              disabled={l === 'chairs' && !branchId} title={l === 'chairs' && !branchId ? 'اختر فرعًا لعرض كراسيه' : undefined} onClick={() => go({ layout: l })}>
+              {LAYOUT_LABEL[l]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {canWrite && <CheckInDialog open={checkingIn} onOpenChange={setCheckingIn} clinicId={clinicId} branches={branches.data ?? []} defaultBranch={branchId} canSeeBalances={canSeeBalances} />}
       {actionError != null && <ErrorText error={actionError} />}
 
       <h2 className="day-title">
-        <CalendarIcon size={18} />{new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`))}
-        {date === today && <Badge tone="primary">اليوم</Badge>}
+        <CalendarIcon size={18} />
+        {week ? <>{dayName(weekStart(date), { day: 'numeric', month: 'long' })} – {dayName(addDaysIso(weekStart(date), 6), { day: 'numeric', month: 'long' })}</> : dayName(date)}
+        {(week ? weekStart(date) === weekStart(today) : date === today) && <Badge tone="primary">{week ? 'هذا الأسبوع' : 'اليوم'}</Badge>}
         {!!day.data?.appointments.length && view !== 'waiting' && <span className="page-count">{fmtNumber(day.data.appointments.length)}</span>}
       </h2>
       {day.isError ? (
         <ErrorText error={day.error} onRetry={() => void day.refetch()} />
-      ) : day.isLoading ? (
+      ) : day.isLoading || (layout === 'doctors' && doctors.isLoading) || (layout === 'chairs' && rooms.isLoading) ? (
         <ul className="appts"><Skeleton h={84} count={4} /></ul>
       ) : view === 'waiting' ? (
         <WaitingView queue={queue} time={time} canStart={canWrite} onStart={(a) => run(a, 'start')} balances={balances} />
-      ) : !day.data?.appointments.length ? (
+      ) : layout === 'list' && !day.data?.appointments.length ? (
         <Card><EmptyState icon={<CalendarIcon size={28} />} title="لا توجد مواعيد في هذا اليوم" text="المواعيد المحجوزة من الموقع تظهر هنا تلقائيًا." action={newButton || undefined} /></Card>
-      ) : (
+      ) : !day.data ? null : (
+        layout !== 'list' ? (
+          columns.length ? (
+            <CalendarGrid columns={columns} timeZone={tz} time={time} today={nowAt.date} now={nowAt.minutes} onOpen={setOpened}
+              onColumn={layout === 'week' ? (c) => go({ date: c.date, layout: 'doctors' }) : undefined}
+              subtitle={(a) => layout === 'doctors' ? (a.service ? arName(a.service.name_ar, a.service.name_en) : null) : arName(a.doctor.name_ar, a.doctor.name_en)} />
+          ) : (
+            <Card><EmptyState icon={<CalendarIcon size={28} />} title={layout === 'chairs' ? 'لا توجد كراسي في هذا الفرع' : view === 'mine' ? 'لا توجد مواعيد لك في هذا اليوم' : 'لا يعمل أي طبيب في هذا اليوم'}
+              text={layout === 'chairs' ? 'أضف الكراسي من صفحة الفرع، أو اعرض المواعيد حسب الطبيب.' : 'المواعيد المحجوزة تظهر هنا تلقائيًا.'} action={newButton || undefined} /></Card>
+          )
+        ) : (
         <ul className="appts" aria-busy={day.isFetching || undefined}>
-          {day.data.appointments.map((a) => {
-            const actions = (ACTIONS[a.status] ?? []).filter((x) => canWrite || (own && OWN_ACTIONS.includes(x)));
-            return (
-              <Card as="li" key={a.id} className={`appt is-${a.status}`}>
-                <div className="appt-time">
-                  <strong><bdi dir="ltr">{time(a.starts_at)}</bdi></strong>
-                  <span className="muted"><bdi dir="ltr">{time(a.ends_at)}</bdi></span>
-                </div>
-                <div className="appt-main">
-                  <div className="appt-head">
-                    <strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong>
-                    <Badge tone={TONE[a.status]}>{appointmentStatusLabel[a.status]}</Badge>
-                    <Owes balance={a.patient ? balances[a.patient.id] : undefined} />
-                  </div>
-                  <div className="appt-meta">
-                    {a.patient && <span dir="ltr">{a.patient.phone}</span>}
-                    <span><bdi>{arName(a.doctor.name_ar, a.doctor.name_en)}</bdi></span>
-                    {a.service && <span><bdi>{arName(a.service.name_ar, a.service.name_en)}</bdi></span>}
-                    <span className="muted">{appointmentSourceLabel[a.source]}</span>
-                    {a.room && <span>الكرسي: <bdi>{a.room.name}</bdi></span>}
-                  </div>
-                  {a.patient_notes && <p className="appt-notes">{a.patient_notes}</p>}
-                  {a.cancel_reason && <p className="appt-notes muted">{a.cancel_reason}</p>}
-                </div>
-                {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status)) || (a.visit_id && canReadVisit) || (canVisit && (canWrite || own) && VISITABLE.includes(a.status))) && (
-                  <div className="appt-actions">
-                    {a.visit_id && canReadVisit ? <RouteLink route={to.visit(a.visit_id)} className="btn btn-secondary">فتح الزيارة</RouteLink>
-                      : canVisit && (canWrite || own) && VISITABLE.includes(a.status) && <OpenVisitButton clinicId={clinicId} appointmentId={a.id} />}
-                    {canWrite && CHANGEABLE.includes(a.status) && (
-                      <RouteLink route={to.edit('appointments', a.id)} className="btn btn-ghost"><EditIcon size={16} />تغيير</RouteLink>
-                    )}
-                    {actions.map((x) => (
-                      <Button key={x} variant={x === 'cancel' || x === 'noShow' ? 'ghost' : x === 'confirm' || x === 'complete' ? 'primary' : 'secondary'}
-                        onClick={() => run(a, x)} loading={act.isPending && act.variables?.id === a.id && act.variables.action === x}>
-                        {appointmentActionLabel[x]}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
+          {day.data.appointments.map((a) => (
+            <AppointmentCard key={a.id} a={a} {...cardProps} />
+          ))}
         </ul>
+        )
       )}
+
+      {/* Phase 1C: a block of the grid opens the booking with the same actions as the list */}
+      <Dialog open={!!opened} onOpenChange={(o) => { if (!o) setOpened(null); }}>
+        <DialogContent dir="rtl" className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-card sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-start">{opened ? dayName(zonedParts(opened.starts_at, tz).date) : ''}</DialogTitle>
+            <DialogDescription className="sr-only">تفاصيل الموعد والإجراءات المتاحة</DialogDescription>
+          </DialogHeader>
+          {actionError != null && <ErrorText error={actionError} />}
+          {opened && (
+            <ul className="appts appts-dialog">
+              {/* the fresh copy after a change (a confirm keeps the dialog open on the new status) */}
+              <AppointmentCard a={all.find((x) => x.id === opened.id) ?? opened} {...cardProps} onRun={(a, x) => { if (x === 'cancel' || (x === 'arrive' && a.has_code)) setOpened(null); run(a, x); }} />
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog open={!!arriving} title="تسجيل الوصول بدون رمز" confirmLabel="وصل المريض"
         onConfirm={() => { if (arriving && note.trim().length >= 3) act.mutate({ id: arriving.id, action: 'arrive', note: note.trim() }, { onError: setActionError, onSettled: () => setArriving(null) }); }}
@@ -309,5 +340,57 @@ function WaitingView({ queue, time, canStart, onStart, balances }: {
         </Card>
       ))}
     </ul>
+  );
+}
+
+interface CardProps {
+  a: Appointment; clinicId: string; time: (iso: string) => string; balances: Record<string, number>;
+  canWrite: boolean; own: boolean; canVisit: boolean; canReadVisit: boolean;
+  onRun: (a: Appointment, action: AppointmentAction) => void;
+  /** the action being sent, to show its button busy */
+  pending?: { id: string; action: AppointmentAction };
+}
+
+/** One booking with what may be done next; the list's row, and the grid's dialog (Phase 1C). */
+function AppointmentCard({ a, clinicId, time, balances, canWrite, own, canVisit, canReadVisit, onRun, pending }: CardProps) {
+  const actions = (ACTIONS[a.status] ?? []).filter((x) => canWrite || (own && OWN_ACTIONS.includes(x)));
+  return (
+    <Card as="li" className={`appt is-${a.status}`}>
+      <div className="appt-time">
+        <strong><bdi dir="ltr">{time(a.starts_at)}</bdi></strong>
+        <span className="muted"><bdi dir="ltr">{time(a.ends_at)}</bdi></span>
+      </div>
+      <div className="appt-main">
+        <div className="appt-head">
+          <strong><bdi>{a.patient?.full_name ?? '—'}</bdi></strong>
+          <Badge tone={TONE[a.status]}>{appointmentStatusLabel[a.status]}</Badge>
+          <Owes balance={a.patient ? balances[a.patient.id] : undefined} />
+        </div>
+        <div className="appt-meta">
+          {a.patient && <span dir="ltr">{a.patient.phone}</span>}
+          <span><bdi>{arName(a.doctor.name_ar, a.doctor.name_en)}</bdi></span>
+          {a.service && <span><bdi>{arName(a.service.name_ar, a.service.name_en)}</bdi></span>}
+          <span className="muted">{appointmentSourceLabel[a.source]}</span>
+          {a.room && <span>الكرسي: <bdi>{a.room.name}</bdi></span>}
+        </div>
+        {a.patient_notes && <p className="appt-notes">{a.patient_notes}</p>}
+        {a.cancel_reason && <p className="appt-notes muted">{a.cancel_reason}</p>}
+      </div>
+      {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status)) || (a.visit_id && canReadVisit) || (canVisit && (canWrite || own) && VISITABLE.includes(a.status))) && (
+        <div className="appt-actions">
+          {a.visit_id && canReadVisit ? <RouteLink route={to.visit(a.visit_id)} className="btn btn-secondary">فتح الزيارة</RouteLink>
+            : canVisit && (canWrite || own) && VISITABLE.includes(a.status) && <OpenVisitButton clinicId={clinicId} appointmentId={a.id} />}
+          {canWrite && CHANGEABLE.includes(a.status) && (
+            <RouteLink route={to.edit('appointments', a.id)} className="btn btn-ghost"><EditIcon size={16} />تغيير</RouteLink>
+          )}
+          {actions.map((x) => (
+            <Button key={x} variant={x === 'cancel' || x === 'noShow' ? 'ghost' : x === 'confirm' || x === 'complete' ? 'primary' : 'secondary'}
+              onClick={() => onRun(a, x)} loading={pending?.id === a.id && pending?.action === x}>
+              {appointmentActionLabel[x]}
+            </Button>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }

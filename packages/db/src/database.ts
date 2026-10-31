@@ -317,6 +317,7 @@ export interface Expenses {
 export interface Faqs {
   answer_ar: string | null;
   answer_en: string | null;
+  created_at: Generated<Timestamp>;
   id: Generated<string>;
   is_active: Generated<boolean>;
   question_ar: string | null;
@@ -324,6 +325,7 @@ export interface Faqs {
   service_id: string | null;
   sort_order: Generated<number>;
   tenant_id: string;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface Files {
@@ -351,6 +353,8 @@ export interface GalleryItems {
   caption_ar: string | null;
   caption_en: string | null;
   consent_confirmed: Generated<boolean>;
+  consent_confirmed_at: Timestamp | null;
+  consent_confirmed_by: string | null;
   created_at: Generated<Timestamp>;
   id: Generated<string>;
   image_file_id: string;
@@ -829,9 +833,12 @@ export interface PlatformAuditLog {
 
 export interface PlatformInvoices {
   amount_minor: Int8;
+  billing_cycle: string | null;
   currency: string;
   id: Generated<string>;
+  idempotency_key: string | null;
   issued_at: Generated<Timestamp>;
+  note: string | null;
   number: string;
   paid_at: Timestamp | null;
   pdf_file_key: string | null;
@@ -839,10 +846,18 @@ export interface PlatformInvoices {
   period_start: Timestamp;
   provider: string | null;
   provider_ref: string | null;
+  recorded_by: string | null;
   status: string;
   subscription_id: string;
   tax_minor: Generated<Int8>;
   tenant_id: string;
+}
+
+export interface PlatformSettings {
+  key: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+  value: string;
 }
 
 export interface PlatformTenantNotes {
@@ -1045,6 +1060,10 @@ export interface Sites {
   published_at: Timestamp | null;
   published_theme: Json | null;
   published_version: Generated<number>;
+  sections: Generated<Json>;
+  seo_description: string | null;
+  seo_title: string | null;
+  share_file_id: string | null;
   show_powered_by: Generated<boolean>;
   status: Generated<string>;
   template_id: string;
@@ -1359,6 +1378,7 @@ export interface DB {
   plans: Plans;
   platform_audit_log: PlatformAuditLog;
   platform_invoices: PlatformInvoices;
+  platform_settings: PlatformSettings;
   platform_tenant_notes: PlatformTenantNotes;
   posts: Posts;
   prescription_items: PrescriptionItems;

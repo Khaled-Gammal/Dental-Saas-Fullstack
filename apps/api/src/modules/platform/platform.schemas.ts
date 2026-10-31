@@ -11,6 +11,18 @@ export const ExtendTrial = z.object({ until: z.string().regex(/^\d{4}-\d{2}-\d{2
 export const Suspend = z.object({ reason: z.string().trim().min(3).max(300) }).strict();
 export const ChangePlan = z.object({ planId: z.string().uuid() }).strict();
 export const Activate = z.object({ cycle: z.enum(['monthly', 'yearly']) }).strict();
+/** Phase 2B: a payment the clinic made outside the system (amount in minor units; the key makes a repeated form one payment) */
+export const RecordPayment = z.object({
+  amountMinor: z.number().int().min(1).max(1_000_000_000),
+  cycle: z.enum(['monthly', 'yearly']),
+  method: z.enum(['instapay', 'vodafone_cash', 'bank_transfer', 'cash', 'other']),
+  reference: z.string().trim().max(100).nullish().transform((v) => v || null),
+  note: z.string().trim().max(500).nullish().transform((v) => v || null),
+  idempotencyKey: z.string().uuid(),
+}).strict();
+export type RecordPaymentInput = z.infer<typeof RecordPayment>;
+/** What the clinics are told about paying; empty clears it. */
+export const BillingInstructions = z.object({ text: z.string().max(2000) }).strict();
 export const NewNote = z.object({ body: z.string().trim().min(1).max(2000) }).strict();
 
 /** H6: a new version of a legal document (plain text; paragraphs separated by blank lines) */

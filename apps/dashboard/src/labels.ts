@@ -115,6 +115,7 @@ export const errorLabel: Record<string, string> = {
   access_changed: 'تغيّرت صلاحياتك. أعد تحميل الصفحة.',
   rule_violation: 'لا يمكن الحفظ: تعارض مع قواعد النظام (مثلًا يجب أن يبقى اسم واحد على الأقل).',
   plan_limit_reached: 'وصلت إلى الحد المسموح في باقتك. رقِّ الباقة لإضافة المزيد.',
+  plan_feature_unavailable: 'هذه الميزة غير متاحة في باقتك. رقِّ الباقة لاستخدامها.', // Phase 1D
   site_not_found: 'لا يوجد موقع لهذه العيادة بعد.',
   schedule_overlap: 'فترتان متداخلتان في نفس اليوم.',
   branch_not_assigned: 'الطبيب غير مُضاف إلى هذا الفرع.',
@@ -147,6 +148,15 @@ export const errorLabel: Record<string, string> = {
   reason_required: 'اكتب السبب (3 أحرف على الأقل).',
   trial_ended: 'انتهت الفترة التجريبية: مدّد التجربة أو فعّل الاشتراك أولًا.',
   already_active: 'الاشتراك مفعّل بالفعل.',
+  case_not_found: 'الحالة غير موجودة. حدّث الصفحة.', // Phase 2C-2
+  case_limit: 'وصلت للحد الأقصى: 100 حالة. احذف حالة قديمة أولًا.',
+  case_same_image: 'صورة «قبل» وصورة «بعد» لازم تكونا مختلفتين.',
+  consent_required: 'أكّد موافقة المريض الكتابية على النشر قبل نشر الحالة.',
+  faq_not_found: 'السؤال غير موجود. حدّث الصفحة.', // Phase 2C-1
+  faq_limit: 'وصلت للحد الأقصى: 50 سؤالًا. احذف سؤالًا قديمًا أولًا.',
+  subscription_unpaid: 'الاشتراك غير مدفوع: سجّل الدفعة لتعود العيادة للعمل.', // Phase 2B
+  payment_reference_used: 'دفعة بنفس رقم العملية مسجّلة بالفعل لهذه العيادة.',
+  payment_key_used: 'هذا النموذج استُخدم من قبل. أغلقه وافتحه من جديد.',
   owner_role_fixed: 'دور المالك ثابت: يملك كل الصلاحيات دائمًا.',
   role_archived: 'هذا الدور مؤرشف ولا يُعطى لأحد.',
   role_in_use: 'أعضاء أو دعوات مفتوحة ما زالت تحمل هذا الدور؛ غيّر أدوارهم أولًا.',
@@ -208,6 +218,8 @@ export const errorLabel: Record<string, string> = {
   generic_429: 'محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.',
   generic_500: 'حدث خطأ غير متوقع. حاول مرة أخرى بعد قليل.',
   unhealthy: 'الخدمة غير متاحة الآن. حاول بعد قليل.',
+  worker_stale: 'خدمة الإشعارات متوقفة الآن. حاول بعد قليل.', // Phase 1B: GET /health/worker (read by the uptime monitor)
+  invalid_input: 'قيمة غير صالحة في البيانات المرسلة. راجعها وحاول مرة أخرى.',
   internal: 'حدث خطأ غير متوقع. حاول مرة أخرى بعد قليل.',
   not_found: 'العنصر غير موجود أو لم يعد متاحًا.',
   forbidden: 'ليست لديك صلاحية لهذا الإجراء.',
@@ -307,7 +319,7 @@ export const errorLabel: Record<string, string> = {
   link_expired: 'انتهت صلاحية رابط الصورة؛ حدّث الصفحة.',
   alt_required: 'أضف وصفًا للصورة (أو تعليقًا) قبل نشرها.',
   featured_requires_published: 'الصورة المميزة يجب أن تكون منشورة.',
-  order_mismatch: 'تغيّرت الصور أثناء الترتيب؛ حدّث الصفحة وحاول مرة أخرى.',
+  order_mismatch: 'تغيّرت القائمة أثناء الترتيب؛ حدّث الصفحة وحاول مرة أخرى.',
   gallery_item_not_found: 'الصورة غير موجودة.',
   logo_too_small: 'الشعار صغير جدًا (48 بكسل على الأقل لكل ضلع).',
   wrong_image_kind: 'هذه الصورة رُفعت لغرض آخر؛ ارفعها مرة أخرى هنا.',
@@ -518,6 +530,19 @@ export const platformActionLabel: Record<string, string> = {
   platform_sign_in: 'دخول اللوحة',
   tenant_trial_expired: 'إيقاف تلقائي: انتهت التجربة',
   tenant_activated: 'تفعيل الاشتراك',
+  tenant_payment_recorded: 'تسجيل دفعة', // Phase 2B
+  tenant_subscription_past_due: 'انتهى الاشتراك: متأخر السداد',
+  tenant_unpaid_suspended: 'إيقاف تلقائي: لم يُجدَّد الاشتراك',
+  billing_instructions_updated: 'تعديل تعليمات الدفع',
+};
+
+/** Phase 2B: how a clinic paid its subscription. */
+export const subscriptionPaymentMethodLabel: Record<string, string> = {
+  instapay: 'إنستاباي',
+  vodafone_cash: 'فودافون كاش',
+  bank_transfer: 'تحويل بنكي',
+  cash: 'نقدًا',
+  other: 'أخرى',
 };
 
 /** Billing cycles. */

@@ -6,6 +6,8 @@ import { BranchesSection } from '../../../components/site/branches';
 import { contactFor } from '../../../components/site/contact';
 import { AppointmentCTA, MobileBookingBar } from '../../../components/site/cta';
 import { DoctorsSection } from '../../../components/site/doctors';
+import { FaqSection, faqItems } from '../../../components/site/faq';
+import { GallerySection } from '../../../components/site/gallery';
 import { ClinicFooter } from '../../../components/site/footer';
 import { ClinicHeader } from '../../../components/site/header';
 import { HeroSection } from '../../../components/site/hero';
@@ -13,6 +15,8 @@ import type { NavLink } from '../../../components/site/mobile-nav';
 import { ServicesSection } from '../../../components/site/services';
 import { TrustIndicators } from '../../../components/site/trust';
 import { hhmm } from '../../../lib/hours';
+import { faqStructuredData, visibleSections, type SectionKey } from '../../../lib/sections';
+import { homeDescription, homeTitle, jsonLd, shareImagePath } from '../../../lib/seo';
 import { ar, DEFAULT_TZ, getSite, originOf, safeColor, type SiteData } from '../../../lib/site';
 
 type Props = { params: Promise<{ host: string }> };
@@ -25,13 +29,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const site = await getSite(host);
   if (!site) return {};
   const name = clinicName(site);
-  const description = ar(site.clinic.about_ar, site.clinic.about_en) ?? `احجز موعدك في ${name}: خدمات أسنان بأسعار واضحة، أطباء متخصصون ومواعيد عمل محدّثة.`;
+  // Phase 2C-3: the clinic's own search title and description when it wrote them; the share image made by the API
+  const title = homeTitle(site);
+  const description = homeDescription(site);
+  const image = { url: shareImagePath(site), width: 1200, height: 630, alt: name };
   return {
     metadataBase: new URL(originOf(host)),
-    title: `${name} | عيادة أسنان`,
+    title,
     description,
     alternates: { canonical: '/' },
-    openGraph: { type: 'website', locale: 'ar_EG', siteName: name, title: name, description, url: '/' },
+    openGraph: { type: 'website', locale: 'ar_EG', siteName: name, title, description, url: '/', images: [image] },
+    twitter: { card: 'summary_large_image', title, description, images: [image.url] },
     robots: { index: true, follow: true },
   };
 }
@@ -71,32 +79,49 @@ export default async function ClinicSite({ params }: Props) {
   const host = await hostOf(params);
   const site = await getSite(host);
   if (!site) notFound();
-  const { clinic, services, doctors, branches, holidays } = site;
+  const { clinic, services, doctors, branches, holidays, photos } = site;
+  const cases = site.cases.filter((c) => c.on_home !== false); // the first 12; the rest are for the service pages (Phase 2C-3)
   const name = clinicName(site);
   const about = ar(clinic.about_ar, clinic.about_en);
   const contact = contactFor(clinic, name, site.onlineBooking);
-  const links: NavLink[] = [
-    services.length > 0 && { href: '#services', label: 'الخدمات' },
-    doctors.length > 0 && { href: '#doctors', label: 'الأطباء' },
-    branches.length > 0 && { href: '#branches', label: 'الفروع والمواعيد' },
-  ].filter((l): l is NavLink => Boolean(l));
-  const ld = JSON.stringify(structuredData(site, name, originOf(host))).replace(/</g, '\\u003c');
+  const faqs = faqItems(site.faqs);
+  // Phase 2C-1: the sections the clinic shows, in its order, each only when it has something to show; the tinted
+  // background alternates down the page whatever the order
+  const has: Record<SectionKey, boolean> = {
+    services: services.length > 0, doctors: doctors.length > 0, gallery: photos.length > 0 || cases.length > 0, faq: faqs.length > 0, branches: branches.length > 0,
+  };
+  const shown = visibleSections(site.sections).filter((k) => has[k]);
+  const LABEL: Record<SectionKey, string> = { services: 'الخدمات', doctors: 'الأطباء', gallery: 'المعرض', faq: 'الأسئلة الشائعة', branches: 'الفروع والمواعيد' };
+  const links: NavLink[] = shown.map((k) => ({ href: `#${k}`, label: LABEL[k] }));
+  const section = (k: SectionKey, i: number) => {
+    const tint = i % 2 === 1;
+    switch (k) {
+      case 'services': return <ServicesSection key={k} services={services} contact={contact} clinicName={name} currency={site.clinic.currency} tint={tint} />;
+      case 'doctors': return <DoctorsSection key={k} doctors={doctors} contact={contact} clinicName={name} tint={tint} />;
+      case 'gallery': return <GallerySection key={k} photos={photos} cases={cases} clinicName={name} tint={tint} />;
+      case 'faq': return <FaqSection key={k} faqs={site.faqs} tint={tint} />;
+      case 'branches': return <BranchesSection key={k} branches={branches} holidays={holidays} clinicTz={clinic.timezone ?? DEFAULT_TZ} contact={contact} clinicName={name} tint={tint} />;
+    }
+  };
+  const ld = jsonLd(structuredData(site, name, originOf(host)));
+  // a question about one service is marked up on that service's page, not twice (Phase 2C-3)
+  const generalFaqs = faqItems(site.faqs.filter((f) => !f.service_id || !shown.includes('services')));
+  const faqLd = shown.includes('faq') && generalFaqs.length ? jsonLd(faqStructuredData(generalFaqs)) : null;
 
   return (
     <div className="site" id="top" style={brandStyle(site.theme.primary)}>
       <a className="s-skip" href="#main">تخطَّ إلى المحتوى</a>
       <ClinicHeader name={name} logo={clinic.logo} links={links} contact={contact} />
       <main id="main">
-        <HeroSection site={site} name={name} about={about} contact={contact} />
+        <HeroSection site={site} name={name} about={about} contact={contact} servicesShown={shown.includes('services')} />
         <TrustIndicators site={site} contact={contact} />
-        <ServicesSection services={services} contact={contact} clinicName={name} currency={site.clinic.currency} />
-        <DoctorsSection doctors={doctors} contact={contact} clinicName={name} />
-        <BranchesSection branches={branches} holidays={holidays} clinicTz={clinic.timezone ?? DEFAULT_TZ} contact={contact} clinicName={name} />
+        {shown.map(section)}
         <AppointmentCTA contact={contact} />
       </main>
       <ClinicFooter site={site} name={name} about={about} links={links} contact={contact} />
       <MobileBookingBar contact={contact} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld }} />
+      {faqLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqLd }} />}
     </div>
   );
 }

@@ -30,6 +30,7 @@ const PAGE: Record<Page, Need> = {
   staff: ['staff:manage'],
   roles: ['staff:manage'],
   gallery: ['website:write'],
+  website: ['website:write'], // Phase 2C-1
   // H8: the clinic owner only. No role can be given this (it is not in the permission catalogue); the owner's '*' has it
   data: ['clinic:owner'],
 };
@@ -40,7 +41,7 @@ const ACTION: Partial<Record<Page, Partial<Record<string, Need>>>> = {
   doctors: { new: ['settings:write'], edit: ['settings:write'], schedule: ['settings:write'] },
   services: { new: ['settings:write'], edit: ['settings:write'] },
   appointments: { new: ['appointments:write', 'patients:read'], edit: ['appointments:write', 'appointments:read'] },
-  patients: { new: ['patients:read', 'patients:write'], edit: ['patients:read', 'patients:write'], merge: ['patients:read', 'patients:merge'] },
+  patients: { new: ['patients:read', 'patients:write'], import: ['patients:read', 'patients:write', 'settings:write'], edit: ['patients:read', 'patients:write'], merge: ['patients:read', 'patients:merge'] },
   // a doctor opens the invoices of their own patients (invoices:read:own) but not the clinic's list
   invoices: { view: [INVOICE_ANY], print: [INVOICE_ANY], new: ['invoices:write', 'patients:read', INVOICE_ANY] },
   expenses: { new: ['expenses:read', 'expenses:write'] },

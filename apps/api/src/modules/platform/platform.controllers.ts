@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
@@ -7,7 +7,7 @@ import { AUTH_POLICY } from '../../config';
 import { RATE_LIMITER, type RateLimiter } from '../../shared/rate-limit/ports';
 import { ZodBody } from '../../shared/validation/zod-body.pipe';
 import { requestMeta } from '../identity/session-cookie';
-import { Activate, ChangePlan, EditPlan, PublishLegal, ExtendTrial, LeadStatus, NewNote, NewPlan, PlatformLogin, PlatformVerify, Suspend } from './platform.schemas';
+import { Activate, BillingInstructions, ChangePlan, EditPlan, PublishLegal, ExtendTrial, LeadStatus, NewNote, NewPlan, PlatformLogin, PlatformVerify, RecordPayment, Suspend } from './platform.schemas';
 import { PlatformCookie, PlatformGuard } from './platform-session';
 import { PlatformService } from './platform.service';
 
@@ -82,6 +82,20 @@ export class PlatformController {
   @Post('clinics/:id/activate') @HttpCode(200)
   activate(@Param('id', id) clinicId: string, @Body(new ZodBody(Activate)) b: Body<typeof Activate>) {
     return this.platform.activate(clinicId, b.cycle);
+  }
+
+  /** Phase 2B: the clinic paid; the subscription is extended (the same idempotencyKey again records nothing more) */
+  @Post('clinics/:id/payments') @HttpCode(200)
+  recordPayment(@Param('id', id) clinicId: string, @Body(new ZodBody(RecordPayment)) b: Body<typeof RecordPayment>, @Req() req: Request) {
+    return this.platform.recordPayment(clinicId, b, req.ip ?? null);
+  }
+
+  @Get('billing-instructions')
+  billingInstructions() { return this.platform.billingInstructions(); }
+
+  @Put('billing-instructions')
+  setBillingInstructions(@Body(new ZodBody(BillingInstructions)) b: Body<typeof BillingInstructions>, @Req() req: Request) {
+    return this.platform.setBillingInstructions(b.text, req.ip ?? null);
   }
 
   @Post('clinics/:id/plan') @HttpCode(200)

@@ -15,6 +15,8 @@ interface Row {
   doctor_ar: string | null; doctor_en: string | null; service_ar: string | null; service_en: string | null;
   branch_ar: string | null; branch_en: string | null; branch_address: string | null; branch_tz: string | null;
   clinic_ar: string | null; clinic_en: string | null; clinic_email: string | null; clinic_tz: string; offsets: number[];
+  /** review R11: the number a patient calls to book again (the branch's, else the clinic's) */
+  clinic_phone?: string | null;
 }
 
 const pick = (ar: string | null, en: string | null) => ar ?? en ?? '';
@@ -85,13 +87,42 @@ export function rescheduleMessages(a: Row, now: number, moveId: number | string)
   return out;
 }
 
+/**
+ * Review R11 (NTF-03): the clinic cancelled the booking. One email to the patient, with the number to book again; the
+ * clinic's reason is not sent (it may be internal). Keyed per appointment: an appointment is cancelled once.
+ */
+export function cancelledMessages(a: Row, now: number): Message[] {
+  if (!a.patient_email || new Date(a.starts_at).getTime() <= now) return []; // a visit already past: nothing to tell
+  const tz = safeTimeZone(a.branch_tz ?? a.clinic_tz);
+  const clinic = pick(a.clinic_ar, a.clinic_en);
+  const doctor = pick(a.doctor_ar, a.doctor_en);
+  const call = a.clinic_phone ? `\nلحجز موعد جديد اتصل بنا على ${a.clinic_phone}.` : '';
+  return [{
+    event: 'appointment.cancelled', recipient: a.patient_email, subject: `تم إلغاء موعدك – ${clinic}`, dedupe: `cancelled:${a.id}`,
+    body: `${a.patient_name}،\nتم إلغاء موعدك في ${clinic}.\nالموعد الملغى: ${when(new Date(a.starts_at), tz).ar}\nالطبيب: ${doctor}${call}`,
+  }];
+}
+
+/** Review R11 (NTF-03): a booking that waited for the clinic (website, no auto-confirm) is now confirmed. */
+export function confirmedMessages(a: Row, now: number): Message[] {
+  if (!a.patient_email || new Date(a.starts_at).getTime() <= now) return [];
+  const tz = safeTimeZone(a.branch_tz ?? a.clinic_tz);
+  const clinic = pick(a.clinic_ar, a.clinic_en);
+  const branch = [pick(a.branch_ar, a.branch_en), a.branch_address].filter(Boolean).join(' – ');
+  return [{
+    event: 'appointment.confirmed', recipient: a.patient_email, subject: `تم تأكيد موعدك – ${clinic}`, dedupe: `confirmed:${a.id}`,
+    body: `${a.patient_name}،\nأكدت العيادة موعدك.\nالموعد: ${when(new Date(a.starts_at), tz).ar}\nالطبيب: ${pick(a.doctor_ar, a.doctor_en)}\nالفرع: ${branch}`,
+  }];
+}
+
 async function loadRow(tx: Tx, appointmentId: string): Promise<Row | undefined> {
   const { rows } = await sql<Row>`
     select a.id, a.tenant_id, a.starts_at, a.status, a.source, a.check_in_code_hash is not null as has_code, a.patient_notes,
            p.full_name as patient_name, p.phone as patient_phone, p.email as patient_email, p.id as patient_id,
            d.name_ar as doctor_ar, d.name_en as doctor_en, s.name_ar as service_ar, s.name_en as service_en,
            b.name_ar as branch_ar, b.name_en as branch_en, coalesce(b.address_ar, b.address_en) as branch_address, b.timezone as branch_tz,
-           t.name_ar as clinic_ar, t.name_en as clinic_en, t.email as clinic_email, t.timezone as clinic_tz, ts.reminder_offsets_minutes as offsets
+           t.name_ar as clinic_ar, t.name_en as clinic_en, t.email as clinic_email, t.timezone as clinic_tz, ts.reminder_offsets_minutes as offsets,
+           coalesce(b.phone, t.primary_phone) as clinic_phone
     from appointments a
     join tenants t on t.id = a.tenant_id
     join tenant_settings ts on ts.tenant_id = a.tenant_id
@@ -130,6 +161,27 @@ export const appointmentRescheduled: OutboxHandler = async (tx: Tx, event) => {
     .where('related_type', '=', 'appointment').where('related_id', '=', a.id)
     .where('event', '=', 'appointment.reminder').where('status', '=', 'queued').execute();
   await queue(tx, a, rescheduleMessages(a, Date.now(), event.id));
+};
+
+export const appointmentCancelled: OutboxHandler = async (tx: Tx, event) => {
+  const appointmentId = String(event.payload.appointmentId ?? '');
+  if (!appointmentId) return;
+  const a = await loadRow(tx, appointmentId);
+  if (!a || !a.patient_id || a.status !== 'cancelled') return; // undone since (it cannot be today, but say nothing then)
+  // everything still waiting about this booking (reminders, a confirmation or a "moved" notice held back by a retry)
+  // would now contradict the cancellation; the sender checks too, this keeps the queue honest
+  await tx.updateTable('notifications').set({ status: 'cancelled', last_error: 'appointment cancelled' })
+    .where('related_type', '=', 'appointment').where('related_id', '=', a.id)
+    .where('event', '<>', 'appointment.cancelled').where('status', '=', 'queued').execute();
+  await queue(tx, a, cancelledMessages(a, Date.now()));
+};
+
+export const appointmentConfirmed: OutboxHandler = async (tx: Tx, event) => {
+  const appointmentId = String(event.payload.appointmentId ?? '');
+  if (!appointmentId) return;
+  const a = await loadRow(tx, appointmentId);
+  if (!a || !a.patient_id || a.status !== 'confirmed') return;
+  await queue(tx, a, confirmedMessages(a, Date.now()));
 };
 
 export type { Row as AppointmentRow };

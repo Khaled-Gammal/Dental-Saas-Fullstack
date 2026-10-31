@@ -1,10 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
-import type {
-  Appointment, AuditEntry, Branch, CashBranch, CashDay, CashMovements, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus,
-  BookingSettings, DrugSuggestion, HistoryVersion, Holiday, InvoiceDetail, InvoiceFilters, InvoiceRow, InvoiceTotals, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service,
-  HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, UnbilledGroup, Visit, VisitsPage, VisitsView, VisitSummary, WebsiteStatus,
-} from './types';
+import type { Appointment, AuditEntry, Branch, CashBranch, CashDay, CashMovements, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryCase, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus, BookingSettings, DrugSuggestion, HistoryVersion, Holiday, InvoiceDetail, InvoiceFilters, InvoiceRow, InvoiceTotals, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service, HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, UnbilledGroup, Visit, VisitsPage, VisitsView, VisitSummary, WebsiteStatus, WebsiteSection, Faq, ClinicPlanSummary } from './types';
 
 /**
  * One place for query keys and fetchers. Every key starts with the clinic id, so switching clinic
@@ -30,6 +26,59 @@ export const useRoles = (clinicId: string) =>
 /** H4: the permissions a role can hold, grouped (fixed per release, so loaded once) */
 export const usePermissionCatalogue = (clinicId: string) =>
   useQuery({ queryKey: [...keys.staff(clinicId), 'permissions'] as const, queryFn: () => api<PermissionGroup[]>('/staff/permissions'), staleTime: Infinity });
+
+/** Phase 1D: the website's status, with the badge setting and whether the plan allows hiding it. */
+export const useWebsite = (clinicId: string) =>
+  useQuery({ queryKey: [...keys.onboarding(clinicId), 'website'] as const, queryFn: () => api<WebsiteStatus>('/clinic/website') });
+
+/** Phase 1D (WEB-10): show or hide the badge on the live site (hiding needs a plan with remove_badge). */
+export function useSetPoweredBy(clinicId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (showPoweredBy: boolean) => api<WebsiteStatus>('/clinic/website', { method: 'PATCH', body: JSON.stringify({ showPoweredBy }) }),
+    onSuccess: (status) => qc.setQueryData([...keys.onboarding(clinicId), 'website'], status), // the answer is the new state
+  });
+}
+
+/** Phase 2C-1: the order of the site's sections and which are shown (live at once). */
+export function useSetSections(clinicId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sections: WebsiteSection[]) => api<WebsiteStatus>('/clinic/website/sections', { method: 'PUT', body: JSON.stringify({ sections }) }),
+    onSuccess: (status) => qc.setQueryData([...keys.onboarding(clinicId), 'website'], status),
+  });
+}
+
+/** Phase 2C-3: the search title and description and the share image (live at once). */
+export function useSetSeo(clinicId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) => api<WebsiteStatus>('/clinic/website/seo', { method: 'PUT', body: JSON.stringify(body) }),
+    onSuccess: (status) => qc.setQueryData([...keys.onboarding(clinicId), 'website'], status),
+  });
+}
+
+/** Phase 2C-1: the clinic's questions on its site; every change answers with the whole list. */
+export const faqKey = (clinicId: string) => ['faqs', clinicId] as const;
+export const useFaqs = (clinicId: string) => useQuery({ queryKey: faqKey(clinicId), queryFn: () => api<Faq[]>('/clinic/website/faqs') });
+export function useFaqMutation<V>(clinicId: string, fn: (v: V) => Promise<Faq[] | void>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (list) => { if (list) qc.setQueryData(faqKey(clinicId), list); else void qc.invalidateQueries({ queryKey: faqKey(clinicId) }); },
+  });
+}
+export const faqApi = {
+  create: (body: Record<string, unknown>) => api<Faq[]>('/clinic/website/faqs', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: Record<string, unknown>) => api<Faq[]>(`/clinic/website/faqs/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (id: string) => api<void>(`/clinic/website/faqs/${id}`, { method: 'DELETE' }),
+  reorder: (ids: string[]) => api<Faq[]>('/clinic/website/faqs/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+};
+
+/** Phase 1D (BIL-01): the clinic's plan, limits, features and usage (settings managers). */
+// always refetched on open: adding a branch, doctor or invitation elsewhere changes the figures
+export const useClinicPlan = (clinicId: string, enabled = true) =>
+  useQuery({ queryKey: ['clinic-plan', clinicId] as const, queryFn: () => api<ClinicPlanSummary>('/clinic/plan'), enabled, staleTime: 0 });
 
 /** Publishes the draft website; refreshes the checklist (pendingChanges) afterwards. */
 export function usePublish(clinicId: string) {
@@ -68,13 +117,15 @@ export function useInvalidate(clinicId: string) {
     Promise.all(['onboarding' as const, ...which].map((k) => qc.invalidateQueries({ queryKey: keys[k](clinicId) })));
 }
 
-/** One day of appointments; the key extends the clinic key so one invalidation refreshes every day and branch. */
-/** `mine`: only the signed-in doctor's own appointments (SRS APPT-004). */
-export const useAppointments = (clinicId: string, date: string, branchId?: string, mine = false, enabled = true) =>
+/**
+ * One day of appointments, or `days` days from `date` (Phase 1C: the calendar's week asks for 7); the key extends the
+ * clinic key so one invalidation refreshes every day and branch. `mine`: only the signed-in doctor's own (SRS APPT-004).
+ */
+export const useAppointments = (clinicId: string, date: string, branchId?: string, mine = false, enabled = true, days = 1) =>
   useQuery({
-    queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all', mine ? 'mine' : 'clinic'] as const,
+    queryKey: [...keys.appointments(clinicId), date, branchId ?? 'all', mine ? 'mine' : 'clinic', days] as const,
     enabled, // the overview asks only when the member reads appointments
-    queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }), ...(mine && { mine: 'true' }) })}`),
+    queryFn: () => api<DayAppointments>(`/appointments?${new URLSearchParams({ date, ...(branchId && { branchId }), ...(mine && { mine: 'true' }), ...(days > 1 && { days: String(days) }) })}`),
     refetchInterval: 30_000, // reception keeps the day open; website bookings appear without a reload
   });
 
@@ -256,6 +307,20 @@ export function useGalleryMutation<V, R = unknown>(clinicId: string, fn: (v: V) 
   const qc = useQueryClient();
   return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: galleryKeys.all(clinicId) }) });
 }
+/** Phase 2C-2: before/after cases (one list, clinic-wide). */
+export const caseKey = (clinicId: string) => ['gallery-cases', clinicId] as const;
+export const useCases = (clinicId: string) => useQuery({ queryKey: caseKey(clinicId), queryFn: () => api<GalleryCase[]>('/gallery/cases'), staleTime: SIGNED_STALE_MS });
+export function useCaseMutation<V, R>(clinicId: string, fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSettled: () => qc.invalidateQueries({ queryKey: caseKey(clinicId) }) });
+}
+export const caseApi = {
+  create: (body: Record<string, unknown>) => api<GalleryCase>('/gallery/cases', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: Record<string, unknown>) => api<GalleryCase>(`/gallery/cases/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (id: string) => api<void>(`/gallery/cases/${id}`, { method: 'DELETE' }),
+  reorder: (ids: string[]) => api<GalleryCase[]>('/gallery/cases/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+};
+
 export const galleryApi = {
   create: (body: Record<string, unknown>) => api<GalleryItem>('/gallery', { method: 'POST', body: JSON.stringify(body) }),
   update: (id: string, body: Record<string, unknown>) => api<GalleryItem>(`/gallery/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),

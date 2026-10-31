@@ -8,9 +8,11 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { AppModule } from './app.module';
 import { loadConfig } from './config';
+import { initSentry } from './shared/observability/sentry';
 
 async function bootstrap() {
   const cfg = loadConfig();
+  initSentry('api', cfg); // Phase 1B: off without SENTRY_DSN
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: new ConsoleLogger({ json: cfg.NODE_ENV === 'production', prefix: 'api' }),
   });

@@ -46,7 +46,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'website', label: 'الموقع الإلكتروني',
     items: [
       { label: 'معرض الصور', icon: 'image', page: 'gallery' },
-      { label: 'الموقع', icon: 'globe', perm: 'website:write' },
+      { label: 'الموقع', icon: 'globe', page: 'website' }, // Phase 2C-1: sections and questions
     ],
   },
   {

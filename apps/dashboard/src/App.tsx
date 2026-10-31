@@ -52,11 +52,14 @@ const VisitPage = lazyScreen(() => import('./screens/clinical/visit'), 'VisitPag
 const VisitsList = lazyScreen(() => import('./screens/clinical/visits-list'), 'VisitsList');
 const PatientForm = lazyScreen(() => import('./screens/patients/form'), 'PatientForm');
 const PatientsList = lazyScreen(() => import('./screens/patients/list'), 'PatientsList');
+const PatientImport = lazyScreen(() => import('./screens/patients/import'), 'PatientImport');
 const PatientMerge = lazyScreen(() => import('./screens/patients/merge'), 'PatientMerge');
 const PatientProfile = lazyScreen(() => import('./screens/patients/profile'), 'PatientProfile');
 const GalleryForm = lazyScreen(() => import('./screens/gallery/form'), 'GalleryForm');
 const GalleryList = lazyScreen(() => import('./screens/gallery/list'), 'GalleryList');
 const GalleryUpload = lazyScreen(() => import('./screens/gallery/new'), 'GalleryUpload');
+const GalleryCases = lazyScreen(() => import('./screens/gallery/cases'), 'GalleryCases');
+const WebsitePage = lazyScreen(() => import('./screens/website/website'), 'WebsitePage');
 const Profile = lazyScreen(() => import('./screens/profile'), 'Profile');
 const ClinicData = lazyScreen(() => import('./screens/clinic-data'), 'ClinicData');
 const ServiceFormPage = lazyScreen(() => import('./screens/services/form'), 'ServiceFormPage');
@@ -160,7 +163,7 @@ function Screen({ route, session }: { route: Route; session: Session }) {
   if (!canOpen(has, route)) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
   switch (page) {
     case 'overview': return <Overview session={session} />;
-    case 'profile': return <Profile clinicId={clinicId} canEdit={settings} />;
+    case 'profile': return <Profile clinicId={clinicId} canEdit={settings} canEditWebsite={can(session, 'website:write')} />;
     case 'data': return <ClinicData session={session} />;
     case 'branches': {
       const w = can(session, 'branches:write');
@@ -183,17 +186,23 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (!can(session, 'website:write')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       if (action === 'new') return <GalleryUpload clinicId={clinicId} query={route.query} />;
       if (action === 'edit') return <GalleryForm clinicId={clinicId} id={id} />;
+      if (route.query?.tab === 'cases') return <GalleryCases clinicId={clinicId} />; // Phase 2C-2
       return <GalleryList clinicId={clinicId} query={route.query} />;
     }
+    case 'website':
+      // Phase 2C-1: the site's sections and questions (website content is the owner's)
+      if (!can(session, 'website:write')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
+      return <WebsitePage clinicId={clinicId} />;
     case 'patients': {
       const write = can(session, 'patients:write');
       if (!can(session, 'patients:read')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
       if (action === 'new' && write) return <PatientForm clinicId={clinicId} />;
+      if (action === 'import' && write && settings) return <PatientImport clinicId={clinicId} />; // Phase 2A: whoever runs the clinic's settings
       if (action === 'edit' && write) return <PatientForm clinicId={clinicId} id={id} />;
       if (action === 'view') return <PatientProfile clinicId={clinicId} id={id} session={session} query={route.query} />;
       if (action === 'merge' && can(session, 'patients:merge')) return <PatientMerge clinicId={clinicId} id={id} />;
       if (action) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('patients')} backLabel="المرضى" />;
-      return <PatientsList clinicId={clinicId} canWrite={write} canBook={can(session, 'appointments:write')} />;
+      return <PatientsList clinicId={clinicId} canWrite={write} canImport={write && settings} canBook={can(session, 'appointments:write')} />;
     }
     case 'doctors':
       if (action === 'new' && settings) return <DoctorForm clinicId={clinicId} />;

@@ -50,7 +50,50 @@ export interface OnboardingStatus {
   pendingChanges: boolean;
 }
 
-export interface WebsiteStatus { status: 'draft' | 'published' | 'maintenance'; version: number; publishedAt: string | null; pendingChanges: boolean }
+export interface WebsiteStatus {
+  status: 'draft' | 'published' | 'maintenance'; version: number; publishedAt: string | null; pendingChanges: boolean;
+  /** Phase 1D (WEB-10): the clinic's choice, and whether its plan lets it hide the badge (the site shows it otherwise) */
+  showPoweredBy: boolean; canRemoveBadge: boolean;
+  /** Phase 2C-1: the order of the site's sections and which are shown (every section, in order) */
+  sections: WebsiteSection[];
+  /** Phase 2C-3: the site's address, and how it shows in search results and when shared */
+  hostname: string | null;
+  seo: { title: string | null; description: string | null; shareImage: MediaImage | null };
+}
+export type WebsiteSectionKey = 'services' | 'doctors' | 'gallery' | 'faq' | 'branches';
+export interface WebsiteSection { key: WebsiteSectionKey; visible: boolean }
+/** Phase 2C-1: a question and its answer on the clinic's site. */
+export interface Faq {
+  id: string; questionAr: string; answerAr: string; questionEn: string | null; answerEn: string | null; serviceId: string | null;
+  isActive: boolean; sortOrder: number; updatedAt: string;
+}
+
+/** Phase 1D (BIL-01): GET /clinic/plan. Limits: null = unlimited (0 for all when the subscription is not live). */
+export interface ClinicPlanSummary {
+  plan: { code: string; name: string } | null;
+  status: 'trialing' | 'active' | 'past_due' | 'suspended' | 'cancelled' | null;
+  live: boolean;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  billingCycle: string | null;
+  limits: { branches: number | null; doctors: number | null; staff: number | null; patients: number | null; storageMb: number | null };
+  features: { custom_domain: boolean; online_payments: boolean; remove_badge: boolean };
+  usage: { branches: number; doctors: number; staff: number; patients: number; storageMb: number };
+  storageBytes: number;
+  /** Phase 2B: what renewing costs (minor units) */
+  price: { monthlyMinor: number; yearlyMinor: number; currency: string } | null;
+  /** past due: the clinic is suspended on this day unless the payment is recorded */
+  graceEndsAt: string | null;
+  /** how to pay (set by the platform) */
+  paymentInstructions: string | null;
+  payments: ClinicPayment[];
+}
+
+/** Phase 2B: a subscription payment the platform recorded for the clinic. */
+export interface ClinicPayment {
+  id: string; number: string; periodStart: string; periodEnd: string; amountMinor: number; currency: string; method: string | null;
+  billingCycle: string | null; paidAt: string | null;
+}
 
 /** One row of a doctor's weekly schedule (times are HH:MM). */
 export interface ScheduleRow { branch_id: string; weekday: number; starts_at: string; ends_at: string }
@@ -125,7 +168,8 @@ export interface Appointment {
   service: { name_ar: string | null; name_en: string | null; duration_minutes: number } | null;
 }
 
-export interface DayAppointments { date: string; timezone: string; appointments: Appointment[] }
+/** `days`: how many days from `date` the list covers (1, or 7 for the calendar's week) */
+export interface DayAppointments { date: string; days?: number; timezone: string; appointments: Appointment[] }
 
 export interface CheckInResponse {
   result: { appointment_id: string; amount_due_minor: number; paid_online_minor: number; quoted_price_minor: number | null };
@@ -196,7 +240,14 @@ export interface StaffSlots { date: string; timezone: string; durationMinutes: n
 /** An uploaded image as the API returns it: original size, the rendition widths, and short-lived signed links. */
 export interface MediaImage { id: string; width: number; height: number; widths: number[]; thumbUrl: string; fullUrl: string }
 /** What an upload is for (POST /media?purpose=…): gallery photo, a doctor/service/branch photo, or the clinic logo. */
-export type MediaPurpose = 'gallery' | 'photo' | 'logo';
+export type MediaPurpose = 'gallery' | 'photo' | 'logo' | 'case' | 'share'; // case: a before/after case's images (Phase 2C-2)
+
+/** Phase 2C-2: a before/after case (published only with the patient's consent, recorded with who confirmed it and when). */
+export interface GalleryCase {
+  id: string; serviceId: string | null; serviceName: string | null; captionAr: string | null; altAr: string | null; isPublished: boolean;
+  consentConfirmed: boolean; consentConfirmedAt: string | null; consentConfirmedBy: string | null; sortOrder: number; updatedAt: string;
+  before: MediaImage; after: MediaImage;
+}
 
 export interface GalleryItem {
   id: string;

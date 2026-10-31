@@ -14,7 +14,8 @@ function heroFacts(site: SiteData) {
   return { fromPrice };
 }
 
-export function HeroSection({ site, name, about, contact }: { site: SiteData; name: string; about: string | null; contact: Contact }) {
+/** `servicesShown`: the services section is on the page (Phase 2C-1: the clinic may hide it), so the hero may link to it. */
+export function HeroSection({ site, name, about, contact, servicesShown = true }: { site: SiteData; name: string; about: string | null; contact: Contact; servicesShown?: boolean }) {
   const { fromPrice } = heroFacts(site);
   const main = site.branches[0];
   const specialties = site.clinic.specialties.slice(0, 4);
@@ -32,9 +33,9 @@ export function HeroSection({ site, name, about, contact }: { site: SiteData; na
               : contact.tel && <a className="s-btn s-btn-lg" href={contact.tel}><Phone />احجز موعدك الآن</a>}
             {contact.whatsapp ? <a className="s-btn s-btn-lg s-btn-ghost" href={contact.whatsapp}><Chat />تواصل عبر واتساب</a>
               : contact.bookUrl && contact.tel && <a className="s-btn s-btn-lg s-btn-ghost" href={contact.tel}><Phone />اتصل بنا</a>}
-            {!contact.bookUrl && !contact.tel && !contact.whatsapp && services.length > 0 && <a className="s-btn s-btn-lg" href="#services">تصفّح الخدمات</a>}
+            {!contact.bookUrl && !contact.tel && !contact.whatsapp && servicesShown && services.length > 0 && <a className="s-btn s-btn-lg" href="#services">تصفّح الخدمات</a>}
           </div>
-          {(contact.bookUrl || contact.tel || contact.whatsapp) && services.length > 0 && <a className="s-hero-link" href="#services">أو تصفّح الخدمات والأسعار<Icon name="chevronDown" size={16} /></a>}
+          {(contact.bookUrl || contact.tel || contact.whatsapp) && servicesShown && services.length > 0 && <a className="s-hero-link" href="#services">أو تصفّح الخدمات والأسعار<Icon name="chevronDown" size={16} /></a>}
           {specialties.length > 0 && (
             <ul className="s-chips" aria-label="التخصصات">
               {specialties.map((s) => <li key={s} className="s-chip"><Icon name="check" size={14} /><bdi>{specialtyLabel(s)}</bdi></li>)}

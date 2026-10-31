@@ -10,10 +10,11 @@ import { uploadErrorText } from './image-uploader';
  * One image on a record (doctor photo, service image, branch photo, clinic logo). Picking or dropping a file uploads
  * it at once (`?purpose=photo|logo`), and `onChange` hands the stored image to the form; nothing is attached until
  * the form is saved, so leaving without saving changes nothing (the unused upload is purged overnight).
+ * `purpose: 'case'` is a before/after case's image (Phase 2C-2).
  * `shape` only changes the preview: a circle for people, a wide card for places and services, a contained logo.
  */
 export function ImageField({ purpose, value, onChange, label, hint, shape, placeholder, disabled }: {
-  purpose: Exclude<MediaPurpose, 'gallery'>; value: MediaImage | null; onChange: (img: MediaImage | null) => void;
+  purpose: MediaPurpose; value: MediaImage | null; onChange: (img: MediaImage | null) => void;
   label: string; hint?: string; shape: 'circle' | 'wide' | 'logo'; placeholder?: ReactNode; disabled?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -71,7 +72,7 @@ export function ImageField({ purpose, value, onChange, label, hint, shape, place
           {busy && <Button variant="ghost" onClick={() => abort.current?.abort()}>إلغاء</Button>}
           {value && !busy && <Button variant="ghost" disabled={disabled} onClick={() => { setError(null); onChange(null); }}>إزالة الصورة</Button>}
         </div>
-        <p className="muted small" id={hintId}>{hint ?? purpose === 'logo' ? 'يُفضّل PNG بخلفية شفافة، 48 بكسل على الأقل. يظهر في رأس الموقع وتذييله.' : 'JPG أو PNG أو WebP حتى 10 ميجابايت، 200 بكسل على الأقل. تُحفظ مع النموذج.'}</p>
+        <p className="muted small" id={hintId}>{hint ?? (purpose === 'logo' ? 'يُفضّل PNG بخلفية شفافة، 48 بكسل على الأقل. يظهر في رأس الموقع وتذييله.' : 'JPG أو PNG أو WebP حتى 10 ميجابايت، 200 بكسل على الأقل. تُحفظ مع النموذج.')}</p>
         {busy && <progress max={1} value={progress} aria-label="جارٍ رفع" />}
         {error && <p className="field-error" role="alert">{error}</p>}
       </div>

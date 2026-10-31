@@ -1,0 +1,51 @@
+# Phase 1B: nightly encrypted database backups (docs/ops/backups.md).
+# Added on top of the stack that runs the database (here the development stack, to try it; in production, next to the
+# production compose file — the services only need to reach the "postgres" service).
+#
+#   cp docker/backup/backup.env.example docker/backup/backup.env    then fill it in
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml up -d --build backup          nightly from now on
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml run --rm backup once           one backup now
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml --profile restore-check run --rm restore-check
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml --profile restore-check rm -sf restore-db
+services:
+  backup:
+    build: ./docker/backup
+    env_file: ./docker/backup/backup.env      # the bucket keys and the passphrase: not in the app's .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    tmpfs:
+      - /run                                   # the job's copy of the environment (passphrase) stays off the disk
+    volumes:
+      - backups:/backups                       # used only when BACKUP_TARGET is a local path (trying it out)
+
+  # The restore check restores the latest backup into this throwaway server (data in memory), never the live one.
+  restore-db:
+    image: postgres:16-alpine
+    profiles: ["restore-check"]
+    environment:
+      POSTGRES_PASSWORD: restore-check
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  restore-check:
+    build: ./docker/backup
+    profiles: ["restore-check"]
+    command: ["restore-check"]
+    env_file: ./docker/backup/backup.env
+    environment:
+      RESTORE_ADMIN_URL: postgres://postgres:restore-check@restore-db:5432/postgres
+    depends_on:
+      restore-db:
+        condition: service_healthy
+    volumes:
+      - backups:/backups
+
+volumes:
+  backups:

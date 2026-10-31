@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../api';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
-import { billingCycleLabel, clinicStatusLabel, leadStatusLabel, legalDocLabel, planFeatureLabel, planLimitLabel, platformActionLabel } from '../../labels';
+import { billingCycleLabel, clinicStatusLabel, leadStatusLabel, legalDocLabel, planFeatureLabel, planLimitLabel, platformActionLabel, subscriptionPaymentMethodLabel } from '../../labels';
 import { money } from '../../money';
-import { filterClinics, filterLeads, LEAD_STATUSES, papi, platformHref, trialDaysLeft, type LeadStatus, type PlatformRoute } from '../../platform-model';
+import { amountMinor, filterClinics, filterLeads, LEAD_STATUSES, papi, planPriceText, platformHref, renewalPeriod, trialDaysLeft, type LeadStatus, type PlatformRoute } from '../../platform-model';
 import { Alert, Badge, Button, Card, ErrorText, Field, initials, Input, OtpInput, PageHeader, PasswordInput, Skeleton, Switch, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { DataTable, type Column } from '../../ui/data-table';
@@ -13,7 +13,7 @@ import { ShieldIcon } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
 import { AuthLayout } from '../auth';
 import {
-  Ban, Building2, CalendarDays, Check, ChevronsUpDown, FileText, HardDrive, History, Inbox, Layers, LogOut, Mail, MapPin, Pencil, Phone, Plus, ShieldCheck, Stethoscope,
+  Ban, Banknote, Building2, CalendarDays, Check, ChevronsUpDown, FileText, HardDrive, History, Inbox, Layers, LogOut, Mail, MapPin, Pencil, Phone, Plus, ShieldCheck, Stethoscope,
   UserRound, Users, X, type LucideIcon,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -28,7 +28,7 @@ import {
 interface Me { id: string; name: string; email: string }
 interface Clinic {
   id: string; slug: string; name_ar: string | null; name_en: string | null; status: string; created_at: string; suspended_at: string | null;
-  suspension_reason: string | null; suspension_kind: 'manual' | 'trial_ended' | null;
+  suspension_reason: string | null; suspension_kind: 'manual' | 'trial_ended' | 'unpaid' | null;
   plan_code: string | null; plan_name_ar: string | null; subscription_status: string | null; trial_ends_at: string | null;
   billing_cycle: string | null; current_period_end: string | null;
   members: number; branches: number; patients: number; appointments_30d: number; last_login_at: string | null; owner_email: string | null;
@@ -36,7 +36,20 @@ interface Clinic {
   deletion: { requested_at: string; delete_after: string } | null;
 }
 interface AuditRow { id: string; action: string; tenant_id: string | null; details: Record<string, unknown>; created_at: string; actor: string | null }
-interface ClinicDetail extends Clinic { notes: { id: string; body: string; created_at: string; author: string }[]; history: AuditRow[] }
+/** Phase 2B: a payment recorded for the clinic */
+interface Payment {
+  id: string; number: string; period_start: string; period_end: string; amount_minor: number; currency: string; status: string; method: string | null;
+  reference: string | null; billing_cycle: 'monthly' | 'yearly' | null; note: string | null; paid_at: string | null; recorded_by_name: string | null;
+}
+interface ClinicDetail extends Clinic {
+  notes: { id: string; body: string; created_at: string; author: string }[]; history: AuditRow[]; payments: Payment[];
+  /** past due: the day it is suspended as unpaid unless a payment is recorded */
+  grace_ends_at: string | null;
+}
+const PAYMENT_METHODS = ['instapay', 'vodafone_cash', 'bank_transfer', 'cash', 'other'] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+/** A calendar day (YYYY-MM-DD) as written, whatever the browser's zone. */
+const day = (d: string) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
 interface Plan {
   id: string; code: string; name_ar: string; price_monthly_minor: number; price_yearly_minor: number; currency: string; trial_days: number;
   limits: Record<string, number | null>; features: Record<string, boolean>; is_public: boolean; clinics: number;
@@ -313,7 +326,7 @@ function ClinicPage({ id }: { id: string }) {
   });
   const [until, setUntil] = useState('');
   const [planId, setPlanId] = useState('');
-  const [cycle, setCycle] = useState('monthly');
+  const [paying, setPaying] = useState(false);
   const [suspending, setSuspending] = useState(false);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
@@ -346,7 +359,8 @@ function ClinicPage({ id }: { id: string }) {
         </div>
         <div className="page-actions">
           {d.status === 'suspended'
-            ? d.suspension_kind !== 'trial_ended' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>إعادة تفعيل العيادة</Button>
+            // an ended trial or an unpaid subscription comes back by recording the payment, not by reactivating
+            ? d.suspension_kind === 'manual' && <Button loading={act.isPending && act.variables?.path === 'reactivate'} onClick={() => act.mutate({ path: 'reactivate' })}>إعادة تفعيل العيادة</Button>
             : d.status !== 'cancelled' && <Button variant="ghost" className="pl-danger-btn" onClick={() => { setReason(''); setSuspending(true); }}><Ban className="size-4" />إيقاف العيادة</Button>}
         </div>
       </div>
@@ -370,8 +384,15 @@ function ClinicPage({ id }: { id: string }) {
       )}
       {d.status === 'suspended' && (
         <Alert tone="info">
-          {d.suspension_kind === 'trial_ended' ? 'أوقفت العيادة تلقائيًا لانتهاء الفترة التجريبية دون تفعيل خطة. فعّل الاشتراك بعد الدفع، أو مدّد التجربة.' : 'العيادة موقوفة: فريقها لا يستطيع الدخول وموقعها متوقف.'}
+          {d.suspension_kind === 'trial_ended' ? 'أوقفت العيادة تلقائيًا لانتهاء الفترة التجريبية دون اشتراك. سجّل الدفعة بعد أن تدفع العيادة، أو مدّد التجربة.'
+            : d.suspension_kind === 'unpaid' ? 'أوقفت العيادة تلقائيًا لانتهاء الاشتراك دون تجديد. تعود للعمل فور تسجيل الدفعة.'
+            : 'العيادة موقوفة: فريقها لا يستطيع الدخول وموقعها متوقف.'}
           {d.suspension_kind === 'manual' && d.suspension_reason && <> السبب: <bdi>{d.suspension_reason}</bdi></>}
+        </Alert>
+      )}
+      {d.subscription_status === 'past_due' && d.status !== 'suspended' && (
+        <Alert tone="info">
+          {`${'انتهى الاشتراك في'} ${date(d.current_period_end)}. ${'العيادة تعمل وتصل لمالكها تذكيرات، وتُوقف تلقائيًا في'} ${date(d.grace_ends_at)} ${'ما لم تُسجَّل دفعة.'}`}
         </Alert>
       )}
 
@@ -383,7 +404,9 @@ function ClinicPage({ id }: { id: string }) {
             <dl className="pl-facts mt">
               <div><dt>الخطة</dt><dd>{d.plan_name_ar ?? '—'}</dd></div>
               <div><dt>حالة الاشتراك</dt><dd>{d.subscription_status ? clinicStatusLabel[d.subscription_status] : '—'}</dd></div>
-              {d.subscription_status === 'active' && <div><dt>نهاية الاشتراك الحالي</dt><dd>{date(d.current_period_end)} <span className="muted">({billingCycleLabel[d.billing_cycle ?? 'monthly']})</span></dd></div>}
+              {(d.subscription_status === 'active' || d.subscription_status === 'past_due') && (
+                <div><dt>{d.subscription_status === 'active' ? 'نهاية الاشتراك الحالي' : 'انتهى الاشتراك في'}</dt><dd>{date(d.current_period_end)} <span className="muted">({billingCycleLabel[d.billing_cycle ?? 'monthly']})</span></dd></div>
+              )}
               <div>
                 <dt>نهاية التجربة</dt>
                 <dd>{date(d.trial_ends_at)}{left !== null && <span className={left >= 0 ? 'muted' : 'text-destructive'}> ({left >= 0 ? `${'باقي'} ${left} ${'يوم'}` : 'انتهت التجربة'})</span>}</dd>
@@ -405,12 +428,14 @@ function ClinicPage({ id }: { id: string }) {
                     onClick={() => act.mutate({ path: 'plan', body: { planId } })}>حفظ</Button>
                 </div>
               </div>
-              {(d.subscription_status === 'trialing' || d.subscription_status === 'past_due' || d.subscription_status === 'suspended') && (
+              {d.status !== 'cancelled' && !d.deletion && (
                 <div className="pl-setting">
-                  <div><strong>تفعيل الاشتراك</strong><p className="muted small">بعد أن تدفع العيادة: يبدأ الاشتراك اليوم لشهر أو سنة، ويرفع الإيقاف بسبب انتهاء التجربة.</p></div>
+                  <div>
+                    <strong>تسجيل دفعة</strong>
+                    <p className="muted small">بعد أن تدفع العيادة: يمتد الاشتراك شهرًا أو سنة (من نهاية المدة الحالية عند التجديد المبكر)، ويُرفع الإيقاف بسبب انتهاء التجربة أو عدم الدفع.</p>
+                  </div>
                   <div className="pl-setting-control">
-                    <Choice value={cycle} onChange={setCycle} label="المدة" className="h-10 w-36 bg-card" options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: billingCycleLabel[c] }))} />
-                    <Button loading={act.isPending && act.variables?.path === 'activate'} onClick={() => act.mutate({ path: 'activate', body: { cycle } })}>تفعيل</Button>
+                    <Button onClick={() => setPaying(true)}><Banknote className="size-4" />تسجيل دفعة</Button>
                   </div>
                 </div>
               )}
@@ -426,6 +451,29 @@ function ClinicPage({ id }: { id: string }) {
               )}
             </div>
             <ErrorText error={act.error} />
+          </Card>
+
+          <Card>
+            <h2>المدفوعات</h2>
+            {d.payments.length === 0 ? <p className="muted small mt-sm">لم تُسجَّل دفعات بعد.</p> : (
+              <div className="table-wrap mt-sm">
+                <table className="report-table">
+                  <caption className="sr-only">مدفوعات العيادة</caption>
+                  <thead><tr><th>الرقم</th><th>تاريخ التسجيل</th><th>المدة</th><th>الطريقة</th><th className="num">المبلغ</th></tr></thead>
+                  <tbody>
+                    {d.payments.map((x) => (
+                      <tr key={x.id}>
+                        <td><bdi dir="ltr">{x.number}</bdi>{x.note && <span className="muted small block"><bdi>{x.note}</bdi></span>}</td>
+                        <td>{x.paid_at ? when(x.paid_at) : '—'}{x.recorded_by_name && <span className="muted small block"><bdi>{x.recorded_by_name}</bdi></span>}</td>
+                        <td>{day(x.period_start)} – {day(x.period_end)}{x.billing_cycle && <span className="muted small block">{billingCycleLabel[x.billing_cycle]}</span>}</td>
+                        <td>{x.method ? subscriptionPaymentMethodLabel[x.method] ?? x.method : '—'}{x.reference && <span className="muted small block"><bdi dir="ltr">{x.reference}</bdi></span>}</td>
+                        <td className="num">{money(x.amount_minor, x.currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
         </div>
 
@@ -451,6 +499,10 @@ function ClinicPage({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* keyed by opening: each form has its own key, so a double click records one payment and a new form a new one */}
+      {paying && <PaymentDialog clinic={d} plan={(plans.data ?? []).find((p) => p.code === d.plan_code)} onClose={() => setPaying(false)}
+        onSaved={(x) => { qc.setQueryData([...KEY, 'clinic', id], x); void qc.invalidateQueries({ queryKey: [...KEY, 'clinics'] }); setPaying(false); }} />}
+
       <ConfirmDialog open={suspending} title="إيقاف العيادة" confirmLabel="إيقاف العيادة" danger
         onConfirm={() => { if (reason.trim().length >= 3) { setSuspending(false); act.mutate({ path: 'suspend', body: { reason: reason.trim() } }); } }}
         onCancel={() => setSuspending(false)}>
@@ -458,6 +510,62 @@ function ClinicPage({ id }: { id: string }) {
         <Field label="السبب" hint="3 أحرف على الأقل">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />}</Field>
       </ConfirmDialog>
     </>
+  );
+}
+
+/**
+ * Phase 2B: recording a payment the clinic made outside the system. The amount starts at the plan's price for the
+ * cycle; the dialog shows the period it buys (the database's rule). One idempotency key per opening.
+ */
+function PaymentDialog({ clinic, plan, onClose, onSaved }: { clinic: ClinicDetail; plan: Plan | undefined; onClose: () => void; onSaved: (d: ClinicDetail) => void }) {
+  const [key] = useState(() => crypto.randomUUID());
+  const [cycle, setCycle] = useState<'monthly' | 'yearly'>(clinic.billing_cycle === 'yearly' ? 'yearly' : 'monthly');
+  // the plan's price for the cycle (even when the plans load after the dialog opened) until an amount is typed
+  const [typed, setTyped] = useState<string | null>(null);
+  const amount = typed ?? planPriceText(plan, cycle);
+  const [method, setMethod] = useState<PaymentMethod | ''>('');
+  const [reference, setReference] = useState('');
+  const [note, setNote] = useState('');
+  const minor = amountMinor(amount);
+  const period = renewalPeriod(clinic.subscription_status, clinic.current_period_end, cycle);
+  const currency = plan?.currency ?? 'EGP';
+  const ok = minor !== null && method !== '';
+  const save = useMutation({
+    mutationFn: () => papi<ClinicDetail>(`/platform/clinics/${clinic.id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify({ amountMinor: minor, cycle, method, reference: reference.trim() || null, note: note.trim() || null, idempotencyKey: key }),
+    }),
+    onSuccess: onSaved,
+  });
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open && !save.isPending) onClose(); }}>
+      <DialogContent dir="rtl" className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-card sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-start">تسجيل دفعة: <bdi>{clinicName(clinic)}</bdi></DialogTitle>
+          <DialogDescription className="text-start">{plan ? `${'الخطة'}: ${plan.name_ar}` : 'سجّل ما دفعته العيادة فعلًا.'}</DialogDescription>
+        </DialogHeader>
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); if (ok && !save.isPending) save.mutate(); }}>
+          <div className="grid-2">
+            <Field label="المدة">{(a) => <Choice id={a.id} value={cycle} onChange={(c) => setCycle(c === 'yearly' ? 'yearly' : 'monthly')} label="المدة" className="h-10 bg-card" options={(['monthly', 'yearly'] as const).map((c) => ({ value: c, label: billingCycleLabel[c] }))} />}</Field>
+            <Field label={`${'المبلغ المدفوع'} (${money(0, currency).replace(/^0\s*/, '')})`}>
+              {(a) => <Input id={a.id} dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setTyped(e.target.value)} invalid={amount.trim() !== '' && minor === null} />}
+            </Field>
+            <Field label="طريقة الدفع">{(a) => <Choice id={a.id} value={method} onChange={(v) => setMethod(v as PaymentMethod)} placeholder="اختر الطريقة" label="طريقة الدفع" className="h-10 bg-card" options={PAYMENT_METHODS.map((m) => ({ value: m, label: subscriptionPaymentMethodLabel[m] }))} />}</Field>
+            <Field label="رقم العملية" hint="اختياري. لا تُسجَّل نفس العملية مرتين.">{(a) => <Input id={a.id} describedBy={a.describedBy} dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />}</Field>
+          </div>
+          <Field label="ملاحظة" hint="اختياري، لا تراها العيادة.">{(a) => <TextArea id={a.id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} />}</Field>
+          <p className="pl-pay-preview" aria-live="polite">
+            {`${'يصبح الاشتراك'} ${billingCycleLabel[cycle]} ${'ساريًا من'} ${date(period.start.toISOString())} ${'حتى'} ${date(period.end.toISOString())}`}
+            {clinic.status === 'suspended' && clinic.suspension_kind === 'manual' && <> — {'العيادة موقوفة يدويًا وتبقى موقوفة حتى تعيد تفعيلها.'}</>}
+          </p>
+          <ErrorText error={save.error} />
+          <div className="pl-plan-actions">
+            <Button type="submit" disabled={!ok} loading={save.isPending}>تسجيل الدفعة</Button>
+            <Button variant="ghost" onClick={onClose} disabled={save.isPending}>إلغاء</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -472,6 +580,7 @@ function AuditList({ rows, showClinic = true }: { rows: AuditRow[]; showClinic?:
           <div className="min-w-0">
             <strong>{platformActionLabel[r.action.replace('.', '_')]}</strong>
             {typeof r.details?.reason === 'string' && <> — <bdi>{r.details.reason}</bdi></>}
+            {r.action === 'tenant.payment_recorded' && typeof r.details?.amount_minor === 'number' && <> — {money(r.details.amount_minor)}</>}
             {/* bdi: a Latin name next to an Arabic date would otherwise scramble the order */}
             <span className="muted small block"><bdi>{r.actor ?? 'النظام'}</bdi> · <bdi>{when(r.created_at)}</bdi></span>
           </div>
@@ -671,9 +780,39 @@ function PlansPage() {
           {plans.data.map((p) => <PlanCard key={p.id} p={p} onEdit={() => setEditing(p)} />)}
         </div>
       )}
+      <BillingInstructionsCard />
       {/* keyed: each opening starts from the plan as saved */}
       {editing && <PlanEditDialog key={editing === 'new' ? 'new' : editing.id} p={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </>
+  );
+}
+
+/** Phase 2B: how clinics pay — shown on their plan card and in every renewal reminder. */
+function BillingInstructionsCard() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: [...KEY, 'billing-instructions'], queryFn: () => papi<{ text: string | null }>('/platform/billing-instructions') });
+  const [text, setText] = useState<string | null>(null); // null = not edited: shows what is saved
+  const value = text ?? q.data?.text ?? '';
+  const save = useMutation({
+    mutationFn: () => papi<{ text: string | null }>('/platform/billing-instructions', { method: 'PUT', body: JSON.stringify({ text: value }) }),
+    onSuccess: (d) => { qc.setQueryData([...KEY, 'billing-instructions'], d); setText(null); },
+  });
+  const dirty = text !== null && text.trim() !== (q.data?.text ?? '');
+  return (
+    <Card className="mt">
+      <h2>تعليمات الدفع</h2>
+      <p className="muted small">تظهر للعيادات في بطاقة «باقتك» وفي رسائل تذكير التجديد: أرقام إنستاباي وفودافون كاش والحساب البنكي، وكيف يرسلون رقم العملية.</p>
+      {q.isError ? <ErrorText error={q.error} onRetry={() => void q.refetch()} /> : !q.data ? <Skeleton h={80} /> : (
+        <form className="stack mt-sm" onSubmit={(e) => { e.preventDefault(); if (dirty) save.mutate(); }}>
+          <TextArea value={value} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={5} aria-label="تعليمات الدفع" placeholder="مثال: إنستاباي على …، فودافون كاش على …" />
+          <ErrorText error={save.error} />
+          <div className="row-end">
+            <span className="muted small">{value.length} / 2000</span>
+            <Button type="submit" variant="secondary" disabled={!dirty} loading={save.isPending}>حفظ</Button>
+          </div>
+        </form>
+      )}
+    </Card>
   );
 }
 

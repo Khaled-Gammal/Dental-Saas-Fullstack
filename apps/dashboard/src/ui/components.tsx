@@ -61,10 +61,11 @@ export function TextArea({ invalid, describedBy, ...rest }: TextareaHTMLAttribut
 }
 
 /** An on/off switch that is a real checkbox underneath (keyboard and screen readers just work). */
-export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+/** `ariaLabel`: what a screen reader announces when the visible label alone does not say which item it is (a list of rows). */
+export function Switch({ checked, onChange, label, ariaLabel, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; ariaLabel?: string; disabled?: boolean }) {
   return (
     <label className="switch">
-      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-label={ariaLabel} disabled={disabled} />
       <span className="switch-track" aria-hidden><span className="switch-thumb" /></span>
       <span className="switch-label">{label}</span>
     </label>

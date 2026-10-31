@@ -67,10 +67,10 @@ export function BranchCard({ branch, holidays, clinicTz, contact, clinicName }: 
   );
 }
 
-export function BranchesSection({ branches, holidays, clinicTz, contact, clinicName }: { branches: SiteBranch[]; holidays: Holiday[]; clinicTz: string; contact: Contact; clinicName: string }) {
+export function BranchesSection({ branches, holidays, clinicTz, contact, clinicName, tint }: { branches: SiteBranch[]; holidays: Holiday[]; clinicTz: string; contact: Contact; clinicName: string; tint?: boolean }) {
   if (!branches.length) return null;
   return (
-    <Section id="branches" kicker="الفروع" title="أقرب فرع إليك ومواعيد العمل" sub="حالة الفرع الآن، ومواعيد الأسبوع كاملة بنقرة واحدة">
+    <Section id="branches" kicker="الفروع" title="أقرب فرع إليك ومواعيد العمل" sub="حالة الفرع الآن، ومواعيد الأسبوع كاملة بنقرة واحدة" tint={tint}>
       <div className="s-grid s-grid-wide">
         {branches.map((b) => <BranchCard key={b.id} branch={b} holidays={holidays} clinicTz={clinicTz} contact={contact} clinicName={clinicName} />)}
       </div>

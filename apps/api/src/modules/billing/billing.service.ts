@@ -193,12 +193,16 @@ export class BillingService {
         if (!['due', 'partially_paid'].includes(ins.status)) throw Err.conflict('installment_closed', `This installment is ${ins.status}`);
         if (input.amountMinor > ins.amount_minor - ins.paid_minor) throw Err.badRequest('amount_exceeds_installment', 'The amount is more than what is left of the installment', { left: ins.amount_minor - ins.paid_minor });
       }
-      await this.repo.addPayment(tx, tenantId, {
+      const paymentId = await this.repo.addPayment(tx, tenantId, {
         installmentId: input.installmentId ?? null,
         invoiceId: id, patientId: inv.patient_id, branchId: inv.branch_id, amountMinor: input.amountMinor, currency: inv.currency, method: input.method,
         reference: cleanReference(input.method, input.reference), notes: input.notes ?? null, idempotencyKey: input.idempotencyKey, receivedBy: this.member(),
       });
-      return this.view(tx, id);
+      // review R11 (NTF-03): the patient gets an emailed receipt (the worker; skipped when they have no email). The
+      // balance is the one right after this payment: the worker may run after a second payment changed it.
+      const after = await this.view(tx, id);
+      await this.repo.addOutboxEvent(tx, tenantId, 'payment.received', { paymentId, balanceAfterMinor: after.balance_minor });
+      return after;
     });
   }
 

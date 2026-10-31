@@ -18,13 +18,18 @@ import { RowMenu } from '../../ui/row-menu';
  * newest first otherwise, with "load more" on the API's keyset cursor (redesign R3: on the shared DataTable; the
  * table does not sort or page itself here — the API does). `canWrite` = patients:write, `canBook` = appointments:write.
  */
-export function PatientsList({ clinicId, canWrite, canBook }: { clinicId: string; canWrite: boolean; canBook: boolean }) {
+export function PatientsList({ clinicId, canWrite, canBook, canImport = false }: { clinicId: string; canWrite: boolean; canBook: boolean; canImport?: boolean }) {
   const flash = useFlash();
   const [q, setQ] = useState('');
   const search = useDebounced(q.trim(), 250);
   const list = usePatients(clinicId, search);
   const rows = list.data?.pages.flatMap((p) => p.items);
-  const add = canWrite && <Button onClick={() => navigate(to.create('patients'))}><PlusIcon size={18} />مريض جديد</Button>;
+  const add = canWrite && (
+    <>
+      {canImport && <Button variant="secondary" onClick={() => navigate(to.importPatients())}>استيراد من Excel</Button>}
+      <Button onClick={() => navigate(to.create('patients'))}><PlusIcon size={18} />مريض جديد</Button>
+    </>
+  );
 
   const columns: Column<PatientRow>[] = [
     {
