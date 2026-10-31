@@ -52,6 +52,7 @@ export interface Appointments {
   override_reason: string | null;
   patient_id: string | null;
   patient_notes: string | null;
+  patient_reschedules: Generated<number>;
   payment_mode: Generated<string>;
   quoted_price_minor: Int8 | null;
   room_id: string | null;

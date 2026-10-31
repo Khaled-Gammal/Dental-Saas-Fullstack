@@ -31,6 +31,7 @@ const PAGE: Record<Page, Need> = {
   roles: ['staff:manage'],
   gallery: ['website:write'],
   website: ['website:write'], // Phase 2C-1
+  activity: ['audit:read'], // Phase 2D: who changed or opened what
   // H8: the clinic owner only. No role can be given this (it is not in the permission catalogue); the owner's '*' has it
   data: ['clinic:owner'],
 };

@@ -152,6 +152,8 @@ export const errorLabel: Record<string, string> = {
   case_limit: 'وصلت للحد الأقصى: 100 حالة. احذف حالة قديمة أولًا.',
   case_same_image: 'صورة «قبل» وصورة «بعد» لازم تكونا مختلفتين.',
   consent_required: 'أكّد موافقة المريض الكتابية على النشر قبل نشر الحالة.',
+  range_too_long: 'اختر فترة سنة على الأكثر.', // Phase 2D
+  branch_scoped: 'سجل العمليات يشمل كل الفروع، فهو متاح لمن يعمل في كل الفروع فقط.', // Phase 2D
   faq_not_found: 'السؤال غير موجود. حدّث الصفحة.', // Phase 2C-1
   faq_limit: 'وصلت للحد الأقصى: 50 سؤالًا. احذف سؤالًا قديمًا أولًا.',
   subscription_unpaid: 'الاشتراك غير مدفوع: سجّل الدفعة لتعود العيادة للعمل.', // Phase 2B
@@ -290,6 +292,12 @@ export const errorLabel: Record<string, string> = {
   room_not_in_branch: 'الكرسي غير موجود في هذا الفرع أو غير متاح.',
   room_name_taken: 'يوجد كرسي بهذا الاسم في الفرع.',
   nothing_to_change: 'لم يتغير شيء.',
+  // Phase 2E: the patient's own link (shown on the clinic's site; here for completeness)
+  manage_link_invalid: 'رابط الموعد غير صالح.',
+  too_late_to_change: 'فات وقت تغيير الموعد أو إلغائه من الرابط.',
+  appointment_not_active: 'لم يعد ممكنًا تغيير هذا الموعد.',
+  reschedule_limit: 'غيّر المريض هذا الموعد من الرابط أقصى عدد من المرات.',
+  reschedule_not_online: 'لا يمكن تغيير هذا الموعد أونلاين.',
   holiday_exists: 'هذا اليوم إجازة بالفعل لهذا الفرع.',
   invalid_range: 'يجب أن يكون الانتهاء بعد البداية.',
   time_off_too_long: 'لا يمكن أن تزيد الإجازة عن سنة.',

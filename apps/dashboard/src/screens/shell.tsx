@@ -1,7 +1,7 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { arName } from '@dental/ui/text';
 import {
-  Building2, CalendarDays, ChartColumn, ClipboardList, ChevronDown, ChevronsUpDown, Database, Globe, Home, Image, List, LogOut, MapPin, PenLine, Phone, Receipt, ShieldCheck,
+  Building2, CalendarDays, ChartColumn, ClipboardList, ChevronDown, ChevronsUpDown, Database, Globe, History, Home, Image, List, LogOut, MapPin, PenLine, Phone, Receipt, ShieldCheck,
   Stethoscope, Tag, Banknote, UserCog, Users, Wallet, type LucideIcon,
 } from 'lucide-react';
 import { can, logout, type Session } from '../api';
@@ -26,7 +26,7 @@ import {
 
 const ICONS: Record<NavIcon, LucideIcon> = {
   home: Home, calendar: CalendarDays, users: Users, clipboard: ClipboardList, phone: Phone, clinic: Building2, team: UserCog, pin: MapPin, stethoscope: Stethoscope, list: List,
-  edit: PenLine, receipt: Receipt, tag: Tag, cash: Banknote, wallet: Wallet, chart: ChartColumn, image: Image, globe: Globe, shield: ShieldCheck,
+  edit: PenLine, receipt: Receipt, tag: Tag, cash: Banknote, wallet: Wallet, chart: ChartColumn, image: Image, globe: Globe, shield: ShieldCheck, history: History,
   database: Database,
 };
 

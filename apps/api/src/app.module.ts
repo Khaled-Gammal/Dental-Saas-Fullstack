@@ -13,6 +13,7 @@ import { ReportsModule } from './modules/reports';
 import { ClinicalModule } from './modules/clinical';
 import { IdentityModule } from './modules/identity/identity.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
+import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 import { ClinicDataModule } from './modules/clinic-data/clinic-data.module';
 import { LandingModule } from './modules/landing/landing.module';
 import { MediaModule } from './modules/media';
@@ -77,6 +78,7 @@ class ConfigModule {}
     PlatformModule,
     LandingModule,
     ClinicDataModule,
+    ActivityLogModule, // Phase 2D
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemDetailsFilter }],
 })

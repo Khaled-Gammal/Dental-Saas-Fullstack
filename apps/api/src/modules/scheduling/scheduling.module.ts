@@ -6,9 +6,11 @@ import { GetAvailability } from './application/get-availability.usecase';
 import { GetBookingOptions } from './application/get-booking-options.usecase';
 import { HoldSlot } from './application/hold-slot.usecase';
 import { ManageAppointments } from './application/manage-appointments.usecase';
+import { PatientSelfService } from './application/patient-self-service.usecase';
 import { BOOKING_CODES, CLOCK, HOLD_DETAILS, SCHEDULING_REPOSITORY } from './application/ports';
 import { AppointmentsController } from './http/appointments.controller';
 import { PublicBookingController } from './http/public-booking.controller';
+import { PublicManageController } from './http/public-manage.controller';
 import { HmacBookingCodes, RedisHoldDetailsStore, SystemClock } from './infrastructure/adapters';
 import { KyselySchedulingRepository } from './infrastructure/kysely-scheduling.repository';
 
@@ -19,9 +21,9 @@ import { KyselySchedulingRepository } from './infrastructure/kysely-scheduling.r
  */
 @Module({
   imports: [IdentityModule, PatientsModule], // OtpService (the booking code); PatientDirectory (patients are owned by that module)
-  controllers: [PublicBookingController, AppointmentsController],
+  controllers: [PublicBookingController, PublicManageController, AppointmentsController],
   providers: [
-    GetBookingOptions, GetAvailability, HoldSlot, BookOnline, ManageAppointments,
+    GetBookingOptions, GetAvailability, HoldSlot, BookOnline, ManageAppointments, PatientSelfService,
     { provide: SCHEDULING_REPOSITORY, useClass: KyselySchedulingRepository },
     { provide: HOLD_DETAILS, useClass: RedisHoldDetailsStore },
     { provide: CLOCK, useClass: SystemClock },

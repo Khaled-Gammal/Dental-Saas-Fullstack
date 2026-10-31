@@ -375,6 +375,11 @@ function AppointmentCard({ a, clinicId, time, balances, canWrite, own, canVisit,
         </div>
         {a.patient_notes && <p className="appt-notes">{a.patient_notes}</p>}
         {a.cancel_reason && <p className="appt-notes muted">{a.cancel_reason}</p>}
+        {/* Phase 2E: changes the patient made from their own link */}
+        {a.status === 'cancelled' && a.cancelled_by === 'patient' && <p className="appt-notes muted">ألغاه المريض من رابط الموعد.</p>}
+        {!!a.patient_reschedules && a.status !== 'cancelled' && (
+          <p className="appt-notes muted">{a.patient_reschedules === 1 ? 'غيّر المريض الموعد من الرابط مرة.' : `غيّر المريض الموعد من الرابط ${a.patient_reschedules} مرات.`}</p>
+        )}
       </div>
       {(actions.length > 0 || (canWrite && CHANGEABLE.includes(a.status)) || (a.visit_id && canReadVisit) || (canVisit && (canWrite || own) && VISITABLE.includes(a.status))) && (
         <div className="appt-actions">

@@ -25,6 +25,9 @@ describe('sidebar navigation (redesign R1)', () => {
     expect(visibleNav([{ id: null, label: null, items: NAV_FOOT }], canSeePage, has)[0].items.map((i) => i.page)).toEqual(['data']);
   });
   it('a member sees only what they may open; a group left empty disappears', () => {
+    // Phase 2D: the activity log sits with the team, for audit:read only
+    expect(keys(['audit:read']).find(([k]) => k === 'team')).toEqual(['team', ['activity']]);
+    expect(keys(['staff:manage']).find(([k]) => k === 'team')).toEqual(['team', ['staff', 'roles']]);
     const reception = keys(['patients:read', 'patients:write', 'appointments:read', 'appointments:write', 'invoices:read', 'payments:write', 'cash:operate']);
     expect(reception).toEqual([
       [null, ['overview', 'appointments', 'patients', 'followups']],

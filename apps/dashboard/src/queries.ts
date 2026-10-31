@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
-import type { Appointment, AuditEntry, Branch, CashBranch, CashDay, CashMovements, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryCase, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus, BookingSettings, DrugSuggestion, HistoryVersion, Holiday, InvoiceDetail, InvoiceFilters, InvoiceRow, InvoiceTotals, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service, HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, UnbilledGroup, Visit, VisitsPage, VisitsView, VisitSummary, WebsiteStatus, WebsiteSection, Faq, ClinicPlanSummary } from './types';
+import type { ActivityActor, ActivityPage, Appointment, AuditEntry, Branch, CashBranch, CashDay, CashMovements, CashSession, Expense, ExpenseCategory, ExpensesPage, CheckInResponse, ClinicProfile, DayAppointments, Doctor, GalleryCase, GalleryItem, GalleryPage, MedicalHistory, OnboardingStatus, BookingSettings, DrugSuggestion, HistoryVersion, Holiday, InvoiceDetail, InvoiceFilters, InvoiceRow, InvoiceTotals, OverdueInstallment, RoleLimit, PatientBilling, PatientChart, PaymentReceipt, PatientDetail, PatientFile, PatientPage, PatientRow, PlanDetail, PlanRow, PrescriptionPrint, Recall, Room, Service, HomeData, ReportBranch, StaffInvitation, StaffMember, PermissionGroup, StaffRole, StaffSlots, TimeOff, UnbilledGroup, Visit, VisitsPage, VisitsView, VisitSummary, WebsiteStatus, WebsiteSection, Faq, ClinicPlanSummary } from './types';
 
 /**
  * One place for query keys and fetchers. Every key starts with the clinic id, so switching clinic
@@ -277,6 +277,22 @@ export function useBookAppointment(clinicId: string) {
     onSuccess: () => Promise.all([invalidate('appointments'), qc.invalidateQueries({ queryKey: patientKeys.all(clinicId) })]),
   });
 }
+
+// ---------- Phase 2D: the activity log ----------
+export interface ActivityFilters { from: string; to: string; actor: string; entity: string; kind: 'all' | 'changes' | 'views' }
+export const useActivity = (clinicId: string, f: ActivityFilters) =>
+  useInfiniteQuery({
+    queryKey: ['activity', clinicId, f] as const,
+    queryFn: ({ pageParam }) => api<ActivityPage>(`/activity-log?${new URLSearchParams({
+      kind: f.kind, ...(f.from && { from: f.from }), ...(f.to && { to: f.to }), ...(f.actor && { actor: f.actor }), ...(f.entity && { entity: f.entity }),
+      ...(pageParam && { cursor: pageParam }),
+    })}`),
+    initialPageParam: '',
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    placeholderData: (prev) => prev, // the screen keeps the old rows dimmed, with no "more", while a new filter loads
+  });
+export const useActivityActors = (clinicId: string) =>
+  useQuery({ queryKey: ['activity', clinicId, 'actors'] as const, queryFn: () => api<ActivityActor[]>('/activity-log/actors'), staleTime: 5 * 60_000 });
 
 // ---------- gallery ----------
 export const galleryKeys = {

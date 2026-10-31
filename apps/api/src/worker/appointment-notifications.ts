@@ -1,4 +1,5 @@
 import { sql, type Tx } from '@dental/db';
+import { MANAGE_LINK_SLOT, siteOrigin } from '../shared/manage-link';
 import { emailWhen } from '../shared/notifications/arabic-mail';
 import { safeTimeZone } from '../shared/time/clinic-time';
 import type { OutboxHandler } from './outbox-relay';
@@ -17,7 +18,17 @@ interface Row {
   clinic_ar: string | null; clinic_en: string | null; clinic_email: string | null; clinic_tz: string; offsets: number[];
   /** review R11: the number a patient calls to book again (the branch's, else the clinic's) */
   clinic_phone?: string | null;
+  /**
+   * Phase 2E: the booking has the patient's own link (a live site address, a booking made since 2E, still ahead). The
+   * email holds a placeholder; the sender puts the link in at send time (shared/manage-link).
+   */
+  can_manage?: boolean;
+  /** Phase 2E: the clinic's site, where a patient who cancelled can book again */
+  site_url?: string | null;
 }
+
+/** Who made the change an email is about: the clinic (staff) or the patient from their link. */
+export type ChangedBy = 'clinic' | 'patient';
 
 const pick = (ar: string | null, en: string | null) => ar ?? en ?? '';
 
@@ -25,6 +36,10 @@ const pick = (ar: string | null, en: string | null) => ar ?? en ?? '';
 const when = (at: Date, tz: string) => ({ ar: emailWhen(at, tz) });
 
 interface Message { recipient: string; subject: string; body: string; dedupe: string; event: string; scheduledAt?: Date }
+
+/** Phase 2E: the line with the patient's own link, under every email about a booking still ahead of them. */
+const manageLine = (a: Row) => (a.can_manage ? `\nلإلغاء الموعد أو تغييره: ${MANAGE_LINK_SLOT}` : '');
+const patientLine = (a: Row) => `المريض: ${a.patient_name} – ${a.patient_phone}`;
 
 /** The messages for one appointment. Pure, so the wording rules are testable without a database. */
 export function appointmentMessages(a: Row, now: number): Message[] {
@@ -42,7 +57,7 @@ export function appointmentMessages(a: Row, now: number): Message[] {
     const codeLine = a.has_code ? 'رمز الحضور وصلك في رسالة منفصلة؛ أظهره في الاستقبال.\n' : ''; // staff bookings have no reception code
     out.push({
       event: 'booking.created', recipient: a.patient_email, subject: `${statusAr} – ${clinic}`, dedupe: `booking:${a.id}:patient:email`,
-      body: `${a.patient_name}،\n${statusAr}.\nالموعد: ${at.ar}\nالطبيب: ${doctor}\n${service ? `الخدمة: ${service}\n` : ''}الفرع: ${branch}\n${codeLine}`,
+      body: `${a.patient_name}،\n${statusAr}.\nالموعد: ${at.ar}\nالطبيب: ${doctor}\n${service ? `الخدمة: ${service}\n` : ''}الفرع: ${branch}\n${codeLine}${manageLine(a).trimStart()}`,
     });
   }
   if (a.clinic_email && website) {
@@ -56,7 +71,7 @@ export function appointmentMessages(a: Row, now: number): Message[] {
     if (sendAt <= now || !a.patient_email) continue;
     out.push({
       event: 'appointment.reminder', recipient: a.patient_email, subject: `تذكير بموعدك – ${clinic}`, dedupe: `reminder:${a.id}:${offset}`, scheduledAt: new Date(sendAt),
-      body: `تذكير: موعدك في ${clinic} ${at.ar} مع ${doctor}.\nالفرع: ${branch}`,
+      body: `تذكير: موعدك في ${clinic} ${at.ar} مع ${doctor}.\nالفرع: ${branch}${manageLine(a)}`,
     });
   }
   return out;
@@ -68,7 +83,7 @@ export function appointmentMessages(a: Row, now: number): Message[] {
  * (review R11: keyed by the start time, the earlier, cancelled reminders of that time swallowed the new ones) — and
  * re-running the handler for the same move adds nothing.
  */
-export function rescheduleMessages(a: Row, now: number, moveId: number | string): Message[] {
+export function rescheduleMessages(a: Row, now: number, moveId: number | string, by: ChangedBy = 'clinic'): Message[] {
   const stamp = `m${moveId}`;
   const tz = safeTimeZone(a.branch_tz ?? a.clinic_tz);
   const at = when(new Date(a.starts_at), tz);
@@ -78,10 +93,19 @@ export function rescheduleMessages(a: Row, now: number, moveId: number | string)
   const out: Message[] = appointmentMessages(a, now)
     .filter((m) => m.event === 'appointment.reminder')
     .map((m) => ({ ...m, dedupe: `${m.dedupe}:${stamp}` }));
+  // Phase 2E: a booking the patient moved waits for the clinic again when it confirms website bookings by hand
+  const waiting = a.status === 'pending' ? '\nسنؤكد الموعد الجديد قريبًا.' : '';
   if (a.patient_email) {
     out.unshift({
       event: 'appointment.rescheduled', recipient: a.patient_email, subject: `تغيّر موعدك – ${clinic}`, dedupe: `moved:${a.id}:${stamp}`,
-      body: `${a.patient_name}،\nتم تغيير موعدك.\nالموعد الجديد: ${at.ar}\nالطبيب: ${doctor}\nالفرع: ${branch}`,
+      body: `${a.patient_name}،\n${by === 'patient' ? 'تم تغيير موعدك بناءً على طلبك.' : 'تم تغيير موعدك.'}\nالموعد الجديد: ${at.ar}\nالطبيب: ${doctor}\nالفرع: ${branch}${waiting}${manageLine(a)}`,
+    });
+  }
+  // Phase 2E: the clinic hears about the patient's own changes (its staff made the others)
+  if (by === 'patient' && a.clinic_email) {
+    out.push({
+      event: 'appointment.rescheduled', recipient: a.clinic_email, subject: `غيّر مريض موعده من الرابط – ${a.patient_name}`, dedupe: `moved:${a.id}:${stamp}:clinic`,
+      body: `غيّر المريض موعده من رابط الحجز${a.status === 'pending' ? ' (بانتظار تأكيدكم)' : ''}.\n${patientLine(a)}\nالموعد الجديد: ${at.ar}\nالطبيب: ${doctor}\nالفرع: ${branch}`,
     });
   }
   return out;
@@ -91,38 +115,57 @@ export function rescheduleMessages(a: Row, now: number, moveId: number | string)
  * Review R11 (NTF-03): the clinic cancelled the booking. One email to the patient, with the number to book again; the
  * clinic's reason is not sent (it may be internal). Keyed per appointment: an appointment is cancelled once.
  */
-export function cancelledMessages(a: Row, now: number): Message[] {
-  if (!a.patient_email || new Date(a.starts_at).getTime() <= now) return []; // a visit already past: nothing to tell
+export function cancelledMessages(a: Row, now: number, by: ChangedBy = 'clinic'): Message[] {
+  if (new Date(a.starts_at).getTime() <= now) return []; // a visit already past: nothing to tell
   const tz = safeTimeZone(a.branch_tz ?? a.clinic_tz);
   const clinic = pick(a.clinic_ar, a.clinic_en);
   const doctor = pick(a.doctor_ar, a.doctor_en);
-  const call = a.clinic_phone ? `\nلحجز موعد جديد اتصل بنا على ${a.clinic_phone}.` : '';
-  return [{
-    event: 'appointment.cancelled', recipient: a.patient_email, subject: `تم إلغاء موعدك – ${clinic}`, dedupe: `cancelled:${a.id}`,
-    body: `${a.patient_name}،\nتم إلغاء موعدك في ${clinic}.\nالموعد الملغى: ${when(new Date(a.starts_at), tz).ar}\nالطبيب: ${doctor}${call}`,
-  }];
+  const at = when(new Date(a.starts_at), tz).ar;
+  // the patient who cancelled may book again on the site; a booking the clinic cancelled is rebooked by phone
+  const again = by === 'patient'
+    ? [a.site_url && `لحجز موعد جديد: ${a.site_url}`, a.clinic_phone && `للاستفسار اتصل بنا على ${a.clinic_phone}.`]
+    : [a.clinic_phone && `لحجز موعد جديد اتصل بنا على ${a.clinic_phone}.`];
+  const call = again.filter(Boolean).map((l) => `\n${l}`).join('');
+  const out: Message[] = [];
+  if (a.patient_email) {
+    out.push({
+      event: 'appointment.cancelled', recipient: a.patient_email, subject: `تم إلغاء موعدك – ${clinic}`, dedupe: `cancelled:${a.id}`,
+      body: `${a.patient_name}،\n${by === 'patient' ? `ألغينا موعدك في ${clinic} بناءً على طلبك.` : `تم إلغاء موعدك في ${clinic}.`}\nالموعد الملغى: ${at}\nالطبيب: ${doctor}${call}`,
+    });
+  }
+  // Phase 2E: the clinic hears about a cancellation the patient made from their link (its staff made the others)
+  if (by === 'patient' && a.clinic_email) {
+    out.push({
+      event: 'appointment.cancelled', recipient: a.clinic_email, subject: `ألغى مريض موعده من الرابط – ${a.patient_name}`, dedupe: `cancelled:${a.id}:clinic`,
+      body: `ألغى المريض موعده من رابط الحجز، والوقت متاح الآن لحجز آخر.\n${patientLine(a)}\nالموعد الملغى: ${at}\nالطبيب: ${doctor}`,
+    });
+  }
+  return out;
 }
 
 /** Review R11 (NTF-03): a booking that waited for the clinic (website, no auto-confirm) is now confirmed. */
-export function confirmedMessages(a: Row, now: number): Message[] {
+export function confirmedMessages(a: Row, now: number, confirmId: number | string = 0): Message[] {
   if (!a.patient_email || new Date(a.starts_at).getTime() <= now) return [];
   const tz = safeTimeZone(a.branch_tz ?? a.clinic_tz);
   const clinic = pick(a.clinic_ar, a.clinic_en);
   const branch = [pick(a.branch_ar, a.branch_en), a.branch_address].filter(Boolean).join(' – ');
   return [{
-    event: 'appointment.confirmed', recipient: a.patient_email, subject: `تم تأكيد موعدك – ${clinic}`, dedupe: `confirmed:${a.id}`,
-    body: `${a.patient_name}،\nأكدت العيادة موعدك.\nالموعد: ${when(new Date(a.starts_at), tz).ar}\nالطبيب: ${pick(a.doctor_ar, a.doctor_en)}\nالفرع: ${branch}`,
+    // Phase 2E: keyed per confirmation — a booking the patient moved waits for the clinic again and is confirmed again
+    event: 'appointment.confirmed', recipient: a.patient_email, subject: `تم تأكيد موعدك – ${clinic}`, dedupe: `confirmed:${a.id}:c${confirmId}`,
+    body: `${a.patient_name}،\nأكدت العيادة موعدك.\nالموعد: ${when(new Date(a.starts_at), tz).ar}\nالطبيب: ${pick(a.doctor_ar, a.doctor_en)}\nالفرع: ${branch}${manageLine(a)}`,
   }];
 }
 
 async function loadRow(tx: Tx, appointmentId: string): Promise<Row | undefined> {
-  const { rows } = await sql<Row>`
+  const { rows } = await sql<Row & { has_manage: boolean; site_host: string | null }>`
     select a.id, a.tenant_id, a.starts_at, a.status, a.source, a.check_in_code_hash is not null as has_code, a.patient_notes,
            p.full_name as patient_name, p.phone as patient_phone, p.email as patient_email, p.id as patient_id,
            d.name_ar as doctor_ar, d.name_en as doctor_en, s.name_ar as service_ar, s.name_en as service_en,
            b.name_ar as branch_ar, b.name_en as branch_en, coalesce(b.address_ar, b.address_en) as branch_address, b.timezone as branch_tz,
            t.name_ar as clinic_ar, t.name_en as clinic_en, t.email as clinic_email, t.timezone as clinic_tz, ts.reminder_offsets_minutes as offsets,
-           coalesce(b.phone, t.primary_phone) as clinic_phone
+           coalesce(b.phone, t.primary_phone) as clinic_phone, a.manage_token_hash is not null as has_manage,
+           (select d2.hostname::text from domains d2 where d2.tenant_id = a.tenant_id and d2.status in ('verified', 'active')
+             order by d2.is_primary desc, d2.created_at limit 1) as site_host
     from appointments a
     join tenants t on t.id = a.tenant_id
     join tenant_settings ts on ts.tenant_id = a.tenant_id
@@ -131,7 +174,11 @@ async function loadRow(tx: Tx, appointmentId: string): Promise<Row | undefined> 
     left join services s on s.id = a.service_id
     left join patients p on p.id = a.patient_id
     where a.id = ${appointmentId}`.execute(tx);
-  return rows[0];
+  const r = rows[0];
+  if (!r) return undefined;
+  // Phase 2E: links only for a booking still ahead (the page refuses the rest anyway) on a clinic with a live address
+  const active = r.status === 'pending' || r.status === 'confirmed';
+  return { ...r, can_manage: active && r.has_manage && !!r.site_host, site_url: r.site_host ? siteOrigin(r.site_host) : null };
 }
 
 async function queue(tx: Tx, a: Row, messages: Message[]): Promise<void> {
@@ -151,6 +198,8 @@ export const appointmentCreated: OutboxHandler = async (tx: Tx, event) => {
   await queue(tx, a, appointmentMessages(a, Date.now()));
 };
 
+const changedBy = (payload: Record<string, unknown>): ChangedBy => (payload.by === 'patient' ? 'patient' : 'clinic');
+
 export const appointmentRescheduled: OutboxHandler = async (tx: Tx, event) => {
   const appointmentId = String(event.payload.appointmentId ?? '');
   if (!appointmentId) return;
@@ -160,7 +209,7 @@ export const appointmentRescheduled: OutboxHandler = async (tx: Tx, event) => {
   await tx.updateTable('notifications').set({ status: 'cancelled', last_error: 'appointment moved' })
     .where('related_type', '=', 'appointment').where('related_id', '=', a.id)
     .where('event', '=', 'appointment.reminder').where('status', '=', 'queued').execute();
-  await queue(tx, a, rescheduleMessages(a, Date.now(), event.id));
+  await queue(tx, a, rescheduleMessages(a, Date.now(), event.id, changedBy(event.payload)));
 };
 
 export const appointmentCancelled: OutboxHandler = async (tx: Tx, event) => {
@@ -173,7 +222,7 @@ export const appointmentCancelled: OutboxHandler = async (tx: Tx, event) => {
   await tx.updateTable('notifications').set({ status: 'cancelled', last_error: 'appointment cancelled' })
     .where('related_type', '=', 'appointment').where('related_id', '=', a.id)
     .where('event', '<>', 'appointment.cancelled').where('status', '=', 'queued').execute();
-  await queue(tx, a, cancelledMessages(a, Date.now()));
+  await queue(tx, a, cancelledMessages(a, Date.now(), changedBy(event.payload)));
 };
 
 export const appointmentConfirmed: OutboxHandler = async (tx: Tx, event) => {
@@ -181,7 +230,7 @@ export const appointmentConfirmed: OutboxHandler = async (tx: Tx, event) => {
   if (!appointmentId) return;
   const a = await loadRow(tx, appointmentId);
   if (!a || !a.patient_id || a.status !== 'confirmed') return;
-  await queue(tx, a, confirmedMessages(a, Date.now()));
+  await queue(tx, a, confirmedMessages(a, Date.now(), event.id));
 };
 
 export type { Row as AppointmentRow };

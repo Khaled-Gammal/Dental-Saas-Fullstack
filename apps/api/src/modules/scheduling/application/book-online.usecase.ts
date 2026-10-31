@@ -1,8 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { APP_CONFIG, type AppConfig } from '../../../config';
 import { OtpService } from '../../identity/otp.service';
 import type { RequestMeta } from '../../identity/identity.types';
 import { PatientDirectory } from '../../patients';
 import { Err } from '../../../shared/errors/app-error';
+import { manageToken, manageTokenHash } from '../../../shared/manage-link';
 import { maskEmail } from '../../../shared/mask';
 import { emailWhen } from '../../../shared/notifications/arabic-mail';
 import { EMAIL_SENDER, type EmailSender } from '../../../shared/notifications/ports';
@@ -60,6 +62,7 @@ export class BookOnline {
     @Inject(BOOKING_CODES) private readonly codes: BookingCodes,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(EMAIL_SENDER) private readonly email: EmailSender,
+    @Inject(APP_CONFIG) private readonly cfg: AppConfig,
     private readonly otp: OtpService,
     private readonly patients: PatientDirectory,
   ) {}
@@ -109,6 +112,7 @@ export class BookOnline {
     await this.repo.finalizeHold(tx, holdId, {
       patientId: patient.id, status, patientNotes: d.notes, codeHash: hash,
       codeExpiresAt: new Date(endOfDay(dateInZone(hold.starts_at.getTime(), timezone), timezone)),
+      manageTokenHash: manageTokenHash(manageToken(this.cfg.BOOKING_CODE_SECRET, holdId)), // Phase 2E: the patient's own link
     });
     await this.repo.addOutboxEvent(tx, tenantId, 'appointment.created', { appointmentId: holdId, source: 'website', status });
     const appointment = await this.repo.get(tx, holdId);

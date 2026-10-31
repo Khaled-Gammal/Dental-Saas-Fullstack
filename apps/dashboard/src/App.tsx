@@ -60,6 +60,7 @@ const GalleryList = lazyScreen(() => import('./screens/gallery/list'), 'GalleryL
 const GalleryUpload = lazyScreen(() => import('./screens/gallery/new'), 'GalleryUpload');
 const GalleryCases = lazyScreen(() => import('./screens/gallery/cases'), 'GalleryCases');
 const WebsitePage = lazyScreen(() => import('./screens/website/website'), 'WebsitePage');
+const ActivityLog = lazyScreen(() => import('./screens/activity/activity'), 'ActivityLog');
 const Profile = lazyScreen(() => import('./screens/profile'), 'Profile');
 const ClinicData = lazyScreen(() => import('./screens/clinic-data'), 'ClinicData');
 const ServiceFormPage = lazyScreen(() => import('./screens/services/form'), 'ServiceFormPage');
@@ -255,6 +256,10 @@ function Screen({ route, session }: { route: Route; session: Session }) {
       if (action === 'new') return <StaffInvite clinicId={clinicId} has={has} />;
       if (action === 'edit') return <StaffEdit clinicId={clinicId} id={id} has={has} />;
       return <StaffList clinicId={clinicId} session={session} />;
+    case 'activity':
+      // Phase 2D: the clinic's activity log, for whoever holds audit:read
+      if (!can(session, 'audit:read')) return <NotFound text="ليست لديك صلاحية لفتح هذه الصفحة" back={to.list('overview')} backLabel="نظرة عامة" />;
+      return <ActivityLog clinicId={clinicId} />;
     case 'roles':
       // H4: custom roles (built-in ones are viewed only); a manager who is not the owner gives only what they hold
       if (action === 'new') return <RoleForm clinicId={clinicId} has={has} copyFrom={route.query?.from} />;

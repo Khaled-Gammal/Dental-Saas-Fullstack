@@ -4,7 +4,7 @@
  */
 export type Page = 'overview' | 'profile' | 'branches' | 'appointments' | 'patients' | 'doctors' | 'services' | 'gallery' | 'staff' | 'holidays' | 'booking'
   | 'visits' | 'plans' | 'prescriptions' | 'followups' | 'invoices' | 'payments' | 'discounts' | 'expenses' | 'cash' | 'reports' | 'roles' | 'data'
-  | 'website';
+  | 'website' | 'activity';
 export type Action = 'new' | 'import' | 'edit' | 'hours' | 'schedule' | 'view' | 'timeoff' | 'rooms' | 'print' | 'merge';
 /** Actions of the page itself, with no record id: `#/patients/new`, `#/patients/import` (Phase 2A). */
 type PageAction = 'new' | 'import';
@@ -28,6 +28,7 @@ const ACTIONS: Record<Page, readonly Action[]> = {
   patients: ['new', 'import', 'edit', 'view', 'merge'], // merge = another record merged into this one; import = from Excel/CSV (Phase 2A)
   gallery: ['new', 'edit'],
   website: [], // Phase 2C-1: the site's sections and questions
+  activity: [], // Phase 2D: the clinic's activity log
   doctors: ['new', 'edit', 'schedule', 'timeoff'],
   services: ['new', 'edit'],
   staff: ['new', 'edit'], // `new` = invite someone; `edit` = a member's role, branches and status

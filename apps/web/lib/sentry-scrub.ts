@@ -6,12 +6,14 @@
 
 const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu;
 const TOKEN = /\beyJ[\w-]{5,}\.[\w-]{5,}\.[\w-]+/g;
+// Phase 2E: the patient's own booking link carries its key in the path (/appointment/<token>)
+const MANAGE_PATH = /(\/appointment\/)[A-Za-z0-9_-]{20,}/g;
 // phone and id numbers: 7+ digits, possibly split by single spaces or dashes; not glued to letters or digits (UUIDs)
 const NUMBER_RUN = /(?<![\p{L}\p{N}_-])\+?[0-9٠-٩](?:[ -]?[0-9٠-٩]){6,}(?![\p{L}\p{N}_])/gu;
 const DATE_LIKE = /^\d{4}-\d{2}-\d{2}/;
 
 export function redact(text: string): string {
-  return text.replace(EMAIL, '[email]').replace(TOKEN, '[token]').replace(NUMBER_RUN, (m) => (DATE_LIKE.test(m) ? m : '[number]'));
+  return text.replace(MANAGE_PATH, '$1[token]').replace(EMAIL, '[email]').replace(TOKEN, '[token]').replace(NUMBER_RUN, (m) => (DATE_LIKE.test(m) ? m : '[number]'));
 }
 
 const stripQuery = (url: string): string => redact(url.split(/[?#]/)[0]);

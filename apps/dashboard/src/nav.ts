@@ -6,7 +6,7 @@
 import type { Page } from './router';
 
 export type NavIcon = 'home' | 'calendar' | 'users' | 'clipboard' | 'phone' | 'clinic' | 'team' | 'pin' | 'stethoscope' | 'list' | 'edit' | 'receipt' | 'tag' | 'cash'
-  | 'wallet' | 'chart' | 'image' | 'globe' | 'shield' | 'database';
+  | 'wallet' | 'chart' | 'image' | 'globe' | 'shield' | 'database' | 'history';
 /** A page link, or an item shown as "soon" to who holds `perm` (the website editor). */
 export interface NavItem { label: string; icon: NavIcon; page?: Page; perm?: string }
 /** `id` names the group in code (its remembered open state, the active group); `label` is what the menu shows. */
@@ -54,6 +54,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'فريق العمل', icon: 'team', page: 'staff' },
       { label: 'الأدوار والصلاحيات', icon: 'shield', page: 'roles' },
+      { label: 'سجل العمليات', icon: 'history', page: 'activity' }, // Phase 2D
     ],
   },
 ];

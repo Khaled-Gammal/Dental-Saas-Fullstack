@@ -1,4 +1,5 @@
 import { sql, type Db } from '@dental/db';
+import { fillManageLink, manageLinkSecret, manageUrl, MANAGE_LINK_SLOT } from '../shared/manage-link';
 import type { EmailSender } from '../shared/notifications/ports';
 
 const BATCH = 20;
@@ -25,7 +26,8 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
   if (Number(stuck.numUpdatedRows) > 0) log({ level: 'error', notifications_failed_stuck: Number(stuck.numUpdatedRows) });
 
   const claimed = await db.transaction().execute(async (tx) => {
-    const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; related_type: string | null; appointment_status: string | null; payment_status: string | null; tenant_status: string | null; dedupe_key: string | null; period_end: Date | null }>`
+    const { rows } = await sql<{ id: string; channel: string; recipient: string; subject: string | null; body: string; attempts: number; event: string; related_id: string | null; related_type: string | null; appointment_status: string | null; payment_status: string | null; tenant_status: string | null; dedupe_key: string | null; period_end: Date | null;
+      has_manage: boolean | null; site_host: string | null }>`
       with due as (
         select id from notifications
         where status = 'queued' and scheduled_at <= now() and attempts < ${MAX_ATTEMPTS}
@@ -37,7 +39,12 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
         (select s.current_period_end from subscriptions s where s.id = n.related_id and n.related_type = 'subscription') as period_end,
         (select a.status from appointments a where a.id = n.related_id) as appointment_status,
         (select p.status from payments p where p.id = n.related_id) as payment_status,
-        (select t.status from tenants t where t.id = n.tenant_id) as tenant_status`.execute(tx);
+        (select t.status from tenants t where t.id = n.tenant_id) as tenant_status,
+        -- Phase 2E: what the patient's own link needs (filled in below, never stored)
+        (select a.manage_token_hash is not null from appointments a where a.id = n.related_id and n.related_type = 'appointment') as has_manage,
+        case when position(${MANAGE_LINK_SLOT} in n.body) > 0 then
+          (select d.hostname::text from domains d where d.tenant_id = n.tenant_id and d.status in ('verified', 'active') order by d.is_primary desc, d.created_at limit 1)
+        end as site_host`.execute(tx);
     return rows;
   });
 
@@ -60,8 +67,11 @@ export async function sendDueNotifications(db: Db, email: EmailSender, log: (o: 
       && (!['active', 'past_due'].includes(n.tenant_status ?? '') || !n.period_end || !(n.dedupe_key ?? '').includes(`:${new Date(n.period_end).toISOString()}:`))) {
       await cancel('subscription renewed or clinic not running'); continue;
     }
+    // Phase 2E: the patient's own link goes in now (the queued body holds a placeholder), for a booking still ahead
+    const link = n.related_type === 'appointment' && n.has_manage && n.related_id && ['pending', 'confirmed'].includes(n.appointment_status ?? '')
+      ? manageUrl(manageLinkSecret(), n.site_host, n.related_id) : null;
     try {
-      await email.send(n.recipient, n.subject ?? '', n.body);
+      await email.send(n.recipient, n.subject ?? '', fillManageLink(n.body, link));
     } catch (err) {
       const failed = n.attempts >= MAX_ATTEMPTS;
       await db.updateTable('notifications').set({

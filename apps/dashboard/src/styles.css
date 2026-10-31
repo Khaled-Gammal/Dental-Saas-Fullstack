@@ -1003,3 +1003,22 @@ button.cal-col-head:hover { background: var(--primary-50); }
 .seo-preview-url { color: #1f6f43; font-size: var(--fs-xs); text-align: start; overflow-wrap: anywhere; }
 .seo-preview-title { color: #1a0dab; font-size: 1.1rem; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
 .seo-preview-desc { color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: anywhere; }
+
+/* Phase 2D: the activity log */
+.actlog { display: grid; gap: 18px; max-width: 960px; }
+.actlog-day-title { margin: 0 0 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.actlog-card { padding: 4px 16px; }
+.actlog-list { list-style: none; margin: 0; padding: 0; }
+.actlog-row { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.actlog-row:last-child { border-bottom: 0; }
+.actlog-row.is-view .actlog-main p { color: var(--muted); }
+.actlog-time { flex: 0 0 72px; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.actlog-main { min-width: 0; flex: 1; display: grid; gap: 4px; justify-items: start; }
+.actlog-main p { margin: 0; overflow-wrap: anywhere; }
+.actlog-changes { margin: 4px 0 0; display: grid; gap: 4px; width: 100%; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); font-size: var(--fs-sm); }
+.actlog-changes > div { display: grid; grid-template-columns: minmax(110px, 160px) 1fr; gap: 8px; }
+.actlog-changes dt { color: var(--muted); }
+.actlog-changes dd { margin: 0; overflow-wrap: anywhere; }
+.actlog-value { white-space: pre-line; }
+@media (max-width: 560px) { .actlog-time { flex-basis: 56px; } .actlog-changes > div { grid-template-columns: 1fr; gap: 0; } }
+.actlog.is-stale { opacity: .55; transition: opacity .15s; }

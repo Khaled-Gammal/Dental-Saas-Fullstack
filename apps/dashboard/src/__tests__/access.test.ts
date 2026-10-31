@@ -25,6 +25,7 @@ describe('page access (H4)', () => {
   it('built-in roles see what their API allows: no gallery for staff, no invoice list for a doctor', () => {
     expect(canSee(reception, 'gallery')).toBe(false);
     expect(canSee(reception, 'website')).toBe(false);
+    expect(canSee(reception, 'activity')).toBe(false);
     expect(canSee(doctor, 'invoices')).toBe(false);
     expect(open(doctor, '#/invoices/abc/view')).toBe(true); // invoices:read:own opens one invoice
     expect(canSee(reception, 'cash')).toBe(true);

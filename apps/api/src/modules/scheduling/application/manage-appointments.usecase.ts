@@ -1,7 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { APP_CONFIG, type AppConfig } from '../../../config';
 import { hasPermission } from '../../../auth/permissions';
 import { PatientDirectory } from '../../patients';
 import { Err } from '../../../shared/errors/app-error';
+import { manageToken, manageTokenHash } from '../../../shared/manage-link';
 import { maskEmail } from '../../../shared/mask';
 import { emailWhen } from '../../../shared/notifications/arabic-mail';
 import { EMAIL_SENDER, type EmailSender } from '../../../shared/notifications/ports';
@@ -42,6 +45,7 @@ export class ManageAppointments {
     @Inject(BOOKING_CODES) private readonly codes: BookingCodes,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(EMAIL_SENDER) private readonly email: EmailSender,
+    @Inject(APP_CONFIG) private readonly cfg: AppConfig,
     private readonly availability: GetAvailability,
     private readonly patients: PatientDirectory,
   ) {}
@@ -214,7 +218,10 @@ export class ManageAppointments {
         if (!has(actor, 'appointments:override')) throw Err.forbidden('missing_permission', 'Booking outside the schedule needs appointments:override');
       }
       await this.repo.releaseExpiredHolds(tx, input.doctorId);
+      // Phase 2E: the patient gets their own link to cancel or move it too (in the emails, when they have an address)
+      const newId = randomUUID();
       const { id } = await this.repo.insertStaffAppointment(tx, {
+        id: newId, manageTokenHash: manageTokenHash(manageToken(this.cfg.BOOKING_CODE_SECRET, newId)),
         tenantId, branchId: input.branchId, doctorId: input.doctorId, serviceId: input.serviceId ?? null, patientId: input.patientId,
         startsAt: input.startsAt, endsAt: new Date(input.startsAt.getTime() + day.durationMinutes * 60_000), source: input.source, bookedBy: actor.memberId,
         status: 'confirmed', quotedPriceMinor: day.service?.price_minor ?? null, internalNotes: input.notes ?? null, overrideReason: onGrid ? null : input.overrideReason ?? null,

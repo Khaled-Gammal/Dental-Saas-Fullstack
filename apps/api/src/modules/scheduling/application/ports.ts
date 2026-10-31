@@ -60,9 +60,13 @@ export interface HoldRow {
 
 export interface FinalizeInput {
   patientId: string; status: 'pending' | 'confirmed'; patientNotes: string | null; codeHash: string; codeExpiresAt: Date;
+  /** Phase 2E: the hash of the patient's own link (shared/manage-link) */
+  manageTokenHash: string;
 }
 
 export interface StaffAppointmentInput {
+  /** chosen here (not by the database) so the patient's link, derived from it, is stored with the row */
+  id: string; manageTokenHash: string;
   tenantId: string; branchId: string; doctorId: string; serviceId: string | null; patientId: string; startsAt: Date; endsAt: Date;
   source: 'dashboard' | 'phone' | 'walk_in' | 'whatsapp'; bookedBy: string; status: 'confirmed'; quotedPriceMinor: number | null;
   internalNotes: string | null; overrideReason: string | null;
@@ -73,6 +77,8 @@ export interface AppointmentView {
   id: string; status: AppointmentStatus; source: string; starts_at: Date; ends_at: Date; branch_id: string; doctor_id: string;
   service_id: string | null; room_id: string | null; payment_mode: string; quoted_price_minor: number | null;
   patient_notes: string | null; internal_notes: string | null; cancel_reason: string | null;
+  /** Phase 2E: who cancelled (the patient from their link, the clinic, or the system), and the patient's own moves */
+  cancelled_by: 'patient' | 'clinic' | 'system' | null; patient_reschedules: number;
   confirmed_at: Date | null; checked_in_at: Date | null; completed_at: Date | null; cancelled_at: Date | null; created_at: Date;
   patient: { id: string; full_name: string; phone: string; file_no: number } | null;
   doctor: { name_ar: string | null; name_en: string | null };
@@ -87,7 +93,21 @@ export interface AppointmentView {
 export interface TransitionRow { id: string; status: AppointmentStatus; doctor_id: string; doctor_member_id: string | null; has_code: boolean }
 
 export interface StatusPatch {
-  status: AppointmentStatus; confirmedAt?: Date; completedAt?: Date; cancelledAt?: Date; cancelReason?: string | null; cancelledBy?: 'clinic';
+  status: AppointmentStatus; confirmedAt?: Date; completedAt?: Date; cancelledAt?: Date; cancelReason?: string | null; cancelledBy?: 'clinic' | 'patient';
+}
+
+/** Phase 2E: the booking behind a patient's link, read under a row lock, with what its page shows. */
+export interface SelfServiceRow {
+  id: string; status: AppointmentStatus; source: string; starts_at: Date; ends_at: Date; branch_id: string; doctor_id: string; service_id: string | null;
+  patient_reschedules: number; has_code: boolean; patient_email: string | null; patient_name: string | null;
+  doctor_ar: string | null; doctor_en: string | null; service_ar: string | null; service_en: string | null;
+  branch_ar: string | null; branch_en: string | null; branch_address: string | null; branch_tz: string | null; branch_phone: string | null;
+  clinic_ar: string | null; clinic_en: string | null; clinic_phone: string | null;
+}
+export interface SelfMovePatch {
+  startsAt: Date; endsAt: Date; status: 'pending' | 'confirmed';
+  /** a new reception code when the day changed (undefined = keep it) */
+  code?: { hash: string; expiresAt: Date };
 }
 
 export interface CheckInResult {
@@ -135,6 +155,15 @@ export interface SchedulingRepository {
   /** Ends a live hold now (the visitor went back or left); false when it was not a live hold. */
   releaseHold(tx: Session, id: string): Promise<boolean>;
   insertStaffAppointment(tx: Session, a: StaffAppointmentInput): Promise<{ id: string }>;
+  /**
+   * Phase 2E: the booking a patient's link points to (by the link's hash); undefined for an unknown link. Locked for a
+   * change; a plain read for the page and its free times (no lock held while availability is computed).
+   */
+  byManageToken(tx: Session, tokenHash: string, lock: boolean): Promise<SelfServiceRow | undefined>;
+  /** The clinic's rule for how close to the visit a patient may still cancel or move it (hours). */
+  cancelWindowHours(tx: Session): Promise<number>;
+  /** The patient moves their booking: new time (same doctor and branch), status, counted. */
+  selfMove(tx: Session, id: string, p: SelfMovePatch): Promise<void>;
   /** Consumes a booking code atomically (check_in_by_code); undefined when no open code matches at this branch today. */
   checkInByCode(tx: Session, codeHash: string, branchId: string, memberId: string, method: 'code' | 'qr'): Promise<CheckInResult | undefined>;
 }

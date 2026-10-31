@@ -51,3 +51,9 @@ export const StaffSlotsQuery = z.object({
 }).strict();
 export const CheckInBody = z.object({ code: OtpCode, branchId: Uuid, method: z.enum(['code', 'qr']).optional() }).strict();
 export const CancelBody = z.object({ reason: z.string().trim().max(200).optional() }).strict();
+
+/** Phase 2E: the patient's own link (the token is checked against its exact shape before any lookup). */
+const ManageToken = z.string().max(64);
+export const ManageBody = z.object({ host: Host, token: ManageToken }).strict();
+export const ManageSlotsBody = z.object({ host: Host, token: ManageToken, date: IsoDate }).strict();
+export const ManageMoveBody = z.object({ host: Host, token: ManageToken, startsAt: Instant }).strict();

@@ -156,6 +156,9 @@ export interface Appointment {
   patient_notes: string | null;
   internal_notes: string | null;
   cancel_reason: string | null;
+  /** Phase 2E: who cancelled (the patient from their own link, the clinic, or the system), and the patient's own moves */
+  cancelled_by?: 'patient' | 'clinic' | 'system' | null;
+  patient_reschedules?: number;
   confirmed_at: string | null;
   checked_in_at: string | null;
   completed_at: string | null;
@@ -233,6 +236,14 @@ export interface PatientDetail extends PatientRow {
 }
 
 export interface AuditEntry { id: number; action: string; changes: Record<string, unknown> | null; created_at: string; actor_name: string | null }
+
+/** Phase 2D: one row of the clinic's activity log. */
+export interface ActivityItem {
+  id: number; at: string; action: string; entityType: string; entityId: string | null; entityLabel: string | null; patientId: string | null;
+  actorType: 'member' | 'patient' | 'system' | 'platform_admin'; actorName: string | null; changes: Record<string, unknown> | null; ip: string | null;
+}
+export interface ActivityPage { from: string; to: string; items: ActivityItem[]; nextCursor: string | null }
+export interface ActivityActor { userId: string; name: string; active: boolean }
 
 export interface StaffSlots { date: string; timezone: string; durationMinutes: number; slots: string[] }
 
