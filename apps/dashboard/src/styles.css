@@ -390,7 +390,7 @@ fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-wid
 @media (max-width: 560px) { .service { flex-wrap: wrap; } .service-main { flex-basis: 100%; } }
 
 /* ---------- navigation: form pages, dialogs (breadcrumbs: shadcn/ui, ui/page.tsx) ---------- */
-.page-head h1:focus-visible { outline: 0; box-shadow: none; }
+:is(h1, h2, h3)[tabindex="-1"]:focus-visible { outline: 0; box-shadow: none; } /* a heading focused for screen readers (a new page, a new step) is not a control */
 .form-page { display: flex; flex-direction: column; gap: 16px; max-width: 880px; }
 .form-footer { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 0; margin-top: 4px;
   background: linear-gradient(180deg, transparent, var(--surface) 30%); }
@@ -677,6 +677,9 @@ a.btn, a.link-btn { text-decoration: none; }
   .rx-sheet, .rx-sheet * { visibility: visible; }
   .rx-sheet { position: absolute; inset: 0 auto auto 0; width: 100%; min-height: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
   .no-print { display: none !important; }
+  /* the sheet takes the whole page: visibility alone would keep the sidebar's and the floating bar's space (2026-11-04) */
+  [data-slot="sidebar"], .app-topbar, .skip { display: none !important; }
+  body { background: #fff; }
 }
 
 /* patient merge (Phase D5) */
@@ -730,7 +733,7 @@ ul.stack { list-style: none; padding: 0; margin-block: 0; }
 .print-only { display: none; }
 @media print {
   .print-only { display: flex; }
-  .report-sheet .card, .report-sheet .stat { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+  .report-sheet .card, .report-sheet .stat { border: 1px solid #ccc; border-radius: 10px; box-shadow: none; break-inside: avoid; }
   .report-sheet .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .report-sheet a { color: inherit; text-decoration: none; }
 }
@@ -1001,7 +1004,11 @@ button.cal-col-head:hover { background: var(--primary-50); }
 .cal-block.is-cancelled .cal-block-name, .cal-block.is-no_show .cal-block-name { text-decoration: line-through; }
 .appts-dialog { margin: 0; }
 .appts-dialog > .appt { box-shadow: none; }
-@media (max-width: 640px) { .cal-scroll { max-height: none; } .cal-layouts { width: 100%; } }
+@media (max-width: 640px) {
+  .cal-scroll { max-height: none; }
+  .cal-layouts { display: grid; grid-template-columns: 1fr 1fr; width: 100%; } /* four layouts: an even 2 × 2 instead of a wrapped row */
+  .cal-layouts > .seg-btn { justify-content: center; }
+}
 @media print { .cal-scroll { max-height: none; overflow: visible; } }
 
 /* ---------- Phase 1D (BIL-01, WEB-10): the plan card and the website badge, under the clinic profile ---------- */
