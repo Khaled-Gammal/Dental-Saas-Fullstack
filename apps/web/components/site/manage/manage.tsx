@@ -90,79 +90,79 @@ export function ManageAppointment({ token, initial, bookUrl }: { token: string; 
   const until = fmtLong(view.changeUntil, tz);
 
   return (
-    <div className="bk">
-      {error && <p ref={errorRef} tabIndex={-1} className="bk-error" role="alert">{error}</p>}
+    <div className="c-bk">
+      {error && <p ref={errorRef} tabIndex={-1} className="c-bk-error" role="alert">{error}</p>}
 
       {done && (
-        <section className="bk-card bk-done" aria-live="polite">
-          <span className="bk-check"><Icon name="check" size={28} /></span>
+        <section className="c-bk-card c-bk-done" aria-live="polite">
+          <span className="c-bk-check"><Icon name="check" size={28} /></span>
           <h2>{done === 'cancelled' ? 'تم إلغاء موعدك' : 'تم تغيير موعدك'}</h2>
-          <p className="bk-hint">
+          <p className="c-bk-hint">
             {done === 'cancelled' ? 'أرسلنا لك تأكيد الإلغاء على بريدك الإلكتروني، وأبلغنا العيادة.'
               : view.status === 'pending' ? 'أبلغنا العيادة، وستؤكد الموعد الجديد قريبًا. أرسلنا لك التفاصيل على بريدك الإلكتروني.'
                 : 'أرسلنا لك تفاصيل الموعد الجديد على بريدك الإلكتروني.'}
           </p>
-          {done === 'cancelled' && bookUrl && <a className="s-btn s-btn-ghost" href={bookUrl}>حجز موعد جديد</a>}
+          {done === 'cancelled' && bookUrl && <a className="c-btn c-btn-ghost" href={bookUrl}>حجز موعد جديد</a>}
         </section>
       )}
 
       {mode !== 'pick' && (
-        <section className="bk-card" aria-labelledby="mg-title">
+        <section className="c-bk-card" aria-labelledby="mg-title">
           <h2 id="mg-title">{view.patientFirstName ? <>مرحبًا <bdi>{view.patientFirstName}</bdi>،</> : 'تفاصيل الموعد'}</h2>
-          <dl className="bk-recap">
+          <dl className="c-bk-recap">
             <div><dt>الحالة</dt><dd>{STATUS_TEXT[view.status] ?? '—'}</dd></div>
             <div><dt>الموعد</dt><dd>{fmtLong(view.startsAt, tz)}</dd></div>
             {view.doctor && <div><dt>الطبيب</dt><dd><bdi>{view.doctor}</bdi></dd></div>}
             {view.service && <div><dt>الخدمة</dt><dd><bdi>{view.service}</bdi></dd></div>}
-            {view.branch.name && <div><dt>الفرع</dt><dd><bdi>{view.branch.name}</bdi>{view.branch.address && <span className="bk-optional"> — <bdi>{view.branch.address}</bdi></span>}</dd></div>}
+            {view.branch.name && <div><dt>الفرع</dt><dd><bdi>{view.branch.name}</bdi>{view.branch.address && <span className="c-bk-optional"> — <bdi>{view.branch.address}</bdi></span>}</dd></div>}
           </dl>
 
           {mode === 'confirmCancel' ? (
-            <div className="bk-form" role="group" aria-labelledby="mg-cancel-q">
+            <div className="c-bk-form" role="group" aria-labelledby="mg-cancel-q">
               <p id="mg-cancel-q"><strong>هل تريد إلغاء هذا الموعد؟</strong> سيصبح الوقت متاحًا لمريض آخر.</p>
-              <div className="bk-actions">
-                <button type="button" className="s-btn s-btn-ghost" disabled={busy} onClick={() => setMode('view')}>رجوع</button>
-                <button type="button" className="s-btn" disabled={busy} onClick={() => void cancel()}>{busy ? 'لحظة…' : 'نعم، ألغِ الموعد'}</button>
+              <div className="c-bk-actions">
+                <button type="button" className="c-btn c-btn-ghost" disabled={busy} onClick={() => setMode('view')}>رجوع</button>
+                <button type="button" className="c-btn" disabled={busy} onClick={() => void cancel()}>{busy ? 'لحظة…' : 'نعم، ألغِ الموعد'}</button>
               </div>
             </div>
           ) : mode === 'confirmMove' && chosen ? (
-            <div className="bk-form" role="group" aria-labelledby="mg-move-q">
+            <div className="c-bk-form" role="group" aria-labelledby="mg-move-q">
               <p id="mg-move-q"><strong>تغيير الموعد إلى {fmtLong(chosen, tz)}؟</strong>{view.status === 'confirmed' && ' قد تحتاج العيادة إلى تأكيد الموعد الجديد.'}</p>
-              <div className="bk-actions">
-                <button type="button" className="s-btn s-btn-ghost" disabled={busy} onClick={() => setMode('pick')}>اختيار وقت آخر</button>
-                <button type="button" className="s-btn" disabled={busy} onClick={() => void move()}>{busy ? 'لحظة…' : 'تأكيد الموعد الجديد'}</button>
+              <div className="c-bk-actions">
+                <button type="button" className="c-btn c-btn-ghost" disabled={busy} onClick={() => setMode('pick')}>اختيار وقت آخر</button>
+                <button type="button" className="c-btn" disabled={busy} onClick={() => void move()}>{busy ? 'لحظة…' : 'تأكيد الموعد الجديد'}</button>
               </div>
             </div>
           ) : active && (view.cancel.allowed || view.reschedule.allowed) ? (
             <>
-              <p className="bk-hint">يمكنك الإلغاء أو التغيير حتى {until}.{view.reschedule.allowed && view.reschedule.left === 1 && ' يمكنك تغيير الموعد مرة واحدة أخرى من هنا.'}</p>
-              {moveWhy && <p className="bk-hint">{moveWhy}</p>}
-              <div className="bk-actions">
-                {view.cancel.allowed && <button type="button" className="s-btn s-btn-ghost" onClick={() => { setError(null); setMode('confirmCancel'); }}>إلغاء الموعد</button>}
-                {view.reschedule.allowed && <button type="button" className="s-btn" onClick={() => { setError(null); setChosen(null); setMode('pick'); }}><Icon name="calendar" size={16} />تغيير الموعد</button>}
+              <p className="c-bk-hint">يمكنك الإلغاء أو التغيير حتى {until}.{view.reschedule.allowed && view.reschedule.left === 1 && ' يمكنك تغيير الموعد مرة واحدة أخرى من هنا.'}</p>
+              {moveWhy && <p className="c-bk-hint">{moveWhy}</p>}
+              <div className="c-bk-actions">
+                {view.cancel.allowed && <button type="button" className="c-btn c-btn-ghost" onClick={() => { setError(null); setMode('confirmCancel'); }}>إلغاء الموعد</button>}
+                {view.reschedule.allowed && <button type="button" className="c-btn" onClick={() => { setError(null); setChosen(null); setMode('pick'); }}><Icon name="calendar" size={16} />تغيير الموعد</button>}
               </div>
             </>
           ) : (
-            cancelWhy && <p className="bk-hint">{cancelWhy}</p>
+            cancelWhy && <p className="c-bk-hint">{cancelWhy}</p>
           )}
           {(!view.cancel.allowed || !view.reschedule.allowed) && active && tel && (
-            <div className="bk-actions"><a className="s-btn s-btn-ghost" href={tel}><Phone />اتصل بالعيادة</a></div>
+            <div className="c-bk-actions"><a className="c-btn c-btn-ghost" href={tel}><Phone />اتصل بالعيادة</a></div>
           )}
         </section>
       )}
 
       {mode === 'pick' && (
-        <section className="bk-card" aria-labelledby="mg-pick">
+        <section className="c-bk-card" aria-labelledby="mg-pick">
           <h2 id="mg-pick">اختر الموعد الجديد</h2>
-          <p className="bk-summary">الموعد الحالي: {fmtLong(view.startsAt, tz)}{view.doctor && <> · <bdi>{view.doctor}</bdi></>} <button type="button" className="bk-link" onClick={() => setMode('view')}>رجوع</button></p>
-          <div className="bk-dates" role="radiogroup" aria-label="اليوم">
-            {dates.map((d) => { const l = dayLabel(d); return <button key={d} type="button" role="radio" aria-checked={date === d} className="bk-date" onClick={() => setDate(d)}><span>{l.weekday}</span><strong>{l.day}</strong><span>{l.month}</span></button>; })}
+          <p className="c-bk-summary">الموعد الحالي: {fmtLong(view.startsAt, tz)}{view.doctor && <> · <bdi>{view.doctor}</bdi></>} <button type="button" className="c-bk-link" onClick={() => setMode('view')}>رجوع</button></p>
+          <div className="c-bk-dates" role="radiogroup" aria-label="اليوم">
+            {dates.map((d) => { const l = dayLabel(d); return <button key={d} type="button" role="radio" aria-checked={date === d} className="c-bk-date" onClick={() => setDate(d)}><span>{l.weekday}</span><strong>{l.day}</strong><span>{l.month}</span></button>; })}
           </div>
-          <div className="bk-slots" aria-live="polite" aria-busy={loading}>
-            {loading ? <p className="bk-hint">جارٍ تحميل المواعيد…</p>
-              : !slots || slots.slots.length === 0 ? <p className="bk-hint">لا توجد مواعيد متاحة في هذا اليوم، جرّب يومًا آخر.</p>
+          <div className="c-bk-slots" aria-live="polite" aria-busy={loading}>
+            {loading ? <p className="c-bk-hint">جارٍ تحميل المواعيد…</p>
+              : !slots || slots.slots.length === 0 ? <p className="c-bk-hint">لا توجد مواعيد متاحة في هذا اليوم، جرّب يومًا آخر.</p>
                 : slots.slots.map((s) => (
-                  <button key={s.startsAt} type="button" className="bk-slot" disabled={busy || s.startsAt === view.startsAt}
+                  <button key={s.startsAt} type="button" className="c-bk-slot" disabled={busy || s.startsAt === view.startsAt}
                     onClick={() => { setChosen(s.startsAt); setMode('confirmMove'); }}><bdi dir="ltr">{fmtTime(s.startsAt, tz)}</bdi></button>
                 ))}
           </div>

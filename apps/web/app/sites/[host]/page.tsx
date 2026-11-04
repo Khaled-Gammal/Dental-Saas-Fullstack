@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
-import type { CSSProperties } from 'react';
-import { onColor, readableOnWhite } from '@dental/ui/text';
+import { ServicesBand } from '../../../components/site/band';
 import { BranchesSection } from '../../../components/site/branches';
 import { contactFor } from '../../../components/site/contact';
 import { AppointmentCTA, MobileBookingBar } from '../../../components/site/cta';
@@ -11,13 +10,15 @@ import { GallerySection } from '../../../components/site/gallery';
 import { ClinicFooter } from '../../../components/site/footer';
 import { ClinicHeader } from '../../../components/site/header';
 import { HeroSection } from '../../../components/site/hero';
-import type { NavLink } from '../../../components/site/mobile-nav';
+import { LiveStatus } from '../../../components/site/live-status';
+import type { NavLink } from '../../../components/site/menu';
 import { ServicesSection } from '../../../components/site/services';
 import { TrustIndicators } from '../../../components/site/trust';
 import { hhmm } from '../../../lib/hours';
 import { faqStructuredData, visibleSections, type SectionKey } from '../../../lib/sections';
 import { homeDescription, homeTitle, jsonLd, shareImagePath } from '../../../lib/seo';
-import { ar, DEFAULT_TZ, getSite, originOf, safeColor, type SiteData } from '../../../lib/site';
+import { ar, DEFAULT_TZ, getSite, originOf, safeColor, specialtyLabel, type SiteData } from '../../../lib/site';
+import { brandStyle } from '../../../lib/theme';
 
 type Props = { params: Promise<{ host: string }> };
 
@@ -47,12 +48,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export async function generateViewport({ params }: Props): Promise<Viewport> {
   const site = await getSite(await hostOf(params));
   return { themeColor: safeColor(site?.theme.primary), width: 'device-width', initialScale: 1 };
-}
-
-/** Brand colour plus the two derived colours that keep text readable on any colour the clinic picks. */
-function brandStyle(primary?: string): CSSProperties {
-  const brand = safeColor(primary);
-  return { '--brand': brand, '--on-brand': onColor(brand), '--brand-text': readableOnWhite(brand) } as CSSProperties;
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -86,7 +81,7 @@ export default async function ClinicSite({ params }: Props) {
   const contact = contactFor(clinic, name, site.onlineBooking);
   const faqs = faqItems(site.faqs);
   // Phase 2C-1: the sections the clinic shows, in its order, each only when it has something to show; the tinted
-  // background alternates down the page whatever the order
+  // panel alternates down the page whatever the order
   const has: Record<SectionKey, boolean> = {
     services: services.length > 0, doctors: doctors.length > 0, gallery: photos.length > 0 || cases.length > 0, faq: faqs.length > 0, branches: branches.length > 0,
   };
@@ -94,29 +89,38 @@ export default async function ClinicSite({ params }: Props) {
   const LABEL: Record<SectionKey, string> = { services: 'الخدمات', doctors: 'الأطباء', gallery: 'المعرض', faq: 'الأسئلة الشائعة', branches: 'الفروع والمواعيد' };
   const links: NavLink[] = shown.map((k) => ({ href: `#${k}`, label: LABEL[k] }));
   const section = (k: SectionKey, i: number) => {
-    const tint = i % 2 === 1;
+    const tint = i % 2 === 0;
     switch (k) {
       case 'services': return <ServicesSection key={k} services={services} contact={contact} clinicName={name} currency={site.clinic.currency} tint={tint} />;
       case 'doctors': return <DoctorsSection key={k} doctors={doctors} contact={contact} clinicName={name} tint={tint} />;
       case 'gallery': return <GallerySection key={k} photos={photos} cases={cases} clinicName={name} tint={tint} />;
-      case 'faq': return <FaqSection key={k} faqs={site.faqs} tint={tint} />;
+      case 'faq': return <FaqSection key={k} faqs={site.faqs} contact={contact} tint={tint} />;
       case 'branches': return <BranchesSection key={k} branches={branches} holidays={holidays} clinicTz={clinic.timezone ?? DEFAULT_TZ} contact={contact} clinicName={name} tint={tint} />;
     }
   };
+  // the moving band names the services when the page lists them, else the clinic's specialties
+  const bandNames = shown.includes('services')
+    ? services.map((s) => ar(s.name_ar, s.name_en)).filter((n): n is string => !!n)
+    : clinic.specialties.map(specialtyLabel);
+  const main = branches[0];
+  const mainStatus = main && main.hours.length > 0
+    ? <LiveStatus hours={main.hours} holidays={holidays} branchId={main.id} tz={main.timezone ?? clinic.timezone ?? DEFAULT_TZ} renderedAt={Date.now()} />
+    : undefined;
   const ld = jsonLd(structuredData(site, name, originOf(host)));
   // a question about one service is marked up on that service's page, not twice (Phase 2C-3)
   const generalFaqs = faqItems(site.faqs.filter((f) => !f.service_id || !shown.includes('services')));
   const faqLd = shown.includes('faq') && generalFaqs.length ? jsonLd(faqStructuredData(generalFaqs)) : null;
 
   return (
-    <div className="site" id="top" style={brandStyle(site.theme.primary)}>
-      <a className="s-skip" href="#main">تخطَّ إلى المحتوى</a>
+    <div className="c-site" id="top" style={brandStyle(site.theme.primary)}>
+      <a className="c-skip" href="#main">تخطَّ إلى المحتوى</a>
       <ClinicHeader name={name} logo={clinic.logo} links={links} contact={contact} />
       <main id="main">
-        <HeroSection site={site} name={name} about={about} contact={contact} servicesShown={shown.includes('services')} />
+        <HeroSection site={site} name={name} about={about} contact={contact} show={{ services: shown.includes('services'), doctors: shown.includes('doctors') }} />
         <TrustIndicators site={site} contact={contact} />
+        <ServicesBand names={bandNames} />
         {shown.map(section)}
-        <AppointmentCTA contact={contact} />
+        <AppointmentCTA contact={contact} status={mainStatus} />
       </main>
       <ClinicFooter site={site} name={name} about={about} links={links} contact={contact} />
       <MobileBookingBar contact={contact} />

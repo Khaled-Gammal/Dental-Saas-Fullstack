@@ -23,27 +23,24 @@ function useNow(renderedAt: number): Date {
 
 interface StatusProps { hours: HourSlot[]; holidays: Holiday[]; branchId: string; tz: string; renderedAt: number }
 
-/** A branch card's pill. */
-export function BranchStatus({ hours, holidays, branchId, tz, renderedAt }: StatusProps) {
+/**
+ * A branch's status as a pill: a dot, "open now" or "closed now", and when it closes or opens next. `fallback` is
+ * shown instead when the branch publishes no hours (nothing true to say).
+ */
+export function LiveStatus({ hours, holidays, branchId, tz, renderedAt, className = '', fallback = null }: StatusProps & { className?: string; fallback?: ReactNode }) {
   const now = useNow(renderedAt);
   const s = openStatus(hours, holidays, branchId, tz, now);
-  if (s.kind === 'unknown') return null;
-  if (s.kind === 'open') return <span className="s-status is-open"><span className="s-dot" />مفتوح الآن · يغلق <bdi>{clock12(s.closesAt)}</bdi></span>;
+  if (s.kind === 'unknown') return <>{fallback}</>;
+  const cls = `c-live ${className}`.trim();
+  if (s.kind === 'open') {
+    return <span className={`${cls} is-open`}><span className="c-live-dot" aria-hidden /><strong>مفتوح الآن</strong><span>· يغلق <bdi>{clock12(s.closesAt)}</bdi></span></span>;
+  }
   const today = localNow(tz, now).weekday;
   const when = s.opensWeekday === today ? 'اليوم' : s.opensWeekday === (today + 1) % 7 ? 'غدًا' : s.opensWeekday != null ? DAYS_AR[s.opensWeekday] : null;
   return (
-    <span className="s-status is-closed"><span className="s-dot" />
-      {s.holiday ? <>مغلق اليوم ({s.holiday})</> : 'مغلق الآن'}
-      {when && s.opensAt && <> · يفتح {when} <bdi>{clock12(s.opensAt)}</bdi></>}
+    <span className={`${cls} is-closed`}><span className="c-live-dot" aria-hidden />
+      <strong>{s.holiday ? <>مغلق اليوم ({s.holiday})</> : 'مغلق الآن'}</strong>
+      {when && s.opensAt && <span>· يفتح {when} <bdi>{clock12(s.opensAt)}</bdi></span>}
     </span>
   );
-}
-
-/** The hero's floating chip for the main branch; nothing when there is nothing true to say. */
-export function HeroStatus({ icon, hours, holidays, branchId, tz, renderedAt }: StatusProps & { icon: ReactNode }) {
-  const now = useNow(renderedAt);
-  const s = openStatus(hours, holidays, branchId, tz, now);
-  const text = s.kind === 'open' ? `مفتوح الآن حتى ${clock12(s.closesAt)}`
-    : s.kind === 'closed' && s.opensAt ? `يفتح ${DAYS_AR[s.opensWeekday!]} ${clock12(s.opensAt)}` : null;
-  return text ? <span className="s-float s-float-a">{icon}{text}</span> : null;
 }

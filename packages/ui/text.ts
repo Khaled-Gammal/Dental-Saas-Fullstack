@@ -61,14 +61,15 @@ const luminance = ([r, g, b]: number[]) => {
 const contrast = (a: number[], b: number[]) => { const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
 
 /**
- * The brand colour, darkened toward `ink` just enough to read as text on white (>= 4.5:1).
- * Lets a clinic pick a light brand colour (yellow, mint) without making prices and links unreadable.
+ * The brand colour, darkened toward `ink` just enough to read as text on white (>= `min`, 4.5:1 by default).
+ * Lets a clinic pick a light brand colour (yellow, mint) without making prices and links unreadable. A higher `min`
+ * keeps the text readable on light tints of the brand too, not only on white.
  */
-export function readableOnWhite(hex: string, ink = '#14213d'): string {
+export function readableOnWhite(hex: string, ink = '#14213d', min = 4.5): string {
   const c = hexToRgb(hex), k = hexToRgb(ink), white = [255, 255, 255];
   for (let t = 0; t <= 1.0001; t += 0.05) {
     const mix = c.map((v, i) => Math.round(v + (k[i] - v) * t));
-    if (contrast(mix, white) >= 4.5) return `#${mix.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+    if (contrast(mix, white) >= min) return `#${mix.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
   }
   return ink;
 }

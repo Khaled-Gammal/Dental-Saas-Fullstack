@@ -1,21 +1,22 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import type { CSSProperties } from 'react';
-import { onColor, readableOnWhite } from '@dental/ui/text';
-import { Chat, Clock, Icon, Phone } from '../../../../../components/icons';
-import { bookingLink, contactFor } from '../../../../../components/site/contact';
+import { Chat, Clock, Icon } from '../../../../../components/icons';
+import { contactFor } from '../../../../../components/site/contact';
 import { AppointmentCTA, MobileBookingBar } from '../../../../../components/site/cta';
-import { Section } from '../../../../../components/site/decor';
-import { DoctorCard } from '../../../../../components/site/doctors';
+import { ArchVisual, Section } from '../../../../../components/site/decor';
+import { DoctorsSection } from '../../../../../components/site/doctors';
 import { FaqSection, faqItems } from '../../../../../components/site/faq';
 import { ClinicFooter } from '../../../../../components/site/footer';
 import { GallerySection } from '../../../../../components/site/gallery';
 import { ClinicHeader } from '../../../../../components/site/header';
-import type { NavLink } from '../../../../../components/site/mobile-nav';
+import type { NavLink } from '../../../../../components/site/menu';
+import { ServiceCard, serviceBooking, serviceIcon, viaIcon } from '../../../../../components/site/services';
+import { bentoCells } from '../../../../../lib/display';
 import { imageProps } from '../../../../../lib/media';
 import { faqStructuredData, visibleSections } from '../../../../../lib/sections';
 import { breadcrumbData, clinicName, jsonLd, serviceDescription, serviceStructuredData, serviceTitle, shareImagePath } from '../../../../../lib/seo';
-import { ar, arNoun, getSite, NOUNS, originOf, priceText, safeColor, type SiteData } from '../../../../../lib/site';
+import { ar, arNoun, getSite, NOUNS, originOf, priceText } from '../../../../../lib/site';
+import { brandStyle } from '../../../../../lib/theme';
 
 type Props = { params: Promise<{ host: string; id: string }> };
 
@@ -32,11 +33,6 @@ async function load(params: Props['params']) {
   const shown = site ? visibleSections(site.sections) : [];
   const service = shown.includes('services') ? site?.services.find((s) => s.id === id) : undefined;
   return site && service ? { host, site, service, shown } : null;
-}
-
-function brandStyle(site: SiteData): CSSProperties {
-  const brand = safeColor(site.theme.primary);
-  return { '--brand': brand, '--on-brand': onColor(brand), '--brand-text': readableOnWhite(brand) } as CSSProperties;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -72,10 +68,8 @@ export default async function ServicePage({ params }: Props) {
   const desc = ar(service.description_ar, service.description_en);
   const about = ar(site.clinic.about_ar, site.clinic.about_en);
   const contact = contactFor(site.clinic, name, site.onlineBooking);
-  const link = bookingLink(contact, `مرحبًا، أود حجز موعد لـ${title} في ${name}.`);
   // the wizard with this service chosen when it offers it; otherwise WhatsApp or a call
-  const book = service.bookable_online === false ? bookingLink({ ...contact, bookUrl: null }, `مرحبًا، أود حجز موعد لـ${title} في ${name}.`)
-    : link?.via === 'online' ? { ...link, href: `${link.href}?service=${service.id}` } : link;
+  const book = serviceBooking(service, contact, name);
   // only what the clinic shows on its site (its sections)
   const doctors = shown.includes('doctors') ? site.doctors.filter((d) => service.doctor_ids?.includes(d.id)) : [];
   const cases = shown.includes('gallery') ? site.cases.filter((c) => c.service_id === service.id) : [];
@@ -84,61 +78,65 @@ export default async function ServicePage({ params }: Props) {
   const links: NavLink[] = [{ href: '/', label: 'الرئيسية' }, { href: '/#services', label: 'كل الخدمات' }];
   const crumbs = [{ name, url: `${origin}/` }, { name: title, url: `${origin}/services/${service.id}` }];
   const faqList = faqItems(faqs);
-  // the tinted background alternates over the sections this page has
-  const parts = [doctors.length > 0 && 'doctors', cases.length > 0 && 'cases', faqList.length > 0 && 'faq'].filter(Boolean);
+  // the tinted panel alternates over the sections this page has
+  const parts = [doctors.length > 0 && 'doctors', cases.length > 0 && 'cases', faqList.length > 0 && 'faq', others.length > 0 && 'others'].filter(Boolean);
   const tint = (k: string) => parts.indexOf(k) % 2 === 0;
+  const secondary = contact.whatsapp && book?.via !== 'whatsapp' ? contact.whatsapp : null;
+  const cells = bentoCells(others.length);
 
   return (
-    <div className="site" id="top" style={brandStyle(site)}>
-      <a className="s-skip" href="#main">تخطَّ إلى المحتوى</a>
-      <ClinicHeader name={name} logo={site.clinic.logo} links={links} contact={contact} />
+    <div className="c-site" id="top" style={brandStyle(site.theme.primary)}>
+      <a className="c-skip" href="#main">تخطَّ إلى المحتوى</a>
+      <ClinicHeader name={name} logo={site.clinic.logo} links={links} contact={contact} home="/" />
       <main id="main">
-        <section className="s-section s-svc-page" aria-labelledby="svc-t">
-          <div className="s-wrap">
-            <nav className="s-crumbs" aria-label="مسار الصفحة">
-              <a href="/">الرئيسية</a><span aria-hidden>›</span><a href="/#services">الخدمات</a><span aria-hidden>›</span><span aria-current="page"><bdi>{title}</bdi></span>
+        <section className="c-hero c-svc-hero" aria-labelledby="svc-t">
+          <div className="c-wrap">
+            <nav className="c-crumbs" aria-label="مسار الصفحة">
+              <a href="/">الرئيسية</a><Icon name="chevronDown" size={14} className="c-crumb-sep" /><a href="/#services">الخدمات</a>
+              <Icon name="chevronDown" size={14} className="c-crumb-sep" /><span aria-current="page"><bdi>{title}</bdi></span>
             </nav>
-            <div className={`s-svc-hero${service.image ? ' has-media' : ''}`}>
-              <div>
-                <h1 id="svc-t"><bdi>{title}</bdi></h1>
-                {desc && <p className="s-lead s-svc-desc">{desc}</p>}
-                <dl className="s-svc-facts">
-                  <div><dt>السعر</dt><dd>{priceText(service.price_minor, service.price_max_minor, site.clinic.currency)}</dd></div>
-                  <div><dt>المدة المتوقعة</dt><dd><Clock size={16} /> {service.duration_minutes} {arNoun(service.duration_minutes, NOUNS.minute)}</dd></div>
+            <div className="c-hero-grid">
+              <div className="c-hero-copy">
+                <span className="c-kicker c-hero-in"><Icon name={serviceIcon(service.category)} size={16} />خدمة في <bdi>{name}</bdi></span>
+                <h1 id="svc-t" className="c-display c-svc-title c-hero-in"><bdi>{title}</bdi></h1>
+                {desc && <p className="c-lead c-svc-desc c-hero-in">{desc}</p>}
+                <dl className="c-svc-facts c-hero-in">
+                  <div><dt><Icon name="tag" size={16} />السعر</dt><dd>{priceText(service.price_minor, service.price_max_minor, site.clinic.currency)}</dd></div>
+                  <div><dt><Clock size={16} />المدة المتوقعة</dt><dd>{service.duration_minutes} {arNoun(service.duration_minutes, NOUNS.minute)}</dd></div>
+                  {doctors.length > 0 && <div><dt><Icon name="user" size={16} />يقدمها</dt><dd>{doctors.length} {arNoun(doctors.length, NOUNS.doctor)}</dd></div>}
                 </dl>
-                {book && (
-                  <a className="s-btn s-btn-lg" href={book.href}>
-                    {book.via === 'online' ? <Icon name="calendar" size={18} /> : book.via === 'whatsapp' ? <Chat size={18} /> : <Phone />}احجز هذه الخدمة
-                  </a>
+                {(book || secondary) && (
+                  <div className="c-hero-cta c-hero-in">
+                    {book && <a className="c-btn c-btn-lg c-btn-arrow" href={book.href}>{viaIcon(book.via, 20)}احجز هذه الخدمة<span className="c-btn-bubble" aria-hidden><Icon name="arrow" size={18} /></span></a>}
+                    {secondary && <a className="c-btn c-btn-lg c-btn-ghost" href={secondary}><Chat size={20} />اسأل عبر واتساب</a>}
+                  </div>
                 )}
-                <p className="s-svc-note">الأسعار تقديرية وقد تختلف حسب الفحص وخطة العلاج.</p>
+                <p className="c-svc-note c-hero-in">الأسعار تقديرية وقد تختلف حسب الفحص وخطة العلاج.</p>
               </div>
-              {service.image && <img className="s-svc-img" {...imageProps(service.image, 960)} sizes="(max-width: 900px) 100vw, 480px" alt="" />}
+              <ArchVisual plain={!service.image}>
+                {service.image
+                  ? <img {...imageProps(service.image, 960)} sizes="(max-width: 900px) 90vw, 440px" alt="" fetchPriority="high" />
+                  : <Icon name={serviceIcon(service.category)} size={132} strokeWidth={1.1} />}
+              </ArchVisual>
             </div>
           </div>
         </section>
 
-        {doctors.length > 0 && (
-          <Section id="doctors" kicker="فريقنا" title="أطباء يقدمون هذه الخدمة" tint={tint('doctors')}>
-            <div className="s-grid s-grid-doctors">
-              {doctors.map((d) => <DoctorCard key={d.id} doctor={d} contact={contact} clinicName={name} />)}
+        <DoctorsSection doctors={doctors} contact={contact} clinicName={name} tint={tint('doctors')} title="أطباء يقدمون هذه الخدمة" sub="احجز مع الطبيب الذي تفضّله مباشرة." />
+        <GallerySection photos={[]} cases={cases} clinicName={name} tint={tint('cases')} />
+        <FaqSection faqs={faqs} contact={contact} tint={tint('faq')} />
+        {others.length > 0 && (
+          <Section id="others" kicker="خدمات أخرى" title="قد يهمك أيضًا" tint={tint('others')}
+            action={<a className="c-btn c-btn-sm c-btn-ghost" href="/#services">كل الخدمات<Icon name="arrow" size={16} /></a>}>
+            <div className="c-bento">
+              {others.map((s, i) => <ServiceCard key={s.id} service={s} contact={contact} clinicName={name} currency={site.clinic.currency} cell={cells[i]} />)}
             </div>
           </Section>
-        )}
-        <GallerySection photos={[]} cases={cases} clinicName={name} tint={tint('cases')} />
-        <FaqSection faqs={faqs} tint={tint('faq')} />
-        {others.length > 0 && (
-          <section className="s-section s-svc-others" aria-labelledby="others-t">
-            <div className="s-wrap">
-              <h2 id="others-t">خدمات أخرى</h2>
-              <ul>{others.map((s) => <li key={s.id}><a href={`/services/${s.id}`}><bdi>{ar(s.name_ar, s.name_en)}</bdi></a></li>)}</ul>
-            </div>
-          </section>
         )}
         <AppointmentCTA contact={contact} />
       </main>
       <ClinicFooter site={site} name={name} about={about} links={links} contact={contact} />
-      <MobileBookingBar contact={contact} />
+      <MobileBookingBar contact={contact} book={book ? { href: book.href, label: 'احجز هذه الخدمة', icon: viaIcon(book.via, 18) } : null} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(serviceStructuredData(service, site, origin)) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbData(crumbs)) }} />
       {faqList.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(faqStructuredData(faqList)) }} />}

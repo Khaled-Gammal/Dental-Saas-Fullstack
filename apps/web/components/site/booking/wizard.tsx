@@ -158,89 +158,89 @@ export function BookingWizard({ options, clinicName, currency, preset = {} }: { 
   };
 
   const canBook = options.branches.length > 0 && options.services.length > 0 && options.doctors.length > 0;
-  if (!canBook) return <p className="bk-empty">الحجز عبر الموقع غير متاح حاليًا. تواصل مع العيادة مباشرة لحجز موعدك.</p>;
+  if (!canBook) return <p className="c-bk-empty">الحجز عبر الموقع غير متاح حاليًا. تواصل مع العيادة مباشرة لحجز موعدك.</p>;
 
   return (
-    <div className="bk">
-      <ol className="bk-steps" aria-label="خطوات الحجز">
+    <div className="c-bk">
+      <ol className="c-bk-steps" aria-label="خطوات الحجز">
         {STEPS.map((s, i) => <li key={s.key} className={i === stepIndex(step) ? 'is-current' : i < stepIndex(step) ? 'is-done' : ''} aria-current={i === stepIndex(step) ? 'step' : undefined}><span>{i + 1}</span>{s.label}</li>)}
       </ol>
-      {error && <p ref={errorRef} tabIndex={-1} className="bk-error" role="alert">{error}</p>}
+      {error && <p ref={errorRef} tabIndex={-1} className="c-bk-error" role="alert">{error}</p>}
 
       {step === 'choose' && (
-        <section className="bk-card" aria-labelledby="bk-choose">
-          <h2 id="bk-choose">ماذا تحتاج؟</h2>
+        <section className="c-bk-card" aria-labelledby="c-bk-choose">
+          <h2 id="c-bk-choose">ماذا تحتاج؟</h2>
           {options.branches.length > 1 && (
-            <fieldset className="bk-group"><legend>الفرع</legend>
-              <div className="bk-options">
-                {options.branches.map((b) => <button key={b.id} type="button" className="bk-opt" aria-pressed={branchId === b.id} onClick={() => { setBranchId(b.id); setDoctorId((cur) => keepDoctor(cur, b.id, serviceId)); }}><strong><bdi>{ar(b.name_ar, b.name_en)}</bdi></strong>{(b.address_ar || b.city) && <span>{[ar(b.address_ar, b.address_en), b.city].filter(Boolean).join('، ')}</span>}</button>)}
+            <fieldset className="c-bk-group"><legend>الفرع</legend>
+              <div className="c-bk-options">
+                {options.branches.map((b) => <button key={b.id} type="button" className="c-bk-opt" aria-pressed={branchId === b.id} onClick={() => { setBranchId(b.id); setDoctorId((cur) => keepDoctor(cur, b.id, serviceId)); }}><strong><bdi>{ar(b.name_ar, b.name_en)}</bdi></strong>{(b.address_ar || b.city) && <span>{[ar(b.address_ar, b.address_en), b.city].filter(Boolean).join('، ')}</span>}</button>)}
               </div>
             </fieldset>
           )}
-          <fieldset className="bk-group"><legend>الخدمة</legend>
-            <div className="bk-options">
-              {options.services.map((s) => <button key={s.id} type="button" className="bk-opt" aria-pressed={serviceId === s.id} onClick={() => { setServiceId(s.id); setDoctorId((cur) => keepDoctor(cur, branchId, s.id)); }}><strong><bdi>{ar(s.name_ar, s.name_en)}</bdi></strong><span>{priceText(s.price_minor, s.price_max_minor, currency)} · {s.duration_minutes} {arNoun(s.duration_minutes, NOUNS.minute)}</span></button>)}
+          <fieldset className="c-bk-group"><legend>الخدمة</legend>
+            <div className="c-bk-options">
+              {options.services.map((s) => <button key={s.id} type="button" className="c-bk-opt" aria-pressed={serviceId === s.id} onClick={() => { setServiceId(s.id); setDoctorId((cur) => keepDoctor(cur, branchId, s.id)); }}><strong><bdi>{ar(s.name_ar, s.name_en)}</bdi></strong><span>{priceText(s.price_minor, s.price_max_minor, currency)} · {s.duration_minutes} {arNoun(s.duration_minutes, NOUNS.minute)}</span></button>)}
             </div>
           </fieldset>
           {serviceId && (
-            <fieldset className="bk-group"><legend>الطبيب</legend>
-              <div className="bk-options bk-options-compact">
-                <button type="button" className="bk-opt" aria-pressed={doctorId === ANY} onClick={() => setDoctorId(ANY)}><strong>أي طبيب متاح</strong><span>أقرب موعد</span></button>
-                {doctorsHere.map((d) => <button key={d.id} type="button" className="bk-opt" aria-pressed={doctorId === d.id} onClick={() => setDoctorId(d.id)}><strong><bdi>{ar(d.name_ar, d.name_en)}</bdi></strong>{ar(d.title_ar, d.title_en) && <span>{ar(d.title_ar, d.title_en)}</span>}</button>)}
+            <fieldset className="c-bk-group"><legend>الطبيب</legend>
+              <div className="c-bk-options c-bk-options-compact">
+                <button type="button" className="c-bk-opt" aria-pressed={doctorId === ANY} onClick={() => setDoctorId(ANY)}><strong>أي طبيب متاح</strong><span>أقرب موعد</span></button>
+                {doctorsHere.map((d) => <button key={d.id} type="button" className="c-bk-opt" aria-pressed={doctorId === d.id} onClick={() => setDoctorId(d.id)}><strong><bdi>{ar(d.name_ar, d.name_en)}</bdi></strong>{ar(d.title_ar, d.title_en) && <span>{ar(d.title_ar, d.title_en)}</span>}</button>)}
               </div>
-              {doctorsHere.length === 0 && <p className="bk-hint">لا يوجد طبيب يقدم هذه الخدمة في هذا الفرع. جرّب فرعًا آخر.</p>}
+              {doctorsHere.length === 0 && <p className="c-bk-hint">لا يوجد طبيب يقدم هذه الخدمة في هذا الفرع. جرّب فرعًا آخر.</p>}
             </fieldset>
           )}
-          <div className="bk-actions">
-            <button type="button" className="s-btn s-btn-lg" disabled={!serviceId || doctorsHere.length === 0} onClick={() => setStep('time')}>اختيار الموعد<Icon name="chevronDown" size={16} className="bk-arrow" /></button>
+          <div className="c-bk-actions">
+            <button type="button" className="c-btn c-btn-lg" disabled={!serviceId || doctorsHere.length === 0} onClick={() => setStep('time')}>اختيار الموعد<Icon name="arrow" size={18} /></button>
           </div>
         </section>
       )}
 
       {step === 'time' && (
-        <section className="bk-card" aria-labelledby="bk-time">
-          <h2 id="bk-time">اختر اليوم والوقت</h2>
-          <p className="bk-summary"><bdi>{ar(service?.name_ar, service?.name_en)}</bdi> · {doctorId === ANY ? 'أي طبيب' : <bdi>{ar(doctorsHere.find((d) => d.id === doctorId)?.name_ar, doctorsHere.find((d) => d.id === doctorId)?.name_en)}</bdi>} · <bdi>{ar(branch?.name_ar, branch?.name_en)}</bdi> <button type="button" className="bk-link" onClick={() => setStep('choose')}>تغيير</button></p>
-          <div className="bk-dates" role="radiogroup" aria-label="اليوم">
-            {dates.map((d) => { const l = dayLabel(d); return <button key={d} type="button" role="radio" aria-checked={date === d} className="bk-date" onClick={() => setDate(d)}><span>{l.weekday}</span><strong>{l.day}</strong><span>{l.month}</span></button>; })}
+        <section className="c-bk-card" aria-labelledby="c-bk-time">
+          <h2 id="c-bk-time">اختر اليوم والوقت</h2>
+          <p className="c-bk-summary"><bdi>{ar(service?.name_ar, service?.name_en)}</bdi> · {doctorId === ANY ? 'أي طبيب' : <bdi>{ar(doctorsHere.find((d) => d.id === doctorId)?.name_ar, doctorsHere.find((d) => d.id === doctorId)?.name_en)}</bdi>} · <bdi>{ar(branch?.name_ar, branch?.name_en)}</bdi> <button type="button" className="c-bk-link" onClick={() => setStep('choose')}>تغيير</button></p>
+          <div className="c-bk-dates" role="radiogroup" aria-label="اليوم">
+            {dates.map((d) => { const l = dayLabel(d); return <button key={d} type="button" role="radio" aria-checked={date === d} className="c-bk-date" onClick={() => setDate(d)}><span>{l.weekday}</span><strong>{l.day}</strong><span>{l.month}</span></button>; })}
           </div>
-          <div className="bk-slots" aria-live="polite" aria-busy={loadingSlots}>
-            {loadingSlots ? <p className="bk-hint">جارٍ تحميل المواعيد…</p>
-              : !slots || slots.slots.length === 0 ? <p className="bk-hint">لا توجد مواعيد متاحة في هذا اليوم، جرّب يومًا آخر.</p>
-                : slots.slots.map((s) => <button key={s.startsAt} type="button" className="bk-slot" disabled={busy} onClick={() => void pickSlot(s.startsAt)}><bdi dir="ltr">{fmtTime(s.startsAt, tz)}</bdi></button>)}
+          <div className="c-bk-slots" aria-live="polite" aria-busy={loadingSlots}>
+            {loadingSlots ? <p className="c-bk-hint">جارٍ تحميل المواعيد…</p>
+              : !slots || slots.slots.length === 0 ? <p className="c-bk-hint">لا توجد مواعيد متاحة في هذا اليوم، جرّب يومًا آخر.</p>
+                : slots.slots.map((s) => <button key={s.startsAt} type="button" className="c-bk-slot" disabled={busy} onClick={() => void pickSlot(s.startsAt)}><bdi dir="ltr">{fmtTime(s.startsAt, tz)}</bdi></button>)}
           </div>
         </section>
       )}
 
       {(step === 'details' || step === 'otp') && hold && (
-        <section className="bk-card" aria-labelledby="bk-details">
-          <div className="bk-hold" role="status">
+        <section className="c-bk-card" aria-labelledby="c-bk-details">
+          <div className="c-bk-hold" role="status">
             <Icon name="clock" size={16} />
             <span>محجوز لك مؤقتًا: <strong>{fmtLong(hold.startsAt, tz)}</strong></span>
-            <span className="bk-timer"><bdi dir="ltr">{Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}</bdi></span>
+            <span className="c-bk-timer"><bdi dir="ltr">{Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}</bdi></span>
           </div>
           {step === 'details' ? (
-            <form onSubmit={submitDetails} className="bk-form" noValidate>
-              <h2 id="bk-details">بياناتك</h2>
+            <form onSubmit={submitDetails} className="c-bk-form" noValidate>
+              <h2 id="c-bk-details">بياناتك</h2>
               <label>الاسم الكامل<input required minLength={2} maxLength={120} autoComplete="name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /></label>
               <label>رقم الموبايل<input required type="tel" inputMode="tel" dir="ltr" autoComplete="tel" placeholder="01012345678" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
               <label>البريد الإلكتروني<input required type="email" inputMode="email" dir="ltr" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
-              <label>ملاحظات <span className="bk-optional">(اختياري)</span><textarea rows={2} maxLength={500} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
-              <p className="bk-hint">{options.policy.otpRequired ? 'سنرسل رمز تحقق إلى بريدك الإلكتروني لتأكيد الحجز.' : 'سيصلك تأكيد الحجز ورمز الحضور على بريدك الإلكتروني.'}</p>
-              <div className="bk-actions">
-                <button type="button" className="s-btn s-btn-ghost" onClick={() => void backToTimes()} disabled={busy}>رجوع</button>
-                <button type="submit" className="s-btn s-btn-lg" disabled={busy || form.fullName.trim().length < 2 || form.phone.trim().length < 8 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())}>{busy ? 'لحظة…' : options.policy.otpRequired ? 'إرسال رمز التحقق' : 'تأكيد الحجز'}</button>
+              <label>ملاحظات <span className="c-bk-optional">(اختياري)</span><textarea rows={2} maxLength={500} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
+              <p className="c-bk-hint">{options.policy.otpRequired ? 'سنرسل رمز تحقق إلى بريدك الإلكتروني لتأكيد الحجز.' : 'سيصلك تأكيد الحجز ورمز الحضور على بريدك الإلكتروني.'}</p>
+              <div className="c-bk-actions">
+                <button type="button" className="c-btn c-btn-ghost" onClick={() => void backToTimes()} disabled={busy}>رجوع</button>
+                <button type="submit" className="c-btn c-btn-lg" disabled={busy || form.fullName.trim().length < 2 || form.phone.trim().length < 8 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())}>{busy ? 'لحظة…' : options.policy.otpRequired ? 'إرسال رمز التحقق' : 'تأكيد الحجز'}</button>
               </div>
             </form>
           ) : (
-            <form onSubmit={confirm} className="bk-form" noValidate>
-              <h2 id="bk-details">أدخل رمز التحقق</h2>
-              <p className="bk-hint">أرسلنا رمزًا من 6 أرقام إلى <bdi dir="ltr">{maskedEmail}</bdi>. تحقق من صندوق الوارد أو الرسائل غير المرغوبة.</p>
-              <label className="sr-only" htmlFor="bk-code">الرمز</label>
-              <input id="bk-code" className="bk-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} dir="ltr" value={code} onChange={(e) => setCode(e.target.value)} autoFocus />
-              <div className="bk-actions">
-                <button type="button" className="s-btn s-btn-ghost" disabled={busy} onClick={(e) => void submitDetails(e)}>إعادة إرسال الرمز</button>
-                <button type="submit" className="s-btn s-btn-lg" disabled={busy || toAsciiDigits(code).length !== 6}>{busy ? 'لحظة…' : 'تأكيد الحجز'}</button>
+            <form onSubmit={confirm} className="c-bk-form" noValidate>
+              <h2 id="c-bk-details">أدخل رمز التحقق</h2>
+              <p className="c-bk-hint">أرسلنا رمزًا من 6 أرقام إلى <bdi dir="ltr">{maskedEmail}</bdi>. تحقق من صندوق الوارد أو الرسائل غير المرغوبة.</p>
+              <label className="sr-only" htmlFor="c-bk-code">الرمز</label>
+              <input id="c-bk-code" className="c-bk-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} dir="ltr" value={code} onChange={(e) => setCode(e.target.value)} autoFocus />
+              <div className="c-bk-actions">
+                <button type="button" className="c-btn c-btn-ghost" disabled={busy} onClick={(e) => void submitDetails(e)}>إعادة إرسال الرمز</button>
+                <button type="submit" className="c-btn c-btn-lg" disabled={busy || toAsciiDigits(code).length !== 6}>{busy ? 'لحظة…' : 'تأكيد الحجز'}</button>
               </div>
             </form>
           )}
@@ -248,22 +248,22 @@ export function BookingWizard({ options, clinicName, currency, preset = {} }: { 
       )}
 
       {step === 'done' && booking && (
-        <section className="bk-card bk-done" aria-labelledby="bk-done">
-          <span className="bk-check"><Icon name="check" size={28} /></span>
-          <h2 id="bk-done">{booking.status === 'confirmed' ? 'تم تأكيد موعدك' : 'تم استلام طلب الحجز'}</h2>
-          <p className="bk-hint">{booking.status === 'confirmed' ? 'نراك قريبًا في' : 'ستتصل بك العيادة للتأكيد. الموعد المطلوب:'} <strong><bdi>{clinicName}</bdi></strong></p>
-          <dl className="bk-recap">
+        <section className="c-bk-card c-bk-done" aria-labelledby="c-bk-done">
+          <span className="c-bk-check"><Icon name="check" size={28} /></span>
+          <h2 id="c-bk-done">{booking.status === 'confirmed' ? 'تم تأكيد موعدك' : 'تم استلام طلب الحجز'}</h2>
+          <p className="c-bk-hint">{booking.status === 'confirmed' ? 'نراك قريبًا في' : 'ستتصل بك العيادة للتأكيد. الموعد المطلوب:'} <strong><bdi>{clinicName}</bdi></strong></p>
+          <dl className="c-bk-recap">
             <div><dt>الموعد</dt><dd>{fmtLong(booking.startsAt, tz)}</dd></div>
             <div><dt>الطبيب</dt><dd><bdi>{ar(booking.appointment.doctor.name_ar, booking.appointment.doctor.name_en)}</bdi></dd></div>
             {booking.appointment.service && <div><dt>الخدمة</dt><dd><bdi>{ar(booking.appointment.service.name_ar, booking.appointment.service.name_en)}</bdi></dd></div>}
             <div><dt>الفرع</dt><dd><bdi>{ar(branch?.name_ar, branch?.name_en)}</bdi></dd></div>
           </dl>
-          <div className="bk-code-box">
+          <div className="c-bk-code-box">
             <span>رمز الحضور، أظهره في الاستقبال</span>
             <strong dir="ltr">{booking.code}</strong>
-            <span className="bk-optional">أرسلناه أيضًا إلى بريدك الإلكتروني</span>
+            <span className="c-bk-optional">أرسلناه أيضًا إلى بريدك الإلكتروني</span>
           </div>
-          <div className="bk-actions"><a className="s-btn s-btn-ghost" href="/">العودة إلى الموقع</a></div>
+          <div className="c-bk-actions"><a className="c-btn c-btn-ghost" href="/">العودة إلى الموقع</a></div>
         </section>
       )}
     </div>

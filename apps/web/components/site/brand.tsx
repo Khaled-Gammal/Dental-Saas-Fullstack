@@ -6,8 +6,8 @@ export function BrandMark({ name, logo }: { name: string; logo?: SiteImage | nul
   return (
     <>
       {logo
-        ? <img className="s-logo" {...imageProps(logo, 256)} sizes="(max-width: 640px) 128px, 256px" alt="" decoding="async" />
-        : <span className="s-mark"><Tooth /></span>}
+        ? <img className="c-logo" {...imageProps(logo, 256)} sizes="(max-width: 640px) 128px, 256px" alt="" decoding="async" />
+        : <span className="c-mark" aria-hidden><Tooth size={22} /></span>}
       <bdi>{name}</bdi>
     </>
   );

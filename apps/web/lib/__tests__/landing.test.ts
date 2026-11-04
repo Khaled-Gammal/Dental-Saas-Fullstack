@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bestSaving, EMPTY_LEAD, subscribeUrl, leadBody, leadError, leadProblems, limitLines, looksLikePhone, planPrice, trialDays, yearlySaving, type PublicPlan } from '../landing';
-import { faqs } from '../landing-content';
+import { FEATURES, SITE_COLOURS, facts, faqs, steps, subscribeSteps } from '../landing-content';
 
 const basic: PublicPlan = {
   id: 'a', code: 'basic', name_ar: 'الأساسية', price_monthly_minor: 50000, price_yearly_minor: 500000, currency: 'EGP', trial_days: 14,
@@ -55,5 +55,28 @@ describe('the contact form (LND-04)', () => {
   });
   it('every message is Arabic', () => {
     for (const code of ['validation_failed', 'rate_limited', 'upstream_unavailable', 'unknown']) expect(leadError(code)).toMatch(/[\u0600-\u06FF]/);
+  });
+});
+
+describe('the landing page wording (2026-11 redesign)', () => {
+  it('the trial is named only when the plans offer one', () => {
+    expect(facts(14).map((f) => f.value)).toContain('14 يومًا مجانًا');
+    expect(facts(0).some((f) => f.value.includes('مجان'))).toBe(false);
+    expect(steps(14)[0].text).toContain('14 يومًا');
+    expect(steps(0)[0].text).not.toMatch(/تجربة|يومًا/);
+    expect(subscribeSteps(14)[0].text).toContain('14 يومًا');
+    expect(subscribeSteps(0)[0].text).not.toMatch(/تجربة/);
+  });
+  it('subscribing is sign-up, our call about payment, then activation: no online payment is promised', () => {
+    const text = subscribeSteps(14).map((s) => `${s.title} ${s.text}`).join(' ');
+    expect(text).toMatch(/طريقة الدفع/);
+    expect(text).not.toMatch(/بطاقة|ادفع الآن|دفع إلكتروني|أونلاين/);
+  });
+  it('the colour demo offers exactly the dashboard\'s colours, each a plain #rrggbb', () => {
+    expect(SITE_COLOURS.map((c) => c.hex)).toEqual(['#1d6fd8', '#0e9aa7', '#12b5a0', '#0f2f5c', '#6d4ed6', '#d6457a']);
+    for (const c of SITE_COLOURS) expect(c.hex).toMatch(/^#[0-9a-f]{6}$/);
+  });
+  it('every module has its own key (each card has its own place and drawing)', () => {
+    expect(new Set(FEATURES.map((f) => f.key)).size).toBe(FEATURES.length);
   });
 });
