@@ -33,7 +33,7 @@ export const MAX_FILE_BYTES = 10 * 1024 * 1024;
  * Line numbers are the file's records (a quoted cell with line breaks counts once).
  */
 export function parseCsv(text: string): SheetRow[] {
-  const src = text.replace(/^﻿/, '');
+  const src = text.replace(/^\uFEFF/, '');
   const firstLine = src.slice(0, src.search(/\r?\n|$/));
   const counts = [',', ';', '\t'].map((d) => [d, firstLine.split(d).length - 1] as const);
   const delim = counts.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
