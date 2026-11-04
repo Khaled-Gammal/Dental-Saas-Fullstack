@@ -242,7 +242,8 @@ function CloseForm({ clinicId, s }: { clinicId: string; s: CashSession }) {
         </Field>
       )}
       <ErrorText error={close.error} />
-      <div className="row-end"><Button loading={close.isPending} disabled={!ready} onClick={() => close.mutate(undefined)}>إقفال الخزنة</Button></div>
+      {/* under the figures it closes, not at the far side of the full-width panel */}
+      <div><Button loading={close.isPending} disabled={!ready} onClick={() => close.mutate(undefined)}>إقفال الخزنة</Button></div>
     </div>
   );
 }

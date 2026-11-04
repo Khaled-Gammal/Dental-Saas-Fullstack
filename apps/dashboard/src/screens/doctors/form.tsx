@@ -8,9 +8,10 @@ import { imageFieldValue } from '../../media-model';
 import { useBranches, useDoctors, useInvalidate, useOne } from '../../queries';
 import { to } from '../../router';
 import type { Branch, Doctor, MediaImage } from '../../types';
-import { Badge, Card, Field, Input, Switch, TextArea } from '../../ui/components';
+import { Stethoscope } from 'lucide-react';
+import { Badge, Field, Input, Switch, TextArea } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { FormPage, ResourceState } from '../../ui/page';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 import { diffText } from '../../util';
 import { Checkbox } from '../../components/ui/checkbox';
 
@@ -78,31 +79,29 @@ function DoctorFormBody({ clinicId, branches, doctor }: { clinicId: string; bran
 
   const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'الأطباء', route: to.list('doctors') }, { label: doctor ? arName(doctor.name_ar, doctor.name_en, '—') : 'إضافة طبيب' }];
   return (
-    <FormPage title={doctor ? 'تعديل بيانات الطبيب' : 'إضافة طبيب'} crumbs={crumbs} back={to.list('doctors')} onSubmit={submit}
+    <FormPage title={doctor ? 'تعديل بيانات الطبيب' : 'إضافة طبيب'} icon={<Stethoscope />} crumbs={crumbs} back={to.list('doctors')} onSubmit={submit}
       saving={save.isPending} canSave={canSave} error={save.error}
       notice={!hasName && dirty && <p className="field-error">أدخل الاسم بالعربية أو الإنجليزية</p>}>
-      <Card>
-        <h2>البيانات الأساسية</h2>
-        <div className="mt">
+      <FormSection title="البيانات الأساسية">
+        <div>
           <ImageField purpose="photo" shape="circle" value={form.photo} onChange={set('photo')} label="صورة الطبيب" hint="صورة شخصية واضحة للوجه، تُعرض في دائرة. تظهر على الموقع إذا كان الطبيب ظاهرًا."
             placeholder={initials(form.nameAr || form.nameEn) || undefined} />
         </div>
-        <div className="grid-2 mt">
+        <div className="grid-2">
           <Field label="اسم الطبيب">{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!doctor} />}</Field>
           <Field label="اللقب" optional="اختياري" hint="مثل: استشاري تقويم الأسنان">{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.titleAr} onChange={text('titleAr')} dir="rtl" maxLength={120} />}</Field>
         </div>
-        <div className="stack mt">
+        <div className="stack">
           <Field label="التخصصات" optional="اختياري" hint="افصل بينها بفاصلة، مثل: تقويم، زراعة">
             {(a) => <Input id={a.id} describedBy={a.describedBy} value={form.specialties} onChange={text('specialties')} maxLength={300} />}
           </Field>
           <Field label="نبذة بالعربية" optional="اختياري">{(a) => <TextArea id={a.id} value={form.bioAr} onChange={text('bioAr')} dir="rtl" maxLength={1000} />}</Field>
         </div>
-      </Card>
+      </FormSection>
 
-      <Card>
+      <FormSection title="الفروع" sub="اختر الفروع التي يستقبل فيها الطبيب المرضى">
         <fieldset className="check-group">
-          <legend>يعمل في</legend>
-          <p className="muted small">اختر الفروع التي يستقبل فيها الطبيب المرضى</p>
+          <legend className="sr-only">يعمل في</legend>
           <div className="branch-checks">
             {branches.map((b) => (
               <label key={b.id} className="check">
@@ -113,16 +112,15 @@ function DoctorFormBody({ clinicId, branches, doctor }: { clinicId: string; bran
           </div>
           {form.branchIds.length === 0 && <p className="field-error">اختر فرعًا واحدًا على الأقل</p>}
         </fieldset>
-      </Card>
+      </FormSection>
 
-      <Card>
-        <h2>الظهور والحجز</h2>
-        <div className="switch-row mt">
+      <FormSection title="الظهور والحجز">
+        <div className="switch-row">
           <Switch checked={form.showOnWebsite} onChange={set('showOnWebsite')} label="يظهر على الموقع" />
           <Switch checked={form.acceptsOnlineBooking} onChange={set('acceptsOnlineBooking')} label="يقبل الحجز أونلاين" />
           {doctor && <Switch checked={form.isActive} onChange={setActive} label="نشط" />}
         </div>
-      </Card>
+      </FormSection>
 
       <ConfirmDialog open={confirmOff} title="إيقاف الطبيب؟" confirmLabel="إيقاف" danger
         onConfirm={() => { set('isActive')(false); setConfirmOff(false); }} onCancel={() => setConfirmOff(false)}>

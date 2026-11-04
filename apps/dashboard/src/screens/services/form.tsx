@@ -8,10 +8,11 @@ import { useDoctors, useInvalidate, useOne, useServices } from '../../queries';
 import { to } from '../../router';
 import { emptyForm, toBody, toForm, validate, type ServiceFieldError, type ServiceForm as Form } from '../../service-model';
 import type { Doctor, Service } from '../../types';
-import { Badge, Card, Field, Input, Switch, TextArea } from '../../ui/components';
+import { Badge, Field, Input, Switch, TextArea } from '../../ui/components';
+import { ToothIcon } from '../../ui/icons';
 import { Checkbox } from '../../components/ui/checkbox';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { FormPage, ResourceState } from '../../ui/page';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 import { currencyLabel } from '../../money';
 
 const ERR_KEY: Record<ServiceFieldError, string> = { name: 'أدخل الاسم بالعربية أو الإنجليزية', price: 'أدخل السعر بالجنيه كرقم صحيح (حتى مليون)', priceMax: 'الحد الأعلى يجب أن يكون أكبر من السعر', duration: 'المدة بين 5 و480 دقيقة' };
@@ -59,24 +60,22 @@ function ServiceFormBody({ clinicId, service, doctors }: { clinicId: string; ser
   const name = service ? arName(service.name_ar, service.name_en, service.catalog_code ?? '—') : 'إضافة خدمة';
   const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'الخدمات والأسعار', route: to.list('services') }, { label: name }];
   return (
-    <FormPage title={service ? 'تعديل الخدمة' : 'إضافة خدمة'}
+    <FormPage title={service ? 'تعديل الخدمة' : 'إضافة خدمة'} icon={<ToothIcon size={24} />}
       crumbs={crumbs} back={to.list('services')} onSubmit={submit} saving={save.isPending} canSave={canSave} error={save.error}>
-      <Card>
-        <h2>البيانات الأساسية</h2>
-        <div className="grid-2 mt">
+      <FormSection title="البيانات الأساسية">
+        <div className="grid-2">
           <Field label="اسم الخدمة" error={show('name')}>{(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!service} />}</Field>
         </div>
-        <div className="mt">
+        <div>
           <Field label="وصف قصير بالعربية" optional="اختياري">{(a) => <TextArea id={a.id} value={form.descriptionAr} onChange={text('descriptionAr')} dir="rtl" maxLength={1000} />}</Field>
         </div>
-        <div className="mt">
+        <div>
           <ImageField purpose="photo" shape="wide" value={form.image} onChange={set('image')} label="صورة الخدمة" hint="تظهر أعلى بطاقة الخدمة على الموقع. صورة أفقية أفضل." />
         </div>
-      </Card>
+      </FormSection>
 
-      <Card>
-        <h2>السعر والمدة</h2>
-        <div className="grid-3 mt">
+      <FormSection title="السعر والمدة">
+        <div className="grid-3">
           <Field label={`${'السعر'} (${currencyLabel()})`} hint={'بالجنيه. اتركه 0 ليظهر "حسب الكشف"'} error={show('price')}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.price} onChange={text('price')} inputMode="numeric" dir="ltr" placeholder="0" />}
           </Field>
@@ -87,21 +86,19 @@ function ServiceFormBody({ clinicId, service, doctors }: { clinicId: string; ser
             {(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.duration} onChange={text('duration')} inputMode="numeric" dir="ltr" />}
           </Field>
         </div>
-      </Card>
+      </FormSection>
 
-      <Card>
-        <h2>الظهور والحجز</h2>
-        <div className="switch-row mt">
+      <FormSection title="الظهور والحجز">
+        <div className="switch-row">
           <Switch checked={form.showOnWebsite} onChange={set('showOnWebsite')} label="يظهر على الموقع" />
           <Switch checked={form.bookableOnline} onChange={set('bookableOnline')} label="يمكن حجزها أونلاين" />
           {service && <Switch checked={form.isActive} onChange={setActive} label="نشط" />}
         </div>
-      </Card>
+      </FormSection>
 
-      <Card>
+      <FormSection title="الأطباء الذين يقدمونها" sub="عند حجز هذه الخدمة، من العيادة أو من الموقع، يظهر هؤلاء الأطباء فقط.">
         <fieldset className="check-group">
-          <legend>الأطباء الذين يقدمونها</legend>
-          <p className="muted small">عند حجز هذه الخدمة، من العيادة أو من الموقع، يظهر هؤلاء الأطباء فقط.</p>
+          <legend className="sr-only">الأطباء الذين يقدمونها</legend>
           {shownDoctors.length > 0 ? (
             <div className="branch-checks">
               {shownDoctors.map((d) => (
@@ -114,7 +111,7 @@ function ServiceFormBody({ clinicId, service, doctors }: { clinicId: string; ser
           ) : <p className="muted small">لا يوجد أطباء بعد. أضفهم من صفحة الأطباء؛ كل طبيب جديد يقدّم كل الخدمات حتى تغيّر ذلك هنا.</p>}
           {shownDoctors.length > 0 && form.doctorIds.length === 0 && <p className="field-error">لن يمكن حجز هذه الخدمة حتى تختار طبيبًا واحدًا على الأقل.</p>}
         </fieldset>
-      </Card>
+      </FormSection>
 
       <ConfirmDialog open={confirmOff} title="إيقاف الخدمة؟" confirmLabel="إيقاف" danger
         onConfirm={() => { set('isActive')(false); setConfirmOff(false); }} onCancel={() => setConfirmOff(false)}>

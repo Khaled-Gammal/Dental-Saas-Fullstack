@@ -9,9 +9,10 @@ import { to } from '../../router';
 import { canAddSlot, dayError, fromRows, nextSlot, toPayload, type ScheduleDay, type Slot, type SlotError } from '../../schedule-model';
 import type { Branch, Doctor } from '../../types';
 import { Choice } from '../../components/choice';
-import { Alert, Card, LinkButton } from '../../ui/components';
+import { CalendarClock } from 'lucide-react';
+import { Alert, LinkButton } from '../../ui/components';
 import { CloseIcon, PlusIcon } from '../../ui/icons';
-import { FormPage, ResourceState } from '../../ui/page';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 import { TimeField } from '../../components/time-field';
 
 const ERR_KEY: Record<NonNullable<SlotError>, string> = { order: 'وقت الإغلاق يجب أن يكون بعد الفتح', overlap: 'الفترات متداخلة', branch: 'الطبيب غير مُضاف إلى هذا الفرع.' };
@@ -50,10 +51,10 @@ function ScheduleEditor({ clinicId, doctor, branches }: { clinicId: string; doct
   const name = arName(doctor.name_ar, doctor.name_en, '—');
   const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'الأطباء', route: to.list('doctors') }, { label: name }, { label: 'جدول المواعيد' }];
   return (
-    <FormPage title={`${'جدول مواعيد'} ${name}`} sub="متى يكون الطبيب في كل فرع؟ لا يمكن أن يكون في فرعين في نفس الوقت" crumbs={crumbs} back={to.list('doctors')} onSubmit={submit}
+    <FormPage title={`${'جدول مواعيد'} ${name}`} icon={<CalendarClock />} sub="متى يكون الطبيب في كل فرع؟ لا يمكن أن يكون في فرعين في نفس الوقت" crumbs={crumbs} back={to.list('doctors')} onSubmit={submit}
       saving={save.isPending} canSave={!hasErrors && dirty && branches.length > 0} error={save.error} notice={hasErrors && <Alert>صحّح الأخطاء المظللة ثم احفظ</Alert>}>
       {branches.length === 0 ? <Alert tone="info">أضف الطبيب إلى فرع أولًا ليمكن جدولة مواعيده</Alert> : (
-        <Card>
+        <FormSection title="أيام الأسبوع">
           <ul className="week">
             {days.map((d, i) => {
               const dayName = weekdayLabel[d.weekday];
@@ -91,7 +92,7 @@ function ScheduleEditor({ clinicId, doctor, branches }: { clinicId: string; doct
               );
             })}
           </ul>
-        </Card>
+        </FormSection>
       )}
     </FormPage>
   );

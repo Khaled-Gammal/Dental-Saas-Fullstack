@@ -8,9 +8,10 @@ import { canAddShift, copyShifts, dayError, fromRows, nextShift, toPayload, type
 import { useBranches, useInvalidate, useOne } from '../../queries';
 import { to } from '../../router';
 import type { Branch } from '../../types';
-import { Alert, Card, LinkButton, Switch } from '../../ui/components';
+import { Clock } from 'lucide-react';
+import { Alert, LinkButton, Switch } from '../../ui/components';
 import { CloseIcon, CopyIcon, PlusIcon } from '../../ui/icons';
-import { FormPage, ResourceState } from '../../ui/page';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 import { TimeField } from '../../components/time-field';
 
 /** `#/branches/:id/hours` — days on/off, up to 3 shifts per day, one save replaces the week. */
@@ -42,9 +43,9 @@ function HoursEditor({ clinicId, branch }: { clinicId: string; branch: Branch })
   const name = arName(branch.name_ar, branch.name_en, branch.slug);
   const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'الفروع', route: to.list('branches') }, { label: name }, { label: 'مواعيد العمل' }];
   return (
-    <FormPage title={`${'مواعيد عمل'} ${name}`} sub="فعّل أيام العمل وأضف حتى 3 فترات في اليوم (مثل 10–2 و5–10)" crumbs={crumbs} back={to.list('branches')} onSubmit={submit}
+    <FormPage title={`${'مواعيد عمل'} ${name}`} icon={<Clock />} sub="فعّل أيام العمل وأضف حتى 3 فترات في اليوم (مثل 10–2 و5–10)" crumbs={crumbs} back={to.list('branches')} onSubmit={submit}
       saving={save.isPending} canSave={!hasErrors && dirty} error={save.error} notice={hasErrors && <Alert>صحّح الأخطاء المظللة ثم احفظ</Alert>}>
-      <Card>
+      <FormSection title="أيام الأسبوع">
         <ul className="week">
           {days.map((d, i) => {
             const dayName = weekdayLabel[d.weekday];
@@ -82,7 +83,7 @@ function HoursEditor({ clinicId, branch }: { clinicId: string; branch: Branch })
             );
           })}
         </ul>
-      </Card>
+      </FormSection>
     </FormPage>
   );
 }

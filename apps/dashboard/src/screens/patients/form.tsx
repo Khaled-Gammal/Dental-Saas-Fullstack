@@ -8,8 +8,10 @@ import { EMPTY_PATIENT, isMinor, patientBody, patientProblems, toPatientForm, ty
 import { useBranches, usePatient, usePossibleDuplicates, useSavePatient } from '../../queries';
 import { to } from '../../router';
 import type { PatientDetail } from '../../types';
-import { Badge, Card, Field, Input, Switch, TextArea } from '../../ui/components';
-import { FormPage, ResourceState, RouteLink } from '../../ui/page';
+import { UserPen, UserPlus } from 'lucide-react';
+import { Badge, Field, Input, Switch, TextArea } from '../../ui/components';
+import { PlusIcon } from '../../ui/icons';
+import { FormPage, FormSection, ResourceState, RouteLink } from '../../ui/page';
 import { useCan } from '../../can';
 import { clinicToday } from '../../util';
 
@@ -66,12 +68,11 @@ function PatientFormBody({ clinicId, patient }: { clinicId: string; patient?: Pa
   const branchOptions = (branches.data ?? []).filter((b) => b.is_active).map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en, b.slug) }));
 
   return (
-    <FormPage title={patient ? 'تعديل بيانات المريض' : 'مريض جديد'} crumbs={crumbs} back={patient ? to.view('patients', patient.id) : to.list('patients')}
+    <FormPage title={patient ? 'تعديل بيانات المريض' : 'مريض جديد'} icon={patient ? <UserPen /> : <UserPlus />} crumbs={crumbs} back={patient ? to.view('patients', patient.id) : to.list('patients')}
       onSubmit={submit} saving={save.isPending} canSave={dirty} error={save.error}
       notice={touched && problems.length > 0 && <p className="field-error">صحّح الأخطاء المظللة ثم احفظ</p>}>
-      <Card>
-        <h2>البيانات الأساسية</h2>
-        <div className="grid-2 mt">
+      <FormSection title="البيانات الأساسية">
+        <div className="grid-2">
           <Field label="الاسم الكامل" error={err('name', 'أدخل الاسم بالعربية أو الإنجليزية')}>{(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.fullName} onChange={text('fullName')} maxLength={120} autoFocus={!patient} autoComplete="off" />}</Field>
           <Field label="النوع" optional="اختياري">
             {(a) => <Choice id={a.id} value={form.gender} onChange={(v) => set('gender')(v as Form['gender'])} noneLabel="غير محدد"
@@ -84,11 +85,10 @@ function PatientFormBody({ clinicId, patient }: { clinicId: string; patient?: Pa
             {(a) => <Choice id={a.id} value={form.preferredBranchId} onChange={set('preferredBranchId')} options={branchOptions} noneLabel="غير محدد" />}
           </Field>
         </div>
-      </Card>
+      </FormSection>
 
-      <Card>
-        <h2>التواصل</h2>
-        <div className="grid-2 mt">
+      <FormSection title="التواصل">
+        <div className="grid-2">
           <Field label="رقم الموبايل" error={err('phone', 'رقم الموبايل غير صحيح.')} hint="يكفي الرقم المحلي مثل 01012345678">
             {(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} type="tel" dir="ltr" inputMode="tel" value={form.phone} onChange={text('phone')} placeholder="01012345678" />}
           </Field>
@@ -100,25 +100,22 @@ function PatientFormBody({ clinicId, patient }: { clinicId: string; patient?: Pa
           </Field>
           <Field label="المدينة" optional="اختياري">{(a) => <Input id={a.id} value={form.city} onChange={text('city')} maxLength={80} />}</Field>
         </div>
-        <div className="stack mt">
+        <div className="stack">
           <Field label="العنوان" optional="اختياري">{(a) => <Input id={a.id} value={form.address} onChange={text('address')} maxLength={300} />}</Field>
         </div>
         {duplicates.length > 0 && (
-          <div className="dup-box mt" role="status">
+          <div className="dup-box" role="status">
             <strong>ملفات قد تكون لنفس الشخص (نفس الرقم أو الاسم)</strong>
             <ul>{duplicates.slice(0, 5).map((d) => <li key={d.id}><RouteLink route={to.view('patients', d.id)}><bdi>{d.full_name}</bdi></RouteLink> <span className="muted small">#{d.file_no}</span></li>)}</ul>
             <p className="muted small">أفراد الأسرة قد يشتركون في رقم واحد؛ افتح الملف إن كان نفس الشخص بدل إنشاء ملف مكرر.</p>
           </div>
         )}
-      </Card>
+      </FormSection>
 
-      <Card>
-        <div className="row-between">
-          <h2>ولي الأمر</h2>
-          {minor ? <Badge tone="warning">قاصر</Badge> : !guardianOpen && <button type="button" className="link-btn" onClick={() => setShowGuardian(true)}>إضافة ولي أمر</button>}
-        </div>
-        {guardianOpen ? (
-          <div className="grid-2 mt">
+      <FormSection title="ولي الأمر" sub="للأطفال ومن لا يستطيع التوقيع بنفسه."
+        action={minor ? <Badge tone="warning">قاصر</Badge> : !guardianOpen && <button type="button" className="link-btn" onClick={() => setShowGuardian(true)}><PlusIcon size={16} />إضافة ولي أمر</button>}>
+        {guardianOpen && (
+          <div className="grid-2">
             <Field label="اسم ولي الأمر" error={err('guardianName', 'أدخل الاسم بالعربية أو الإنجليزية')}>{(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.guardianName} onChange={text('guardianName')} maxLength={120} />}</Field>
             <Field label="صلة القرابة">
               {(a) => <Choice id={a.id} value={form.guardianRelation} onChange={(v) => set('guardianRelation')(v as Form['guardianRelation'])} noneLabel="غير محدد"
@@ -128,24 +125,23 @@ function PatientFormBody({ clinicId, patient }: { clinicId: string; patient?: Pa
               {(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} type="tel" dir="ltr" value={form.guardianPhone} onChange={text('guardianPhone')} />}
             </Field>
           </div>
-        ) : <p className="muted small mt-sm">للأطفال ومن لا يستطيع التوقيع بنفسه.</p>}
-      </Card>
+        )}
+      </FormSection>
 
-      <Card>
-        <h2>معلومات إضافية</h2>
-        <div className="grid-2 mt">
+      <FormSection title="معلومات إضافية" sub="كلها اختيارية.">
+        <div className="grid-2">
           <Field label="المهنة" optional="اختياري">{(a) => <Input id={a.id} value={form.occupation} onChange={text('occupation')} maxLength={80} />}</Field>
           <Field label="كيف عرف العيادة" optional="اختياري" hint="مثل: فيسبوك، صديق، الموقع">{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.referralSource} onChange={text('referralSource')} maxLength={60} />}</Field>
           <Field label="وسوم" optional="اختياري" hint="افصل بينها بفاصلة">{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.tags} onChange={text('tags')} maxLength={300} />}</Field>
         </div>
-        <div className="stack mt">
+        <div className="stack">
           <Field label="ملاحظات" optional="اختياري">{(a) => <TextArea id={a.id} value={form.notes} onChange={text('notes')} maxLength={2000} />}</Field>
           <Switch checked={form.marketingOptIn} onChange={set('marketingOptIn')} label="يوافق على تلقي العروض والرسائل التسويقية" />
           <p className="muted small">بموافقة صريحة من المريض فقط (قانون حماية البيانات الشخصية 151/2020). تُسجَّل لحظة الموافقة أو سحبها.</p>
           {patient && canBlock && <Switch checked={form.isBlocked} onChange={set('isBlocked')} label="منع هذا المريض من الحجز" />}
           {patient && canBlock && <p className="muted small">بعد تكرار عدم الحضور أو الحجوزات الوهمية. يُرفض الحجز عبر الموقع ومن الاستقبال حتى إلغاء المنع.</p>}
         </div>
-      </Card>
+      </FormSection>
     </FormPage>
   );
 }

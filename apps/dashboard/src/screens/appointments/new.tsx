@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { arName, initials } from '@dental/ui/text';
-import { CalendarDays, Check, Clock, Footprints, LayoutDashboard, MapPin, MessageCircle, Phone, Search, Stethoscope, Tag, UserPlus, UserRound, type LucideIcon } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Check, Clock, Footprints, LayoutDashboard, MapPin, MessageCircle, Phone, Search, Stethoscope, Tag, UserPlus, UserRound, type LucideIcon } from 'lucide-react';
 import { Choice } from '../../components/choice';
 import { DatePicker } from '../../components/date-picker';
 import { useDebounced, useLeave, useUnsavedChanges } from '../../hooks';
@@ -12,7 +12,7 @@ import { priceParts } from '../../service-model';
 import type { Appointment, Doctor, PatientRow } from '../../types';
 import { Alert, Badge, Button, Card, Field, Input, Switch, TextArea } from '../../ui/components';
 import { AlertIcon } from '../../ui/icons';
-import { FormPage } from '../../ui/page';
+import { FormPage, FormSection } from '../../ui/page';
 import { clinicTimeZone, clinicToday, fmtNumber, LOC, zonedToUtc } from '../../util';
 import { useCan } from '../../can';
 import { TimeField } from '../../components/time-field';
@@ -129,9 +129,9 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
   );
 
   return (
-    <FormPage title="موعد جديد" sub="اختر المريض والطبيب، ثم وقتًا من الأوقات المتاحة." crumbs={crumbs} back={to.list('appointments')}
+    <FormPage title="موعد جديد" icon={<CalendarPlus />} sub="اختر المريض والطبيب، ثم وقتًا من الأوقات المتاحة." crumbs={crumbs} back={to.list('appointments')}
       onSubmit={submit} saving={book.isPending} canSave={ready} error={book.error} saveLabel="حجز الموعد" aside={summary}>
-      <Step n={1} title="المريض" done={!!chosen}>
+      <FormSection title="المريض" done={!!chosen}>
         {chosen ? (
           <div className="appt-patient">
             <span className="avatar" aria-hidden>{initials(chosen.name)}</span>
@@ -144,9 +144,9 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
           </div>
         ) : <PatientPicker clinicId={clinicId} onPick={(p) => setPatient({ id: p.id, name: p.full_name, fileNo: p.file_no, phone: p.phone })} />}
         {allergies.length > 0 && <Alert tone="danger"><AlertIcon size={16} /> <strong>الحساسية:</strong> <bdi>{allergies.join('، ')}</bdi></Alert>}
-      </Step>
+      </FormSection>
 
-      <Step n={2} title="الفرع والطبيب والخدمة" done={!!branch && !!doctor}>
+      <FormSection title="الفرع والطبيب والخدمة" done={!!branch && !!doctor}>
         <div className="grid-2">
           <Field label="الفرع">
             {(a) => <Choice id={a.id} value={branch} onChange={(v) => { setBranchId(v); setDoctorId((d) => ((doctors.data ?? []).some((x) => x.id === d && x.branch_ids.includes(v)) ? d : '')); reset(); }} placeholder="اختر الفرع"
@@ -168,9 +168,9 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
                   </div>
                 )}
         </div>
-      </Step>
+      </FormSection>
 
-      <Step n={3} title="اليوم والوقت" done={!!startsAt && (!override || reason.trim().length >= 3)}
+      <FormSection title="اليوم والوقت" done={!!startsAt && (!override || reason.trim().length >= 3)}
         action={canOverride && <Switch checked={override} onChange={(v) => { setOverride(v); reset(); }} label="خارج جدول الطبيب" />}>
         <div className="appt-day">
           <Field label="التاريخ">
@@ -212,9 +212,9 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
                     })}
                   </div>
                 )}
-      </Step>
+      </FormSection>
 
-      <Step n={4} title="تفاصيل الحجز">
+      <FormSection title="تفاصيل الحجز">
         <div className="field">
           <span className="field-label" id="appt-source-label">طريقة الحجز</span>
           <div className="seg appt-sources" role="radiogroup" aria-labelledby="appt-source-label">
@@ -231,22 +231,8 @@ export function NewAppointment({ clinicId, patientId, canOverride, prefill }: { 
         <Field label="ملاحظات داخلية" optional="اختياري" hint="لا يراها المريض.">
           {(a) => <TextArea id={a.id} describedBy={a.describedBy} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />}
         </Field>
-      </Step>
+      </FormSection>
     </FormPage>
-  );
-}
-
-/** One numbered part of the booking; the number turns into a check once the part is filled. */
-function Step({ n, title, done, action, children }: { n: number; title: string; done?: boolean; action?: ReactNode; children: ReactNode }) {
-  return (
-    <Card className="appt-step">
-      <div className="appt-step-head">
-        <span className={`appt-step-num${done ? ' is-done' : ''}`} aria-hidden>{done ? <Check className="size-4" /> : fmtNumber(n)}</span>
-        <h2>{title}</h2>
-        {action && <div className="appt-step-action">{action}</div>}
-      </div>
-      {children}
-    </Card>
   );
 }
 

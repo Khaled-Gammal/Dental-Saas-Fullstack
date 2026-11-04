@@ -12,7 +12,10 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 .auth-brand :focus-visible { box-shadow: var(--ring-on-dark); }
 /* pop-up panels (menus, select lists) take focus when they open, and their items show focus with a highlighted background: no ring there */
 [data-slot$="-content"]:focus-visible, [role="menuitem"]:focus-visible, [role="option"]:focus-visible { box-shadow: none; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* hidden but read aloud; !important so a more specific rule (`.image-field legend { width: 100% }`) cannot widen the box
+   past the page edge, where it made the page scroll sideways */
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; border: 0 !important;
+  overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
 .muted { color: var(--muted); }
 .strong { font-weight: 600; color: var(--ink); }
 .spacer { flex: 1; }
@@ -174,11 +177,9 @@ select.input { appearance: auto; }
 
 /* ---------- app shell ---------- */
 /* the shell itself is shadcn/ui's Sidebar (screens/shell.tsx, redesign R1); this is the page area inside it */
-/* UI refinement U1: the page uses the width beside the sidebar (it was capped at 1120px and centred, leaving wide empty
-   margins); forms keep their own narrower width (.form-page), lists and tables take it all */
+/* every page fills the width beside the sidebar (U1 removed the 1120px centred cap; 2026-11-04 the user asked that the
+   settings pages and the forms fill it too: no page keeps a narrower column) */
 .content { width: 100%; min-width: 0; padding: clamp(16px, 2vw, 28px) clamp(16px, 2.5vw, 32px) 48px; outline: none; display: flex; flex-direction: column; gap: 20px; }
-/* settings and day-to-day forms (shell.tsx NARROW_PAGES) read better in a column: fields and figures stay near their labels */
-.content-narrow > * { width: 100%; max-width: 960px; }
 /* 2026-11-04: the websites' floating header (ui/app-chrome.tsx Topbar); sticky parts of a page start below it */
 :root { --topbar-offset: 76px; } /* 12px above the bar, the bar's 56px, 8px below */
 .app-topbar { position: sticky; top: 12px; z-index: 10; display: flex; align-items: center; gap: 12px; height: 56px; flex-shrink: 0;
@@ -391,14 +392,79 @@ fieldset.contents { display: contents; border: 0; margin: 0; padding: 0; min-wid
 
 /* ---------- navigation: form pages, dialogs (breadcrumbs: shadcn/ui, ui/page.tsx) ---------- */
 :is(h1, h2, h3)[tabindex="-1"]:focus-visible { outline: 0; box-shadow: none; } /* a heading focused for screen readers (a new page, a new step) is not a control */
-.form-page { display: flex; flex-direction: column; gap: 16px; max-width: 880px; }
-.form-footer { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 0; margin-top: 4px;
-  background: linear-gradient(180deg, transparent, var(--surface) 30%); }
-/* a form with a side column (FormPage aside): the summary stays in view beside the form; below it on narrow screens */
-.form-page.has-aside { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 16px; max-width: 1200px; align-items: start; }
+
+/* ---------- create/edit pages (D4, 2026-11-04): the websites' design for every form (ui/page.tsx FormPage, FormSection) ---------- */
+/* a header panel over the form, across the page's width; beside the sections, a side column (the guide or the page's summary) */
+.form-layout { container: form-layout / inline-size; display: flex; flex-direction: column; gap: 20px; width: 100%; }
+/* the header: the page's icon in a glossy arch, the breadcrumbs, title and line, and the websites' blob and dots at the far side */
+.form-hero { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 16px;
+  padding: clamp(16px, 2.4vw, 24px) clamp(16px, 2.8vw, 28px); border-radius: var(--r-xl); border: 1px solid color-mix(in oklab, var(--brand) 14%, var(--line));
+  background: linear-gradient(110deg, var(--card) 35%, color-mix(in oklab, var(--b-50) 80%, var(--card)) 70%, color-mix(in oklab, var(--pastel-soft) 85%, var(--card)));
+  box-shadow: var(--shadow-sm); }
+.form-hero::before, .form-hero::after { content: ""; position: absolute; z-index: -1; pointer-events: none; }
+.form-hero::before { top: -70px; inset-inline-end: -50px; width: 210px; aspect-ratio: 1; border-radius: 50%; background: color-mix(in oklab, var(--pastel) 60%, transparent); }
+.form-hero::after { bottom: 16px; inset-inline-end: clamp(120px, 16%, 200px); width: 112px; height: 56px; opacity: 0.8;
+  background: radial-gradient(var(--b-300) 1.6px, transparent 2.1px) 0 0 / 14px 14px; }
+.form-hero-main { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; }
+.form-hero-main > .page-head-text { flex: 1 1 220px; }
+.form-hero h1 { font-size: clamp(1.35rem, 1.15rem + 0.6vw, 1.75rem); font-weight: 800; }
+.form-hero p { margin-top: 2px; color: var(--muted); }
+.form-hero-icon { display: grid; place-items: center; flex-shrink: 0; width: 54px; height: 60px; border-radius: 27px 27px 14px 14px; color: #fff;
+  background: linear-gradient(170deg, color-mix(in oklab, var(--brand-fill) 72%, #fff), var(--brand-fill) 48%, color-mix(in oklab, var(--brand-fill) 72%, #0b0a1a));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 12px 22px -12px color-mix(in oklab, var(--brand) 85%, transparent); }
+@media (max-width: 640px) {
+  .form-hero::before { top: -60px; inset-inline-end: -56px; width: 150px; }
+  .form-hero::after { display: none; }
+  .form-hero-icon { width: 46px; height: 52px; border-radius: 23px 23px 12px 12px; }
+}
+/* the form: its sections in a column and, beside them, the side column that stays in view */
+.form-page { display: flex; flex-direction: column; gap: 16px; counter-reset: form-section; }
+.form-page.has-aside { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 330px); gap: 16px 20px; align-items: start; }
 .form-page.has-aside > :not(.form-aside) { grid-column: 1; }
 .form-aside { grid-column: 2; grid-row: 1; position: sticky; top: calc(var(--topbar-offset) + 8px); }
-@media (max-width: 1100px) { .form-page.has-aside { grid-template-columns: minmax(0, 1fr); } .form-aside { grid-column: 1; grid-row: auto; position: static; } }
+/* too narrow for a side column (a phone, a tablet, a laptop with the sidebar open): the summary goes under the form, the guide away */
+@container form-layout (max-width: 900px) {
+  .form-page.has-aside { grid-template-columns: minmax(0, 1fr); }
+  .form-aside { grid-column: 1; grid-row: auto; position: static; }
+  .form-guide { display: none; }
+}
+/* a section: a card whose header has its number in a small arch (a check once done), its title, a line and an action */
+.form-section { counter-increment: form-section; display: flex; flex-direction: column; gap: 18px; scroll-margin-top: calc(var(--topbar-offset) + 12px); }
+.form-section > .mt, .form-section > .mt-sm { margin-top: 0; } /* the section's gap spaces its parts */
+.form-section-head { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px dashed color-mix(in oklab, var(--brand) 24%, var(--line)); }
+.form-section-num { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 36px; border-radius: 16px 16px 9px 9px; background: var(--pastel); color: var(--navy-950);
+  font-size: var(--fs-sm); font-weight: 800; font-variant-numeric: tabular-nums; transition: background var(--t-med) var(--ease), color var(--t-med) var(--ease); }
+.form-section-num:not(.is-done)::before { content: counter(form-section); }
+.form-section-num.is-done { background: var(--brand-fill); color: #fff; }
+.form-section-titles { flex: 1 1 180px; min-width: 0; }
+.form-section-titles h2 { font-size: var(--fs-lg); font-weight: 700; }
+.form-section-titles p { margin-top: 2px; color: var(--muted); font-size: var(--fs-sm); }
+.form-section-action { flex-shrink: 0; }
+.form-section-head:last-child { padding-bottom: 0; border-bottom: 0; } /* a section that is its header alone (no guardian yet) */
+.form-section:only-of-type .form-section-num { display: none; } /* one section: nothing to count */
+.form-section > .week > .day:first-child { border-top: 0; } /* the header's line already runs above the first day */
+.form-section .check-group > legend.sr-only + .branch-checks { margin-top: 0; } /* the section's title names the group */
+/* changing an appointment: the one being changed, before the new day and time */
+.appt-current { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--primary-100); border-radius: var(--r-md); background: var(--primary-50); }
+/* the guide: the sections on a dashed thread, the one being read marked; a click scrolls to it */
+.form-guide { padding: 16px 12px; border-radius: var(--r-lg); background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.form-guide-title { display: block; margin: 0 8px 10px; font-size: var(--fs-sm); font-weight: 800; color: var(--ink); }
+.form-guide ol { position: relative; display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.form-guide ol::before { content: ""; position: absolute; top: 22px; bottom: 22px; inset-inline-start: 21px; border-inline-start: 2px dashed var(--line-strong); }
+.form-guide button { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 14px;
+  background: none; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); text-align: start; cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.form-guide button > span { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--card); border: 1.5px solid var(--line-strong);
+  font-size: var(--fs-xs); font-weight: 800; color: var(--muted); transition: inherit; }
+.form-guide button:hover { background: var(--primary-50); color: var(--ink); }
+.form-guide button.is-on { background: var(--primary-50); color: var(--primary-700); }
+.form-guide button.is-on > span { background: var(--brand-fill); border-color: var(--brand-fill); color: #fff; }
+/* Cancel + Save float at the bottom of the screen like the header at the top: a glass pill at the form's end */
+.form-footer { position: sticky; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 6px; width: fit-content; margin: 4px 0 0; margin-inline-start: auto; padding: 6px;
+  border-radius: var(--r-pill); background: rgb(255 255 255 / 0.8); -webkit-backdrop-filter: saturate(1.6) blur(16px); backdrop-filter: saturate(1.6) blur(16px);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.85), 0 0 0 1px var(--line), var(--shadow-md); }
+.form-footer > .btn-primary { padding-inline: 26px; }
+@media (max-width: 640px) { .form-footer { width: auto; margin-inline-start: 0; } .form-footer > .btn { flex: 1; } }
 .not-found { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; max-width: 520px; }
 .dialog-body { display: flex; flex-direction: column; gap: 12px; color: var(--muted); font-size: var(--fs-sm); }
 a.btn, a.link-btn { text-decoration: none; }
@@ -491,14 +557,7 @@ a.btn, a.link-btn { text-decoration: none; }
 .pick-item { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
 .pick-item:hover:not(:disabled) { border-color: var(--primary-300); background: var(--primary-50); }
 .pick-item:disabled { opacity: 0.5; cursor: not-allowed; }
-/* new appointment: numbered steps, doctors as cards, times by part of the day, a summary beside the form */
-.appt-step { display: flex; flex-direction: column; gap: 16px; }
-.appt-step-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.appt-step-head h2 { margin: 0; }
-.appt-step-num { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: var(--surface); border: 1px solid var(--line-strong);
-  color: var(--muted); font-size: var(--fs-xs); font-weight: 700; }
-.appt-step-num.is-done { background: var(--primary-500); border-color: var(--primary-500); color: #fff; }
-.appt-step-action { margin-inline-start: auto; }
+/* new appointment: numbered sections (FormSection, a check once filled), doctors as cards, times by part of the day, a summary beside the form */
 .appt-patient { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--primary-100); border-radius: var(--r-md); background: var(--primary-50); }
 .appt-patient > .min-w-0, .appt-pick > .min-w-0, .appt-doctor > .min-w-0 { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .appt-patient .btn { margin-inline-start: auto; }
@@ -1013,7 +1072,7 @@ button.cal-col-head:hover { background: var(--primary-50); }
 
 /* ---------- Phase 1D (BIL-01, WEB-10): the plan card and the website badge, under the clinic profile ---------- */
 .plan-row { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; margin-top: 20px; }
-.plan-row > :only-child { grid-column: 1 / -1; max-width: 720px; }
+.plan-row > :only-child { grid-column: 1 / -1; }
 .plan-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .plan-head h2 { margin: 0; }
 .plan-usage { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 20px; }
@@ -1057,7 +1116,7 @@ button.cal-col-head:hover { background: var(--primary-50); }
 @media (max-width: 640px) { .import-counts { grid-template-columns: 1fr; } .import-map-row { grid-template-columns: 1fr; gap: 4px; } }
 
 /* Phase 2C-1: the website page — its sections and questions */
-.website-page { display: grid; gap: 20px; max-width: 880px; }
+.website-page { display: grid; gap: 20px; }
 .ws-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ws-head h2 { margin: 0; }
 .ws-sections, .ws-faqs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -1090,7 +1149,7 @@ button.cal-col-head:hover { background: var(--primary-50); }
 .seo-preview-desc { color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: anywhere; }
 
 /* Phase 2D: the activity log */
-.actlog { display: grid; gap: 18px; max-width: 960px; }
+.actlog { display: grid; gap: 18px; }
 .actlog-day-title { margin: 0 0 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
 .actlog-card { padding: 4px 16px; }
 .actlog-list { list-style: none; margin: 0; padding: 0; }

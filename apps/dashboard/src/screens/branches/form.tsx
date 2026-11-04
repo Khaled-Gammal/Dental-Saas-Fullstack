@@ -9,9 +9,10 @@ import { useBranches, useInvalidate, useOne } from '../../queries';
 import { to } from '../../router';
 import type { Branch, MediaImage } from '../../types';
 import { diffText } from '../../util';
-import { Card, Field, Input, Switch } from '../../ui/components';
+import { MapPinPen, MapPinPlus } from 'lucide-react';
+import { Field, Input, Switch } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { FormPage, ResourceState } from '../../ui/page';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]{0,58}[a-z0-9])?$/;
 const TEXT = ['nameAr', 'nameEn', 'addressAr', 'addressEn', 'city', 'phone', 'whatsapp'] as const;
@@ -67,11 +68,10 @@ function BranchFormBody({ clinicId, branch }: { clinicId: string; branch?: Branc
 
   const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'الفروع', route: to.list('branches') }, { label: branch ? 'تعديل' : 'إضافة فرع' }];
   return (
-    <FormPage title={branch ? 'تعديل الفرع' : 'إضافة فرع'} crumbs={crumbs} back={to.list('branches')} onSubmit={submit}
+    <FormPage title={branch ? 'تعديل الفرع' : 'إضافة فرع'} icon={branch ? <MapPinPen /> : <MapPinPlus />} crumbs={crumbs} back={to.list('branches')} onSubmit={submit}
       saving={save.isPending} canSave={canSave} error={save.error}>
-      <Card>
-        <h2>البيانات الأساسية</h2>
-        <div className="grid-2 mt">
+      <FormSection title="البيانات الأساسية">
+        <div className="grid-2">
           <Field label="الاسم">{(a) => <Input id={a.id} value={form.nameAr} onChange={text('nameAr')} dir="auto" maxLength={120} autoFocus={!branch} />}</Field>
           {branch ? (
             <Field label="المعرّف (بالإنجليزية)" hint="المعرّف جزء من روابط موقعك ولا يتغير">{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.slug} readOnly dir="ltr" />}</Field>
@@ -82,38 +82,32 @@ function BranchFormBody({ clinicId, branch }: { clinicId: string; branch?: Branc
             </Field>
           )}
           <Field label="المدينة" optional="اختياري">{(a) => <Input id={a.id} value={form.city} onChange={text('city')} maxLength={80} />}</Field>
+          {branch && <Field label="العنوان" optional="اختياري">{(a) => <Input id={a.id} value={form.addressAr} onChange={text('addressAr')} dir="rtl" maxLength={300} />}</Field>}
         </div>
-      </Card>
+      </FormSection>
 
       {branch && canPhoto && (
-        <Card>
+        <FormSection title="صورة الفرع">
           <ImageField purpose="photo" shape="wide" value={form.photo} onChange={(photo) => setForm((f) => ({ ...f, photo }))}
-            label="صورة الفرع" hint="واجهة الفرع أو الاستقبال، تظهر أعلى بطاقة الفرع على الموقع." />
-        </Card>
+            label="صورة الفرع" hideLabel hint="واجهة الفرع أو الاستقبال، تظهر أعلى بطاقة الفرع على الموقع." />
+        </FormSection>
       )}
 
-      {branch && (
-        <Card>
-          <h2>العنوان</h2>
-          <div className="grid-2 mt">
-            <Field label="العنوان" optional="اختياري">{(a) => <Input id={a.id} value={form.addressAr} onChange={text('addressAr')} dir="rtl" maxLength={300} />}</Field>
-          </div>
-        </Card>
-      )}
-
-      <Card>
-        <h2>التواصل</h2>
-        <div className="grid-2 mt">
+      <FormSection title="التواصل">
+        <div className="grid-2">
           <Field label="هاتف الفرع" optional="اختياري">{(a) => <Input id={a.id} type="tel" value={form.phone} onChange={text('phone')} dir="ltr" placeholder="01012345678" />}</Field>
           {branch && <Field label="واتساب" optional="اختياري">{(a) => <Input id={a.id} type="tel" value={form.whatsapp} onChange={text('whatsapp')} dir="ltr" placeholder="01012345678" />}</Field>}
         </div>
-        {branch && !branch.is_main && (
-          <div className="mt">
+      </FormSection>
+
+      {branch && !branch.is_main && (
+        <FormSection title="الحالة">
+          <div>
             <Switch checked={form.isActive} onChange={setActive} label="نشط" />
             <p className="muted small">الفرع الموقوف يختفي من الموقع ولا يستقبل حجوزات</p>
           </div>
-        )}
-      </Card>
+        </FormSection>
+      )}
 
       <ConfirmDialog open={confirmOff} title="إيقاف الفرع؟" confirmLabel="إيقاف" danger
         onConfirm={() => { setForm((f) => ({ ...f, isActive: false })); setConfirmOff(false); }} onCancel={() => setConfirmOff(false)}>

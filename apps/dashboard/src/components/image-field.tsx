@@ -13,9 +13,11 @@ import { uploadErrorText } from './image-uploader';
  * `purpose: 'case'` is a before/after case's image (Phase 2C-2).
  * `shape` only changes the preview: a circle for people, a wide card for places and services, a contained logo.
  */
-export function ImageField({ purpose, value, onChange, label, hint, shape, placeholder, disabled }: {
+export function ImageField({ purpose, value, onChange, label, hint, shape, placeholder, disabled, hideLabel }: {
   purpose: MediaPurpose; value: MediaImage | null; onChange: (img: MediaImage | null) => void;
   label: string; hint?: string; shape: 'circle' | 'wide' | 'logo'; placeholder?: ReactNode; disabled?: boolean;
+  /** the label is already on screen (a form section titled with it): kept for screen readers only */
+  hideLabel?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const hintId = useId();
@@ -56,7 +58,7 @@ export function ImageField({ purpose, value, onChange, label, hint, shape, place
 
   return (
     <fieldset className={`image-field is-${shape}`} disabled={disabled}>
-      <legend>{label}</legend>
+      <legend className={hideLabel ? 'sr-only' : undefined}>{label}</legend>
       <div className={`image-field-preview${dragging ? ' is-over' : ''}`} onDragOver={(e) => { e.preventDefault(); if (!busy && !disabled) setDragging(true); }}
         onDragLeave={() => setDragging(false)} onDrop={onDrop}>
         {src

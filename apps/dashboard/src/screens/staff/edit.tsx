@@ -9,9 +9,10 @@ import { to } from '../../router';
 import { roleOptions } from '../../roles-model';
 import { memberForm, toMemberPatch, type MemberForm } from '../../staff-model';
 import type { Branch, StaffMember, StaffRole } from '../../types';
-import { Card, Field, Input, Switch } from '../../ui/components';
+import { UserCog } from 'lucide-react';
+import { Field, Input, Switch } from '../../ui/components';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { FormPage, ResourceState } from '../../ui/page';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 import { BranchAccess } from './invite';
 
 /** `#/staff/<id>/edit`: role, branches, job title, and whether the member can sign in (SRS ACCESS-002). */
@@ -48,11 +49,10 @@ function EditBody({ clinicId, member, roles, branches, has }: { clinicId: string
   const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'فريق العمل', route: to.list('staff') }, { label: member.user.full_name }];
 
   return (
-    <FormPage title="صلاحيات العضو" sub={member.user.email ?? undefined} crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
+    <FormPage title="صلاحيات العضو" icon={<UserCog />} sub={<><bdi>{member.user.full_name}</bdi>{member.user.email && <> · <bdi dir="ltr">{member.user.email}</bdi></>}</>} crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
       saving={save.isPending} canSave={canSave} error={save.error}>
-      <Card>
-        <h2><bdi>{member.user.full_name}</bdi></h2>
-        <div className="grid-2 mt">
+      <FormSection title="الدور والدخول">
+        <div className="grid-2">
           <Field label="الدور">
             {(a) => <Choice id={a.id} value={form.roleId} onChange={set('roleId')} options={roleOptions(roles, has, member.role.id).map((r) => ({ value: r.id, label: roleLabel(r.key, r.name_ar) }))} />}
           </Field>
@@ -60,10 +60,10 @@ function EditBody({ clinicId, member, roles, branches, has }: { clinicId: string
             {(a) => <Input id={a.id} value={form.jobTitle} onChange={(e) => set('jobTitle')(e.target.value)} maxLength={80} />}
           </Field>
         </div>
-        <div className="switch-row mt">
+        <div className="switch-row">
           <Switch checked={form.active} onChange={(on) => (on ? set('active')(true) : setConfirmOff(true))} label="يستطيع الدخول للعيادة" />
         </div>
-      </Card>
+      </FormSection>
       <BranchAccess branches={branches} allBranches={form.allBranches} branchIds={form.branchIds}
         onAll={set('allBranches')} onToggle={toggleBranch} missing={false} />
       <ConfirmDialog open={confirmOff} title="إيقاف هذا العضو؟" confirmLabel="إيقاف" danger

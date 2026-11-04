@@ -5,8 +5,9 @@ import { errorLabel } from '../../labels';
 import { galleryApi, useBranches, useGalleryItem, useGalleryMutation } from '../../queries';
 import { to } from '../../router';
 import type { Branch, GalleryItem } from '../../types';
-import { Card, Field, Input, Switch } from '../../ui/components';
-import { FormPage, ResourceState } from '../../ui/page';
+import { Field, Input, Switch } from '../../ui/components';
+import { ImageIcon } from '../../ui/icons';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 import { ScopeSelect, Thumb } from './shared';
 
 /** `#/gallery/:id/edit`: where the photo belongs, its caption and alt text, published and featured. */
@@ -41,10 +42,10 @@ function GalleryFormBody({ clinicId, item, branches }: { clinicId: string; item:
   };
 
   return (
-    <FormPage title="تعديل الصورة" crumbs={[{ label: 'معرض الصور', route: to.list('gallery') }, { label: 'تعديل الصورة' }]}
+    <FormPage title="تعديل الصورة" icon={<ImageIcon size={24} />} crumbs={[{ label: 'معرض الصور', route: to.list('gallery') }, { label: 'تعديل الصورة' }]}
       back={to.list('gallery')} onSubmit={submit} saving={save.isPending} canSave={dirty} error={save.error}
       notice={touched && problems.length > 0 && <p className="field-error">{problems.map((p) => errorLabel[p]).join(' ')}</p>}>
-      <Card>
+      <FormSection title="الصورة والنشر">
         <div className="photo-edit">
           <div className="photo-preview"><Thumb img={item.image} alt={form.altAr || form.captionAr || ''} sizes="(max-width: 760px) 100vw, 480px" /></div>
           <div className="stack">
@@ -58,16 +59,15 @@ function GalleryFormBody({ clinicId, item, branches }: { clinicId: string; item:
             <p className="muted small">صورة مميزة واحدة لكل معرض؛ تظهر أولًا. تمييز صورة يلغي تمييز السابقة.</p>
           </div>
         </div>
-      </Card>
-      <Card>
-        <h2>الوصف</h2>
-        <div className="grid-2 mt">
+      </FormSection>
+      <FormSection title="الوصف">
+        <div className="grid-2">
           <Field label="وصف الصورة لقارئ الشاشة" hint="ماذا تُظهر الصورة؟ مثال: غرفة الكشف بكرسي أسنان حديث. مطلوب للنشر." error={touched && problems.includes('alt_required') ? 'أضف وصفًا للصورة (أو تعليقًا) قبل نشرها.' : undefined}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} invalid={a.invalid} value={form.altAr} onChange={text('altAr')} dir="rtl" maxLength={200} />}
           </Field>
           <Field label="تعليق ظاهر" optional="اختياري" hint="يظهر تحت الصورة على الموقع.">{(a) => <Input id={a.id} describedBy={a.describedBy} value={form.captionAr} onChange={text('captionAr')} dir="rtl" maxLength={300} />}</Field>
         </div>
-      </Card>
+      </FormSection>
     </FormPage>
   );
 }

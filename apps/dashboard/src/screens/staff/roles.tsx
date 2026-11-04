@@ -12,7 +12,7 @@ import { DataTable, type Column } from '../../ui/data-table';
 import { RowMenu } from '../../ui/row-menu';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { CopyIcon, EditIcon, PlusIcon, ShieldIcon } from '../../ui/icons';
-import { FormPage, ResourceState } from '../../ui/page';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 import { Checkbox } from '../../components/ui/checkbox';
 
 const permLabel = (p: string) => permissionLabel[p];
@@ -154,21 +154,21 @@ function RoleBody({ clinicId, has, role, source, catalogue, readOnly }: {
   const everything = role?.permissions.includes('*');
 
   return (
-    <FormPage title={title} sub={readOnly ? (role?.is_system ? undefined : 'لا يمكنك تعديل هذا الدور.') : 'اختر ما يراه أصحاب هذا الدور وما يفعلونه. الصلاحية التي تحتاج غيرها تُختار معها تلقائيًا.'} crumbs={crumbs} back={to.list('roles')}
+    <FormPage title={title} icon={<ShieldIcon size={24} />} sub={readOnly ? (role?.is_system ? undefined : 'لا يمكنك تعديل هذا الدور.') : 'اختر ما يراه أصحاب هذا الدور وما يفعلونه. الصلاحية التي تحتاج غيرها تُختار معها تلقائيًا.'} crumbs={crumbs} back={to.list('roles')}
       onSubmit={submit} saving={save.isPending} canSave={!readOnly && nameOk && !save.isPending} error={save.error}
       notice={!readOnly && mixesClinicalAndMoney(perms) ? <Alert tone="info">هذا الدور يجمع بين الكتابة العلاجية (الزيارات والخطط) والكتابة المالية (الفواتير والمدفوعات والخزنة). يُفضَّل فصلهما بين شخصين، ويمكنك الحفظ رغم ذلك.</Alert> : undefined}>
       {!readOnly && (
-        <Card>
+        <FormSection title="بيانات الدور">
           <Field label="اسم الدور" error={tried && !nameOk ? 'اكتب اسمًا للدور (حرفان على الأقل).' : undefined}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} invalid={tried && !nameOk} autoFocus />}
           </Field>
-          {!has('*') && <p className="muted small mt-sm">تستطيع إعطاء الصلاحيات التي تملكها فقط؛ الباقي مقفل.</p>}
-        </Card>
+          {!has('*') && <p className="muted small">تستطيع إعطاء الصلاحيات التي تملكها فقط؛ الباقي مقفل.</p>}
+        </FormSection>
       )}
       {everything ? <Card><p>المالك يملك كل الصلاحيات دائمًا، ولا يُعدَّل دوره.</p></Card> : catalogue.map((g) => (
-        <Card key={g.key}>
+        <FormSection key={g.key} title={permissionGroupLabel[g.key]}>
           <fieldset className="perm-group">
-            <legend><h2>{permissionGroupLabel[g.key]}</h2></legend>
+            <legend className="sr-only">{permissionGroupLabel[g.key]}</legend>
             <ul className="perm-list">
               {g.permissions.map((p) => {
                 const on = perms.includes(p.key);
@@ -186,7 +186,7 @@ function RoleBody({ clinicId, has, role, source, catalogue, readOnly }: {
               })}
             </ul>
           </fieldset>
-        </Card>
+        </FormSection>
       ))}
       {readOnly && role && !role.is_system && role.can.edit === false && !role.archived_at && <Alert tone="info">هذا دورك؛ يعدّله المالك أو مدير آخر.</Alert>}
     </FormPage>
