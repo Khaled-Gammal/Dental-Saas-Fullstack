@@ -725,6 +725,39 @@ export const toothSurfaceLabel: Record<string, string> = {
   P: 'حنكي (P)',
 };
 
+/** A tooth by its place in its quadrant (the FDI number's second digit): 1 the central incisor … 8 the wisdom tooth. */
+export const permanentToothLabel: Record<number, string> = {
+  1: 'القاطع الأوسط',
+  2: 'القاطع الجانبي',
+  3: 'الناب',
+  4: 'الضاحك الأول',
+  5: 'الضاحك الثاني',
+  6: 'الضرس الأول',
+  7: 'الضرس الثاني',
+  8: 'ضرس العقل',
+};
+
+/** A primary (milk) tooth by its place: 1 the central incisor … 5 the second primary molar. */
+export const primaryToothLabel: Record<number, string> = {
+  1: 'القاطع الأوسط اللبني',
+  2: 'القاطع الجانبي اللبني',
+  3: 'الناب اللبني',
+  4: 'الضرس اللبني الأول',
+  5: 'الضرس اللبني الثاني',
+};
+
+/** The quadrant (the FDI number's first digit), the patient's own right and left; 5–8 are the same for primary teeth. */
+export const toothSideLabel: Record<number, string> = {
+  1: 'العلوي الأيمن',
+  2: 'العلوي الأيسر',
+  3: 'السفلي الأيسر',
+  4: 'السفلي الأيمن',
+  5: 'العلوي الأيمن',
+  6: 'العلوي الأيسر',
+  7: 'السفلي الأيسر',
+  8: 'السفلي الأيمن',
+};
+
 /** Field names in validation messages (L10N-003). */
 export const validationFieldLabel: Record<string, string> = {
   fullName: 'الاسم',

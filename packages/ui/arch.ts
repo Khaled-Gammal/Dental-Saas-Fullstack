@@ -3,9 +3,20 @@
  * Pure math, no React: each app renders the teeth with its own JSX/SVG or canvas.
  */
 
-/** Tooth outline on a 24×24 grid, crown at the top, roots at the bottom. */
+/** Tooth outline on a 24×24 grid, crown at the top, roots at the bottom (a molar: two cusps, two roots). */
 export const TOOTH_PATH =
   'M7.2 3.5c-2.4 0-4 1.9-4 4.5 0 2 .8 3.4 1.5 4.8.6 1.3.9 2.8 1.1 4.6.3 2.4 1 3.6 2.1 3.6 1.3 0 1.6-1.6 2-3.6.3-1.4.8-2.4 2.1-2.4s1.8 1 2.1 2.4c.4 2 .7 3.6 2 3.6 1.1 0 1.8-1.2 2.1-3.6.2-1.8.5-3.3 1.1-4.6.7-1.4 1.5-2.8 1.5-4.8 0-2.6-1.6-4.5-4-4.5-1.6 0-2.6.8-4.8.8s-3.2-.8-4.8-.8Z';
+
+/*
+ * The single-rooted teeth in the same drawing and on the same grid as TOOTH_PATH, so the dental chart can draw each
+ * tooth as what it is: a flat-edged incisor, a pointed canine, a two-cusped premolar; TOOTH_PATH is the molar.
+ */
+export const INCISOR_PATH =
+  'M7.2 3.1C9.8 2.5 14.2 2.5 16.8 3.1C18.2 3.4 18.7 4.8 18.4 6.8C18.1 9 17.1 10.6 16.2 12.2C15.2 14.2 14.3 17.2 13.5 19.5C13.1 20.8 12.6 21.5 12 21.5C11.4 21.5 10.9 20.8 10.5 19.5C9.7 17.2 8.8 14.2 7.8 12.2C6.9 10.6 5.9 9 5.6 6.8C5.3 4.8 5.8 3.4 7.2 3.1Z';
+export const CANINE_PATH =
+  'M12 2.4C13.9 3.4 16.6 4.7 17.7 6.6C18.5 8 18.2 10 17.1 11.9C16 13.8 15 16.8 14.1 19.6C13.6 21.1 12.9 22 12 22C11.1 22 10.4 21.1 9.9 19.6C9 16.8 8 13.8 6.9 11.9C5.8 10 5.5 8 6.3 6.6C7.4 4.7 10.1 3.4 12 2.4Z';
+export const PREMOLAR_PATH =
+  'M9 3.3C6.8 3.3 5.2 5.1 5.2 7.6C5.2 9.6 6.2 11.1 7 12.6C7.8 14.2 8.6 16.6 9.6 18.9C10.3 20.5 11 21.5 12 21.5C13 21.5 13.7 20.5 14.4 18.9C15.4 16.6 16.2 14.2 17 12.6C17.8 11.1 18.8 9.6 18.8 7.6C18.8 5.1 17.2 3.3 15 3.3C13.8 3.3 13.1 4 12 4C10.9 4 10.2 3.3 9 3.3Z';
 
 /**
  * A rounder molar on a 240×260 grid (two cusps, two roots): the glossy tooth of the clinic websites' and the

@@ -668,19 +668,58 @@ a.btn, a.link-btn { text-decoration: none; }
 .tooth-panel { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .tooth-panel h3, .card h3 { margin: 0; font-size: var(--fs-md); }
 
-/* the dental chart is drawn left to right in every language (CHART-001) */
-.dental-chart { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
-.chart-sides { display: flex; justify-content: space-between; min-width: 400px; }
-.chart-row { display: flex; justify-content: center; gap: 3px; min-width: 400px; }
-.chart-row + .chart-row { padding-top: 4px; }
-.chart-row:nth-child(2) { border-bottom: 2px solid var(--line-strong); padding-bottom: 8px; }
-.tooth { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1 1 0; min-width: 20px; max-width: 34px; height: 40px; padding: 0;
-  border: 1px solid var(--line-strong); border-radius: 8px 8px 12px 12px; background: var(--card); color: var(--ink); font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
-.tooth.mid { margin-inline-start: 8px; }
-.tooth:hover { border-color: var(--primary-300); }
-.tooth:focus-visible { outline: none; box-shadow: var(--ring); }
-.tooth.is-on { outline: 2px solid var(--primary-500); outline-offset: 1px; }
-.tooth-surf { font-size: 9px; font-weight: 600; opacity: .85; }
+/* the dental chart: two jaws (2026-11-04, after the landing page's arch of teeth; jaw-model.ts), drawn left to right in
+   every language like a printed chart (CHART-001); the middle of the mouth names the tooth pointed at, focused or chosen */
+.jaw-chart { position: relative; container-type: inline-size; width: 100%; max-width: 560px; margin: 14px auto 0; -webkit-user-select: none; user-select: none; }
+/* the numbers' sizes, in the drawing's units: they shrink with it, so a phone-sized chart writes them larger */
+.jaw-svg { display: block; width: 100%; height: auto; overflow: visible; --no: 10.5px; --no-primary: 8.5px; --note: 8.5px; --note-primary: 7.5px; }
+@container (max-width: 440px) {
+  .jaw-svg { --no: 13px; --no-primary: 9.5px; }
+  .jaw-note { display: none; } /* no room beside the larger numbers: a tooth's surfaces show in the middle once chosen */
+}
+.jaw-sides { position: absolute; inset: 0 0 auto; display: flex; justify-content: space-between; pointer-events: none; }
+.jaw-gum { fill: none; stroke: color-mix(in oklab, var(--pastel) 50%, #fff); stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+.jaw-tooth { cursor: pointer; outline: none; }
+.jaw-hit { fill: transparent; pointer-events: all; }
+.jaw-glyph { transform-box: fill-box; transform-origin: center; transition: transform var(--t-fast) var(--ease); }
+.jaw-crown { fill: #fff; stroke: var(--b-300); stroke-width: 1.4px; vector-effect: non-scaling-stroke;
+  transition: fill var(--t-fast) var(--ease), stroke var(--t-fast) var(--ease); }
+.jaw-no { fill: var(--muted); font-size: var(--no); font-weight: 700; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.jaw-note { fill: var(--faint); font-size: var(--note); font-weight: 800; letter-spacing: 0.04em; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+/* the condition, as in the legend: to treat, treated, missing (a dashed ghost), fine, other */
+.jaw-tooth.tone-problem .jaw-crown { fill: var(--danger-bg); stroke: var(--danger); }
+.jaw-tooth.tone-treated .jaw-crown { fill: var(--primary-100); stroke: var(--primary-500); }
+.jaw-tooth.tone-healthy .jaw-crown { fill: var(--success-bg); stroke: var(--success); }
+.jaw-tooth.tone-other .jaw-crown { fill: var(--warning-bg); stroke: var(--warning); }
+.jaw-tooth.tone-missing .jaw-crown { fill: var(--surface); fill-opacity: 0.6; stroke: var(--faint); stroke-dasharray: 3 3; }
+.jaw-tooth.tone-problem :is(.jaw-no, .jaw-note) { fill: var(--danger); }
+.jaw-tooth.tone-treated :is(.jaw-no, .jaw-note) { fill: var(--primary-700); }
+.jaw-tooth.tone-healthy :is(.jaw-no, .jaw-note) { fill: var(--success); }
+.jaw-tooth.tone-missing .jaw-no { fill: var(--faint); }
+/* pointed at or focused: the tooth lifts, outlined in the clinic's colour; chosen: a ring, and its number in a pill */
+.jaw-tooth:is(:hover, :focus-visible) .jaw-glyph { transform: scale(1.14); }
+.jaw-tooth:is(:hover, :focus-visible) .jaw-crown { stroke: var(--brand); stroke-width: 2px; filter: drop-shadow(0 4px 6px color-mix(in oklab, var(--brand) 35%, transparent)); }
+.jaw-tooth:not([class*="tone-"]):is(:hover, :focus-visible) .jaw-crown { fill: var(--b-100); }
+.jaw-tooth:is(:hover, :focus-visible) .jaw-no { fill: var(--ink); font-size: calc(var(--no) + 1.5px); }
+.jaw-tooth.is-on .jaw-crown { stroke: var(--brand-fill); stroke-width: 2.6px; }
+.jaw-pill { fill: var(--brand-fill); }
+.jaw-tooth.is-on .jaw-no { fill: #fff; font-size: calc(var(--no) + 0.5px); }
+/* primary teeth are small and their numbers sit inside the arch, where there is less room: smaller numbers */
+.jaw-tooth.is-primary .jaw-no { font-size: var(--no-primary); }
+.jaw-tooth.is-primary:is(:hover, :focus-visible) .jaw-no { font-size: calc(var(--no-primary) + 1px); }
+.jaw-tooth.is-primary.is-on .jaw-no { font-size: calc(var(--no-primary) + 0.5px); }
+.jaw-tooth.is-primary .jaw-note { font-size: var(--note-primary); }
+.jaw-info { position: absolute; left: 50%; top: 50%; translate: -50% -50%; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: max-content; max-width: 38%; margin: 0; text-align: center; pointer-events: none; }
+.jaw-info-no { font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem); font-weight: 800; line-height: 1.1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.jaw-info-name { font-size: var(--fs-sm); font-weight: 700; line-height: 1.45; color: var(--ink); }
+.jaw-info-state { margin-top: 6px; padding: 2px 12px; border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: 700; color: var(--muted); background: var(--surface); }
+.jaw-info.is-idle { max-width: 30%; color: var(--faint); font-size: var(--fs-sm); font-weight: 600; }
+/* with the primary arches inside the jaws the middle is taken: the tooth is named under the drawing instead */
+.jaw-chart.has-primary .jaw-info { position: static; translate: none; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 4px 10px;
+  width: auto; max-width: none; min-height: 32px; margin-top: 6px; }
+.jaw-chart.has-primary .jaw-info-no { font-size: var(--fs-lg); }
+.jaw-chart.has-primary .jaw-info-state { margin-top: 0; }
 .tone-problem { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
 .tone-treated { background: var(--primary-50); border-color: var(--primary-300); color: var(--primary-700); }
 .tone-missing { background: repeating-linear-gradient(45deg, var(--surface), var(--surface) 4px, var(--line) 4px, var(--line) 8px); color: var(--muted); border-style: dashed; }
