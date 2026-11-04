@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { SPARKLE_PATH } from '@dental/ui/arch';
+import { MOLAR_PATH, SPARKLE_PATH } from '@dental/ui/arch';
 import { Sparkle } from '../icons';
 
 /**
@@ -7,17 +7,13 @@ import { Sparkle } from '../icons';
  * clinic's --brand (app/site.css), so every clinic gets its own version and no JavaScript is shipped.
  */
 
-/** A molar on a 240×260 grid: two cusps, two roots. */
-export const TOOTH_SHAPE =
-  'M120 46C138 30 162 22 184 32C206 42 214 72 208 102C204 124 194 140 190 162C186 186 184 214 176 234C170 250 154 252 150 236C146 220 144 198 138 184C133 173 126 170 120 170C114 170 107 173 102 184C96 198 94 220 90 236C86 252 70 250 64 234C56 214 54 186 50 162C46 140 36 124 32 102C26 72 34 42 56 32C78 22 102 30 120 46Z';
-
 /** The glossy tooth: a depth layer, the enamel, a side shade, and the highlights. Ids are prefixed by `id`. */
 function GlossyTooth({ id }: { id: string }) {
   return (
     <>
-      <path d={TOOTH_SHAPE} transform="translate(9 11)" className="art-depth" />
-      <path d={TOOTH_SHAPE} fill={`url(#${id}-enamel)`} />
-      <path d={TOOTH_SHAPE} fill={`url(#${id}-shade)`} />
+      <path d={MOLAR_PATH} transform="translate(9 11)" className="art-depth" />
+      <path d={MOLAR_PATH} fill={`url(#${id}-enamel)`} />
+      <path d={MOLAR_PATH} fill={`url(#${id}-shade)`} />
       <path d="M58 46C72 36 94 40 102 52C92 58 76 62 64 74C56 66 52 54 58 46Z" fill="#fff" />
       <path d="M42 82C40 100 44 120 52 136" className="art-shine" />
       <circle cx="152" cy="52" r="5" fill="#fff" />
@@ -103,7 +99,7 @@ export function CtaArt() {
       <circle cx="180" cy="180" r="170" className="cta-ring" />
       <circle cx="180" cy="180" r="128" className="cta-ring cta-ring-dash" />
       <circle cx="180" cy="180" r="86" className="cta-disc" />
-      <path d={TOOTH_SHAPE} transform="translate(108 112) scale(0.6)" className="cta-tooth" />
+      <path d={MOLAR_PATH} transform="translate(108 112) scale(0.6)" className="cta-tooth" />
       <Spark x={292} y={74} r={14} className="cta-spark" />
       <Spark x={70} y={250} r={9} className="cta-spark" />
       <Spark x={300} y={286} r={6} className="cta-spark" />

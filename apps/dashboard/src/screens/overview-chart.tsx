@@ -1,11 +1,11 @@
-import { Area, AreaChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import {
   ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig,
 } from '@/components/ui/chart';
 
 /**
  * The overview's charts on shadcn/ui's chart (recharts; user 2026-10-21), after the simple Untitled UI layout the user
- * chose: one line chart over time and a sparkline per figure. One file, loaded on demand: only the owner and the
+ * chose: one chart over time (lines over soft fills of their colour, 2026-11-04) and a sparkline per figure. One file, loaded on demand: only the owner and the
  * accountant, who see them, download recharts. Time runs right to left as Arabic reads (the oldest point by the amounts
  * axis, on the right); screen readers get the chart's numbers as a table.
  */
@@ -26,7 +26,15 @@ export function MoneyTrend({ points, labels, format, axisFormat }: {
   return (
     <figure className="ov-figure">
       <ChartContainer config={config} className="aspect-auto h-[300px] w-full" aria-hidden>
-        <LineChart data={points} margin={{ top: 8, right: 4, left: 8, bottom: 0 }}>
+        <AreaChart data={points} margin={{ top: 8, right: 4, left: 8, bottom: 0 }}>
+          <defs>
+            {([['collections', 0.24], ['expenses', 0.12]] as const).map(([key, strength]) => (
+              <linearGradient key={key} id={`trend-${key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={`var(--color-${key})`} stopOpacity={strength} />
+                <stop offset="100%" stopColor={`var(--color-${key})`} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" reversed tickLine={false} axisLine={false} tickMargin={10} minTickGap={24} />
           <YAxis orientation="right" tickLine={false} axisLine={false} width={64} tickFormatter={axisFormat} />
@@ -38,9 +46,9 @@ export function MoneyTrend({ points, labels, format, axisFormat }: {
           )} />} />
           <ChartLegend content={<ChartLegendContent />} />
           {/* monotone: smooth without overshooting a point (these amounts are never below zero) */}
-          <Line dataKey="collections" type="monotone" stroke="var(--color-collections)" strokeWidth={2.25} dot={false} activeDot={{ r: 4 }} />
-          <Line dataKey="expenses" type="monotone" stroke="var(--color-expenses)" strokeWidth={2.25} dot={false} activeDot={{ r: 4 }} />
-        </LineChart>
+          <Area dataKey="collections" type="monotone" stroke="var(--color-collections)" strokeWidth={2.5} fill="url(#trend-collections)" dot={false} activeDot={{ r: 4 }} />
+          <Area dataKey="expenses" type="monotone" stroke="var(--color-expenses)" strokeWidth={2.25} fill="url(#trend-expenses)" dot={false} activeDot={{ r: 4 }} />
+        </AreaChart>
       </ChartContainer>
       <table className="sr-only">
         <caption>{labels.title}</caption>

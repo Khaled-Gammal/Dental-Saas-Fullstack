@@ -1,45 +1,63 @@
 /*
- * The dashboard's healthcare theme (redesign R1). It re-points the shared design tokens (@dental/ui/tokens.css, also
- * used by the public clinic websites, which keep their own look) for the dashboard only: imported after them.
- * Every screen keeps using the same token names, so the whole dashboard changes from here.
- *
- * Contrast (WCAG AA, normal text >= 4.5:1), measured on white unless noted:
- *   primary-500 #0e7490 5.4 (white text on it 5.4) · primary-600 #155e75 7.3 · primary-700 on primary-50 8.6
- *   ink #0f172a 17.9 · muted #64748b 4.8 (4.6 on the #f8fafc background) · success #15803d 5.0 · warning-ink #b45309 5.0
- *   danger #dc2626 4.8 (white text on it 4.8; on danger-bg #fff5f5 4.5)
- * The palette's brand cyan #0891b2 gives white text only 3.7:1, so it is the accent (focus ring, active marker, logo,
- * charts), and filled buttons and links use the next shade, #0e7490 (hover #155e75).
+ * The dashboard's theme (2026-11-04): the clinic websites' "arches and shapes" design, built like theirs from one
+ * colour, the clinic's own website colour. hooks/use-brand-theme.ts sets three values on <html> (theme-model.ts):
+ *   --brand       the colour itself: shapes, glows, tints
+ *   --brand-fill  the colour, darkened only as far as white text needs (>= 4.5:1): filled buttons, active states
+ *   --brand-text  a shade that reads as text on white and on the light tints (>= 5.2:1)
+ * Before a clinic is known (sign-in, the platform panel) they hold the platform's indigo. Every tint and shade below
+ * is mixed from them, and the shared token names (@dental/ui/tokens.css) keep their meaning, so every screen follows.
+ * `.theme-scope` mixes them again inside one element that sets its own three values (the clinic profile's preview of
+ * a colour not saved yet): a derived variable is computed where it is declared, not where it is used.
  */
 :root {
-  /* brand: cyan */
-  --brand-accent: #0891b2;
-  --primary-50: #ecfeff;
-  --primary-100: #cffafe;
-  --primary-200: #a5f3fc;
-  --primary-300: #67e8f9;
-  --primary-500: #0e7490;
-  --primary-600: #155e75;
-  --primary-700: #164e63;
-  /* the deep panels (sign-in side, overview welcome card) follow the brand instead of navy */
-  --navy-900: #164e63;
-  --navy-800: #155e75;
-  --navy-700: #0e7490;
-  --navy-950: #083344;
-  --navy-text: #bae6f0; /* secondary text on the deep panels: 7.9:1 on #164e63 */
-  --sky-100: #ecfeff;
-  --sky-400: #22d3ee;
+  --brand: #4f46e5;
+  --brand-fill: #4f46e5;
+  --brand-text: #4f46e5;
+}
 
-  /* neutrals: white cards on a light slate background */
-  --surface: #f8fafc;
+:root, .theme-scope {
+  /* tints, and the "night" shades of the dark panels (the sidebar, the sign-in side) */
+  --b-50: color-mix(in oklab, var(--brand) 5%, #fff);
+  --b-100: color-mix(in oklab, var(--brand) 11%, #fff);
+  --b-200: color-mix(in oklab, var(--brand) 24%, #fff);
+  --b-300: color-mix(in oklab, var(--brand) 42%, #fff);
+  --night-800: color-mix(in oklab, var(--brand) 48%, #0b0a1a);
+  --night-900: color-mix(in oklab, var(--brand) 26%, #0c0b1d);
+  --night-950: color-mix(in oklab, var(--brand) 15%, #08070f);
+  /* a pastel neighbour of the hue, for shapes only (never text): tints here, the hue-shifted colours further down */
+  --pastel: var(--b-200);
+  --pastel-soft: var(--b-100);
+  --pastel-strong: var(--b-300);
+
+  /* the shared token names */
+  --brand-accent: var(--brand);
+  --primary-50: var(--b-50);
+  --primary-100: var(--b-100);
+  --primary-200: var(--b-200);
+  --primary-300: var(--b-300);
+  --primary-500: var(--brand-fill);
+  --primary-600: color-mix(in oklab, var(--brand-fill) 84%, #0b0a1a);
+  --primary-700: color-mix(in oklab, var(--brand-fill) 64%, #0b0a1a);
+  --navy-700: var(--night-800);
+  --navy-800: color-mix(in oklab, var(--brand) 36%, #0b0a1a);
+  --navy-900: var(--night-900);
+  --navy-950: var(--night-950);
+  --navy-text: color-mix(in oklab, var(--brand) 14%, #e6e6ef); /* secondary text on the night panels */
+  --sky-100: var(--b-50);
+  --sky-400: var(--pastel-strong);
+
+  /* neutrals with a touch of the colour, so the page reads as one piece */
+  --surface: color-mix(in oklab, var(--brand) 3%, #f6f6f9);
   --card: #ffffff;
-  --line: #e2e8f0;
-  --line-strong: #cbd5e1;
-  --skeleton-hi: #f1f5f9;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --faint: #94a3b8;
+  --field: color-mix(in oklab, var(--brand) 2.5%, #fafafc); /* inside a form field */
+  --line: color-mix(in oklab, var(--brand) 9%, #e6e6ed);
+  --line-strong: color-mix(in oklab, var(--brand) 14%, #d3d3dd);
+  --skeleton-hi: color-mix(in oklab, var(--brand) 4%, #f4f4f7);
+  --ink: color-mix(in oklab, var(--brand) 10%, #13121f);
+  --muted: color-mix(in oklab, var(--brand) 8%, #5a596c); /* 6:1 and more on the surface */
+  --faint: color-mix(in oklab, var(--brand) 8%, #9998aa); /* placeholders and decoration only, never body text */
 
-  /* status: the text-safe shade of each (the lighter palette shades are for fills and icons only) */
+  /* status: the text-safe shade of each (the lighter shades are for fills and icons only) */
   --success: #15803d;
   --success-bg: #f0fdf4;
   --warning: #d97706;
@@ -48,23 +66,39 @@
   --danger: #dc2626;
   --danger-bg: #fff5f5;
 
-  /* shape and depth: soft, few shadows */
-  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
-  --shadow-md: 0 4px 12px -4px rgb(15 23 42 / 0.10), 0 1px 2px rgb(15 23 42 / 0.05);
-  --shadow-lg: 0 16px 36px -12px rgb(15 23 42 / 0.20);
-  --ring: 0 0 0 3px color-mix(in srgb, var(--brand-accent) 35%, transparent);
-  /* charts (overview, 2026-10-21): the brand teal first, then colours that stay apart for colour-blind readers */
-  --chart-1: #0e7490; /* money in: collections */
+  /* shape and depth: large radii and soft shadows tinted by the colour */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --shade: color-mix(in oklab, var(--brand) 30%, #11112b);
+  --shadow-sm: 0 2px 8px -3px color-mix(in srgb, var(--shade) 12%, transparent), 0 1px 2px color-mix(in srgb, var(--shade) 6%, transparent);
+  --shadow-md: 0 16px 32px -18px color-mix(in srgb, var(--shade) 28%, transparent), 0 2px 6px -2px color-mix(in srgb, var(--shade) 8%, transparent);
+  --shadow-lg: 0 32px 64px -30px color-mix(in srgb, var(--shade) 40%, transparent), 0 6px 14px -6px color-mix(in srgb, var(--shade) 12%, transparent);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--brand-fill) 32%, transparent);
+
+  /* charts: the clinic's colour first, then colours that stay apart for colour-blind readers */
+  --chart-1: var(--brand-fill); /* money in: collections */
   --chart-2: #f59e0b; /* money out: expenses */
   --chart-3: #15803d; /* the result, attended */
   --chart-4: #94a3b8; /* neutral: cancelled, the rest */
   --chart-5: #38bdf8; /* still ahead: upcoming */
   --chart-6: #dc2626; /* missed: no-shows */
-  /* type (2026-10-21): a denser scale for a working tool, 14px body; Cairo reads larger than its size.
-     The clinic websites keep the shared scale. */
+
+  /* type (2026-10-21): a denser scale for a working tool, 14px body; Cairo reads larger than its size */
   --fs-sm: 0.8125rem;
   --fs-md: 0.875rem;
   --fs-lg: 1rem;
   --fs-xl: 1.25rem;
   --fs-2xl: 1.5rem;
+}
+
+/* a custom property accepts any value, so a browser without relative colours would keep an unusable one: set them
+   only where the syntax is understood (others keep the tints above) */
+@supports (color: oklch(from red l c h)) {
+  :root, .theme-scope {
+    --pastel: oklch(from var(--brand) 0.87 0.08 calc(h - 40));
+    --pastel-soft: oklch(from var(--brand) 0.95 0.035 calc(h - 40));
+    --pastel-strong: oklch(from var(--brand) 0.78 0.13 calc(h - 40));
+  }
 }

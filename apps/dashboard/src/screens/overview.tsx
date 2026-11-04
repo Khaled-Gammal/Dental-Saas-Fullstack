@@ -7,6 +7,7 @@ import { useHome, useOnboarding, usePublish } from '../queries';
 import { to, type Page } from '../router';
 import { Badge, Button, Card, ErrorText, PageHeader } from '../ui/components';
 import { CheckIcon, CopyIcon, ExternalIcon } from '../ui/icons';
+import { Swash } from '../ui/arch-art';
 import { HomeFigures } from './home-figures';
 import { StatsControls, type StatsFilters } from './overview-stats';
 
@@ -49,7 +50,7 @@ export function Overview({ session }: { session: Session }) {
     <>
       {/* a compact header (overview redesign 2026-10-21): what changes the page (period, branch) is its action; the
           website link is a quiet line under the greeting */}
-      <PageHeader title={<>أهلًا{'، '}<bdi>{session.user.name}</bdi></>}
+      <PageHeader title={<>أهلًا{'، '}<Swash><bdi>{session.user.name}</bdi></Swash></>}
         sub={<>
           {roleLabel(session.clinic.role, session.clinic.roleName)} — {setup ? 'هذا ملخص عيادتك وخطوات تجهيزها' : 'ملخص يومك في العيادة'}
           {can(session, 'website:write') && <SiteLink url={site} />}

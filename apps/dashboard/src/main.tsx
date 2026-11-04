@@ -9,8 +9,9 @@ import '@fontsource/cairo/400.css';
 import '@fontsource/cairo/500.css';
 import '@fontsource/cairo/600.css';
 import '@fontsource/cairo/700.css';
+import '@fontsource/cairo/800.css'; // titles (2026-11-04)
 import '@dental/ui/tokens.css';
-import './theme.css'; // the dashboard's healthcare palette over the shared tokens (the clinic websites keep theirs)
+import './theme.css'; // the dashboard's palette, from the clinic's own colour (2026-11-04), over the shared tokens
 import './styles.css';
 import './shadcn.css'; // Tailwind utilities + theme for the shadcn/ui components (no preflight)
 

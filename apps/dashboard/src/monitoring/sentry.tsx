@@ -31,7 +31,7 @@ function CrashScreen() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          style={{ background: 'var(--primary-500, #0e7490)', color: '#fff', border: 0, borderRadius: 'var(--r-md, 8px)', padding: '10px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ background: 'var(--primary-500, #4f46e5)', color: '#fff', border: 0, borderRadius: 'var(--r-md, 8px)', padding: '10px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
         >
           إعادة تحميل الصفحة
         </button>
