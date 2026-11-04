@@ -5,7 +5,7 @@ import { DEMO_PASSWORD, DEMO_USERS, ROOT_DOMAIN } from '../config';
 import { Alert, Button, ErrorText, Field, Input, LinkButton, Logo, OtpInput, PasswordInput } from '../ui/components';
 import { LegalConsent, useLegalDocs } from '../components/legal';
 import { CalendarIcon, CheckIcon, GlobeIcon, PhoneIcon, ShieldIcon } from '../ui/icons';
-import { DentalArch, SmileCanvas } from '../ui/illustrations';
+import { ArchArt } from '../ui/arch-art';
 import { useDebounced } from '../hooks';
 import type { SubscribeIntent } from '../router';
 import { passwordChecks, toAsciiDigits } from '../util';
@@ -16,12 +16,16 @@ export type AuthScreen = { name: 'login'; notice?: string } | { name: 'signup'; 
 
 const RESEND_COOLDOWN_S = 30;
 
-/** Split screen: brand story on one side, the form on the other. Collapses to the form alone on phones. */
+/**
+ * Split screen: the platform's story on a night panel with the websites' arch drawing on one side, the form on the other
+ * (2026-11-04). Collapses to the form alone on phones.
+ */
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="auth">
       <aside className="auth-brand">
         <Logo name="منصة الأسنان" light />
+        <ArchArt className="auth-art" />
         <div className="auth-brand-body">
           <h1>موقع لعيادتك ونظام إدارة كامل في مكان واحد</h1>
           <ul className="auth-points">
@@ -30,8 +34,6 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             <li><span><ShieldIcon size={18} /></span>بيانات كل عيادة معزولة ومحمية</li>
           </ul>
         </div>
-        <SmileCanvas className="auth-canvas" />
-        <DentalArch filled={14} className="auth-arch" />
       </aside>
       <div className="auth-main">
         <div className="auth-top">

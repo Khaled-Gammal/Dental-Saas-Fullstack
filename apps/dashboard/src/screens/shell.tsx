@@ -7,6 +7,8 @@ import {
 import { can, logout, type Session } from '../api';
 import { roleLabel } from '../labels';
 import { Badge, initials } from '../ui/components';
+import { NAV_LINK, SidebarBrand, SidebarIdentity, Topbar } from '../ui/app-chrome';
+import { useBrandTheme } from '../hooks/use-brand-theme';
 import { ToothIcon } from '../ui/icons';
 import { setClinicCurrency } from '../money';
 import { setClinicTimeZone } from '../util';
@@ -18,10 +20,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Separator } from '@/components/ui/separator';
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
-  SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar,
+  SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, useSidebar,
 } from '@/components/ui/sidebar';
 
 const ICONS: Record<NavIcon, LucideIcon> = {
@@ -57,6 +58,7 @@ export function AppShell({ session, page, children }: { session: Session; page: 
   const profile = useProfile(session.clinic.id).data;
   setClinicCurrency(profile?.currency); // before the screens below render their amounts (idempotent)
   setClinicTimeZone(profile?.timezone); // and their dates and times (review R11)
+  useBrandTheme(profile ? profile.brandColor : undefined, session.clinic.id); // 2026-11-04: the dashboard in the clinic's own colour
   const name = profile ? arName(profile.nameAr, profile.nameEn, session.clinic.slug) : clinicName(session);
   const skipToMain = (e: MouseEvent) => {
     e.preventDefault(); // a plain #main link would change the hash route
@@ -68,14 +70,12 @@ export function AppShell({ session, page, children }: { session: Session; page: 
       <a href="#main" className="skip" onClick={skipToMain}>انتقل للمحتوى</a>
       <AppSidebar session={session} page={page} clinic={name} />
       <SidebarInset className="min-w-0 bg-surface">
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
-          <SidebarTrigger className="-ms-1 size-9" aria-label="القائمة" />
-          <Separator orientation="vertical" className="h-5" />
-          <span className="truncate font-semibold text-ink"><bdi>{name}</bdi></span>
+        <Topbar>
+          <span className="truncate font-bold text-ink"><bdi>{name}</bdi></span>
           {session.clinic.status === 'trialing' && <Badge tone="warning">فترة تجريبية</Badge>}
           {/* Phase 2B: the paid period ran out; the clinic works for the grace days (details on the plan card) */}
           {session.clinic.status === 'past_due' && <Badge tone="danger">الاشتراك منتهٍ: جدِّده</Badge>}
-        </header>
+        </Topbar>
         <div id="main" className={`content${NARROW_PAGES.has(page) ? ' content-narrow' : ''}`} tabIndex={-1}>{children}</div>
       </SidebarInset>
     </SidebarProvider>
@@ -91,16 +91,9 @@ function AppSidebar({ session, page, clinic }: { session: Session; page: Page | 
   return (
     <Sidebar side="right" collapsible="icon" aria-label="القائمة الرئيسية">
       <SidebarHeader className="gap-3 p-3">
-        <div className="flex items-center gap-2.5 px-1 pt-1">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-accent text-white"><ToothIcon size={18} /></span>
-          <span className="truncate text-base font-bold text-ink group-data-[collapsible=icon]:hidden">منصة الأسنان</span>
-        </div>
-        <div className="flex items-center gap-2.5 rounded-lg border bg-surface p-2 group-data-[collapsible=icon]:hidden">
-          <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary-50 text-xs font-bold text-primary-700">{initials(clinic)}</span>
-          <span className="flex min-w-0 flex-col leading-tight">
-            <strong className="truncate text-sm text-ink"><bdi>{clinic}</bdi></strong>
-            <small className="truncate text-xs text-muted-foreground" dir="ltr">{session.clinic.slug}</small>
-          </span>
+        <SidebarBrand icon={<ToothIcon size={18} />} title="منصة الأسنان" />
+        <div className="sb-card group-data-[collapsible=icon]:hidden">
+          <SidebarIdentity mark={initials(clinic)} name={clinic} sub={session.clinic.slug} subDir="ltr" square />
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-0">
@@ -147,7 +140,7 @@ function NavGroupSection({ id, label, items, current, open: hasActive }: { id: s
   return (
     <Collapsible open={open || iconsOnly} onOpenChange={setOpen} className="group/collapsible">
       <SidebarGroup className="py-1">
-        <SidebarGroupLabel asChild className="text-xs font-semibold text-muted-foreground hover:bg-sidebar-accent hover:text-ink">
+        <SidebarGroupLabel asChild className="text-xs font-semibold text-white/45 hover:bg-sidebar-accent hover:text-white">
           <CollapsibleTrigger className="w-full">
             {label}
             <ChevronDown className="ms-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
@@ -160,8 +153,6 @@ function NavGroupSection({ id, label, items, current, open: hasActive }: { id: s
     </Collapsible>
   );
 }
-
-const ACTIVE = 'data-[active=true]:bg-primary-50 data-[active=true]:text-primary-700 data-[active=true]:font-semibold data-[active=true]:[&>svg]:text-primary-500';
 
 function NavItems({ items, current }: { items: NavItem[]; current: Page | null }) {
   const { setOpenMobile } = useSidebar();
@@ -176,14 +167,14 @@ function NavItems({ items, current }: { items: NavItem[]; current: Page | null }
               <SidebarMenuButton aria-disabled="true" tooltip={`${label} · ${'قريبًا'}`} className="opacity-60">
                 <Icon /><span>{label}</span>
               </SidebarMenuButton>
-              <SidebarMenuBadge className="rounded-full bg-sidebar-accent px-2 text-[0.6875rem] text-muted-foreground">قريبًا</SidebarMenuBadge>
+              <SidebarMenuBadge className="rounded-full bg-sidebar-accent px-2 text-[0.6875rem] text-white/60">قريبًا</SidebarMenuBadge>
             </SidebarMenuItem>
           );
         }
         const active = current === i.page;
         return (
           <SidebarMenuItem key={i.page}>
-            <SidebarMenuButton asChild isActive={active} tooltip={label} className={`h-9 text-sm text-sidebar-foreground ${ACTIVE}`}>
+            <SidebarMenuButton asChild isActive={active} tooltip={label} className={NAV_LINK}>
               <a href={href(to.list(i.page))} aria-current={active ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
                 <Icon /><span>{label}</span>
               </a>
@@ -203,12 +194,8 @@ function UserMenu({ session }: { session: Session }) {
         <DropdownMenu dir="rtl">
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg" tooltip={session.user.name} className="data-[state=open]:bg-sidebar-accent">
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">{initials(session.user.name)}</span>
-              <span className="flex min-w-0 flex-1 flex-col text-start leading-tight">
-                <strong className="truncate text-sm text-ink"><bdi>{session.user.name}</bdi></strong>
-                <small className="truncate text-xs text-muted-foreground">{roleLabel(session.clinic.role, session.clinic.roleName)}</small>
-              </span>
-              <ChevronsUpDown className="ms-auto size-4 text-muted-foreground" />
+              <SidebarIdentity mark={initials(session.user.name)} name={session.user.name} sub={roleLabel(session.clinic.role, session.clinic.roleName)} />
+              <ChevronsUpDown className="ms-auto size-4 text-white/50" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="end" className="w-(--radix-dropdown-menu-trigger-width) min-w-56">

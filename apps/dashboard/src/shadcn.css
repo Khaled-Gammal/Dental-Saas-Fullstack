@@ -28,16 +28,16 @@
   --destructive: var(--danger);
   --border: var(--line);
   --input: var(--line-strong);
-  --radius: 0.75rem;
-  /* the sidebar (redesign R1): white, slate text, the active page in the brand's tint */
-  --sidebar: var(--card);
-  --sidebar-foreground: #334155;
+  --radius: 1rem; /* 2026-11-04: the websites' rounder shapes (dialogs 24px, menus 14px, items 12px) */
+  /* the sidebar (2026-11-04): a night panel in the clinic's colour, like the websites' footer; the active page filled */
+  --sidebar: var(--navy-950);
+  --sidebar-foreground: rgb(255 255 255 / 0.74);
   --sidebar-primary: var(--primary-500);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f1f5f9;
-  --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: var(--line);
-  --sidebar-ring: var(--brand-accent);
+  --sidebar-accent: rgb(255 255 255 / 0.08);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.09);
+  --sidebar-ring: var(--pastel-strong);
 }
 
 @theme inline {

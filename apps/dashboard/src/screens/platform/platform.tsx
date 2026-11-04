@@ -11,6 +11,7 @@ import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { DataTable, type Column } from '../../ui/data-table';
 import { ShieldIcon } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
+import { NAV_LINK, SidebarBrand, SidebarIdentity, Topbar } from '../../ui/app-chrome';
 import { AuthLayout } from '../auth';
 import {
   Ban, Banknote, Building2, CalendarDays, Check, ChevronsUpDown, FileText, HardDrive, History, Inbox, Layers, LogOut, Mail, MapPin, Pencil, Phone, Plus, ShieldCheck, Stethoscope,
@@ -19,10 +20,9 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Separator } from '@/components/ui/separator';
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuBadge,
-  SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar,
+  SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, useSidebar,
 } from '@/components/ui/sidebar';
 
 interface Me { id: string; name: string; email: string }
@@ -142,7 +142,6 @@ const PLATFORM_NAV: { page: PlatformPage; label: string; icon: LucideIcon }[] = 
   { page: 'legal', label: 'المستندات القانونية', icon: FileText },
   { page: 'activity', label: 'السجل', icon: History },
 ];
-const NAV_ACTIVE = 'data-[active=true]:bg-primary-50 data-[active=true]:text-primary-700 data-[active=true]:font-semibold data-[active=true]:[&>svg]:text-primary-500';
 
 /**
  * The panel's shell, like the clinic dashboard's (redesign R1): shadcn/ui's Sidebar on the right, collapsible to icons on
@@ -156,13 +155,7 @@ function PlatformShell({ me, route, children }: { me: Me; route: PlatformRoute; 
     <SidebarProvider>
       <Sidebar side="right" collapsible="icon" aria-label="لوحة إدارة المنصة">
         <SidebarHeader className="p-3">
-          <div className="flex items-center gap-2.5 px-1 pt-1">
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-accent text-white"><ShieldCheck className="size-[18px]" /></span>
-            <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <strong className="truncate text-sm text-ink">لوحة إدارة المنصة</strong>
-              <small className="truncate text-xs text-muted-foreground">منصة الأسنان</small>
-            </span>
-          </div>
+          <SidebarBrand icon={<ShieldCheck className="size-[18px]" />} title="لوحة إدارة المنصة" sub="منصة الأسنان" />
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
@@ -173,11 +166,9 @@ function PlatformShell({ me, route, children }: { me: Me; route: PlatformRoute; 
         <SidebarRail />
       </Sidebar>
       <SidebarInset className="min-w-0 bg-surface">
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
-          <SidebarTrigger className="-ms-1 size-9" aria-label="القائمة" />
-          <Separator orientation="vertical" className="h-5" />
-          <span className="truncate font-semibold text-ink">{PLATFORM_NAV.find((n) => n.page === current)?.label}</span>
-        </header>
+        <Topbar>
+          <span className="truncate font-bold text-ink">{PLATFORM_NAV.find((n) => n.page === current)?.label}</span>
+        </Topbar>
         <main className="platform-main">{children}</main>
       </SidebarInset>
     </SidebarProvider>
@@ -190,13 +181,13 @@ function PlatformNav({ current, newLeads }: { current: PlatformPage; newLeads: n
     <SidebarMenu>
       {PLATFORM_NAV.map(({ page, label, icon: Icon }) => (
         <SidebarMenuItem key={page}>
-          <SidebarMenuButton asChild isActive={current === page} tooltip={label} className={`h-9 text-sm text-sidebar-foreground ${NAV_ACTIVE}`}>
+          <SidebarMenuButton asChild isActive={current === page} tooltip={label} className={NAV_LINK}>
             <a href={platformHref({ page } as PlatformRoute)} aria-current={current === page ? 'page' : undefined} onClick={() => setOpenMobile(false)}>
               <Icon /><span>{label}</span>
             </a>
           </SidebarMenuButton>
           {page === 'leads' && newLeads > 0 && (
-            <SidebarMenuBadge className="right-auto left-1 rounded-full bg-primary-50 px-2 text-[0.6875rem] text-primary-700" aria-label={`${newLeads} ${'جديد'}`}>{newLeads}</SidebarMenuBadge>
+            <SidebarMenuBadge className="right-auto left-1 rounded-full bg-[var(--pastel)] px-2 text-[0.6875rem] font-bold text-[var(--navy-950)]" aria-label={`${newLeads} ${'جديد'}`}>{newLeads}</SidebarMenuBadge>
           )}
         </SidebarMenuItem>
       ))}
@@ -214,12 +205,8 @@ function AdminMenu({ me }: { me: Me }) {
         <DropdownMenu dir="rtl">
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg" tooltip={me.name} className="data-[state=open]:bg-sidebar-accent">
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">{initials(me.name)}</span>
-              <span className="flex min-w-0 flex-1 flex-col text-start leading-tight">
-                <strong className="truncate text-sm text-ink"><bdi>{me.name}</bdi></strong>
-                <small className="truncate text-xs text-muted-foreground" dir="ltr">{me.email}</small>
-              </span>
-              <ChevronsUpDown className="ms-auto size-4 text-muted-foreground" />
+              <SidebarIdentity mark={initials(me.name)} name={me.name} sub={me.email} subDir="ltr" />
+              <ChevronsUpDown className="ms-auto size-4 text-white/50" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="end" className="w-(--radix-dropdown-menu-trigger-width) min-w-56">
