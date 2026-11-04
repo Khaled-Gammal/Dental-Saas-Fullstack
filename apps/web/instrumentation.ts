@@ -21,7 +21,7 @@ export async function register() {
     initialScope: { tags: { service: 'web' } },
   });
 }
-
+// Phase 1B (monitoring): server-side errors of the clinic websites (rendering a page, route handlers, server actions)
 export const onRequestError: Instrumentation.onRequestError = async (...args) => {
   if (!process.env.SENTRY_DSN || process.env.NEXT_RUNTIME !== 'nodejs') return;
   const Sentry = await import('@sentry/nextjs');

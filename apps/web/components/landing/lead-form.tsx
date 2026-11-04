@@ -57,10 +57,10 @@ export function LeadFormCard({ plans, privacyUrl }: { plans: PublicPlan[]; priva
 
   if (state.kind === 'sent') {
     return (
-      <div className="bk-card bk-done l-sent" ref={status} tabIndex={-1} role="status">
-        <span className="bk-check"><Icon name="check" size={32} /></span>
+      <div className="c-form-card c-form-done l-sent" ref={status} tabIndex={-1} role="status">
+        <span className="c-form-check"><Icon name="check" size={32} /></span>
         <h3>وصل طلبك</h3>
-        <p className="s-muted">سنتصل بك على الرقم <bdi dir="ltr">{form.phone.trim()}</bdi> لنتفق على موعد يناسبك.</p>
+        <p className="c-muted">سنتصل بك على الرقم <bdi dir="ltr">{form.phone.trim()}</bdi> لنتفق على موعد يناسبك.</p>
       </div>
     );
   }
@@ -71,15 +71,15 @@ export function LeadFormCard({ plans, privacyUrl }: { plans: PublicPlan[]; priva
   });
   const field = (k: keyof LeadForm, label: string, input: ReactNode, optional = false) => (
     <label htmlFor={`lead-${k}`}>
-      <span>{label}{optional && <span className="bk-optional"> (اختياري)</span>}</span>
+      <span>{label}{optional && <span className="c-form-optional"> (اختياري)</span>}</span>
       {input}
       {shown[k] && <span className="l-field-error" id={`lead-${k}-err`}>{shown[k]}</span>}
     </label>
   );
 
   return (
-    <form className="bk-card bk-form l-form" onSubmit={submit} noValidate>
-      {state.kind === 'failed' && <div className="bk-error" ref={status} tabIndex={-1} role="alert">{state.message}</div>}
+    <form className="c-form-card c-form l-form" onSubmit={submit} noValidate>
+      {state.kind === 'failed' && <div className="c-form-error" ref={status} tabIndex={-1} role="alert">{state.message}</div>}
       <div className="l-form-grid">
         {field('fullName', 'الاسم', <input {...attrs('fullName')} autoComplete="name" maxLength={120} required />)}
         {field('phone', 'رقم الموبايل', <input {...attrs('phone')} type="tel" inputMode="tel" autoComplete="tel" dir="ltr" maxLength={30} required />)}
@@ -98,10 +98,10 @@ export function LeadFormCard({ plans, privacyUrl }: { plans: PublicPlan[]; priva
         <label htmlFor="lead-website">اترك هذا الحقل فارغًا</label>
         <input id="lead-website" name="website" tabIndex={-1} autoComplete="off" value={form.website} onChange={set('website')} />
       </div>
-      <p className="bk-hint">بإرسال الطلب توافق على أن نتواصل معك بخصوص النظام، وفق <a href={privacyUrl} target="_blank" rel="noopener">سياسة الخصوصية</a>.</p>
-      <div className="bk-actions">
-        <button type="submit" className="s-btn s-btn-lg" disabled={state.kind === 'sending'}>
-          {state.kind === 'sending' ? 'جارٍ الإرسال…' : 'أرسل الطلب'}
+      <p className="c-form-hint">بإرسال الطلب توافق على أن نتواصل معك بخصوص النظام، وفق <a href={privacyUrl} target="_blank" rel="noopener">سياسة الخصوصية</a>.</p>
+      <div className="c-form-actions">
+        <button type="submit" className="c-btn c-btn-lg c-btn-arrow" disabled={state.kind === 'sending'}>
+          {state.kind === 'sending' ? 'جارٍ الإرسال…' : 'أرسل الطلب'}<span className="c-btn-bubble" aria-hidden><Icon name="arrow" size={18} /></span>
         </button>
       </div>
     </form>
