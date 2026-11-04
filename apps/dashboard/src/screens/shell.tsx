@@ -87,7 +87,7 @@ function AppSidebar({ session, page, clinic }: { session: Session; page: Page | 
     <Sidebar side="right" collapsible="icon" aria-label="القائمة الرئيسية">
       <SidebarHeader className="gap-3 p-3">
         <SidebarBrand icon={<ToothIcon size={18} />} title="منصة الأسنان" />
-        <div className="sb-card group-data-[collapsible=icon]:hidden">
+        <div className="sb-card">{/* not on the folded rail (styles.css) */}
           <SidebarIdentity mark={initials(clinic)} name={clinic} sub={session.clinic.slug} subDir="ltr" square />
         </div>
       </SidebarHeader>

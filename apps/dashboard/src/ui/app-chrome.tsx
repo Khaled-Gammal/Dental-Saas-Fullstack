@@ -10,10 +10,10 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 export const NAV_LINK = 'h-9 text-sm text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:font-semibold '
   + 'data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-[0_10px_20px_-12px_var(--brand-fill)]';
 
-/** The mark and name at the top of the sidebar; only the mark shows when it folds to icons. */
+/** The mark and name at the top of the sidebar; only the mark shows when it folds to icons, over the icons (styles.css). */
 export function SidebarBrand({ icon, title, sub }: { icon: ReactNode; title: string; sub?: string }) {
   return (
-    <div className="flex items-center gap-2.5 px-1 pt-1">
+    <div className="sb-brand flex items-center gap-2.5 px-1 pt-1">
       <span className="sb-mark" aria-hidden>{icon}</span>
       <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
         <strong className="truncate text-base font-extrabold text-white">{title}</strong>

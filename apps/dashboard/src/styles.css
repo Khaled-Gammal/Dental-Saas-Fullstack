@@ -195,10 +195,34 @@ select.input { appearance: auto; }
 [data-slot="sidebar-inner"], [data-mobile="true"][data-sidebar="sidebar"] {
   background-image: radial-gradient(120% 240px at 100% 0%, color-mix(in srgb, var(--brand) 32%, transparent), transparent 70%),
     radial-gradient(100% 200px at 0% 100%, color-mix(in srgb, var(--pastel) 10%, transparent), transparent 70%); }
-.sb-mark { width: 34px; height: 34px; border-radius: 11px; }
+:root { --sb-mark: 34px; }
+.sb-mark { width: var(--sb-mark); height: var(--sb-mark); border-radius: 11px; }
 .sb-card { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 16px; background: rgb(255 255 255 / 0.06); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08); }
 .sb-avatar { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--pastel); color: var(--navy-950); font-size: var(--fs-xs); font-weight: 800; }
 .sb-avatar.is-square { border-radius: 10px; }
+/* Folded to icons (shadcn's data-collapsible="icon", a 3rem rail; the clinic's and the platform's sidebars alike).
+   - The header keeps only the mark, centred over the menu's icons; it moves there with the fold's own 200ms.
+   - The module headings give way: shadcn only fades them (opacity 0, pulled up by -mt-8), so each one still lay over
+     the icon above it, caught its clicks (folding the module instead of opening the page) and took a Tab stop.
+   - The icons scroll, without a bar, when the window is too short for all of them (shadcn clips them).
+   Written here, not as `group-data-[collapsible=icon]:` utilities: a rule in this unlayered file outweighs any layered
+   utility, which is how `.sb-card { display: flex }` kept the clinic's card on the rail. */
+[data-sidebar="header"], .sb-brand { transition: padding 0.2s linear; }
+[data-collapsible="icon"] [data-sidebar="header"] { padding-inline: calc((var(--sidebar-width-icon) - var(--sb-mark)) / 2); }
+[data-collapsible="icon"] .sb-brand { padding-inline: 0; }
+[data-collapsible="icon"] .sb-card { display: none; }
+[data-collapsible="icon"] [data-sidebar="group-label"] { visibility: hidden; }
+[data-collapsible="icon"] [data-sidebar="content"] { overflow: hidden auto; scrollbar-width: none; }
+/* with no bar, the icons fade out at the edge where more lie (a scroll-driven animation where browsers have it) */
+@property --sb-less { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --sb-more { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes sb-scroll { from { --sb-less: 0px; --sb-more: 28px; } 8% { --sb-less: 28px; } 92% { --sb-more: 28px; } to { --sb-less: 28px; --sb-more: 0px; } }
+@supports (animation-timeline: scroll()) {
+  [data-collapsible="icon"] [data-sidebar="content"] {
+    -webkit-mask-image: linear-gradient(transparent, #000 var(--sb-less), #000 calc(100% - var(--sb-more)), transparent);
+    mask-image: linear-gradient(transparent, #000 var(--sb-less), #000 calc(100% - var(--sb-more)), transparent);
+    animation: sb-scroll linear both; animation-timeline: scroll(self); }
+}
 
 /* ---------- cards & pages ---------- */
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: clamp(16px, 2.5vw, 24px); box-shadow: var(--shadow-sm); }
