@@ -10,8 +10,9 @@ import { to } from '../../router';
 import { EMPTY_INVITE, inviteProblem, toInviteBody, type InviteForm } from '../../staff-model';
 import { roleOptions } from '../../roles-model';
 import type { Branch, StaffInvitation, StaffRole } from '../../types';
-import { Alert, Badge, Card, Field, Input, Switch } from '../../ui/components';
-import { FormPage, ResourceState, RouteLink } from '../../ui/page';
+import { MailPlus } from 'lucide-react';
+import { Alert, Badge, Field, Input, Switch } from '../../ui/components';
+import { FormPage, FormSection, ResourceState, RouteLink } from '../../ui/page';
 import { Checkbox } from '../../components/ui/checkbox';
 
 /** `#/staff/new`: invite someone by email with a role and branch access (SRS ACCESS-001). */
@@ -56,12 +57,12 @@ function InviteBody({ clinicId, roles, branches, doctors }: {
   const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'فريق العمل', route: to.list('staff') }, { label: 'دعوة عضو جديد' }];
 
   return (
-    <FormPage title="دعوة عضو جديد" sub="نرسل رابطًا إلى بريده الإلكتروني صالحًا لمدة 7 أيام. يختار كلمة المرور بنفسه." crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
+    <FormPage title="دعوة عضو جديد" icon={<MailPlus />} sub="نرسل رابطًا إلى بريده الإلكتروني صالحًا لمدة 7 أيام. يختار كلمة المرور بنفسه." crumbs={crumbs} back={to.list('staff')} onSubmit={submit}
       saving={send.isPending} canSave={!send.isPending} error={send.error}>
       {!roles.some((r) => r.key !== 'owner') && (
         <Alert tone="info">لا توجد أدوار لفريقك بعد. أنشئ دورًا أولًا من «الأدوار والصلاحيات». <RouteLink route={to.list('roles')}>الأدوار والصلاحيات</RouteLink></Alert>
       )}
-      <Card>
+      <FormSection title="بيانات العضو">
         <div className="grid-2">
           <Field label="البريد الإلكتروني" error={show('email') ? 'أدخل بريدًا إلكترونيًا صحيحًا.' : undefined}>
             {(a) => <Input id={a.id} describedBy={a.describedBy} type="email" dir="ltr" autoComplete="off" value={form.email} onChange={(e) => set('email')(e.target.value)} invalid={show('email')} autoFocus />}
@@ -77,7 +78,7 @@ function InviteBody({ clinicId, roles, branches, doctors }: {
             {(a) => <Choice id={a.id} value={form.doctorId} onChange={set('doctorId')} noneLabel="ليس طبيبًا" options={doctors} />}
           </Field>
         </div>
-      </Card>
+      </FormSection>
       <BranchAccess branches={branches} allBranches={form.allBranches} branchIds={form.branchIds}
         onAll={set('allBranches')} onToggle={toggleBranch} missing={show('branches')} />
     </FormPage>
@@ -89,10 +90,10 @@ export function BranchAccess({ branches, allBranches, branchIds, onAll, onToggle
   branches: Branch[]; allBranches: boolean; branchIds: string[]; onAll: (v: boolean) => void; onToggle: (id: string, on: boolean) => void; missing: boolean;
 }) {
   return (
-    <Card>
+    <FormSection title="الفروع التي يعمل بها">
       <fieldset className="check-group">
-        <legend>الفروع التي يعمل بها</legend>
-        <div className="switch-row mt"><Switch checked={allBranches} onChange={onAll} label="يعمل في كل الفروع" /></div>
+        <legend className="sr-only">الفروع التي يعمل بها</legend>
+        <div className="switch-row"><Switch checked={allBranches} onChange={onAll} label="يعمل في كل الفروع" /></div>
         {!allBranches && (
           <>
             <p className="muted small">لن يرى مواعيد وفواتير الفروع الأخرى.</p>
@@ -108,6 +109,6 @@ export function BranchAccess({ branches, allBranches, branchIds, onAll, onToggle
           </>
         )}
       </fieldset>
-    </Card>
+    </FormSection>
   );
 }

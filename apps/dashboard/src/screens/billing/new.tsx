@@ -7,8 +7,10 @@ import { money } from '../../money';
 import { send, useBillingMutation, useBranches, usePatient, usePatientBilling, useServices } from '../../queries';
 import { to } from '../../router';
 import type { InvoiceDetail } from '../../types';
-import { Button, Card, Field, Input, LinkButton } from '../../ui/components';
-import { FormPage, NotFound, ResourceState } from '../../ui/page';
+import { ReceiptText } from 'lucide-react';
+import { Button, Field, Input, LinkButton } from '../../ui/components';
+import { PlusIcon } from '../../ui/icons';
+import { FormPage, FormSection, NotFound, ResourceState } from '../../ui/page';
 import { Checkbox } from '../../components/ui/checkbox';
 import { clinicTimeZone, LOC } from '../../util';
 
@@ -58,18 +60,17 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
   return (
     <>
       {/* UI refinement U3: the shared form page (form width, Cancel and the create button in its footer) */}
-      <FormPage title="فاتورة جديدة" sub={patient.data.full_name} crumbs={[{ label: 'الفواتير', route: { page: 'invoices' } }, { label: patient.data.full_name, route: to.view('patients', patient.data.id) }, { label: 'فاتورة جديدة' }]}
+      <FormPage title="فاتورة جديدة" icon={<ReceiptText />} sub={<bdi>{patient.data.full_name}</bdi>} crumbs={[{ label: 'الفواتير', route: { page: 'invoices' } }, { label: patient.data.full_name, route: to.view('patients', patient.data.id) }, { label: 'فاتورة جديدة' }]}
         back={to.view('patients', patient.data.id)} onSubmit={submit} saving={create.isPending} canSave={ready} error={create.error} saveLabel="إنشاء مسودة">
-        <Card>
+        <FormSection title="بيانات الفاتورة">
           <Field label="الفرع">
             {(a) => <Choice id={a.id} value={branch} onChange={setBranchId} placeholder="اختر الفرع"
               options={active.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en, b.slug) }))} />}
           </Field>
-        </Card>
-        <Card>
-          <h2>إجراءات لم تُفوتر</h2>
-          {unbilled.length === 0 ? <p className="muted small mt-sm">لا توجد إجراءات غير مفوترة.</p> : (
-            <ul className="line-list mt">
+        </FormSection>
+        <FormSection title="إجراءات لم تُفوتر">
+          {unbilled.length === 0 ? <p className="muted small">لا توجد إجراءات غير مفوترة.</p> : (
+            <ul className="line-list">
               {unbilled.map((p) => (
                 <li key={p.id}>
                   <label className="check-row">
@@ -83,15 +84,12 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
               ))}
             </ul>
           )}
-          {otherBranch && <p className="muted small mt-sm">بعض الإجراءات المختارة من فرع آخر غير فرع الفاتورة.</p>}
-        </Card>
-        <Card>
-          <div className="row-between">
-            <h2>بنود أخرى</h2>
-            <Button variant="secondary" onClick={() => setLines((ls) => [...ls, { serviceId: '', description: '', price: '', qty: '1' }])}>إضافة بند</Button>
-          </div>
+          {otherBranch && <p className="muted small">بعض الإجراءات المختارة من فرع آخر غير فرع الفاتورة.</p>}
+        </FormSection>
+        <FormSection title="بنود أخرى"
+          action={<Button variant="secondary" onClick={() => setLines((ls) => [...ls, { serviceId: '', description: '', price: '', qty: '1' }])}><PlusIcon size={16} />إضافة بند</Button>}>
           {lines.map((l, i) => (
-            <div key={i} className="grid-2 mt tooth-panel">
+            <div key={i} className="grid-2 tooth-panel">
               <Field label="الخدمة" optional="اختياري">
                 {(a) => <Choice id={a.id} value={l.serviceId} onChange={(v) => set(i, 'serviceId', v)} noneLabel="بند آخر (بدون خدمة)"
                   options={(services.data ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: arName(s.name_ar, s.name_en) }))} />}
@@ -102,7 +100,7 @@ export function NewInvoice({ clinicId, query }: { clinicId: string; query?: Reco
               <LinkButton onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>إزالة</LinkButton>
             </div>
           ))}
-        </Card>
+        </FormSection>
       </FormPage>
     </>
   );

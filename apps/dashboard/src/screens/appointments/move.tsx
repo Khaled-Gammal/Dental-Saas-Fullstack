@@ -7,8 +7,9 @@ import { useLeave, useUnsavedChanges } from '../../hooks';
 import { useAppointment, useDoctors, useMoveAppointment, useRooms, useStaffSlots } from '../../queries';
 import { to } from '../../router';
 import type { Appointment, Doctor, Room } from '../../types';
-import { Alert, Card, Field, Input, Switch } from '../../ui/components';
-import { FormPage, ResourceState } from '../../ui/page';
+import { CalendarClock } from 'lucide-react';
+import { Alert, Field, Input, Switch } from '../../ui/components';
+import { FormPage, FormSection, ResourceState } from '../../ui/page';
 import { clinicTimeZone, clinicToday, LOC, zonedToUtc } from '../../util';
 import { TimeField } from '../../components/time-field';
 
@@ -69,26 +70,31 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
     move.mutate({ id: appt.id, body }, { onSuccess: (a) => leave('تم حفظ التغيير.', { page: 'appointments', query: { date: dateIn(a.starts_at, tz) } }) });
   };
   const crumbs = [{ label: 'نظرة عامة', route: to.list('overview') }, { label: 'المواعيد', route: to.list('appointments') }, { label: 'تغيير الموعد' }];
+  // the chair: beside the doctor and the day while the time can change; on its own once the patient has arrived
+  const chair = (
+    <Field label="الكرسي" optional="اختياري">
+      {(a) => <Choice id={a.id} value={roomId} onChange={setRoomId} noneLabel="بدون كرسي" options={rooms.map((r) => ({ value: r.id, label: r.name }))} />}
+    </Field>
+  );
 
   return (
-    <FormPage title="تغيير الموعد" sub="اختر وقتًا آخر أو طبيبًا آخر في نفس الفرع، أو حدّد الكرسي." crumbs={crumbs} back={to.list('appointments')} onSubmit={submit}
+    <FormPage title="تغيير الموعد" icon={<CalendarClock />} sub="اختر وقتًا آخر أو طبيبًا آخر في نفس الفرع، أو حدّد الكرسي." crumbs={crumbs} back={to.list('appointments')} onSubmit={submit}
       saving={move.isPending} canSave={ready} error={move.error}>
-      <Card>
-        <h2><bdi>{appt.patient?.full_name ?? '—'}</bdi></h2>
-        <p className="muted mt-sm">
-          الموعد الحالي: <strong><bdi>{fmt(appt.starts_at, { weekday: 'long', day: 'numeric', month: 'long' })} · <span dir="ltr">{fmtTime(appt.starts_at)}</span></bdi></strong>
-          {' · '}<bdi>{arName(appt.doctor.name_ar, appt.doctor.name_en)}</bdi>
-        </p>
+      <FormSection title="الموعد الحالي">
+        <div className="appt-current">
+          <strong><bdi>{appt.patient?.full_name ?? '—'}</bdi></strong>
+          <span className="muted">
+            <bdi>{fmt(appt.starts_at, { weekday: 'long', day: 'numeric', month: 'long' })} · <span dir="ltr">{fmtTime(appt.starts_at)}</span></bdi>
+            {' · '}<bdi>{arName(appt.doctor.name_ar, appt.doctor.name_en)}</bdi>
+          </span>
+        </div>
         {!canMove && <Alert tone="info">يمكن تغيير الوقت للمواعيد المؤكدة أو المنتظرة فقط؛ بعد الحضور يمكن تحديد الكرسي فقط.</Alert>}
-      </Card>
+      </FormSection>
 
-      {canMove && (
-        <Card>
-          <div className="row-between">
-            <h2>الوقت الجديد</h2>
-            {canOverride && <Switch checked={override} onChange={(v) => { setOverride(v); reset(); }} label="خارج جدول الطبيب" />}
-          </div>
-          <div className="grid-2 mt">
+      {canMove ? (
+        <FormSection title="الموعد الجديد"
+          action={canOverride && <Switch checked={override} onChange={(v) => { setOverride(v); reset(); }} label="خارج جدول الطبيب" />}>
+          <div className="grid-2">
             <Field label="الطبيب">
               {(a) => <Choice id={a.id} value={doctorId} onChange={(v) => { setDoctorId(v); reset(); }}
                 options={doctors.map((d) => ({ value: d.id, label: arName(d.name_ar, d.name_en, '—') }))} />}
@@ -96,17 +102,18 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
             <Field label="التاريخ">
               {(a) => <DatePicker id={a.id} value={date} onChange={(d) => { setDate(d); reset(); }} min={clinicToday()} />}
             </Field>
+            {chair}
           </div>
           {override ? (
-            <div className="grid-2 mt">
+            <div className="grid-2">
               <Field label="الوقت" hint={'بتوقيت الفرع ({tz})'.replace('{tz}', tz)}>{(a) => <TimeField id={a.id} describedBy={a.describedBy} value={time} onChange={setTime} />}</Field>
               <Field label="سبب الحجز خارج الجدول" hint="يُحفظ مع الموعد للمراجعة.">{(a) => <Input id={a.id} describedBy={a.describedBy} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />}</Field>
             </div>
-          ) : slots.isLoading ? <p className="muted small mt-sm" role="status">جارٍ التحميل…</p>
-            : slots.isError ? <p className="field-error mt-sm">تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.</p>
-            : !slots.data?.slots.length ? <p className="muted small mt-sm">لا توجد أوقات متاحة في هذا اليوم.</p>
+          ) : slots.isLoading ? <p className="muted small" role="status">جارٍ التحميل…</p>
+            : slots.isError ? <p className="field-error">تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.</p>
+            : !slots.data?.slots.length ? <p className="muted small">لا توجد أوقات متاحة في هذا اليوم.</p>
             : (
-              <div className="slot-grid mt" role="radiogroup" aria-label="الوقت">
+              <div className="slot-grid" role="radiogroup" aria-label="الوقت">
                 {slots.data.slots.map((s) => (
                   <button key={s} type="button" role="radio" aria-checked={slot === s} className={`slot-btn${slot === s ? ' is-on' : ''}`} onClick={() => setSlot(slot === s ? '' : s)}>
                     <bdi dir="ltr">{fmtTime(s)}</bdi>
@@ -114,15 +121,13 @@ function MoveBody({ clinicId, appt, doctors, rooms, canOverride }: {
                 ))}
               </div>
             )}
-          <p className="muted small mt-sm">إذا تغيّر اليوم لحجز من الموقع، يصل المريض رمز حضور جديد بالبريد ويتوقف القديم.</p>
-        </Card>
+          <p className="muted small">إذا تغيّر اليوم لحجز من الموقع، يصل المريض رمز حضور جديد بالبريد ويتوقف القديم.</p>
+        </FormSection>
+      ) : (
+        <FormSection title="تحديد الكرسي">
+          <div className="grid-2">{chair}</div>
+        </FormSection>
       )}
-
-      <Card>
-        <Field label="الكرسي" optional="اختياري">
-          {(a) => <Choice id={a.id} value={roomId} onChange={setRoomId} noneLabel="بدون كرسي" options={rooms.map((r) => ({ value: r.id, label: r.name }))} />}
-        </Field>
-      </Card>
     </FormPage>
   );
 }

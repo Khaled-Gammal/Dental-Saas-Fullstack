@@ -3,7 +3,7 @@ import { arName } from '@dental/ui/text';
 import { uploadFile } from '../../api';
 import { navigate, useFlash, useLeave, useUnsavedChanges } from '../../hooks';
 import { to } from '../../router';
-import { FormPage } from '../../ui/page';
+import { FormPage, FormSection } from '../../ui/page';
 import { toMinor } from '../../clinical-model';
 import { Choice } from '../../components/choice';
 import { FilePicker } from '../../components/file-picker';
@@ -161,11 +161,10 @@ export function NewExpense({ clinicId }: { clinicId: string }) {
     if (ready) save.mutate(undefined, { onSuccess: (documentFailed) => leave(documentFailed ? 'سُجّل المصروف لكن لم يُرفع المستند. يمكنك إرفاقه من القائمة.' : 'سُجّل المصروف.') });
   };
   return (
-    <FormPage title="تسجيل مصروف" sub="مصروفات العيادة بفروعها، منفصلة عن فواتير المرضى." crumbs={[{ label: 'المصروفات', route: to.list('expenses') }, { label: 'تسجيل مصروف' }]}
+    <FormPage title="تسجيل مصروف" icon={<WalletIcon size={24} />} sub="مصروفات العيادة بفروعها، منفصلة عن فواتير المرضى." crumbs={[{ label: 'المصروفات', route: to.list('expenses') }, { label: 'تسجيل مصروف' }]}
       back={to.list('expenses')} onSubmit={submit} saving={save.isPending} canSave={ready} error={save.error}>
-      <Card>
-      <h2>المصروف</h2>
-      <div className="grid-2 mt-sm">
+      <FormSection title="المصروف">
+      <div className="grid-2">
         <Field label="الفرع">
           {(a) => <Choice id={a.id} value={branch} onChange={setBranchId} placeholder="اختر الفرع"
             options={list.map((b) => ({ value: b.id, label: arName(b.name_ar, b.name_en) }))} />}
@@ -186,17 +185,16 @@ export function NewExpense({ clinicId }: { clinicId: string }) {
         )}
         <Field label="تاريخ المصروف">{(a) => <DatePicker id={a.id} value={spentOn} onChange={setSpentOn} max={today} />}</Field>
       </div>
-      </Card>
-      <Card>
-      <h2>المورد والمستند</h2>
-      <div className="grid-2 mt-sm">
+      </FormSection>
+      <FormSection title="المورد والمستند">
+      <div className="grid-2">
         <Field label="المورد" optional="اختياري">{(a) => <Input id={a.id} value={supplier} onChange={(e) => setSupplier(e.target.value)} maxLength={120} />}</Field>
         <Field label="البيان" optional="اختياري">{(a) => <Input id={a.id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />}</Field>
         <Field label="المستند" optional="اختياري" hint="إيصال أو فاتورة المورد: PDF أو صورة، حتى 20 ميجابايت. يمكن إرفاقه لاحقًا مرة واحدة." error={tooBig ? 'الملف أكبر من 20 ميجابايت.' : undefined}>
           {(a) => <FilePicker id={a.id} describedBy={a.describedBy} accept={DOC_ACCEPT} file={file} onChange={setFile} disabled={save.isPending} />}
         </Field>
       </div>
-      </Card>
+      </FormSection>
     </FormPage>
   );
 }

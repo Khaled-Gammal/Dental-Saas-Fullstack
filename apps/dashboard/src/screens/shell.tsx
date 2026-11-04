@@ -46,13 +46,8 @@ function startOpen(): boolean {
  * The dashboard shell (redesign R1): shadcn/ui's Sidebar on the right (the dashboard is right-to-left), collapsible to
  * icons on desktop and a sheet on phones, grouped by module; the header with the sidebar toggle and the clinic; the
  * page in `children`. The member sees only the pages they may open (access.ts); the API checks every request anyway.
+ * Every page fills the width beside the sidebar (2026-11-04, at the user's request: no narrower settings column).
  */
-/**
- * Pages that are settings or one form (UI refinement U1): a 960px column. Every other page (lists, tables, reports,
- * the overview) uses the full width beside the sidebar; create/edit pages keep their own form width (.form-page).
- */
-const NARROW_PAGES: ReadonlySet<string> = new Set(['data', 'booking', 'cash', 'discounts', 'holidays']);
-
 export function AppShell({ session, page, children }: { session: Session; page: Page | 'not-found'; children: ReactNode }) {
   // the profile query is updated on save, so a renamed clinic shows everywhere at once
   const profile = useProfile(session.clinic.id).data;
@@ -76,7 +71,7 @@ export function AppShell({ session, page, children }: { session: Session; page: 
           {/* Phase 2B: the paid period ran out; the clinic works for the grace days (details on the plan card) */}
           {session.clinic.status === 'past_due' && <Badge tone="danger">الاشتراك منتهٍ: جدِّده</Badge>}
         </Topbar>
-        <div id="main" className={`content${NARROW_PAGES.has(page) ? ' content-narrow' : ''}`} tabIndex={-1}>{children}</div>
+        <div id="main" className="content" tabIndex={-1}>{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );
@@ -92,7 +87,7 @@ function AppSidebar({ session, page, clinic }: { session: Session; page: Page | 
     <Sidebar side="right" collapsible="icon" aria-label="القائمة الرئيسية">
       <SidebarHeader className="gap-3 p-3">
         <SidebarBrand icon={<ToothIcon size={18} />} title="منصة الأسنان" />
-        <div className="sb-card group-data-[collapsible=icon]:hidden">
+        <div className="sb-card">{/* not on the folded rail (styles.css) */}
           <SidebarIdentity mark={initials(clinic)} name={clinic} sub={session.clinic.slug} subDir="ltr" square />
         </div>
       </SidebarHeader>

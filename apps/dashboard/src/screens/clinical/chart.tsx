@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { CONDITIONS, currentByTooth, PERMANENT, PRIMARY, showsPrimary, SURFACES, toothHistory, toothTone } from '../../clinical-model';
+import { useRef, useState, type KeyboardEvent } from 'react';
+import { CANINE_PATH, INCISOR_PATH, PREMOLAR_PATH, TOOTH_PATH } from '@dental/ui/arch';
+import { CONDITIONS, currentByTooth, showsPrimary, SURFACES, toothHistory, toothTone } from '../../clinical-model';
 import { Choice } from '../../components/choice';
+import { CHART_KEYS, jawLayout, moveInChart, toothName, type ChartKey, type ChartTooth, type JawKey, type ToothKind } from '../../jaw-model';
 import { toothConditionLabel, toothSurfaceLabel } from '../../labels';
 import { send, useClinicalMutation, usePatientChart } from '../../queries';
 import type { ChartEntry, PatientChart, Surface, ToothCondition } from '../../types';
@@ -45,34 +47,93 @@ export function ChartCard({ clinicId, patientId, canWrite, age, visitId, onProce
   );
 }
 
-/** The grid itself. Always left-to-right on screen, like a printed chart: the patient's right is on the viewer's left. */
+const OUTLINE: Record<ToothKind, string> = { incisor: INCISOR_PATH, canine: CANINE_PATH, premolar: PREMOLAR_PATH, molar: TOOTH_PATH };
+const JAW_LABEL: Record<JawKey, string> = { upper: 'الفك العلوي', primaryUpper: 'اللبنية العلوية', primaryLower: 'اللبنية السفلية', lower: 'الفك السفلي' };
+
+/**
+ * The chart as two jaws (2026-11-04, the user's idea, after the landing page's arch of teeth; jaw-model.ts): each tooth
+ * in its own outline, coloured by its current condition. Pointing at a tooth or focusing it lifts it and names it in
+ * the middle of the mouth; a click, Enter or Space chooses it; the arrow keys walk the teeth (one tooth takes Tab).
+ * Drawn as the dentist faces the patient, like a printed chart: the patient's right on the viewer's left.
+ */
 export function DentalChart({ chart, primary, selected, onSelect }: {
   chart: PatientChart; primary: boolean; selected: number | null; onSelect: (tooth: number) => void;
 }) {
   const now = currentByTooth(chart.entries);
-  const row = (teeth: readonly number[], label: string) => (
-    <div className="chart-row" role="group" aria-label={label}>
-      {teeth.map((n, i) => {
-        const e = now.get(n);
-        const tone = toothTone(e?.condition);
-        return (
-          <button key={n} type="button" className={`tooth${tone ? ` tone-${tone}` : ''}${selected === n ? ' is-on' : ''}${i === teeth.length / 2 ? ' mid' : ''}`}
-            aria-pressed={selected === n} aria-label={`${'سن'} ${n}${e ? `: ${cond(e.condition)}` : ''}`} onClick={() => onSelect(n)}
-            title={e ? `${cond(e.condition)}${e.surfaces.length ? ` (${e.surfaces.join('')})` : ''}` : undefined}>
-            <span className="tooth-no">{n}</span>
-            {e && e.surfaces.length > 0 && <span className="tooth-surf">{e.surfaces.join('')}</span>}
-          </button>
-        );
-      })}
+  const layout = jawLayout(primary);
+  const [pointed, setPointed] = useState<number | null>(null);
+  const [focused, setFocused] = useState<number | null>(null);
+  const [cursor, setCursor] = useState<number | null>(null); // the last tooth walked to with the keys
+  const nodes = useRef(new Map<number, SVGGElement>());
+  const codes = new Set(layout.jaws.flatMap((j) => j.teeth.map((t) => t.code)));
+  const tabStop = [selected, cursor].find((c): c is number => c !== null && codes.has(c)) ?? 11;
+  const shown = pointed ?? focused ?? selected;
+  const keyDown = (code: number) => (e: KeyboardEvent<SVGGElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(code); return; }
+    if (!CHART_KEYS.includes(e.key)) return;
+    e.preventDefault();
+    const next = moveInChart(code, e.key as ChartKey, primary);
+    setCursor(next);
+    nodes.current.get(next)?.focus();
+  };
+  return (
+    <div className={`jaw-chart${primary ? ' has-primary' : ''}`} dir="ltr">
+      <svg viewBox={`0 0 ${layout.width} ${layout.height}`} className="jaw-svg" aria-label="خريطة الأسنان">
+        {layout.gums.map((d) => <path key={d} d={d} className="jaw-gum" />)}
+        {layout.jaws.map((jaw) => (
+          <g key={jaw.key} role="group" aria-label={JAW_LABEL[jaw.key]}>
+            {jaw.teeth.map((t) => (
+              <Tooth key={t.code} t={t} entry={now.get(t.code)} on={selected === t.code} tabIndex={t.code === tabStop ? 0 : -1}
+                register={(el) => { if (el) nodes.current.set(t.code, el); else nodes.current.delete(t.code); }}
+                onChoose={() => { setCursor(t.code); onSelect(t.code); }} onKeyDown={keyDown(t.code)}
+                onPoint={(over) => setPointed(over ? t.code : null)} onFocusChange={(has) => setFocused(has ? t.code : null)} />
+            ))}
+          </g>
+        ))}
+      </svg>
+      <div className="jaw-sides small muted" aria-hidden><span>يمين المريض</span><span>يسار المريض</span></div>
+      <ToothInfo code={shown} entry={shown === null ? undefined : now.get(shown)} />
     </div>
   );
+}
+
+/** One tooth: its outline turned to face out of the mouth, the area that answers the pointer, its number and surfaces. */
+function Tooth({ t, entry, on, tabIndex, register, onChoose, onKeyDown, onPoint, onFocusChange }: {
+  t: ChartTooth; entry?: ChartEntry; on: boolean; tabIndex: number; register: (el: SVGGElement | null) => void;
+  onChoose: () => void; onKeyDown: (e: KeyboardEvent<SVGGElement>) => void; onPoint: (over: boolean) => void; onFocusChange: (has: boolean) => void;
+}) {
+  const tone = toothTone(entry?.condition);
+  const surfaces = entry?.surfaces.join('') ?? '';
+  // the pointer area runs past the number: outward for permanent teeth, inward for primary ones (their numbers are inside)
+  const outward = t.jaw === 'upper' || t.jaw === 'lower';
   return (
-    <div className="dental-chart" dir="ltr">
-      <div className="chart-sides muted small"><span>يمين المريض</span><span>يسار المريض</span></div>
-      {row(PERMANENT.upper, 'الفك العلوي')}
-      {primary && row(PRIMARY.upper, 'اللبنية العلوية')}
-      {primary && row(PRIMARY.lower, 'اللبنية السفلية')}
-      {row(PERMANENT.lower, 'الفك السفلي')}
+    <g ref={register} className={`jaw-tooth${outward ? '' : ' is-primary'}${tone ? ` tone-${tone}` : ''}${on ? ' is-on' : ''}`} role="button" tabIndex={tabIndex} aria-pressed={on}
+      aria-label={`${'سن'} ${t.code}، ${toothName(t.code)}${entry ? `: ${cond(entry.condition)}${surfaces ? ` (${surfaces})` : ''}` : ''}`}
+      onClick={onChoose} onKeyDown={onKeyDown} onPointerEnter={() => onPoint(true)} onPointerLeave={() => onPoint(false)}
+      onFocus={() => onFocusChange(true)} onBlur={() => onFocusChange(false)}>
+      <g transform={`translate(${t.x} ${t.y}) rotate(${t.angle})`}>
+        <rect className="jaw-hit" x={-t.span / 2} y={outward ? -(t.height / 2 + 26) : -(t.height / 2 + 4)} width={t.span} height={t.height + 30} rx={8} />
+        <g className="jaw-glyph"><path className="jaw-crown" d={OUTLINE[t.kind]} transform={`scale(${t.scale}) translate(-12 -12)`} /></g>
+      </g>
+      {on && <circle className="jaw-pill" cx={t.label.x} cy={t.label.y} r={outward ? 10 : 8} />}
+      <text className="jaw-no" x={t.label.x} y={t.label.y}>{t.code}</text>
+      {surfaces && <text className="jaw-note" x={t.note.x} y={t.note.y}>{surfaces}</text>}
+    </g>
+  );
+}
+
+/** The middle of the mouth: the tooth pointed at, focused or chosen, by number and name, with its current condition. */
+function ToothInfo({ code, entry }: { code: number | null; entry?: ChartEntry }) {
+  if (code === null) return <p className="jaw-info is-idle" dir="rtl" aria-hidden>اختر سنًّا لعرض تفاصيله</p>;
+  const tone = toothTone(entry?.condition);
+  return (
+    <div className="jaw-info" dir="rtl" aria-hidden>
+      <strong className="jaw-info-no"><bdi dir="ltr">{code}</bdi></strong>
+      <span className="jaw-info-name">{toothName(code)}</span>
+      <span className={`jaw-info-state${tone ? ` tone-${tone}` : ''}`}>
+        {entry ? cond(entry.condition) : 'لا تسجيلات'}
+        {entry && entry.surfaces.length > 0 && <> · <bdi dir="ltr">{entry.surfaces.join('')}</bdi></>}
+      </span>
     </div>
   );
 }
