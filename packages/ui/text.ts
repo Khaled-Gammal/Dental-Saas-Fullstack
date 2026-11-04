@@ -8,6 +8,16 @@ export function initials(name: string): string {
   return (words.length ? words : [name.trim()]).slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase();
 }
 
+/**
+ * A name before its last word, and the last word, for the underlined last word of the websites' hero (and the
+ * dashboard's preview of it): "عيادة الابتسامة لطب الأسنان" -> ["عيادة الابتسامة لطب", "الأسنان"].
+ */
+export function splitLastWord(name: string): [string, string] {
+  const t = name.trim().replace(/\s+/g, ' ');
+  const i = t.lastIndexOf(' ');
+  return i < 0 ? ['', t] : [t.slice(0, i), t.slice(i + 1)];
+}
+
 /** The Arabic name, else the English one (CLR-07: kept data, shown only where no Arabic exists), else `fallback`. */
 export const arName = (ar: string | null | undefined, en: string | null | undefined, fallback = ''): string => ar || en || fallback;
 

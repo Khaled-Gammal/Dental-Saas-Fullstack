@@ -6,12 +6,16 @@
  *   --brand-text  a shade that reads as text on white and on the light tints (>= 5.2:1)
  * Before a clinic is known (sign-in, the platform panel) they hold the platform's indigo. Every tint and shade below
  * is mixed from them, and the shared token names (@dental/ui/tokens.css) keep their meaning, so every screen follows.
+ * `.theme-scope` mixes them again inside one element that sets its own three values (the clinic profile's preview of
+ * a colour not saved yet): a derived variable is computed where it is declared, not where it is used.
  */
 :root {
   --brand: #4f46e5;
   --brand-fill: #4f46e5;
   --brand-text: #4f46e5;
+}
 
+:root, .theme-scope {
   /* tints, and the "night" shades of the dark panels (the sidebar, the sign-in side) */
   --b-50: color-mix(in oklab, var(--brand) 5%, #fff);
   --b-100: color-mix(in oklab, var(--brand) 11%, #fff);
@@ -92,7 +96,7 @@
 /* a custom property accepts any value, so a browser without relative colours would keep an unusable one: set them
    only where the syntax is understood (others keep the tints above) */
 @supports (color: oklch(from red l c h)) {
-  :root {
+  :root, .theme-scope {
     --pastel: oklch(from var(--brand) 0.87 0.08 calc(h - 40));
     --pastel-soft: oklch(from var(--brand) 0.95 0.035 calc(h - 40));
     --pastel-strong: oklch(from var(--brand) 0.78 0.13 calc(h - 40));

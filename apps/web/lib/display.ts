@@ -1,14 +1,8 @@
 /**
- * Layout helpers for the clinic website (pure, no React, unit-tested): how a list of cards fills the bento grid, and how
- * the clinic's name is split for the hero's underlined last word.
+ * Layout helpers for the clinic website (pure, no React, unit-tested): how a list of cards fills the bento grid. The
+ * hero's name split is shared with the dashboard's website preview (@dental/ui/text) and re-exported here.
  */
-
-/** The name before its last word, and the last word: "عيادة الابتسامة لطب الأسنان" -> ["عيادة الابتسامة لطب", "الأسنان"]. */
-export function splitLastWord(name: string): [string, string] {
-  const t = name.trim().replace(/\s+/g, ' ');
-  const i = t.lastIndexOf(' ');
-  return i < 0 ? ['', t] : [t.slice(0, i), t.slice(i + 1)];
-}
+export { splitLastWord } from '@dental/ui/text';
 
 /** How one card sits in the bento grid: two cells wide on three columns (`wide3`), on two columns (`wide2`), or the whole row. */
 export interface BentoCell { wide3: boolean; wide2: boolean; full: boolean }

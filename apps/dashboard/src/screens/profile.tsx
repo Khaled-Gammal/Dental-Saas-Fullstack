@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { onColor, arName, readableOnWhite } from '@dental/ui/text';
+import { onColor, arName, splitLastWord } from '@dental/ui/text';
 import { api } from '../api';
 import { ImageField } from '../components/image-field';
 import { imageFieldValue } from '../media-model';
@@ -8,7 +8,9 @@ import { keys, useClinicPlan, useInvalidate, useOnboarding, useProfile, usePubli
 import type { ClinicPlanSummary, ClinicProfile, MediaImage } from '../types';
 import { Choice } from '../components/choice';
 import { Alert, Badge, Button, Card, ErrorText, Field, Input, PageHeader, Skeleton, Switch, TextArea } from '../ui/components';
-import { CheckIcon, GlobeIcon, PhoneIcon, ToothIcon } from '../ui/icons';
+import { CalendarIcon, CheckIcon, GlobeIcon, ToothIcon } from '../ui/icons';
+import { ArchArt, Swash } from '../ui/arch-art';
+import { brandVars } from '../theme-model';
 import { diffText, fmtNumber, LOC } from '../util';
 import { billingCycleLabel, planFeatureLabel, planLimitLabel, subscriptionPaymentMethodLabel } from '../labels';
 import { money } from '../money';
@@ -286,21 +288,35 @@ function BadgeCard({ clinicId }: { clinicId: string }) {
   );
 }
 
-/** Live preview of the website hero in the chosen colour, using the same contrast rules as the site. */
+/**
+ * Live preview of the website's first screen in the chosen colour (2026-11-04: the websites' design in miniature): the
+ * floating bar, the name with its last word underlined, the button and the arch drawing. The palette is mixed again
+ * inside the preview (theme.css .theme-scope) from the colour being picked, before it is saved; buttons follow the
+ * websites' rule: the colour itself, with dark text on a light one.
+ */
 function BrandPreview({ form }: { form: Form }) {
   const brand = form.brandColor;
-  const style = { '--brand': brand, '--on-brand': onColor(brand), '--brand-text': readableOnWhite(brand) } as CSSProperties;
+  const style = { ...brandVars(brand), '--on-brand': onColor(brand) } as CSSProperties;
   const name = arName(form.nameAr, form.nameEn, '—');
+  const [head, tail] = splitLastWord(name);
   const light = onColor(brand) !== '#ffffff';
   return (
     <div className="mt">
       <span className="eyebrow-label">معاينة</span>
-      <div className="brand-preview" style={style} aria-hidden>
-        <div className="bp-nav">{form.logo ? <img className="bp-logo" src={form.logo.thumbUrl} alt="" /> : <span className="bp-mark"><ToothIcon size={14} /></span>}<bdi>{name}</bdi></div>
-        <div className="bp-body">
-          <strong><bdi>{name}</bdi></strong>
-          <p>{(form.aboutAr || form.aboutEn).slice(0, 90) || '…'}</p>
-          <span className="bp-btn"><PhoneIcon size={14} />احجز الآن</span>
+      <div className="brand-preview theme-scope" style={style} aria-hidden>
+        <div className="bp-nav">
+          {form.logo ? <img className="bp-logo" src={form.logo.thumbUrl} alt="" /> : <span className="bp-mark"><ToothIcon size={14} /></span>}
+          <bdi>{name}</bdi>
+          <span className="bp-cta">احجز موعدًا</span>
+        </div>
+        <div className="bp-hero">
+          <div className="bp-copy">
+            <span className="bp-eyebrow"><ToothIcon size={12} />عيادة أسنان</span>
+            <strong><bdi>{head && <>{head} </>}<Swash>{tail}</Swash></bdi></strong>
+            <p>{(form.aboutAr || form.aboutEn).slice(0, 90) || '…'}</p>
+            <span className="bp-btn"><CalendarIcon size={14} />احجز موعدك الآن</span>
+          </div>
+          <ArchArt id="bp" className="bp-art" />
         </div>
       </div>
       {light && <p className="muted small mt-sm">لون فاتح: سيُكتب نص الأزرار بلون داكن ليبقى مقروءًا</p>}
