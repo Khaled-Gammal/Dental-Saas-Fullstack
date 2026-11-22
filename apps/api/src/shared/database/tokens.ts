@@ -3,3 +3,6 @@ export const DB = Symbol('DB');
 
 /** Injection token for the app_platform Kysely instance: the platform admin panel only (review R11). */
 export const PLATFORM_DB = Symbol('PLATFORM_DB');
+
+/** Injection token for the key that signs each transaction's clinic context (ARC-01). */
+export const CONTEXT_KEY = Symbol('CONTEXT_KEY');

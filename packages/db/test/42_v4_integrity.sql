@@ -87,8 +87,9 @@ ROLLBACK;
 -- PERF-01: the data_exports policy is the indexable form, and still isolates clinics
 -- ---------------------------------------------------------------------------------------------------------------
 BEGIN;
-SELECT test.ok((SELECT pg_get_expr(polqual, polrelid) = '(tenant_id = current_tenant_id())' FROM pg_policy
-  WHERE polrelid = 'data_exports'::regclass AND polname = 'tenant_isolation'), 'the data_exports policy compares with "="');
+-- (since ARC-01, 0077, every policy reads the verified clinic once per statement: "= (SELECT current_tenant_id())")
+SELECT test.ok((SELECT pg_get_expr(polqual, polrelid) LIKE '(tenant_id = %current_tenant_id()%' AND pg_get_expr(polqual, polrelid) NOT LIKE '%DISTINCT%'
+  FROM pg_policy WHERE polrelid = 'data_exports'::regclass AND polname = 'tenant_isolation'), 'the data_exports policy compares with "="');
 INSERT INTO data_exports (tenant_id, requested_by) VALUES ('11111111-1111-1111-1111-111111111111', 'b0000000-0000-0000-0000-0000000000a1');
 SET LOCAL ROLE app_user;
 SET LOCAL app.tenant_id = '22222222-2222-2222-2222-222222222222';

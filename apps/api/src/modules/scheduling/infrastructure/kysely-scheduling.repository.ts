@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { sql } from '@dental/db';
+import { TenantDb } from '../../../shared/database/tenant-db.service';
 import { Err } from '../../../shared/errors/app-error';
 import type { BookingPolicy } from '../domain/booking-policy';
 import type {
@@ -25,9 +26,11 @@ const serviceJson = sql<AppointmentView['service']>`case when s.id is null then 
 /** Kysely adapter for the scheduling port. Every query runs under the clinic's RLS context (`tx`). */
 @Injectable()
 export class KyselySchedulingRepository implements SchedulingRepository {
-  /** The website visitor confirming their booking: the clinic's context, audited as the patient's act. */
+  constructor(private readonly db: TenantDb) {}
+
+  /** The website visitor confirming their booking: the clinic's context (signed, ARC-01), audited as the patient's act. */
   async enterTenant(tx: Session, tenantId: string): Promise<void> {
-    await sql`select set_config('app.tenant_id', ${tenantId}, true), set_config('app.actor_type', 'patient', true)`.execute(tx);
+    await this.db.enter(tx, tenantId, { actorType: 'patient' });
   }
 
   async policy(tx: Session): Promise<BookingPolicy> {

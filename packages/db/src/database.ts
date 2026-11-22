@@ -27,6 +27,19 @@ export type Numeric = ColumnType<string, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AppContextKeys {
+  created_at: Generated<Timestamp>;
+  id: number;
+  key: Buffer;
+  retired_at: Timestamp | null;
+}
+
+export interface AppContextSettings {
+  mode: string;
+  only_row: Generated<boolean>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Appointments {
   booked_by: string | null;
   branch_id: string;
@@ -1327,6 +1340,8 @@ export interface WebhookEvents {
 }
 
 export interface DB {
+  app_context_keys: AppContextKeys;
+  app_context_settings: AppContextSettings;
   appointments: Appointments;
   audit_log: AuditLog;
   auth_events: AuthEvents;

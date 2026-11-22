@@ -1,10 +1,10 @@
 import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
-import { createDb, type Db } from '@dental/db';
+import { createDb, type ContextKey, type Db } from '@dental/db';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { TenantDb } from './tenant-db.service';
-import { DB, PLATFORM_DB } from './tokens';
+import { CONTEXT_KEY, DB, PLATFORM_DB } from './tokens';
 
-export { DB, PLATFORM_DB };
+export { CONTEXT_KEY, DB, PLATFORM_DB };
 
 /**
  * The platform panel's URL with the API's database: only the credentials differ. The tests point DATABASE_URL at the
@@ -32,9 +32,15 @@ export function platformUrl(cfg: Pick<AppConfig, 'DATABASE_URL' | 'DATABASE_PLAT
       // Small pool: a handful of admins.
       useFactory: (cfg: AppConfig): Db => createDb(platformUrl(cfg), { max: 3, applicationName: 'dental-platform' }),
     },
+    {
+      provide: CONTEXT_KEY,
+      inject: [APP_CONFIG],
+      // ARC-01: the database believes a clinic context only when it is signed with this key
+      useFactory: (cfg: AppConfig): ContextKey => ({ id: cfg.TENANT_CONTEXT_KEY_ID, secret: cfg.TENANT_CONTEXT_KEY }),
+    },
     TenantDb,
   ],
-  exports: [DB, PLATFORM_DB, TenantDb],
+  exports: [DB, PLATFORM_DB, CONTEXT_KEY, TenantDb],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   constructor(@Inject(DB) private readonly db: Db, @Inject(PLATFORM_DB) private readonly platformDb: Db) {}

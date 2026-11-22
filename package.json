@@ -16,7 +16,8 @@
     "db:seed": "pnpm --filter @dental/db seed",
     "db:reset": "pnpm --filter @dental/db reset",
     "db:types": "pnpm --filter @dental/db types",
-    "db:test": "pnpm --filter @dental/db test"
+    "db:test": "pnpm --filter @dental/db test",
+    "db:context-key": "pnpm --filter @dental/db context-key"
   },
   "devDependencies": {
     "@eslint/js": "^9.26.0",

@@ -1,6 +1,7 @@
 import { config as loadDotenv } from 'dotenv';
 import path from 'node:path';
 import { z } from 'zod';
+import { DEV_TENANT_CONTEXT_KEY } from '@dental/db';
 
 // Every app reads the single .env in the repo root.
 loadDotenv({ path: path.resolve(__dirname, '../../../.env') });
@@ -61,6 +62,12 @@ const schema = z.object({
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   // signs short-lived links to private media (dashboard previews of unpublished images)
   MEDIA_URL_SECRET: z.string().min(16).default('dev-only-media-url-secret'),
+  /**
+   * ARC-01: signs each transaction's clinic context (packages/db context.ts); the database checks it with the same key
+   * in app_context_keys (written by `pnpm db:context-key`). TENANT_CONTEXT_KEY_ID names the key during a rotation.
+   */
+  TENANT_CONTEXT_KEY: z.string().min(32).default(DEV_TENANT_CONTEXT_KEY),
+  TENANT_CONTEXT_KEY_ID: z.coerce.number().int().min(1).max(32767).default(1),
   SWAGGER_ENABLED: z.enum(['true', 'false']).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
   /** Phase 1B: error tracking (Sentry). Unset = off. The same project can serve the API and the worker (tag "service"). */
   SENTRY_DSN: z.preprocess(emptyToUndefined, z.string().url().optional()),
@@ -86,7 +93,7 @@ export function loadConfig(overrides: Partial<Record<keyof AppConfig, string>> =
       !c.RATE_LIMIT_ENABLED && 'RATE_LIMIT_ENABLED must be true',
       c.STORAGE_DRIVER === 'local' && 'STORAGE_DRIVER=local keeps uploads on one machine; use s3 (R2, S3 or another S3-compatible service)',
       c.STORAGE_DRIVER === 's3' && !(c.S3_ENDPOINT && c.S3_ACCESS_KEY && c.S3_SECRET_KEY) && 'S3_ENDPOINT, S3_ACCESS_KEY and S3_SECRET_KEY are required for STORAGE_DRIVER=s3',
-      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET', 'MEDIA_URL_SECRET', 'PASSWORD_PEPPER'] as const)
+      ...(['JWT_SECRET', 'OTP_SECRET', 'BOOKING_CODE_SECRET', 'REVALIDATE_SECRET', 'MEDIA_URL_SECRET', 'PASSWORD_PEPPER', 'TENANT_CONTEXT_KEY'] as const)
         .filter((k) => c[k] === DEV_OTP_SECRET || c[k].startsWith('dev-only') || c[k].length < 32)
         .map((k) => `${k} must be a long random value (not the development one)`),
     ].filter(Boolean);

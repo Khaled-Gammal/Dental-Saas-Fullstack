@@ -58,7 +58,7 @@ export class InvitationAcceptance {
       } else {
         userId = await this.accounts.createVerifiedUser(tx, { email: inv.email, fullName: input.fullName!, password: input.password });
       }
-      await this.db.actAs(tx, userId); // the audit trail shows the invitee joining
+      await this.db.actAs(tx, inv.tenant_id, userId); // the audit trail shows the invitee joining
       const { id: memberId } = await this.repo.insertMember(tx, {
         tenantId: inv.tenant_id, userId, roleId: inv.role_id, allBranches: inv.branch_ids.length === 0, jobTitle: inv.job_title,
       });
