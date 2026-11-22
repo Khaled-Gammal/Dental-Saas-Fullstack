@@ -76,8 +76,11 @@ describe('Billing: invoices, payments, reversals, refunds (e2e, Phase E1)', () =
     expect((await http().post(`/invoices/${invoiceId}/payments`).set(as('receptionA')).send({ amountMinor: total + 1, method: 'cash', idempotencyKey: `o-${run}` }).expect(400)).body.code)
       .toBe('amount_exceeds_balance');
     const body = { amountMinor: 60000, method: 'instapay', reference: 'IP-55', idempotencyKey: `i-${run}` };
-    await http().post(`/invoices/${invoiceId}/payments`).set(as('receptionA')).send(body).expect(201);
-    const twice = (await http().post(`/invoices/${invoiceId}/payments`).set(as('receptionA')).send(body).expect(201)).body;
+    // schema v4 audit, FIN-02: the same request twice at the same moment (a double click) records one payment and
+    // answers both with it, instead of a 409 for the second
+    const both = await Promise.all([1, 2].map(() => http().post(`/invoices/${invoiceId}/payments`).set(as('receptionA')).send(body)));
+    expect(both.map((r) => r.status)).toEqual([201, 201]);
+    const twice = (await http().post(`/invoices/${invoiceId}/payments`).set(as('receptionA')).send(body).expect(201)).body; // and a later retry
     expect(twice.payments).toHaveLength(1);
     expect(twice).toMatchObject({ status: 'partially_paid', paid_minor: 60000 });
     instapayId = twice.payments[0].id;

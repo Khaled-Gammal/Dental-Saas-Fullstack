@@ -176,13 +176,15 @@ export class BillingService {
    */
   pay(id: string, input: NewPaymentInput) {
     return this.db.run(async (tx, tenantId) => {
+      const inv = await this.repo.lock(tx, id);
+      if (!inv) throw invoiceNotFound();
+      // schema v4 audit, FIN-02: checked after the invoice lock (as refund() does after the payment lock), so a twin
+      // request sent at the same moment waits, then sees the first payment and answers with it instead of a 409
       const again = await this.repo.byIdempotencyKey(tx, input.idempotencyKey);
       if (again) {
         if (again.invoice_id !== id) throw Err.conflict('idempotency_key_reused', 'This key was used for another payment');
         return this.view(tx, id); // the same request again: one payment
       }
-      const inv = await this.repo.lock(tx, id);
-      if (!inv) throw invoiceNotFound();
       if (!PAYABLE.includes(inv.status)) throw Err.conflict('invoice_not_payable', inv.status === 'paid' ? 'The invoice is fully paid' : 'Only an issued invoice is paid', { status: inv.status });
       const full = (await this.repo.get(tx, id))!;
       if (input.amountMinor > full.balance_minor) throw Err.badRequest('amount_exceeds_balance', 'The amount is more than what is owed', { balance: full.balance_minor });

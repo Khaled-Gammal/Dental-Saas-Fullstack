@@ -6,10 +6,12 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE
 process.env.DEV_LOGIN_ENABLED = 'true';
 process.env.RATE_LIMIT_ENABLED = 'false'; // per-IP throttles off: every test request comes from 127.0.0.1 (as in identity.e2e-spec)
 import { AppModule } from '../src/app.module';
+import { TenantDb } from '../src/shared/database/tenant-db.service';
 import type { DevEmailSender } from '../src/shared/notifications/dev-email.sender';
 import { EMAIL_SENDER } from '../src/shared/notifications/ports';
 
 const HOST = 'clinic-a.lvh.me';
+const CLINIC_A = '11111111-1111-1111-1111-111111111111';
 const NASR = 'd0000000-0000-0000-0000-0000000000a1';
 const AHMED = 'f0000000-0000-0000-0000-0000000000a1'; // works Nasr City, member of owner.a
 const MONA = 'f0000000-0000-0000-0000-0000000000a2'; // works Nasr City + Maadi, member of doctor.a
@@ -88,6 +90,9 @@ describe('Online booking and reception (e2e)', () => {
       made.push(holdId);
       expect(res.body).toMatchObject({ doctorId: AHMED, startsAt: new Date(slot).toISOString(), otpRequired: true, ttlSeconds: 600 }); // the countdown's own length (review R11)
       expect(new Date(res.body.expiresAt).getTime() - Date.now()).toBeGreaterThan(9 * 60_000);
+      // schema v4 audit, SCH-03: the expiry is the one the database stored (its own clock), not the API host's
+      const stored = await app.get(TenantDb).runAs(CLINIC_A, (tx) => tx.selectFrom('appointments').select('hold_expires_at').where('id', '=', holdId).executeTakeFirstOrThrow());
+      expect(new Date(res.body.expiresAt).getTime()).toBe(stored.hold_expires_at!.getTime());
       const after = await http().get('/public/booking/slots').query({ host: HOST, branchId: NASR, serviceId: CONSULT, doctorId: AHMED, date }).expect(200);
       expect(after.body.slots.map((s: { startsAt: string }) => s.startsAt)).not.toContain(new Date(slot).toISOString());
       const again = await http().post('/public/booking/holds').send({ host: HOST, branchId: NASR, serviceId: CONSULT, doctorId: AHMED, startsAt: slot }).expect(409);

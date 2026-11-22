@@ -3,7 +3,7 @@ import { Err } from '../../../shared/errors/app-error';
 import { effectivePaymentMode, HOLD_MINUTES } from '../domain/booking-policy';
 import { dateInZone, safeTimeZone } from '../../../shared/time/clinic-time';
 import { GetAvailability } from './get-availability.usecase';
-import { CLOCK, SCHEDULING_REPOSITORY, type Clock, type SchedulingRepository, type TenantScope } from './ports';
+import { SCHEDULING_REPOSITORY, type SchedulingRepository, type TenantScope } from './ports';
 
 export interface HoldSlotInput { branchId: string; serviceId: string; doctorId?: string; startsAt: Date }
 
@@ -22,7 +22,6 @@ export interface Hold {
 export class HoldSlot {
   constructor(
     @Inject(SCHEDULING_REPOSITORY) private readonly repo: SchedulingRepository,
-    @Inject(CLOCK) private readonly clock: Clock,
     private readonly availability: GetAvailability,
   ) {}
 
@@ -40,11 +39,10 @@ export class HoldSlot {
       const doctorId = input.doctorId ?? slot.doctorIds[0];
 
       await this.repo.releaseExpiredHolds(tx, doctorId); // SRS 4.11 step 1
-      const now = this.clock.now().getTime();
       const endsAt = new Date(input.startsAt.getTime() + day.durationMinutes * 60_000);
-      const expiresAt = new Date(now + HOLD_MINUTES * 60_000);
-      const { id } = await this.repo.insertHold(tx, {
-        tenantId, branchId: input.branchId, doctorId, serviceId: input.serviceId, startsAt: input.startsAt, endsAt, holdExpiresAt: expiresAt,
+      // schema v4 audit, SCH-03: the expiry comes from the database clock, the one release_expired_holds() and finalize compare with
+      const { id, hold_expires_at: expiresAt } = await this.repo.insertHold(tx, {
+        tenantId, branchId: input.branchId, doctorId, serviceId: input.serviceId, startsAt: input.startsAt, endsAt, holdMinutes: HOLD_MINUTES,
         quotedPriceMinor: day.service?.price_minor ?? null, paymentMode: effectivePaymentMode(policy),
       });
       return { holdId: id, doctorId, startsAt: input.startsAt, endsAt, expiresAt, otpRequired: policy.otpRequired, ttlSeconds: HOLD_MINUTES * 60 };

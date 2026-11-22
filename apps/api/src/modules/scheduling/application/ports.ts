@@ -52,7 +52,8 @@ export interface DoctorsQuery { branchId: string; serviceId: string | null; doct
 
 export interface HoldInput {
   tenantId: string; branchId: string; doctorId: string; serviceId: string; startsAt: Date; endsAt: Date;
-  holdExpiresAt: Date; quotedPriceMinor: number | null; paymentMode: string;
+  /** schema v4 audit, SCH-03: the database sets hold_expires_at = now() + this, on the same clock that releases it */
+  holdMinutes: number; quotedPriceMinor: number | null; paymentMode: string;
 }
 export interface HoldRow {
   id: string; branch_id: string; doctor_id: string; service_id: string | null; starts_at: Date; ends_at: Date; hold_expires_at: Date;
@@ -132,7 +133,7 @@ export interface SchedulingRepository {
   doctorAtBranch(tx: Session, doctorId: string, branchId: string): Promise<'ok' | 'not_found' | 'inactive' | 'not_at_branch'>;
   dayContext(tx: Session, q: DayQuery): Promise<DayContext>;
   releaseExpiredHolds(tx: Session, doctorId: string): Promise<void>;
-  insertHold(tx: Session, h: HoldInput): Promise<{ id: string }>;
+  insertHold(tx: Session, h: HoldInput): Promise<{ id: string; hold_expires_at: Date }>;
   /** The hold, locked, while it is still live; undefined when it expired, was released or never existed here. */
   lockLiveHold(tx: Session, id: string): Promise<HoldRow | undefined>;
   finalizeHold(tx: Session, id: string, f: FinalizeInput): Promise<void>;

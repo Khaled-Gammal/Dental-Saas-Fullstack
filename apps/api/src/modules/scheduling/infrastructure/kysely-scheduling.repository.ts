@@ -115,11 +115,12 @@ export class KyselySchedulingRepository implements SchedulingRepository {
     await sql`select release_expired_holds(${doctorId})`.execute(tx);
   }
 
-  insertHold(tx: Session, h: HoldInput): Promise<{ id: string }> {
+  insertHold(tx: Session, h: HoldInput): Promise<{ id: string; hold_expires_at: Date }> {
     return tx.insertInto('appointments').values({
       tenant_id: h.tenantId, branch_id: h.branchId, doctor_id: h.doctorId, service_id: h.serviceId, starts_at: h.startsAt, ends_at: h.endsAt,
-      status: 'held', hold_expires_at: h.holdExpiresAt, source: 'website', payment_mode: h.paymentMode, quoted_price_minor: h.quotedPriceMinor,
-    }).returning('id').executeTakeFirstOrThrow();
+      status: 'held', hold_expires_at: sql<Date>`now() + make_interval(mins => ${h.holdMinutes})`, source: 'website', payment_mode: h.paymentMode,
+      quoted_price_minor: h.quotedPriceMinor,
+    }).returning(['id', 'hold_expires_at']).executeTakeFirstOrThrow().then((r) => ({ id: r.id, hold_expires_at: r.hold_expires_at! }));
   }
 
   async lockLiveHold(tx: Session, id: string): Promise<HoldRow | undefined> {
