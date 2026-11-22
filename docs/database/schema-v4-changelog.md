@@ -77,9 +77,30 @@ There are no table or column changes, so the Kysely types (`packages/db/src/data
 
 - `database/v3-to-0001.sql`: upgrades a database built from the bare v3 file to 0001, so that dbmate can take it to v4. Tested end to end; see the migration guide.
 
+## ARC-01: signed clinic context (0077, 0078)
+
+| Before | After | Where |
+|---|---|---|
+| `current_tenant_id()` returned `app.tenant_id`, a setting the API role could change itself: one SQL injection could `set_config()` another clinic's id and read it. | The API signs each transaction's clinic, member, user and actor with `TENANT_CONTEXT_KEY`. `enter_context()` / `enter_host_context()` check the signature and leave a proof bound to the connection and the transaction. Every reader and policy believes only a verified context. Forged, stale or replayed contexts give no clinic. | 0077, 0078; `packages/db/src/context.ts`; `TenantDb` |
+
+- **New objects:**
+  - tables `app_context_keys`, `app_context_settings`;
+  - functions `enter_context`, `enter_host_context`, `context_verified`, `context_mac`, `context_proof_message`, `current_user_id`, `current_actor_type`.
+- **Rewritten:** `current_tenant_id`, `current_member_id`; through text patches, `member_branch_ids`, `audit_row_change`, `gallery_items_consent_stamp`, `request_clinic_deletion`.
+- **Policies:** 70 `tenant_isolation` policies, `tenant_self` and the outbox policy now read `(SELECT current_tenant_id())`.
+- **Tooling:** `pnpm db:context-key`, and the `TENANT_CONTEXT_KEY` / `TENANT_CONTEXT_KEY_ID` settings.
+- **Tests:** `44_arc_signed_context.sql` (33 checks), with dblink as a real `app_user` login; `05` and `43` sign their remote sessions.
+- **Cost:** about 10 µs per table per query, instead of 0.5 µs.
+- **ARC-3 (0079):** the website's patient context is limited by 112 RESTRICTIVE policies.
+  - It reads the catalogue, appointments, patients and non-clinical files.
+  - It may insert into the audit trail and the outbox, and nothing else.
+  - Any new RLS table is denied to it until its migration says otherwise; `45_arc_patient_scope.sql` fails on a table without a patient policy.
+  - `appointments_clinical_follow()` and `next_tenant_counter()` became definer functions.
+- **Still open:** in the website context, the clinic's `patients` and `appointments` remain readable (the booking needs them). ARC-3b options are in `docs/reviews/2026-11-22-arc-01-phase-3-patient-scope.md`.
+
 ## Not changed (decisions left open, audit §12)
 
-- **ARC-01:** a signed tenant context against SQL injection.
+- **ARC-3b:** the website context without direct access to `patients` and `appointments`.
 - **SEC-07:** RLS or definer-only reads on `users` and `legal_acceptances`.
 - **WRK-01:** per-clinic worker jobs under `app_user`.
 - Dropping the 14 tables the API doesn't use.

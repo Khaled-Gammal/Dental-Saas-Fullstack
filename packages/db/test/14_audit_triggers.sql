@@ -49,9 +49,11 @@ UPDATE appointments SET status = 'expired' WHERE id = 'ad000000-0000-0000-0000-0
 SELECT test.ok(NOT EXISTS (SELECT 1 FROM audit_log WHERE entity_id IN ('ad000000-0000-0000-0000-0000000000d1','ad000000-0000-0000-0000-0000000000d2')),
   'a hold and a released hold are not audited');
 SET LOCAL app.user_id = '';
+SET LOCAL app.member_id = ''; -- the website's context has no member (enter_host_context, ARC-3)
 SET LOCAL app.actor_type = 'patient';
 UPDATE appointments SET status = 'pending', patient_id = '70000000-0000-0000-0000-0000000000a1', patient_notes = 'tooth pain'
 WHERE id = 'ad000000-0000-0000-0000-0000000000d1';
+SET LOCAL app.actor_type = ''; -- read back as staff: the patient context may write the audit trail, never read it (ARC-3, 0079)
 SELECT test.ok((SELECT count(*) = 1 FROM audit_log WHERE entity_id = 'ad000000-0000-0000-0000-0000000000d1' AND actor_type = 'patient'
   AND actor_user_id IS NULL AND changes -> 'status' = '["held", "pending"]'::jsonb AND changes -> 'patient_notes' = 'true'::jsonb),
   'a website booking is audited as the patient''s act, without the patient''s note text');

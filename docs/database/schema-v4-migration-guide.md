@@ -112,6 +112,53 @@ Its final schema matched the freshly built `dental_test` exactly: columns, const
 - [ ] Watch the API's 4xx/5xx for `rule_violation` / `insufficient_privilege` in the first hour. A new rule hit by a real path shows there, and the fix is a new migration, not a rollback.
 - [ ] Roles: these migrations create and alter none. `app_user` and `app_platform` stay NOBYPASSRLS; `app_worker` and `app_backup` keep BYPASSRLS, as before.
 
+## ARC-01: signed clinic context (0077, 0078)
+
+Design: `docs/database/arc-01-signed-tenant-context.md`. Reviews:
+- `docs/reviews/2026-11-22-arc-01-phase-1-signed-context.md`
+- `docs/reviews/2026-11-22-arc-01-phase-2-enforce.md`
+- `docs/reviews/2026-11-22-arc-01-phase-3-patient-scope.md`
+
+**0079 has no ordering constraint:** it works with the old API and with the signing one. **A new table** needs a patient policy in its migration (`patient_scope` to deny, or the mode it needs); `45_arc_patient_scope.sql` fails until it has one.
+
+| # | File | What | `down` |
+|---|---|---|---|
+| 0077 | `signed_tenant_context` | key table and mode table (definer-only); `enter_context()` / `enter_host_context()`; verified readers; 70 policies + `tenant_self` + outbox on `(SELECT current_tenant_id())`; mode **permissive** | restores the plain readers and policies, drops the new objects |
+| 0078 | `enforce_signed_context` | mode **enforce**: unsigned contexts give no clinic for logins that don't bypass RLS | back to permissive |
+| 0079 | `patient_context_scope` | 112 RESTRICTIVE `patient_scope*` policies (read / files / read_write / insert_only / deny); `appointments_clinical_follow()` and `next_tenant_counter()` as definer functions | drops the policies, restores both functions and the grants |
+
+**Order. The key comes first; enforce comes last.**
+
+1. Generate `TENANT_CONTEXT_KEY`: at least 32 random bytes, for example `node -e "console.log(require('crypto').randomBytes(36).toString('base64url'))"`. Keep it with the other secrets. Set `TENANT_CONTEXT_KEY_ID=1`. Production refuses to start with the dev key.
+2. Apply **0077** (permissive) while the old API still runs; nothing changes for it. dbmate applies every pending file, so ship this as **two releases**: release 1 carries 0077 with the signing API, and release 2 carries 0078. If both go out in one deploy, the migrations run before the new API starts, and old instances see empty clinics for that window. That is a few seconds with one instance; it gives wrong-looking pages, but never wrong data.
+3. Run `pnpm db:context-key` with the production `TENANT_CONTEXT_KEY` / `TENANT_CONTEXT_KEY_ID` and the admin URL.
+4. Deploy the signing API (this branch) to **every** API instance. Check that sign-in, the dashboard, the website, online booking and invite acceptance work. They now sign; permissive still accepts the old instances during the roll.
+5. Once no old API instance is left, apply **0078** (`pnpm db:migrate`).
+6. Check:
+   - `SELECT mode FROM app_context_settings` returns `enforce`;
+   - smoke-test the same flows;
+   - watch for `insufficient_privilege` / "clinic context signature" errors. A request that is not signed would show "not found" or empty lists, not an error, so check the dashboard home and the website too.
+
+**Emergency switch back.** No migration and no deploy, as the admin role:
+
+```sql
+UPDATE app_context_settings SET mode = 'permissive', updated_at = now();
+```
+
+The signing API keeps working in either mode.
+
+**Key rotation:**
+1. Add the new key with a new id: `TENANT_CONTEXT_KEY_ID=2`, then `pnpm db:context-key`.
+2. Deploy the API with id 2.
+3. Retire id 1: `UPDATE app_context_keys SET retired_at = now() WHERE id = 1`.
+
+A retired key signs nothing new. Transactions already open keep their proof until they end.
+
+**Who is affected by enforce:**
+- Only logins that do not bypass RLS, which means `app_user` (the API) and `app_platform`. The platform panel does not use a clinic context.
+- The migration role, `app_worker` and `app_backup` keep the plain settings: they read every row anyway.
+- A tool or script that logs in as `app_user` and sets `app.tenant_id` itself stops seeing clinic rows. Two SQL tests did that and now sign (`test.enter_sql()` in `00_helpers.sql`).
+
 ## Status
 
 | Database | State |
