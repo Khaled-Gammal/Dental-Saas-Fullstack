@@ -12,7 +12,7 @@ RESET app.tenant_id;
 -- session 2 (receptionist B) takes 60.00 and keeps its transaction open
 SELECT dblink_connect('other', 'host=127.0.0.1 port=' || current_setting('port') || ' dbname=' || current_database() || ' user=app_user password=app_user_dev');
 SELECT dblink_exec('other', 'BEGIN');
-SELECT dblink_exec('other', $$SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111'$$);
+SELECT dblink_exec('other', test.enter_sql('11111111-1111-1111-1111-111111111111')); -- signed, as the API enters (ARC-01)
 SELECT dblink_exec('other', $$INSERT INTO payments (id, tenant_id, branch_id, patient_id, invoice_id, amount_minor, currency, method, paid_at)
   VALUES ('cc000000-0000-0000-0000-0000000000f1','11111111-1111-1111-1111-111111111111','d0000000-0000-0000-0000-0000000000a1',
   '70000000-0000-0000-0000-0000000000a1','cc000000-0000-0000-0000-000000000001', 6000, 'EGP', 'cash', now())$$);
@@ -34,7 +34,7 @@ COMMIT;
 
 -- the same race on refunds
 SELECT dblink_exec('other', 'BEGIN');
-SELECT dblink_exec('other', $$SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111'$$);
+SELECT dblink_exec('other', test.enter_sql('11111111-1111-1111-1111-111111111111')); -- signed, as the API enters (ARC-01)
 SELECT dblink_exec('other', $$INSERT INTO refunds (tenant_id, payment_id, amount_minor, reason)
   VALUES ('11111111-1111-1111-1111-111111111111','cc000000-0000-0000-0000-0000000000f1', 4000, 'r1')$$);
 BEGIN;

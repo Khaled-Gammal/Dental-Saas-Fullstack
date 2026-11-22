@@ -10,7 +10,7 @@ SELECT dblink_connect('other', 'host=127.0.0.1 port=' || current_setting('port')
 -- Scenario 5: two receptionists book Dr Ahmed for the same half hour at the same moment
 -- ---------------------------------------------------------------------------------------------------------------
 SELECT dblink_exec('other', 'BEGIN');
-SELECT dblink_exec('other', $$SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111'$$);
+SELECT dblink_exec('other', test.enter_sql('11111111-1111-1111-1111-111111111111')); -- signed, as the API enters (ARC-01)
 SELECT dblink_exec('other', $$INSERT INTO appointments (tenant_id, branch_id, patient_id, doctor_id, starts_at, ends_at, source, booked_by)
   VALUES ('11111111-1111-1111-1111-111111111111', 'd0000000-0000-0000-0000-0000000000a1', '70000000-0000-0000-0000-0000000000a1',
   'f0000000-0000-0000-0000-0000000000a1', '2032-01-10 18:00+02', '2032-01-10 18:30+02', 'phone', 'c0000000-0000-0000-0000-0000000000a2')$$);
@@ -43,7 +43,7 @@ RESET app.tenant_id;
 
 -- session 2 books it the way the API does: release the doctor's stale holds, then insert (transaction left open)
 SELECT dblink_exec('other', 'BEGIN');
-SELECT dblink_exec('other', $$SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111'$$);
+SELECT dblink_exec('other', test.enter_sql('11111111-1111-1111-1111-111111111111')); -- signed, as the API enters (ARC-01)
 SELECT * FROM dblink('other', $$SELECT release_expired_holds('f0000000-0000-0000-0000-0000000000a1')$$) AS t(released int);
 SELECT dblink_exec('other', $$INSERT INTO appointments (tenant_id, branch_id, patient_id, doctor_id, starts_at, ends_at, source, booked_by)
   VALUES ('11111111-1111-1111-1111-111111111111', 'd0000000-0000-0000-0000-0000000000a1', '70000000-0000-0000-0000-0000000000a1',
@@ -79,7 +79,7 @@ UPDATE invoices SET status = 'issued', number = 'SMA-V4-43' WHERE id = '43c00000
 RESET app.tenant_id;
 
 SELECT dblink_exec('other', 'BEGIN');
-SELECT dblink_exec('other', $$SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111'$$);
+SELECT dblink_exec('other', test.enter_sql('11111111-1111-1111-1111-111111111111')); -- signed, as the API enters (ARC-01)
 SELECT * FROM dblink('other', $$SELECT id FROM invoices WHERE id = '43c00000-0000-0000-0000-000000000001' FOR UPDATE$$) AS t(id uuid); -- billing.service pay(): lock first
 SELECT dblink_exec('other', $$INSERT INTO payments (tenant_id, branch_id, patient_id, invoice_id, amount_minor, currency, method, paid_at, idempotency_key)
   VALUES ('11111111-1111-1111-1111-111111111111', 'd0000000-0000-0000-0000-0000000000a1', '70000000-0000-0000-0000-0000000000a1',
