@@ -18,6 +18,8 @@ SELECT set_config('app.tenant_id', '22222222-2222-2222-2222-222222222222', true)
 SELECT test.ok(NOT EXISTS (SELECT 1 FROM data_exports), 'a clinic sees its own exports only');
 
 -- ---------- the owner asks for deletion ----------
+-- as the API does it (schema v4 audit, SEC-01): inside clinic A's request, signed in as its owner
+SELECT set_config('app.tenant_id', '11111111-1111-1111-1111-111111111111', true), set_config('app.user_id', 'b0000000-0000-0000-0000-0000000000a1', true);
 SELECT test.throws($$SELECT request_clinic_deletion('b0000000-0000-0000-0000-0000000000a2', '11111111-1111-1111-1111-111111111111')$$,
   'only the clinic owner', 'staff cannot delete the clinic');
 SELECT test.throws($$SELECT request_clinic_deletion('b0000000-0000-0000-0000-0000000000b1', '11111111-1111-1111-1111-111111111111')$$,

@@ -31,8 +31,12 @@ ROLLBACK;
 BEGIN;
 SET LOCAL ROLE app_user;
 SET LOCAL app.tenant_id = '22222222-2222-2222-2222-222222222222';
-SELECT test.lives($$INSERT INTO domains (tenant_id, hostname, type, status) VALUES ('22222222-2222-2222-2222-222222222222','clinic-a.lvh.me','custom','pending')$$,
-  'pending claim of another clinic''s hostname is allowed but inert');
+SELECT test.throws($$INSERT INTO domains (tenant_id, hostname, type, status) VALUES ('22222222-2222-2222-2222-222222222222','clinic-a.lvh.me','custom','pending')$$,
+  'own subdomain, at sign-up', 'the API role cannot claim a hostname (schema v4 audit, SEC-03: only sign-up adds a domain)');
+RESET ROLE;
+-- a pending claim written by the platform is inert
+INSERT INTO domains (tenant_id, hostname, type, status) VALUES ('22222222-2222-2222-2222-222222222222','clinic-a.lvh.me','custom','pending');
+SET LOCAL ROLE app_user;
 SELECT test.throws($$UPDATE domains SET status = 'verified' WHERE hostname = 'clinic-a.lvh.me'$$, 'permission denied',
   'the API role cannot mark a domain verified (review R11: only sign-up and the platform write domains)');
 RESET ROLE;

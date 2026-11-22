@@ -49,9 +49,15 @@ export class ClinicDataRepository {
     return this.db.platform().selectFrom('users').select('email').where('id', '=', userId).executeTakeFirst().then((r) => r?.email ?? null);
   }
 
-  /** request_clinic_deletion checks the owner again, closes the clinic and returns when its data will be erased. */
+  /**
+   * request_clinic_deletion checks the owner again, closes the clinic and returns when its data will be erased. It runs
+   * inside the clinic's own transaction as the signed-in owner: the function refuses any other clinic or user (schema v4
+   * audit, SEC-01).
+   */
   async requestDeletion(userId: string, tenantId: string): Promise<Date> {
-    const { rows } = await sql<{ at: Date }>`select request_clinic_deletion(${userId}::uuid, ${tenantId}::uuid) as at`.execute(this.db.platform());
+    const { rows } = await this.db.runAs(tenantId,
+      (tx) => sql<{ at: Date }>`select request_clinic_deletion(${userId}::uuid, ${tenantId}::uuid) as at`.execute(tx),
+      { userId, actorType: 'member' });
     return rows[0].at;
   }
 }

@@ -4,6 +4,7 @@ BEGIN;
 SET LOCAL ROLE app_user;
 SET LOCAL app.tenant_id = '11111111-1111-1111-1111-111111111111';
 SET LOCAL app.user_id = 'b0000000-0000-0000-0000-0000000000a1';
+SET LOCAL app.member_id = 'c0000000-0000-0000-0000-0000000000a1'; -- the owner acts, as TenantDb.run sets it (schema v4 audit, SEC-02)
 
 -- the last active owner can be neither disabled nor demoted
 SELECT test.throws($$UPDATE tenant_members SET status = 'disabled' WHERE id = 'c0000000-0000-0000-0000-0000000000a1'$$,

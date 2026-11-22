@@ -5,8 +5,10 @@ import '../src/config'; // loads the root .env
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 process.env.DEV_LOGIN_ENABLED = 'true';
 process.env.RATE_LIMIT_ENABLED = 'false';
+import { createDb, sql } from '@dental/db';
 import { AppModule } from '../src/app.module';
 import type { DevEmailSender } from '../src/shared/notifications/dev-email.sender';
+import { workerUrl } from './test-admin';
 import { EMAIL_SENDER } from '../src/shared/notifications/ports';
 
 const NASR = 'd0000000-0000-0000-0000-0000000000a1';
@@ -139,6 +141,20 @@ describe('Staff: invitations, members, access changes, password reset (e2e, Phas
       const ghost = `nobody.${run}@staff.test`;
       await http().post('/auth/password/forgot').send({ email: ghost }).expect(202);
       expect(mail.outbox.get(ghost)).toBeUndefined();
+    });
+
+    it('a deactivated account is out at its next request, not when its token expires (schema v4 audit, SEC-06)', async () => {
+      const signedIn = await http().post('/auth/login').send({ identifier: email, password: 'NewSecret456', clinic: 'clinic-b' }).expect(200);
+      expect((await http().get('/patients').set(bearer(signedIn.body.accessToken))).status).not.toBe(401);
+      // no endpoint deactivates an account; the worker role writes users.is_active, as an operator would
+      const worker = createDb(workerUrl(), { max: 1, applicationName: 'dental-worker-test' });
+      try {
+        await sql`update users set is_active = false where email = ${email}`.execute(worker);
+        expect((await http().get('/patients').set(bearer(signedIn.body.accessToken)).expect(401)).body.code).toBe('account_disabled');
+      } finally {
+        await sql`update users set is_active = true where email = ${email}`.execute(worker);
+        await worker.destroy();
+      }
     });
   });
 
